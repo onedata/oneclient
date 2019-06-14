@@ -33,12 +33,12 @@ public:
     /**
      * @return Communication protocol major version.
      */
-    uint32_t major() const;
+    uint32_t majorVersion() const;
 
     /**
      * @return Communication protocol minor version.
      */
-    uint32_t minor() const;
+    uint32_t minorVersion() const;
 
     std::string toString() const override;
 

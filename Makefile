@@ -15,6 +15,8 @@ HELPERS_COMMIT  ?= $(shell git -C helpers rev-parse HEAD)
 PKG_BUILD       ?= 1
 PKG_ID           = oneclient-base-$(PKG_VERSION)
 
+FSONEDATAFS_VERSION ?= $(PKG_VERSION)
+
 # Build with Ceph storge helper by default
 WITH_CEPH         ?= ON
 # Build with Swift storage helper by default
@@ -129,7 +131,7 @@ coverage:
 .PHONY: check_distribution
 check_distribution:
 ifeq ($(DISTRIBUTION), none)
-	@echo "Please provide package distribution. Oneof: 'trusty', 'wily', 'xenial', 'centos-7-x86_64', 'fedora-23-x86_64'"
+	@echo "Please provide package distribution. Oneof: 'trusty', 'xenial', 'bionic', 'centos-7-x86_64'"
 	@exit 1
 else
 	@echo "Building package for distribution $(DISTRIBUTION)"
@@ -163,12 +165,12 @@ deb: check_distribution package/$(PKG_ID).tar.gz
 	sed -i "s/{{distribution}}/$(DISTRIBUTION)/g" package/$(PKG_ID)/debian/changelog
 	sed -i "s/{{date}}/`date -R`/g" package/$(PKG_ID)/debian/changelog
 
-	cd package/$(PKG_ID) && sg sbuild -c "sbuild -sd $(DISTRIBUTION) -j6"
+	cd package/$(PKG_ID) && sg sbuild -c "sbuild -sd $(DISTRIBUTION) -j$$(nproc)"
 	mv package/*$(PKG_VERSION).orig.tar.gz package/packages/
 	mv package/*$(PKG_VERSION)-$(PKG_BUILD)*.deb package/packages/
-	mv package/*$(PKG_VERSION)-$(PKG_BUILD).dsc package/packages/
-	mv package/*$(PKG_VERSION)-$(PKG_BUILD)_amd64.changes package/packages/
-	-mv package/*$(PKG_VERSION)-$(PKG_BUILD).debian.tar.xz package/packages/ || true
+	mv package/*$(PKG_VERSION)-$(PKG_BUILD)*.dsc package/packages/
+	mv package/*$(PKG_VERSION)-$(PKG_BUILD)*_amd64.changes package/packages/
+	-mv package/*$(PKG_VERSION)-$(PKG_BUILD)*.debian.tar.xz package/packages/ || true
 
 .PHONY: rpm
 rpm: check_distribution package/$(PKG_ID).tar.gz
@@ -310,10 +312,10 @@ oneclient_deb: $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz
 	docker run -u=$$UID:$$GID -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro \
 		   -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP):/data \
 		   -t $(FPM_DOCKER_IMAGE) fpm -t deb -s tar \
-		   -p /data/oneclient_$(ONECLIENT_VERSION)-$(PKG_BUILD)_amd64.deb \
+		   -p /data/oneclient_$(ONECLIENT_VERSION)-$(PKG_BUILD)~$(DISTRIBUTION)_amd64.deb \
 		   --architecture=amd64 \
-		   --prefix=/opt/oneclient -n oneclient -v $(ONECLIENT_VERSION) \
-		   --iteration $(PKG_BUILD) --license "Apache 2.0" \
+		   --prefix=/opt/oneclient -n oneclient \
+		   -v $(ONECLIENT_VERSION)-$(PKG_BUILD)~$(DISTRIBUTION) --license "Apache 2.0" \
 		   --after-install=/data/oneclient_deb.pre \
 		   --after-remove=/data/oneclient_deb.post \
 		   --depends fuse --depends ca-certificates \
@@ -329,6 +331,7 @@ docker-base:
                           --build-arg RELEASE_TYPE=$(DOCKER_RELEASE) \
                           --build-arg RELEASE=$(RELEASE) \
                           --build-arg VERSION=$(PKG_VERSION) \
+                          --build-arg FSONEDATAFS_VERSION=$(FSONEDATAFS_VERSION) \
                           --build-arg ONECLIENT_PACKAGE=oneclient-base \
                           --name oneclient-base --publish --remove docker
 
@@ -341,6 +344,7 @@ docker: docker-dev
                       --build-arg RELEASE_TYPE=$(DOCKER_RELEASE) \
                       --build-arg RELEASE=$(RELEASE) \
                       --build-arg VERSION=$(PKG_VERSION) \
+                      --build-arg FSONEDATAFS_VERSION=$(FSONEDATAFS_VERSION) \
                       --build-arg ONECLIENT_PACKAGE=oneclient \
                       --name oneclient --publish --remove docker
 
@@ -351,6 +355,7 @@ docker-dev:
                       --build-arg BASE_IMAGE=$(DOCKER_DEV_BASE_IMAGE) \
                       --build-arg RELEASE=$(RELEASE) \
                       --build-arg VERSION=$(PKG_VERSION) \
+                      --build-arg FSONEDATAFS_VERSION=$(FSONEDATAFS_VERSION) \
                       --build-arg ONECLIENT_PACKAGE=oneclient \
                       --report docker-dev-build-report.txt \
                       --short-report docker-dev-build-list.json \
