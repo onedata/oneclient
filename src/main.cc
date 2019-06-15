@@ -21,6 +21,7 @@
 #include "communication/exception.h"
 #include "configuration.h"
 #include "context.h"
+#include "errors/handshakeErrors.h"
 #include "fsOperations.h"
 #include "fslogic/composite.h"
 #include "fuseOperations.h"
@@ -94,6 +95,9 @@ void startLogging(
     LOG(INFO) << "File read events disabled: "
               << options->areFileReadEventsDisabled();
     LOG(INFO) << "IO buffered: " << options->isIOBuffered();
+    LOG(INFO) << "Compatible Oneprovider versions: ";
+    for (const auto &version : ONECLIENT_COMPATIBLE_ONEPROVIDER_VERSIONS)
+        LOG(INFO) << version << " ";
     LOG(INFO) << "Oneprovider connection timeout [s]: "
               << options->getProviderTimeout().count();
     LOG(INFO) << "Monitoring enabled: " << options->isMonitoringEnabled();

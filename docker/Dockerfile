@@ -4,7 +4,7 @@ MAINTAINER Krzysztof Trzepla <krzysztof.trzepla@gmail.com>
 
 # Build arguments
 ARG RELEASE_TYPE
-ARG RELEASE="1802"
+ARG RELEASE="1902"
 ARG VERSION=""
 ARG DISTRIBUTION="xenial"
 ARG FSONEDATAFS_VERSION=""
