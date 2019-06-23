@@ -320,7 +320,7 @@ public:
         }};
     }
 
-    ~OnedataFS() { stopFiberThread(); }
+    ~OnedataFS() { close(); }
 
     std::string version() const { return ONECLIENT_VERSION; }
 
@@ -573,8 +573,8 @@ public:
 
     void close()
     {
-        stopFiberThread();
         m_fsLogic.reset();
+        stopFiberThread();
     }
 
 private:
@@ -768,13 +768,13 @@ BOOST_PYTHON_MODULE(onedatafs)
     register_exception_translator<std::errc>(&translate);
 
     class_<Stat>("Stat")
-        .def_readonly("atime", &Stat::atime)
-        .def_readonly("mtime", &Stat::mtime)
-        .def_readonly("ctime", &Stat::ctime)
-        .def_readonly("gid", &Stat::gid)
-        .def_readonly("uid", &Stat::uid)
-        .def_readonly("mode", &Stat::mode)
-        .def_readonly("size", &Stat::size)
+        .def_readwrite("atime", &Stat::atime)
+        .def_readwrite("mtime", &Stat::mtime)
+        .def_readwrite("ctime", &Stat::ctime)
+        .def_readwrite("gid", &Stat::gid)
+        .def_readwrite("uid", &Stat::uid)
+        .def_readwrite("mode", &Stat::mode)
+        .def_readwrite("size", &Stat::size)
         .def("__eq__", &Stat::operator==);
 
     class_<Ubuf>("Ubuf")
