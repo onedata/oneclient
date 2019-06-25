@@ -208,25 +208,35 @@ public:
         close();
         return false;
     }
-
+#if PY_MAJOR_VERSION >= 3
+    boost::python::object read(const off_t offset, const std::size_t size)
+#else
     std::string read(const off_t offset, const std::size_t size)
+#endif
     {
         ReleaseGIL guard;
 
         if (!m_fsLogic)
             throw one::helpers::makePosixException(EBADF);
 
-        return m_fiberManager
-            .addTaskRemoteFuture([this, offset, size]() mutable {
-                return m_fsLogic->read(
-                    m_uuid, m_fileHandleId, offset, size, {});
-            })
-            .then([](folly::IOBufQueue &&buf) {
-                std::string data;
-                buf.appendToString(data);
-                return data;
-            })
-            .get();
+        auto res = m_fiberManager
+                       .addTaskRemoteFuture([this, offset, size]() mutable {
+                           return m_fsLogic->read(
+                               m_uuid, m_fileHandleId, offset, size, {});
+                       })
+                       .then([](folly::IOBufQueue &&buf) {
+                           std::string data;
+                           buf.appendToString(data);
+                           return data;
+                       })
+                       .get();
+
+#if PY_MAJOR_VERSION >= 3
+        return boost::python::object(boost::python::handle<>(
+            PyBytes_FromStringAndSize(res.c_str(), res.size())));
+#else
+        return res;
+#endif
     }
 
     size_t write(std::string data, const off_t offset)
@@ -446,7 +456,7 @@ public:
         m_fiberManager
             .addTaskRemoteFuture([ this, path = std::move(path) ]() mutable {
                 auto parentPair = splitToParentName(path);
-                return m_fsLogic->unlink(
+                m_fsLogic->unlink(
                     uuidFromPath(parentPair.first), parentPair.second);
             })
             .get();
@@ -462,7 +472,7 @@ public:
                     auto fromPair = splitToParentName(from);
                     auto toPair = splitToParentName(to);
 
-                    return m_fsLogic->rename(uuidFromPath(fromPair.first),
+                    m_fsLogic->rename(uuidFromPath(fromPair.first),
                         fromPair.second, uuidFromPath(toPair.first),
                         toPair.second);
                 })
@@ -501,17 +511,29 @@ public:
             .get();
     }
 
+#if PY_MAJOR_VERSION >= 3
+    boost::python::object getxattr(std::string path, std::string name)
+#else
     std::string getxattr(std::string path, std::string name)
+#endif
     {
         ReleaseGIL guard;
 
-        return m_fiberManager
-            .addTaskRemoteFuture([
-                this, uuid = uuidFromPath(path), name = std::move(name)
-            ]() mutable {
-                return m_fsLogic->getxattr(uuid, name).toStdString();
-            })
-            .get();
+        auto res =
+            m_fiberManager
+                .addTaskRemoteFuture([
+                    this, uuid = uuidFromPath(path), name = std::move(name)
+                ]() mutable {
+                    return m_fsLogic->getxattr(uuid, name).toStdString();
+                })
+                .get();
+
+#if PY_MAJOR_VERSION >= 3
+        return boost::python::object(boost::python::handle<>(
+            PyBytes_FromStringAndSize(res.c_str(), res.size())));
+#else
+        return res;
+#endif
     }
 
     void setxattr(std::string path, std::string name, std::string value,
