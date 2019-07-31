@@ -29,7 +29,7 @@ RUN case ${RELEASE_TYPE} in \
             curl -O http://get.onedata.org/oneclient-${RELEASE}.sh; \
             ;; \
         *) \
-            curl -O http://onedata-dev-packages.cloud.plgrid.pl/oneclient-${RELEASE}.sh; \
+            curl -O http://packages.devel.onedata.org/oneclient-${RELEASE}.sh; \
             ;; \
         esac && \
         sh oneclient-${RELEASE}.sh ${ONECLIENT_PACKAGE}=${VERSION}-1~${DISTRIBUTION} && \
