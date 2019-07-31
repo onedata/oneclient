@@ -6,7 +6,7 @@ MAINTAINER Krzysztof Trzepla <krzysztof.trzepla@gmail.com>
 ARG RELEASE_TYPE
 ARG RELEASE="1902"
 ARG VERSION=""
-ARG DISTRIBUTION="xenial"
+ARG DISTRIBUTION="bionic"
 ARG FSONEDATAFS_VERSION=""
 ARG ONECLIENT_PACKAGE="oneclient"
 
@@ -14,7 +14,7 @@ ARG ONECLIENT_PACKAGE="oneclient"
 RUN apt-get -y update && \
     apt-get -y install bash-completion ca-certificates curl iputils-ping netcat \
                        man-db net-tools traceroute vim python-xattr parallel \
-                       python-pip python3-pip && \
+                       python-pip python3-pip gnupg2 && \
     apt-get clean
 
 # Install fs.onedatafs dependencies
