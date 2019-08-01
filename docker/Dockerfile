@@ -23,6 +23,10 @@ RUN pip3 install fs six setuptools
 
 WORKDIR /tmp
 
+# Temporarly disable dpkg path-exludes so that all Oneclient files are installed
+# including docs and manpages
+RUN mv /etc/dpkg/dpkg.cfg.d/excludes /tmp/excludes.bak
+
 # Install oneclient package
 RUN case ${RELEASE_TYPE} in \
         production) \
@@ -38,6 +42,8 @@ RUN case ${RELEASE_TYPE} in \
                            python-fs-plugin-onedatafs=${FSONEDATAFS_VERSION}-1~${DISTRIBUTION} \
                            python3-fs-plugin-onedatafs=${FSONEDATAFS_VERSION}-1~${DISTRIBUTION} \
                            sysbench
+
+RUN mv /tmp/excludes.bak /etc/dpkg/dpkg.cfg.d/excludes
 
 # Enable autocompletion
 RUN echo "source /etc/bash_completion" >> /root/.bashrc
