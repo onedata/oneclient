@@ -18,8 +18,8 @@ RUN apt-get -y update && \
     apt-get clean
 
 # Install fs.onedatafs dependencies
-RUN pip install fs six setuptools
-RUN pip3 install fs six setuptools
+RUN pip install fs six setuptools xmlrunner pyyaml
+RUN pip3 install fs six setuptools xmlrunner pyyaml
 
 WORKDIR /tmp
 
