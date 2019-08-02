@@ -33,7 +33,7 @@ WITH_ONEDATAFS    ?= ON
 # Oneclient FPM packaging variables
 PATCHELF_DOCKER_IMAGE   ?= docker.onedata.org/patchelf:0.9
 FPM_DOCKER_IMAGE        ?= docker.onedata.org/fpm:1.9.3
-GLUSTERFS_VERSION       ?= 3.12.1
+GLUSTERFS_VERSION       ?= 3.13.2
 ONECLIENT_FPMPACKAGE_TMP := package_fpm
 
 ifeq ($(strip $(ONECLIENT_BASE_IMAGE)),)
