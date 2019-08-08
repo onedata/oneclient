@@ -50,7 +50,7 @@ namespace auth {
 MacaroonHandler::MacaroonHandler(options::Options &options,
     boost::filesystem::path userDataDir, std::string providerId)
     : m_options{options}
-    , m_userDataDir{userDataDir}
+    , m_userDataDir{std::move(userDataDir)}
     , m_providerId{std::move(providerId)}
     , m_macaroon{retrieveMacaroon()}
     , m_restrictedMacaroon{restrictMacaroon(m_macaroon, m_providerId)}

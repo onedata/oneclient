@@ -5,8 +5,8 @@ DOCKER_RELEASE        ?= development
 DOCKER_REG_NAME       ?= "docker.onedata.org"
 DOCKER_REG_USER       ?= ""
 DOCKER_REG_PASSWORD   ?= ""
-DOCKER_BASE_IMAGE     ?= "ubuntu:16.04"
-DOCKER_DEV_BASE_IMAGE ?= "onedata/worker:1802-1"
+DOCKER_BASE_IMAGE     ?= "ubuntu:18.04"
+DOCKER_DEV_BASE_IMAGE ?= "onedata/worker:1902-1"
 
 PKG_REVISION    ?= $(shell git describe --tags --always)
 PKG_VERSION     ?= $(shell git describe --tags --always | tr - .)
@@ -33,12 +33,12 @@ WITH_ONEDATAFS    ?= ON
 # Oneclient FPM packaging variables
 PATCHELF_DOCKER_IMAGE   ?= docker.onedata.org/patchelf:0.9
 FPM_DOCKER_IMAGE        ?= docker.onedata.org/fpm:1.9.3
-GLUSTERFS_VERSION       ?= 3.12.1
+GLUSTERFS_VERSION       ?= 3.13.2
 ONECLIENT_FPMPACKAGE_TMP := package_fpm
 
 ifeq ($(strip $(ONECLIENT_BASE_IMAGE)),)
 # Oneclient base image is an ID of the Docker container 'oneclient-base' with
-# containing Oneclient installed on a reference OS (currently Ubuntu Xenial).
+# containing Oneclient installed on a reference OS (currently Ubuntu Bionic).
 # This image is used to create self-contained binary packages for other distributions.
 ONECLIENT_BASE_IMAGE    := ID-$(shell git rev-parse HEAD | cut -c1-10)
 endif
@@ -258,7 +258,7 @@ oneclient_tar $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz:
 		-v $(CURDIR)/cpld.sh:/bin/cpld.sh --entrypoint /bin/sh \
 		-t docker.onedata.org/oneclient-base:$(ONECLIENT_BASE_IMAGE) \
 		-c "find /usr/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/ -name '*so*' -exec /bin/cpld.sh '{}' /output/lib \;"
-	# Change the ld loader and rpath in Oneclient binary
+	# Change the ld loader and rpath in Oneclient binaries and dependencies
 	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
 		-t $(PATCHELF_DOCKER_IMAGE) \
 		--set-interpreter /opt/oneclient/lib/ld-linux-x86-64.so.2 \
@@ -269,6 +269,9 @@ oneclient_tar $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz:
 		--set-interpreter /opt/oneclient/lib/ld-linux-x86-64.so.2 \
 		--set-rpath /opt/oneclient/lib --force-rpath \
 		/output/bin/onebench
+	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
+		--entrypoint /bin/sh -t $(PATCHELF_DOCKER_IMAGE) -c \
+		"find /output/lib -name '*so*' -type f ! -path '*ld-2.27.so' ! -path '*ld-linux-x86-64.so.2' -exec patchelf --set-rpath /opt/oneclient/lib --force-rpath {} \;"
 	# Create binary archive
 	cd $(ONECLIENT_FPMPACKAGE_TMP)/root && \
 		tar -cf oneclient-bin.tar * && \

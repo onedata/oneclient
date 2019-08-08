@@ -18,7 +18,7 @@ namespace messages {
 namespace fuse {
 
 ResolveGuid::ResolveGuid(boost::filesystem::path path)
-    : m_path{path}
+    : m_path{std::move(path)}
 {
 }
 

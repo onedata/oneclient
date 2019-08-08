@@ -6,7 +6,7 @@ MAINTAINER Krzysztof Trzepla <krzysztof.trzepla@gmail.com>
 ARG RELEASE_TYPE
 ARG RELEASE="1902"
 ARG VERSION=""
-ARG DISTRIBUTION="xenial"
+ARG DISTRIBUTION="bionic"
 ARG FSONEDATAFS_VERSION=""
 ARG ONECLIENT_PACKAGE="oneclient"
 
@@ -14,7 +14,7 @@ ARG ONECLIENT_PACKAGE="oneclient"
 RUN apt-get -y update && \
     apt-get -y install bash-completion ca-certificates curl iputils-ping netcat \
                        man-db net-tools traceroute vim python-xattr parallel \
-                       python-pip python3-pip && \
+                       python-pip python3-pip gnupg2 && \
     apt-get clean
 
 # Install fs.onedatafs dependencies
@@ -23,13 +23,17 @@ RUN pip3 install fs six setuptools
 
 WORKDIR /tmp
 
+# Temporarly disable dpkg path-exludes so that all Oneclient files are installed
+# including docs and manpages
+RUN mv /etc/dpkg/dpkg.cfg.d/excludes /tmp/excludes.bak
+
 # Install oneclient package
 RUN case ${RELEASE_TYPE} in \
         production) \
             curl -O http://get.onedata.org/oneclient-${RELEASE}.sh; \
             ;; \
         *) \
-            curl -O http://onedata-dev-packages.cloud.plgrid.pl/oneclient-${RELEASE}.sh; \
+            curl -O http://packages.devel.onedata.org/oneclient-${RELEASE}.sh; \
             ;; \
         esac && \
         sh oneclient-${RELEASE}.sh ${ONECLIENT_PACKAGE}=${VERSION}-1~${DISTRIBUTION} && \
@@ -38,6 +42,8 @@ RUN case ${RELEASE_TYPE} in \
                            python-fs-plugin-onedatafs=${FSONEDATAFS_VERSION}-1~${DISTRIBUTION} \
                            python3-fs-plugin-onedatafs=${FSONEDATAFS_VERSION}-1~${DISTRIBUTION} \
                            sysbench
+
+RUN mv /tmp/excludes.bak /etc/dpkg/dpkg.cfg.d/excludes
 
 # Enable autocompletion
 RUN echo "source /etc/bash_completion" >> /root/.bashrc
