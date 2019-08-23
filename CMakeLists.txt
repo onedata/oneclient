@@ -9,7 +9,14 @@ option(WITH_S3 "Include S3 direct IO support" ON)
 option(WITH_SWIFT "Include Swift direct IO support" ON)
 option(WITH_GLUSTERFS "Include GlusterFS direct IO support" ON)
 option(WITH_WEBDAV "Include WebDAV direct IO support" ON)
+option(WITH_ONECLIENT "Include oneclient binary" ON)
+option(WITH_ONEBENCH "Include onebench binary" ON)
 option(WITH_ONEDATAFS "Build onedatafs library" OFF)
+option(WITH_PYTHON2 "Build onedatafs for Python2" ON)
+option(WITH_PYTHON3 "Build onedatafs for Python3" ON)
+option(WITH_LIBDL "Link with libdl" ON)
+option(WITH_LIBRT "Link with librt" ON)
+option(WITH_TESTS "Build and run tests" ON)
 option(ONEDATAFS_PYTHON_VERSION "Build onedatafs for specific Python version" "")
 option(GIT_VERSION "Version of the Oneclient" "1.0.0")
 
@@ -64,6 +71,7 @@ message(STATUS "Checking for NSS...")
 find_package(NSS REQUIRED)
 
 # Setup Folly
+option(FOLLY_SHARED "Link folly shared library" OFF)
 message(STATUS "Checking for Folly...")
 find_package(Folly REQUIRED)
 find_package(Wangle REQUIRED)
@@ -90,8 +98,13 @@ find_package(Boost COMPONENTS atomic chrono context date_time filesystem
 find_package(Sodium)
 
 # Find which Python interpreters are available
-find_package(Python2)
-find_package(Python3)
+if(WITH_PYTHON2)
+  find_package(Python2)
+endif(WITH_PYTHON2)
+
+if(WITH_PYTHON3)
+  find_package(Python3)
+endif(WITH_PYTHON3)
 
 # Setup helpers
 set(HELPERS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/helpers)
@@ -105,11 +118,18 @@ set(CPPMETRICS_INCLUDE_DIRS ${HELPERS_DIR}/deps/cppmetrics)
 # Utility libs
 find_library(LTDL_LIBRARY NAMES ltdl)
 find_library(ZLIB_LIBRARY NAMES z)
+
+if(WITH_LIBRT)
 find_library(RT_LIBRARY rt)
+endif(WITH_LIBRT)
+
+if(WITH_LIBDL)
 find_library(DL_LIBRARY dl)
+endif(WITH_LIBDL)
 
 # Rados library
 if(WITH_CEPH)
+    find_library(CEPHCOMMON_LIBRARY "ceph-common" NAMES "ceph-common" "libceph-common.so.0" PATH_SUFFIXES "ceph")
     find_library(RADOS_LIBRARY rados)
     find_library(RADOSSTRIPER_LIBRARY radosstriper)
 endif(WITH_CEPH)
@@ -207,7 +227,7 @@ else(NOT APPLE)
 endif(APPLE)
 
 # Define build settings
-add_compile_options(${SECTION_FRAGMENTATION_FLAGS} -Werror -Wshadow -Wall -Wno-unused-result)
+add_compile_options(${SECTION_FRAGMENTATION_FLAGS} -Wall -Wno-unused-result)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -fdiagnostics-color")
 add_definitions(
     ${FUSE_DEFINITIONS}
@@ -298,7 +318,7 @@ set(CLIENT_LIBRARIES
     ${OPENSSL_LIBRARIES})
 
 if(WITH_CEPH)
-    list(APPEND CLIENT_LIBRARIES ${RADOS_LIBRARY} ${RADOSSTRIPER_LIBRARY})
+    list(APPEND CLIENT_LIBRARIES ${RADOSSTRIPER_LIBRARY} ${RADOS_LIBRARY} ${CEPHCOMMON_LIBRARY})
 endif(WITH_CEPH)
 
 if(WITH_S3)
@@ -321,38 +341,43 @@ endif(WITH_WEBDAV)
 add_library(client OBJECT ${SOURCES} ${HEADERS})
 add_dependencies(client helpers clproto)
 
+if(WITH_ONECLIENT)
 set(CLIENT_SOURCES
     ${MAIN_SOURCE_FILE}
     $<TARGET_OBJECTS:client>
     ${PROJECT_SOURCES})
+endif(WITH_ONECLIENT)
 
-set(ONEDATAFS_SOURCES
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/onedatafs.cc
-    $<TARGET_OBJECTS:client>
-    ${PROJECT_SOURCES})
+if(WITH_ONEDATAFS)
+  set(ONEDATAFS_SOURCES
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/onedatafs.cc
+      $<TARGET_OBJECTS:client>
+      ${PROJECT_SOURCES})
 
-if(PYTHON2_FOUND)
-set(CMAKE_SHARED_LIBRARY_PREFIX "")
-add_library(onedatafs.py2 SHARED ${ONEDATAFS_SOURCES})
-target_link_libraries(onedatafs.py2 PRIVATE ${CLIENT_LIBRARIES} ${LIBBOOST_PYTHON2})
-set_target_properties(onedatafs.py2 PROPERTIES OUTPUT_NAME "onedatafs_py2")
-set_target_properties(onedatafs.py2 PROPERTIES COMPILE_FLAGS ${PYTHON2_CFLAGS})
-set_target_properties(onedatafs.py2 PROPERTIES LINK_FLAGS ${PYTHON2_LDFLAGS})
-set_target_properties(onedatafs.py2 PROPERTIES VERSION ${GIT_VERSION}
-    SOVERSION ${GIT_VERSION})
-endif(PYTHON2_FOUND)
+  if(PYTHON2_FOUND)
+    set(CMAKE_SHARED_LIBRARY_PREFIX "")
+    add_library(onedatafs.py2 SHARED ${ONEDATAFS_SOURCES})
+    target_link_libraries(onedatafs.py2 PRIVATE ${CLIENT_LIBRARIES} ${LIBBOOST_PYTHON2})
+    set_target_properties(onedatafs.py2 PROPERTIES OUTPUT_NAME "onedatafs_py2")
+    set_target_properties(onedatafs.py2 PROPERTIES COMPILE_FLAGS ${PYTHON2_CFLAGS})
+    set_target_properties(onedatafs.py2 PROPERTIES LINK_FLAGS ${PYTHON2_LDFLAGS})
+    set_target_properties(onedatafs.py2 PROPERTIES VERSION ${GIT_VERSION}
+      SOVERSION ${GIT_VERSION})
+  endif(PYTHON2_FOUND)
 
-if(PYTHON3_FOUND)
-set(CMAKE_SHARED_LIBRARY_PREFIX "")
-add_library(onedatafs.py3 SHARED ${ONEDATAFS_SOURCES})
-target_link_libraries(onedatafs.py3 PRIVATE ${CLIENT_LIBRARIES} ${LIBBOOST_PYTHON3})
-set_target_properties(onedatafs.py3 PROPERTIES OUTPUT_NAME "onedatafs_py3")
-set_target_properties(onedatafs.py3 PROPERTIES COMPILE_FLAGS ${PYTHON3_CFLAGS})
-set_target_properties(onedatafs.py3 PROPERTIES LINK_FLAGS ${PYTHON3_LDFLAGS})
-set_target_properties(onedatafs.py3 PROPERTIES VERSION ${GIT_VERSION}
-    SOVERSION ${GIT_VERSION})
-endif(PYTHON3_FOUND)
+  if(PYTHON3_FOUND)
+    set(CMAKE_SHARED_LIBRARY_PREFIX "")
+    add_library(onedatafs.py3 SHARED ${ONEDATAFS_SOURCES})
+    target_link_libraries(onedatafs.py3 PRIVATE ${CLIENT_LIBRARIES} ${LIBBOOST_PYTHON3})
+    set_target_properties(onedatafs.py3 PROPERTIES OUTPUT_NAME "onedatafs_py3")
+    set_target_properties(onedatafs.py3 PROPERTIES COMPILE_FLAGS ${PYTHON3_CFLAGS})
+    set_target_properties(onedatafs.py3 PROPERTIES LINK_FLAGS ${PYTHON3_LDFLAGS})
+    set_target_properties(onedatafs.py3 PROPERTIES VERSION ${GIT_VERSION}
+      SOVERSION ${GIT_VERSION})
+  endif(PYTHON3_FOUND)
+endif(WITH_ONEDATAFS)
 
+if(WITH_ONECLIENT)
 add_executable(oneclient ${CLIENT_SOURCES})
 target_link_libraries(oneclient PRIVATE ${CLIENT_LIBRARIES})
 set_target_properties(oneclient PROPERTIES
@@ -363,33 +388,38 @@ set_target_properties(oneclient PROPERTIES
 if(NOT ${PROFILER_LIBRARY} MATCHES PROFILER_LIBRARY-NOTFOUND)
     target_link_libraries(oneclient PRIVATE ${PROFILER_LIBRARY})
 endif(NOT ${PROFILER_LIBRARY} MATCHES PROFILER_LIBRARY-NOTFOUND)
+endif(WITH_ONECLIENT)
 
 # Install
+if(WITH_ONECLIENT)
 install(TARGETS oneclient DESTINATION ${CMAKE_INSTALL_FULL_BINDIR})
-install(DIRECTORY config/ DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR})
 install(FILES man/oneclient.1 DESTINATION ${CMAKE_INSTALL_FULL_MANDIR}/man1)
+endif(WITH_ONECLIENT)
 install(FILES man/oneclient.conf.5 DESTINATION ${CMAKE_INSTALL_FULL_MANDIR}/man5)
 install(FILES LICENSE.txt DESTINATION ${CMAKE_INSTALL_FULL_DOCDIR})
 install(FILES README.md DESTINATION ${CMAKE_INSTALL_FULL_DOCDIR})
-if(PYTHON2_FOUND)
-install(TARGETS onedatafs.py2 DESTINATION
-    ${PYTHON2_EXEC_PREFIX}/${LIB_INSTALL_DIR}/python${PYTHON2_VERSION_STRING}/${PYTHON2_SITE_DIR}/onedatafs)
-install(FILES onedatafs/python/__init__.py DESTINATION
-    ${PYTHON2_EXEC_PREFIX}/${LIB_INSTALL_DIR}/python${PYTHON2_VERSION_STRING}/${PYTHON2_SITE_DIR}/onedatafs)
-endif(PYTHON2_FOUND)
-if(PYTHON3_FOUND)
-install(TARGETS onedatafs.py3 DESTINATION
-    ${PYTHON3_EXEC_PREFIX}/${LIB_INSTALL_DIR}/python${PYTHON3_VERSION_STRING}/${PYTHON2_SITE_DIR}/onedatafs)
-install(FILES onedatafs/python/__init__.py DESTINATION
-    ${PYTHON2_EXEC_PREFIX}/${LIB_INSTALL_DIR}/python${PYTHON3_VERSION_STRING}/${PYTHON2_SITE_DIR}/onedatafs)
-endif(PYTHON3_FOUND)
+install(DIRECTORY config/ DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR})
+if(WITH_ONEDATAFS)
+  if(PYTHON2_FOUND)
+    set(PYTHON2_INSTALL_DIR ${CMAKE_INSTALL_LIBDIR}/python${PYTHON2_VERSION_STRING}/${PYTHON2_SITE_DIR})
+    install(TARGETS onedatafs.py2 DESTINATION ${PYTHON2_INSTALL_DIR}/onedatafs)
+    install(FILES onedatafs/python/__init__.py DESTINATION ${PYTHON2_INSTALL_DIR}/onedatafs)
+  endif(PYTHON2_FOUND)
+  if(PYTHON3_FOUND)
+    set(PYTHON3_INSTALL_DIR ${CMAKE_INSTALL_LIBDIR}/python${PYTHON3_VERSION_STRING}/${PYTHON3_SITE_DIR})
+    install(TARGETS onedatafs.py3 DESTINATION ${PYTHON3_INSTALL_DIR}/onedatafs)
+    install(FILES onedatafs/python/__init__.py DESTINATION ${PYTHON3_INSTALL_DIR}/onedatafs)
+  endif(PYTHON3_FOUND)
+endif(WITH_ONEDATAFS)
 
-if(UNIX AND NOT APPLE)
-    install(DIRECTORY autocomplete/linux/ DESTINATION ${CMAKE_INSTALL_FULL_LOCALSTATEDIR}/lib/oneclient)
-endif(UNIX AND NOT APPLE)
-if(APPLE)
-    install(DIRECTORY autocomplete/osx/ DESTINATION ${CMAKE_INSTALL_FULL_LOCALSTATEDIR}/lib/oneclient)
-endif(APPLE)
+if(WITH_ONECLIENT)
+  if(UNIX AND NOT APPLE)
+      install(DIRECTORY autocomplete/linux/ DESTINATION ${CMAKE_INSTALL_FULL_LOCALSTATEDIR}/lib/oneclient)
+  endif(UNIX AND NOT APPLE)
+  if(APPLE)
+      install(DIRECTORY autocomplete/osx/ DESTINATION ${CMAKE_INSTALL_FULL_LOCALSTATEDIR}/lib/oneclient)
+  endif(APPLE)
+endif(WITH_ONECLIENT)
 
 find_program(
     CLANG_TIDY
@@ -413,7 +443,11 @@ else(CLANG_TIDY)
     message(STATUS "run-clang-tidy script not found - target clang-tidy not available")
 endif(CLANG_TIDY)
 
+if(WITH_ONEBENCH)
 add_subdirectory(bench)
+endif(WITH_ONEBENCH)
 
+if(WITH_TESTS)
 enable_testing()
 add_subdirectory(test)
+endif(WITH_TESTS)
