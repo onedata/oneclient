@@ -61,7 +61,6 @@ all: debug test
 	                       -DWITH_GLUSTERFS=${WITH_GLUSTERFS} \
 	                       -DWITH_WEBDAV=${WITH_WEBDAV} \
 	                       -DWITH_ONEDATAFS=${WITH_ONEDATAFS} \
-	                       -DWITH_OPENSSL=${WITH_OPENSSL} \
 	                       -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR} \
 	                       -DCMAKE_INSTALL_PREFIX=${PWD}/debug/PREFIX \
 	                       -DOPENSSL_LIBRARIES=${OPENSSL_LIBRARIES} ..

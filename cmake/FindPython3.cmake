@@ -18,14 +18,34 @@ if(PYTHON3_CONFIG)
     execute_process(COMMAND python3-config --exec-prefix OUTPUT_VARIABLE PYTHON3_EXEC_PREFIX)
     string(STRIP "${PYTHON3_EXEC_PREFIX}" PYTHON3_EXEC_PREFIX)
 
-    execute_process(COMMAND python3 --version OUTPUT_VARIABLE PYTHON3_VERSION)
-    string(STRIP "${PYTHON3_VERSION}" PYTHON3_VERSION)
-    string(REGEX MATCH "([0-9]+\\.[0-9]+)" PYTHON3_VERSION_STRING "${PYTHON3_VERSION}")
+	if($ENV{CONDA_BUILD})
+        set(PYTHON3_VERSION "$ENV{CONDA_PY}")
+        string(SUBSTRING "${PYTHON3_VERSION}" 0 1 PYTHON3_VERSION_STRING_MAJOR)
+        string(SUBSTRING "${PYTHON3_VERSION}" 1 1 PYTHON3_VERSION_STRING_MINOR)
+        set(PYTHON3_VERSION_STRING "${PYTHON3_VERSION_STRING_MAJOR}.${PYTHON3_VERSION_STRING_MINOR}")
+    else()
+        execute_process(COMMAND python3 --version OUTPUT_VARIABLE PYTHON3_VERSION)
+        string(REGEX REPLACE "\n$" "" PYTHON3_VERSION "${PYTHON3_VERSION}")
+        string(STRIP "${PYTHON3_VERSION}" PYTHON3_VERSION)
+        string(REGEX MATCH "([0-9]+\\.[0-9]+)" PYTHON3_VERSION_STRING "${PYTHON3_VERSION}")
+	endif()
 
-    find_library(LIBBOOST_PYTHON3 NAMES boost_python-py35 boost_python-py36 boost_python-py37 boost_python3 libboost_python3.so.1.58.0)
+    if(PYTHON3_VERSION_STRING STREQUAL "")
+      message(FATAL_ERROR "Cannot parse Python3 version: ${PYTHON3_VERSION}")
+    endif()
+
+    find_library(LIBBOOST_PYTHON3 NAMES boost_python-py35
+                                        boost_python-py36
+                                        boost_python-py37
+                                        boost_python3
+                                        libboost_python35.so.1.67.0
+                                        libboost_python36.so.1.67.0
+                                        libboost_python37.so.1.67.0)
 
     execute_process(COMMAND bash -c "cat /etc/os-release | grep ID_LIKE" OUTPUT_VARIABLE OS_ID_LIKE)
-    if(OS_ID_LIKE MATCHES ".+debian.+")
+    if($ENV{CONDA_BUILD})
+        set(PYTHON3_SITE_DIR "site-packages")
+    elseif(OS_ID_LIKE MATCHES ".+debian.+")
         set(PYTHON3_SITE_DIR "dist-packages")
     else()
         set(PYTHON3_SITE_DIR "site-packages")
