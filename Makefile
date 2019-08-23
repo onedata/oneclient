@@ -8,8 +8,8 @@ DOCKER_REG_PASSWORD   ?= ""
 DOCKER_BASE_IMAGE     ?= "ubuntu:18.04"
 DOCKER_DEV_BASE_IMAGE ?= "onedata/worker:1902-1"
 
-PKG_REVISION    ?= $(shell git describe --tags --always)
-PKG_VERSION     ?= $(shell git describe --tags --always | tr - .)
+PKG_REVISION    ?= $(shell git describe --tags --always  --abbrev=7)
+PKG_VERSION     ?= $(shell git describe --tags --always  --abbrev=7 | tr - .)
 PKG_COMMIT      ?= $(shell git rev-parse HEAD)
 HELPERS_COMMIT  ?= $(shell git -C helpers rev-parse HEAD)
 PKG_BUILD       ?= 1
@@ -152,8 +152,9 @@ package/$(PKG_ID).tar.gz:
 	echo "set(GIT_VERSION ${PKG_REVISION})" > package/$(PKG_ID)/version.txt
 	tar -C package -czf package/$(PKG_ID).tar.gz $(PKG_ID)
 
-.PHONY conda/oneclient
+.PHONY: conda/oneclient
 conda/oneclient: package/$(PKG_ID).tar.gz
+	SHELL:=/bin/bash
 	PACKAGE_SRC=package/$(PKG_ID).tar.gz PACKAGE_VERSION=$(PKG_VERSION) conda build -c onedata conda/oneclient
 
 .PHONY: deb
