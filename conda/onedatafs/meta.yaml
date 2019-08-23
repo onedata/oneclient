@@ -1,0 +1,93 @@
+{% set name = "onedatafs" %}
+{% set version = "18.02.3" %}
+{% set folly_version = "2017.10.02.00" %}
+{% set python_major_version = "3" %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ version|replace('-', '.') }}
+
+source:
+  git_url: https://github.com/onedata/oneclient
+  git_tag: {{ version }}
+  patches:
+    - helpers.patch
+    - oneclient.patch
+
+build:
+  number: 0
+  string: py{{ py }}
+  binary_relocation: true
+
+requirements:
+  build:
+    - {{ compiler('c') }}
+    - {{ compiler('cxx') }}
+    - autoconf
+    - autoconf-archive
+    - automake
+    - aws-sdk-cpp-s3
+    - backports.lzma
+    - binutils_linux-64
+    - boost =1.67.0
+    - ceph-client =14.2.2
+    - cmake
+    - double-conversion
+    - folly ={{ folly_version }}
+    - poco =1.8.1
+    - swift-sdk-cpp
+    - gflags
+    - git
+    - glog
+    - glusterfs-client
+    - gperf
+    - jemalloc
+    - libacl
+    - libattr
+    - libevent
+    - libsodium
+    - libtool
+    - libfuse =2.9.9
+    - libuuid
+    - make
+    - nss
+    - nspr
+    - openssl >=1.1.1c
+    - pcre
+    - pkg-config >=0.29
+    - protobuf
+    - proxygen ={{ folly_version }}
+    - pthread-stubs
+    - python {{ python }}
+    - swift-sdk-cpp
+    - tbb =2018.0.5
+    - tbb-devel =2018.0.5
+    - wangle ={{ folly_version }}
+  run:
+    - boost =1.67.0
+    - ceph-client =14.2.2
+    - folly
+    - gflags
+    - glog
+    - glusterfs-client
+    - libfuse =2.9.9
+    - libgcc-ng
+    - libsodium
+    - nss
+    - nspr
+    - openssl >=1.1.1c
+    - pcre
+    - poco =1.8.1
+    - python {{ python }}
+    - protobuf
+    - tbb >=2018.0.5
+    - zlib
+
+about:
+  home: https://onedata.org
+  license: MIT
+  summary: OnedataFS is the Onedata Python library for accessing distributed virtual filesystem.
+
+extra:
+  recipe-maintainers:
+    - bkryza

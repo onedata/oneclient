@@ -152,6 +152,10 @@ package/$(PKG_ID).tar.gz:
 	echo "set(GIT_VERSION ${PKG_REVISION})" > package/$(PKG_ID)/version.txt
 	tar -C package -czf package/$(PKG_ID).tar.gz $(PKG_ID)
 
+.PHONY conda/oneclient
+conda/oneclient: package/$(PKG_ID).tar.gz
+	PACKAGE_SRC=package/$(PKG_ID).tar.gz PACKAGE_VERSION=$(PKG_VERSION) conda build -c onedata conda/oneclient
+
 .PHONY: deb
 deb: check_distribution package/$(PKG_ID).tar.gz
 	rm -rf package/packages && mkdir -p package/packages

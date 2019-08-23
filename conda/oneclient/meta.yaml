@@ -1,0 +1,87 @@
+{% set name = "oneclient" %}
+{% set version = {{ env[PACKAGE_VERSION] }} %}
+{% set folly_version = "2017.10.02.00" %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ version|replace('-', '.') }}
+
+source:
+  path: {{ env[PACKAGE_SOURCE] }}
+
+build:
+  binary_relocation: true
+  script_env:
+    - PACKAGE_REVISION
+
+requirements:
+  build:
+    - {{ compiler('c') }}
+    - {{ compiler('cxx') }}
+    - autoconf
+    - autoconf-archive
+    - automake
+    - aws-sdk-cpp-s3
+    - backports.lzma
+    - binutils_linux-64
+    - boost =1.67.0
+    - ceph-client =14.2.2
+    - cmake
+    - double-conversion
+    - folly ={{ folly_version }}
+    - poco =1.8.1
+    - swift-sdk-cpp
+    - gflags
+    - git
+    - glog
+    - glusterfs-client
+    - gperf
+    - jemalloc
+    - libacl
+    - libattr
+    - libevent
+    - libsodium
+    - libtool
+    - libfuse =2.9.9
+    - libuuid
+    - make
+    - nss
+    - nspr
+    - openssl >=1.1.1c
+    - pcre
+    - pkg-config >=0.29
+    - protobuf
+    - proxygen ={{ folly_version }}
+    - pthread-stubs
+    - python =3.7.4
+    - swift-sdk-cpp
+    - tbb =2018.0.5
+    - tbb-devel =2018.0.5
+    - wangle ={{ folly_version }}
+  run:
+    - boost =1.67.0
+    - ceph-client =14.2.2
+    - folly
+    - gflags
+    - glog
+    - glusterfs-client
+    - libfuse =2.9.9
+    - libgcc-ng
+    - libsodium
+    - nss
+    - nspr
+    - openssl >=1.1.1c
+    - pcre
+    - poco =1.8.1
+    - protobuf
+    - tbb >=2018.0.5
+    - zlib
+
+about:
+  home: https://onedata.org
+  license: MIT
+  summary: Oneclient is the Onedata command line interface for mounting distributed virtual filesystem on local machines.
+
+extra:
+  recipe-maintainers:
+    - bkryza
