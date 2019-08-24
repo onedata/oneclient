@@ -1,5 +1,5 @@
 {% set name = "oneclient" %}
-{% set version = {{ env[PACKAGE_VERSION] }} %}
+{% set version = "<<PKG_VERSION>>" %}
 {% set folly_version = "2017.10.02.00" %}
 
 package:
@@ -7,12 +7,12 @@ package:
   version: {{ version|replace('-', '.') }}
 
 source:
-  path: {{ env[PACKAGE_SOURCE] }}
+  url: "<<PKG_SOURCE>>"
 
 build:
   binary_relocation: true
   script_env:
-    - PACKAGE_REVISION
+    - PKG_VERSION
 
 requirements:
   build:
@@ -76,6 +76,11 @@ requirements:
     - protobuf
     - tbb >=2018.0.5
     - zlib
+
+test:
+  commands:
+    - test -f $PREFIX/bin/oneclient
+    - $PREFIX/bin/oneclient --version
 
 about:
   home: https://onedata.org

@@ -153,9 +153,19 @@ package/$(PKG_ID).tar.gz:
 	tar -C package -czf package/$(PKG_ID).tar.gz $(PKG_ID)
 
 .PHONY: conda/oneclient
+conda/oneclient: SHELL:=/bin/bash
 conda/oneclient: package/$(PKG_ID).tar.gz
-	SHELL:=/bin/bash
-	PACKAGE_SRC=package/$(PKG_ID).tar.gz PACKAGE_VERSION=$(PKG_VERSION) conda build -c onedata conda/oneclient
+	cp /tmp/.condarc $$HOME/.condarc
+	cat $$HOME/.condarc
+	mkdir -p package/conda
+	mkdir -p package/conda-bld
+	cp -R conda/oneclient package/conda/
+	sed -i "s|<<PKG_VERSION>>|$(PKG_VERSION)|g" package/conda/oneclient/meta.yaml
+	sed -i "s|<<PKG_SOURCE>>|../../$(PKG_ID).tar.gz|g" package/conda/oneclient/meta.yaml
+	source /opt/conda/bin/activate base && \
+		conda config --show && \
+		PKG_VERSION=$(PKG_VERSION) CONDA_BLD_PATH=$$PWD/package/conda-bld \
+		conda build --user onedata-devel --token "${CONDA_TOKEN}" package/conda/oneclient
 
 .PHONY: deb
 deb: check_distribution package/$(PKG_ID).tar.gz
