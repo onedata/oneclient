@@ -1,18 +1,13 @@
 {% set name = "onedatafs" %}
-{% set version = "18.02.3" %}
+{% set version = "<<PKG_VERSION>>" %}
 {% set folly_version = "2017.10.02.00" %}
-{% set python_major_version = "3" %}
 
 package:
   name: {{ name|lower }}
   version: {{ version|replace('-', '.') }}
 
 source:
-  git_url: https://github.com/onedata/oneclient
-  git_tag: {{ version }}
-  patches:
-    - helpers.patch
-    - oneclient.patch
+  url: "<<PKG_SOURCE>>"
 
 build:
   number: 0
@@ -82,6 +77,10 @@ requirements:
     - protobuf
     - tbb >=2018.0.5
     - zlib
+
+test:
+  commands:
+    - python -c "from onedatafs import OnedataFS"
 
 about:
   home: https://onedata.org
