@@ -38,6 +38,7 @@ if(PYTHON3_CONFIG)
                                         boost_python-py36
                                         boost_python-py37
                                         boost_python3
+                                        libboost_python3.so.1.58.0
                                         libboost_python35.so.1.67.0
                                         libboost_python36.so.1.67.0
                                         libboost_python37.so.1.67.0)
