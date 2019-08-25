@@ -164,7 +164,8 @@ conda/oneclient: package/$(PKG_ID).tar.gz
 	sed -i "s|<<PKG_SOURCE>>|../../$(PKG_ID).tar.gz|g" package/conda/oneclient/meta.yaml
 	source /opt/conda/bin/activate base && \
 		PKG_VERSION=$(PKG_VERSION) CONDA_BLD_PATH=$$PWD/package/conda-bld \
-		conda build --user onedata-devel --token "${CONDA_TOKEN}" package/conda/oneclient
+		conda build --user onedata-devel --token "${CONDA_TOKEN}" --skip-existing \
+		package/conda/oneclient
 
 .PHONY: conda/onedatafs
 conda/onedatafs: SHELL:=/bin/bash
@@ -178,7 +179,8 @@ conda/onedatafs: package/$(PKG_ID).tar.gz
 	sed -i "s|<<PKG_SOURCE>>|../../$(PKG_ID).tar.gz|g" package/conda/onedatafs/meta.yaml
 	source /opt/conda/bin/activate base && \
 		PKG_VERSION=$(PKG_VERSION) CONDA_BLD_PATH=$$PWD/package/conda-bld \
-		conda build --user onedata-devel --token "${CONDA_TOKEN}" package/conda/onedatafs
+		conda build --user onedata-devel --token "${CONDA_TOKEN}" --skip-existing \
+		package/conda/onedatafs
 
 .PHONY: deb
 deb: check_distribution package/$(PKG_ID).tar.gz
