@@ -147,12 +147,14 @@ make install DESTDIR=$RPM_BUILD_ROOT/opt/onedata/%{scl}/root/
 
 %post -n %{?scl_prefix}python2-onedatafs
 %{__ln_s} -f /opt/onedata/%{scl}/root/%{python_sitearch}/onedatafs/onedatafs_py2.so /opt/onedata/%{scl}/root/%{python_sitearch}/onedatafs/onedatafs.so
+%{__ln_s} -f /opt/onedata/%{scl}/root/usr/lib64/ceph/libceph-common.so.0 /opt/onedata/%{scl}/root/usr/lib64/libceph-common.so.0
 
 %files -n %{?scl_prefix}python3-onedatafs
 /opt/onedata/%{scl}/root/%{python3_sitearch}/onedatafs/*
 
 %post -n %{?scl_prefix}python3-onedatafs
 %{__ln_s} -f /opt/onedata/%{scl}/root/%{python3_sitearch}/onedatafs/onedatafs_py3.so /opt/onedata/%{scl}/root/%{python3_sitearch}/onedatafs/onedatafs.so
+%{__ln_s} -f /opt/onedata/%{scl}/root/usr/lib64/ceph/libceph-common.so.0 /opt/onedata/%{scl}/root/usr/lib64/libceph-common.so.0
 
 %changelog
 * %(date +"%a %b %d %Y") Onedata Package Maintainer <support@onedata.org>
