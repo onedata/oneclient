@@ -165,7 +165,7 @@ conda/oneclient: package/$(PKG_ID).tar.gz
 	source /opt/conda/bin/activate base && \
 		PKG_VERSION=$(PKG_VERSION) CONDA_BLD_PATH=$$PWD/package/conda-bld \
 		conda build --user onedata-devel --token "${CONDA_TOKEN}" --skip-existing \
-		package/conda/oneclient
+		${CONDA_BUILD_OPTIONS} package/conda/oneclient
 
 .PHONY: conda/onedatafs
 conda/onedatafs: SHELL:=/bin/bash
@@ -180,7 +180,7 @@ conda/onedatafs: package/$(PKG_ID).tar.gz
 	source /opt/conda/bin/activate base && \
 		PKG_VERSION=$(PKG_VERSION) CONDA_BLD_PATH=$$PWD/package/conda-bld \
 		conda build --user onedata-devel --token "${CONDA_TOKEN}" --skip-existing \
-		package/conda/onedatafs
+		${CONDA_BUILD_OPTIONS} package/conda/onedatafs
 
 .PHONY: deb
 deb: check_distribution package/$(PKG_ID).tar.gz
