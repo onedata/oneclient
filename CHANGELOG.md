@@ -4,7 +4,7 @@
 CHANGELOG
 ---------
 
-### New Version Tag do not change this line
+### 19.02.0-rc1
 
 * VFS-5660 Improved style based on clang-tidy checks
 * VFS-5660 Fixed oneclient dependent libraries custom rpath
