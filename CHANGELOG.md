@@ -4,6 +4,11 @@
 CHANGELOG
 ---------
 
+### 18.02.3
+
+* Releasing new version 18.02.3
+
+
 ### 18.02.2
 
 * VFS-5436 Fixed RPM oneclient spec
