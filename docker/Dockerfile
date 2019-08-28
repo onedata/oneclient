@@ -14,7 +14,7 @@ ARG ONECLIENT_PACKAGE="oneclient"
 RUN apt-get -y update && \
     apt-get -y install bash-completion ca-certificates curl iputils-ping netcat \
                        man-db net-tools traceroute vim python-xattr parallel \
-                       python-pip python3-pip gnupg2 && \
+                       python-pip python3-pip gnupg2 xattr && \
     apt-get clean
 
 # Install fs.onedatafs dependencies
