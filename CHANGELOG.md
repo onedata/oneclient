@@ -4,6 +4,23 @@
 CHANGELOG
 ---------
 
+### 19.02.0-rc1
+
+* VFS-5660 Improved style based on clang-tidy checks
+* VFS-5660 Fixed oneclient dependent libraries custom rpath
+* VFS-5660 Updated GlusterFS version
+* VFS-5660 Disabled dpkg path-exclude optimization for Docker containers
+* VFS-5660 Updated Dockerfile to Ubuntu Bionic
+* VFS-5503 Fixed oneclient.spec
+* VFS-5535 Fixed Python3 support
+* VFS-5535 Fixed OnedataFS Stat structure
+
+
+### 18.02.3
+
+* Releasing new version 18.02.3
+
+
 ### 18.02.2
 
 * VFS-5436 Fixed RPM oneclient spec
