@@ -9,6 +9,10 @@ ARG VERSION=""
 ARG DISTRIBUTION="bionic"
 ARG FSONEDATAFS_VERSION=""
 ARG ONECLIENT_PACKAGE="oneclient"
+ARG HTTP_PROXY
+
+# Enable Onedata devel package proxy cache
+ENV http_proxy ${HTTP_PROXY}
 
 # Get the image up to date and install utility tools
 RUN apt-get -y update && \
@@ -30,7 +34,7 @@ RUN mv /etc/dpkg/dpkg.cfg.d/excludes /tmp/excludes.bak
 # Install oneclient package
 RUN case ${RELEASE_TYPE} in \
         production) \
-            curl -O http://get.onedata.org/oneclient-${RELEASE}.sh; \
+            curl -O http://packages.onedata.org/oneclient-${RELEASE}.sh; \
             ;; \
         *) \
             curl -O http://packages.devel.onedata.org/oneclient-${RELEASE}.sh; \
