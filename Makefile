@@ -7,6 +7,7 @@ DOCKER_REG_USER       ?= ""
 DOCKER_REG_PASSWORD   ?= ""
 DOCKER_BASE_IMAGE     ?= "ubuntu:18.04"
 DOCKER_DEV_BASE_IMAGE ?= "onedata/worker:1902-1"
+HTTP_PROXY            ?= "http://proxy.devel.onedata.org:3128"
 
 PKG_REVISION    ?= $(shell git describe --tags --always  --abbrev=7)
 PKG_VERSION     ?= $(shell git describe --tags --always  --abbrev=7 | tr - .)
@@ -364,6 +365,7 @@ docker-base:
                           --build-arg RELEASE=$(RELEASE) \
                           --build-arg VERSION=$(PKG_VERSION) \
                           --build-arg FSONEDATAFS_VERSION=$(FSONEDATAFS_VERSION) \
+                          --build-arg HTTP_PROXY=$(HTTP_PROXY) \
                           --build-arg ONECLIENT_PACKAGE=oneclient-base \
                           --name oneclient-base --publish --remove docker
 
@@ -377,6 +379,7 @@ docker: docker-dev
                       --build-arg RELEASE=$(RELEASE) \
                       --build-arg VERSION=$(PKG_VERSION) \
                       --build-arg FSONEDATAFS_VERSION=$(FSONEDATAFS_VERSION) \
+                      --build-arg HTTP_PROXY=$(HTTP_PROXY) \
                       --build-arg ONECLIENT_PACKAGE=oneclient \
                       --name oneclient --publish --remove docker
 
@@ -388,6 +391,7 @@ docker-dev:
                       --build-arg RELEASE=$(RELEASE) \
                       --build-arg VERSION=$(PKG_VERSION) \
                       --build-arg FSONEDATAFS_VERSION=$(FSONEDATAFS_VERSION) \
+                      --build-arg HTTP_PROXY=$(HTTP_PROXY) \
                       --build-arg ONECLIENT_PACKAGE=oneclient \
                       --report docker-dev-build-report.txt \
                       --short-report docker-dev-build-list.json \
