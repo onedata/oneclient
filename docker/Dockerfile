@@ -67,5 +67,8 @@ VOLUME /root/.local/share/oneclient /mnt/oneclient
 
 ENV ONECLIENT_INSECURE=1
 
+# Disable http_proxy for normal operation
+ENV http_proxy ""
+
 ENTRYPOINT ["/root/run.sh"]
 CMD ["/mnt/oneclient"]
