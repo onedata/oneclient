@@ -7,9 +7,10 @@ DOCKER_REG_USER       ?= ""
 DOCKER_REG_PASSWORD   ?= ""
 DOCKER_BASE_IMAGE     ?= "ubuntu:18.04"
 DOCKER_DEV_BASE_IMAGE ?= "onedata/worker:1902-1"
+HTTP_PROXY            ?= "http://proxy.devel.onedata.org:3128"
 
-PKG_REVISION    ?= $(shell git describe --tags --always)
-PKG_VERSION     ?= $(shell git describe --tags --always | tr - .)
+PKG_REVISION    ?= $(shell git describe --tags --always  --abbrev=7)
+PKG_VERSION     ?= $(shell git describe --tags --always  --abbrev=7 | tr - .)
 PKG_COMMIT      ?= $(shell git rev-parse HEAD)
 HELPERS_COMMIT  ?= $(shell git -C helpers rev-parse HEAD)
 PKG_BUILD       ?= 1
@@ -61,7 +62,6 @@ all: debug test
 	                       -DWITH_GLUSTERFS=${WITH_GLUSTERFS} \
 	                       -DWITH_WEBDAV=${WITH_WEBDAV} \
 	                       -DWITH_ONEDATAFS=${WITH_ONEDATAFS} \
-	                       -DWITH_OPENSSL=${WITH_OPENSSL} \
 	                       -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR} \
 	                       -DCMAKE_INSTALL_PREFIX=${PWD}/debug/PREFIX \
 	                       -DOPENSSL_LIBRARIES=${OPENSSL_LIBRARIES} ..
@@ -152,6 +152,36 @@ package/$(PKG_ID).tar.gz:
 	find package/$(PKG_ID) -depth -name ".git" -exec rm -rf {} \;
 	echo "set(GIT_VERSION ${PKG_REVISION})" > package/$(PKG_ID)/version.txt
 	tar -C package -czf package/$(PKG_ID).tar.gz $(PKG_ID)
+
+.PHONY: conda/oneclient
+conda/oneclient: SHELL:=/bin/bash
+conda/oneclient: package/$(PKG_ID).tar.gz
+	cp /tmp/.condarc $$HOME/.condarc
+	cat $$HOME/.condarc
+	mkdir -p package/conda
+	mkdir -p package/conda-bld
+	cp -R conda/oneclient package/conda/
+	sed -i "s|<<PKG_VERSION>>|$(PKG_VERSION)|g" package/conda/oneclient/meta.yaml
+	sed -i "s|<<PKG_SOURCE>>|../../$(PKG_ID).tar.gz|g" package/conda/oneclient/meta.yaml
+	source /opt/conda/bin/activate base && \
+		PKG_VERSION=$(PKG_VERSION) CONDA_BLD_PATH=$$PWD/package/conda-bld \
+		conda build --user onedata-devel --token "${CONDA_TOKEN}" --skip-existing \
+		${CONDA_BUILD_OPTIONS} package/conda/oneclient
+
+.PHONY: conda/onedatafs
+conda/onedatafs: SHELL:=/bin/bash
+conda/onedatafs: package/$(PKG_ID).tar.gz
+	cp /tmp/.condarc $$HOME/.condarc
+	cat $$HOME/.condarc
+	mkdir -p package/conda
+	mkdir -p package/conda-bld
+	cp -R conda/onedatafs package/conda/
+	sed -i "s|<<PKG_VERSION>>|$(PKG_VERSION)|g" package/conda/onedatafs/meta.yaml
+	sed -i "s|<<PKG_SOURCE>>|../../$(PKG_ID).tar.gz|g" package/conda/onedatafs/meta.yaml
+	source /opt/conda/bin/activate base && \
+		PKG_VERSION=$(PKG_VERSION) CONDA_BLD_PATH=$$PWD/package/conda-bld \
+		conda build --user onedata-devel --token "${CONDA_TOKEN}" --skip-existing \
+		${CONDA_BUILD_OPTIONS} package/conda/onedatafs
 
 .PHONY: deb
 deb: check_distribution package/$(PKG_ID).tar.gz
@@ -335,6 +365,7 @@ docker-base:
                           --build-arg RELEASE=$(RELEASE) \
                           --build-arg VERSION=$(PKG_VERSION) \
                           --build-arg FSONEDATAFS_VERSION=$(FSONEDATAFS_VERSION) \
+                          --build-arg HTTP_PROXY=$(HTTP_PROXY) \
                           --build-arg ONECLIENT_PACKAGE=oneclient-base \
                           --name oneclient-base --publish --remove docker
 
@@ -348,6 +379,7 @@ docker: docker-dev
                       --build-arg RELEASE=$(RELEASE) \
                       --build-arg VERSION=$(PKG_VERSION) \
                       --build-arg FSONEDATAFS_VERSION=$(FSONEDATAFS_VERSION) \
+                      --build-arg HTTP_PROXY=$(HTTP_PROXY) \
                       --build-arg ONECLIENT_PACKAGE=oneclient \
                       --name oneclient --publish --remove docker
 
@@ -359,6 +391,7 @@ docker-dev:
                       --build-arg RELEASE=$(RELEASE) \
                       --build-arg VERSION=$(PKG_VERSION) \
                       --build-arg FSONEDATAFS_VERSION=$(FSONEDATAFS_VERSION) \
+                      --build-arg HTTP_PROXY=$(HTTP_PROXY) \
                       --build-arg ONECLIENT_PACKAGE=oneclient \
                       --report docker-dev-build-report.txt \
                       --short-report docker-dev-build-list.json \

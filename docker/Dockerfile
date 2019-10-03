@@ -9,17 +9,21 @@ ARG VERSION=""
 ARG DISTRIBUTION="bionic"
 ARG FSONEDATAFS_VERSION=""
 ARG ONECLIENT_PACKAGE="oneclient"
+ARG HTTP_PROXY
+
+# Enable Onedata devel package proxy cache
+ENV http_proxy ${HTTP_PROXY}
 
 # Get the image up to date and install utility tools
 RUN apt-get -y update && \
     apt-get -y install bash-completion ca-certificates curl iputils-ping netcat \
                        man-db net-tools traceroute vim python-xattr parallel \
-                       python-pip python3-pip gnupg2 && \
+                       python-pip python3-pip gnupg2 xattr && \
     apt-get clean
 
 # Install fs.onedatafs dependencies
-RUN pip install fs six setuptools
-RUN pip3 install fs six setuptools
+RUN pip install fs six setuptools xmlrunner pyyaml
+RUN pip3 install fs six setuptools xmlrunner pyyaml
 
 WORKDIR /tmp
 
@@ -30,7 +34,7 @@ RUN mv /etc/dpkg/dpkg.cfg.d/excludes /tmp/excludes.bak
 # Install oneclient package
 RUN case ${RELEASE_TYPE} in \
         production) \
-            curl -O http://get.onedata.org/oneclient-${RELEASE}.sh; \
+            curl -O http://packages.onedata.org/oneclient-${RELEASE}.sh; \
             ;; \
         *) \
             curl -O http://packages.devel.onedata.org/oneclient-${RELEASE}.sh; \
@@ -62,6 +66,9 @@ ADD run.sh /root/run.sh
 VOLUME /root/.local/share/oneclient /mnt/oneclient
 
 ENV ONECLIENT_INSECURE=1
+
+# Disable http_proxy for normal operation
+ENV http_proxy ""
 
 ENTRYPOINT ["/root/run.sh"]
 CMD ["/mnt/oneclient"]
