@@ -4,6 +4,11 @@
 CHANGELOG
 ---------
 
+### 19.02.0-rc2
+
+* VFS-5742 Disabled http_proxy for normal operation
+
+
 ### 19.02.0-rc1
 
 * VFS-5660 Improved style based on clang-tidy checks
