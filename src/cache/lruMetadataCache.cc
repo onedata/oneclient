@@ -47,12 +47,6 @@ void LRUMetadataCache::pinEntry(const folly::fbstring &uuid)
 
     auto res = m_lruData.emplace(uuid, LRUData{});
 
-    if (res.second) {
-        // If this uuid was not already in the cache, make sure to create
-        // proper subscriptions
-        m_onAdd(uuid);
-    }
-
     auto &lruData = res.first->second;
 
     ++lruData.openCount;
@@ -160,10 +154,7 @@ void LRUMetadataCache::noteActivity(const folly::fbstring &uuid)
     auto res = m_lruData.emplace(uuid, LRUData{});
 
     if (res.second) {
-        // If this uuid was not already in the cache, make sure to create
-        // proper subscriptions
         res.first->second.lruIt = m_lruList.emplace(m_lruList.end(), uuid);
-        m_onAdd(uuid);
     }
     else if (res.first->second.lruIt) {
         m_lruList.splice(m_lruList.end(), m_lruList, *res.first->second.lruIt);

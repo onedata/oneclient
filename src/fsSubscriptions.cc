@@ -53,15 +53,24 @@ void FsSubscriptions::handleFileAttrChanged(
 {
     ONE_METRIC_COUNTER_INC(
         "comp.oneclient.mod.events.submod.received.file_attr_changed");
+
     m_runInFiber([ this, events = std::move(events) ] {
         for (auto &event : events) {
             auto &attr = event->fileAttr();
-            if (m_metadataCache.updateAttr(attr))
+
+            LOG_DBG(2) << " Received FileAttrChanged event: "
+                       << attr.toString();
+            if (attr.type() == FileAttr::FileType::directory) {
+                m_metadataCache.invalidateChildren(attr.uuid());
+            }
+            else if (m_metadataCache.updateAttr(attr)) {
                 LOG_DBG(2) << "Updated attributes for uuid: '" << attr.uuid()
                            << "', size: " << (attr.size() ? *attr.size() : -1);
-            else
+            }
+            else {
                 LOG_DBG(2) << "No attributes to update for uuid: '"
                            << attr.uuid() << "'";
+            }
         }
     });
 }

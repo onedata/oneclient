@@ -40,6 +40,8 @@ namespace cache {
 
 class ReaddirCache;
 
+namespace bmi = boost::multi_index;
+
 /**
  * @c MetadataCache is responsible for retrieving and caching file attributes
  * and locations.
@@ -74,8 +76,9 @@ public:
     /**
      * Inserts an externally fetched file attributes into the cache.
      * @param attr The file attributes to put in the cache.
+     * @returns True, if the attribute was not in the cache
      */
-    void putAttr(std::shared_ptr<FileAttr> attr);
+    bool putAttr(std::shared_ptr<FileAttr> attr);
 
     /**
      * Adds a specific block to a cached file locations. File location must be
@@ -214,6 +217,21 @@ public:
         folly::fbstring newName, folly::fbstring newUuid);
 
     /**
+     * Removes attributes of all direct children of 'parentUuid'
+     * @param parentUuid Uuid of the directory whose children should be removed
+     */
+    void invalidateChildren(folly::fbstring parentUuid);
+
+    /**
+     * Sets a callback that will be called after a file is added to the cache.
+     * @param cb The callback that takes uuid as parameter.
+     */
+    void onAdd(std::function<void(const folly::fbstring &)> cb)
+    {
+        m_onAdd = std::move(cb);
+    }
+
+    /**
      * Sets a callback that will be called after a file is marked as deleted.
      * @param cb The callback that takes uuid as parameter.
      */
@@ -245,7 +263,11 @@ private:
 
     struct ByUuid {
     };
+
     struct ByParent {
+    };
+
+    struct ByParentName {
     };
 
     struct NameExtractor {
@@ -263,15 +285,23 @@ private:
         result_type operator()(const Metadata &m) const;
     };
 
-    using Map = boost::multi_index::multi_index_container<Metadata,
-        boost::multi_index::indexed_by<
-            boost::multi_index::hashed_unique<boost::multi_index::tag<ByUuid>,
-                UuidExtractor, std::hash<folly::fbstring>>,
-            boost::multi_index::hashed_unique<boost::multi_index::tag<ByParent>,
-                boost::multi_index::composite_key<Metadata, ParentUuidExtractor,
-                    NameExtractor>,
-                boost::multi_index::composite_key_hash<
-                    std::hash<folly::fbstring>, std::hash<folly::fbstring>>>>>;
+    using UuidIndexHash = std::hash<folly::fbstring>;
+    using UuidIndex =
+        bmi::hashed_unique<bmi::tag<ByUuid>, UuidExtractor, UuidIndexHash>;
+
+    using ParentIndexHash = std::hash<folly::fbstring>;
+    using ParentIndex = bmi::hashed_non_unique<bmi::tag<ByParent>,
+        ParentUuidExtractor, ParentIndexHash>;
+
+    using ParentNameIndexHash =
+        bmi::composite_key_hash<std::hash<folly::fbstring>,
+            std::hash<folly::fbstring>>;
+    using ParentNameIndex = bmi::hashed_unique<bmi::tag<ByParentName>,
+        bmi::composite_key<Metadata, ParentUuidExtractor, NameExtractor>,
+        ParentNameIndexHash>;
+
+    using Map = bmi::multi_index_container<Metadata,
+        bmi::indexed_by<UuidIndex, ParentIndex, ParentNameIndex>>;
 
     Map::iterator getAttrIt(const folly::fbstring &uuid);
 
@@ -289,6 +319,7 @@ private:
 
     Map m_cache;
 
+    std::function<void(const folly::fbstring &)> m_onAdd = [](auto) {};
     std::function<void(const folly::fbstring &)> m_onMarkDeleted = [](auto) {};
     std::function<void(const folly::fbstring &, const folly::fbstring &)>
         m_onRename = [](auto, auto) {};

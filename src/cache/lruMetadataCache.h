@@ -116,7 +116,7 @@ public:
      */
     void onAdd(std::function<void(const folly::fbstring &)> cb)
     {
-        m_onAdd = std::move(cb);
+        MetadataCache::onAdd(std::move(cb));
     }
 
     /**
@@ -222,6 +222,7 @@ public:
     using MetadataCache::getDefaultBlock;
     using MetadataCache::getSpaceId;
 
+    using MetadataCache::invalidateChildren;
     using MetadataCache::markDeleted;
     using MetadataCache::putAttr;
     using MetadataCache::updateAttr;
@@ -251,7 +252,6 @@ private:
     std::list<folly::fbstring> m_lruList;
     std::unordered_map<folly::fbstring, LRUData> m_lruData;
 
-    std::function<void(const folly::fbstring &)> m_onAdd = [](auto &) {};
     std::function<void(const folly::fbstring &)> m_onOpen = [](auto &) {};
     std::function<void(const folly::fbstring &)> m_onRelease = [](auto &) {};
     std::function<void(const folly::fbstring &)> m_onPrune = [](auto &) {};
