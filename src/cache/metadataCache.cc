@@ -45,16 +45,6 @@ void MetadataCache::setReaddirCache(std::shared_ptr<ReaddirCache> readdirCache)
     m_readdirCache = readdirCache;
 }
 
-void MetadataCache::invalidateChildren(folly::fbstring parentUuid)
-{
-    LOG_FCALL() << LOG_FARG(parentUuid);
-
-    auto &parentIndex = bmi::get<ByParent>(m_cache);
-    auto childrenIt =
-        boost::make_iterator_range(parentIndex.equal_range(parentUuid));
-    parentIndex.erase(childrenIt.begin(), childrenIt.end());
-}
-
 FileAttrPtr MetadataCache::getAttr(const folly::fbstring &uuid)
 {
     return getAttrIt(uuid)->attr;
@@ -472,11 +462,6 @@ bool MetadataCache::rename(folly::fbstring uuid, folly::fbstring newParentUuid,
 bool MetadataCache::updateAttr(const FileAttr &newAttr)
 {
     LOG_FCALL() << LOG_FARG(newAttr.toString());
-
-    if (newAttr.type() == one::messages::fuse::FileAttr::FileType::directory) {
-        invalidateChildren(newAttr.uuid());
-        return true;
-    }
 
     auto &index = bmi::get<ByUuid>(m_cache);
     auto it = index.find(newAttr.uuid());

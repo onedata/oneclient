@@ -262,7 +262,7 @@ def prepare_events(evt_list):
 
     return msg
 
-def prepare_file_attr_changed_event(uuid, type):
+def prepare_file_attr_changed_event(uuid, type, size):
     attr = fuse_messages_pb2.FileAttr()
     attr.uuid = uuid
     attr.name = 'filename'
@@ -273,7 +273,7 @@ def prepare_file_attr_changed_event(uuid, type):
     attr.atime = attr.mtime - random_int(upper_bound=1000000)
     attr.ctime = attr.atime - random_int(upper_bound=1000000)
     attr.type = type
-    attr.size = random_int(upper_bound=1024)
+    attr.size = size
     attr.owner_id = ''
     attr.provider_id = ''
 
@@ -370,8 +370,8 @@ def test_getattrs_should_cache_attrs(endpoint, fl, uuid, parentUuid):
 
     assert stat == new_stat
 
-    # There should be 3 outstanding messages sent to the Oneprovider
-    # representing the 3 subscriptions created on the 'parentUuid'
+    # There should be 4 outstanding messages sent to the Oneprovider
+    # representing the 4 subscriptions created on the 'parentUuid'
     assert 3 == endpoint.all_messages_count()
 
 
@@ -718,7 +718,6 @@ def test_readdir_should_create_subscription(endpoint, fl, parentUuid, stat):
     children = []
     offset = 0
     chunk_size = 50
-    # with reply(endpoint, [readdir_response, getattr_parent_response]) as queue:
     with reply(endpoint, [readdir_response]) as queue:
         children_chunk = fl.readdir(parentUuid, chunk_size, offset)
         _ = queue.get()
@@ -730,115 +729,15 @@ def test_readdir_should_create_subscription(endpoint, fl, parentUuid, stat):
     file_uuid = repl.child_attrs[0].uuid
     attr = fl.getattr(file_uuid)
 
-    #
-    # When server sends FileAttrChanged event for this directory, the file
-    # attributes should be invalidated in the cache, the attr should be
-    # requested from the provider, but no new subscriptions should be created
-    # FileAttrChanged sent with a directory uuid always means that the change
-    # is related to it's children, not to the directory attributes itself
-    #
-    evt = prepare_file_attr_changed_event(parentUuid, fuse_messages_pb2.DIR)
+    evt = prepare_file_attr_changed_event(file_uuid, fuse_messages_pb2.REG, 12345)
     with send(endpoint, [evt]):
         pass
 
-    getattr_response = prepare_attr_response(file_uuid, fuse_messages_pb2.REG, 12345, parentUuid)
-    getattr_parent_response = prepare_attr_response(parentUuid, fuse_messages_pb2.DIR)
+    time.sleep(1)
 
-    time.sleep(2)
-
-    with reply(endpoint, [getattr_response, getattr_parent_response]):
-        attr = fl.getattr(file_uuid)
-
-    assert attr.size == 12345
-
-
-def test_dir_subscription_should_only_invalidate_direct_children(endpoint, fl, parentStat):
-    #
-    # The structure for the test is:
-    # A
-    # |- B
-    # |--|- file
-    # |--|- file
-    # |--|- file
-    # |- file
-    # |- file
-    # |- file
-    #
-    # Invalidating directory A should not invalidate contents of directory B
-    #
-    parentUuidA = 'UUID_DIR_A'
-    parentUuidB = 'UUID_DIR_B'
-
-    #
-    # Prepare directory A response
-    #
-    dir_size = 3
-    repl = prepare_file_children_attr_response(parentUuidA, "afiles-", dir_size)
-    dir_B_attr = prepare_attr_response(parentUuidB, fuse_messages_pb2.DIR)
-    dir_B_attr.fuse_response.file_attr.name = 'B'
-    dir_B_attr.fuse_response.file_attr.parent_uuid = parentUuidA
-    repl.child_attrs.extend([dir_B_attr.fuse_response.file_attr])
-    repl.is_last = True
-
-    readdir_response = messages_pb2.ServerMessage()
-    readdir_response.fuse_response.file_children_attrs.CopyFrom(repl)
-    readdir_response.fuse_response.status.code = common_messages_pb2.Status.ok
-
-    # When adding the first directory entry, the client will make sure that the
-    # parent attributes are also cached
-    getattr_parent_response = prepare_attr_response(parentUuidA, fuse_messages_pb2.DIR)
-
-    children = []
-    offset = 0
-    chunk_size = 50
-    with reply(endpoint, [readdir_response]) as queue:
-    # with reply(endpoint, [readdir_response, getattr_parent_response]) as queue:
-        children_chunk = fl.readdir(parentUuidA, chunk_size, offset)
-        _ = queue.get()
-        assert len(children_chunk) == len(['.', '..']) + dir_size + 1
-
-    afile_uuid = repl.child_attrs[0].uuid
-
-    #
-    # Prepare directory B response
-    #
-    repl = prepare_file_children_attr_response(parentUuidB, "bfiles-", dir_size)
-    repl.is_last = True
-
-    readdir_response = messages_pb2.ServerMessage()
-    readdir_response.fuse_response.file_children_attrs.CopyFrom(repl)
-    readdir_response.fuse_response.status.code = common_messages_pb2.Status.ok
-
-    # When adding the first directory entry, the client will make sure that the
-    # parent attributes are also cached
-    # getattr_parent_response = prepare_attr_response(parentUuidB, fuse_messages_pb2.DIR)
-
-    children = []
-    offset = 0
-    chunk_size = 50
-    # with reply(endpoint, [readdir_response, getattr_parent_response]) as queue:
-    with reply(endpoint, [readdir_response]) as queue:
-        children_chunk = fl.readdir(parentUuidB, chunk_size, offset)
-        _ = queue.get()
-        assert len(children_chunk) == len(['.', '..']) + dir_size
-
-    # Send the FileAttrChanged event for directory A
-    evt = prepare_file_attr_changed_event(parentUuidA, fuse_messages_pb2.DIR)
-    with send(endpoint, [evt]):
-        pass
-
-    # FileAttr for file in B directory should be still in the cache
-    bfile_uuid = repl.child_attrs[0].uuid
-    attr = fl.getattr(bfile_uuid)
-
-    # FileAttr for file in A directory must be now fetched from the Oneprovider
-    getattr_response = prepare_attr_response(afile_uuid, fuse_messages_pb2.REG, 12345, parentUuidA)
-    getattr_parent_response = prepare_attr_response(parentUuidA, fuse_messages_pb2.DIR)
-
-    time.sleep(2)
-
-    with reply(endpoint, [getattr_response, getattr_parent_response]):
-        attr = fl.getattr(afile_uuid)
+    # After the Oneprovider sends FileAttrChanged event, the file should be updated in
+    # the cache
+    attr = fl.getattr(file_uuid)
 
     assert attr.size == 12345
 

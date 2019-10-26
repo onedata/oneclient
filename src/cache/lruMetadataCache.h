@@ -222,7 +222,6 @@ public:
     using MetadataCache::getDefaultBlock;
     using MetadataCache::getSpaceId;
 
-    using MetadataCache::invalidateChildren;
     using MetadataCache::markDeleted;
     using MetadataCache::putAttr;
     using MetadataCache::updateAttr;

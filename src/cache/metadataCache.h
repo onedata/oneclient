@@ -217,12 +217,6 @@ public:
         folly::fbstring newName, folly::fbstring newUuid);
 
     /**
-     * Removes attributes of all direct children of 'parentUuid'
-     * @param parentUuid Uuid of the directory whose children should be removed
-     */
-    void invalidateChildren(folly::fbstring parentUuid);
-
-    /**
      * Sets a callback that will be called after a file is added to the cache.
      * @param cb The callback that takes uuid as parameter.
      */
