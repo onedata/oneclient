@@ -20,7 +20,8 @@ LRUMetadataCache::OpenFileToken::OpenFileToken(
 
 LRUMetadataCache::OpenFileToken::~OpenFileToken()
 {
-    m_cache.release(m_attr->uuid());
+    // OpenFileTokens are only created for files, never directories
+    m_cache.releaseFile(m_attr->uuid());
 }
 
 LRUMetadataCache::LRUMetadataCache(communication::Communicator &communicator,
@@ -41,11 +42,11 @@ void LRUMetadataCache::setReaddirCache(
     MetadataCache::setReaddirCache(readdirCache);
 }
 
-void LRUMetadataCache::pinEntry(const folly::fbstring &uuid)
+void LRUMetadataCache::pinFile(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
-    auto res = m_lruData.emplace(uuid, LRUData{});
+    auto res = m_lruFileData.emplace(uuid, LRUData{});
 
     auto &lruData = res.first->second;
 
@@ -55,10 +56,29 @@ void LRUMetadataCache::pinEntry(const folly::fbstring &uuid)
                << lruData.openCount;
 
     if (lruData.lruIt) {
-        m_lruList.erase(*lruData.lruIt);
+        m_lruFileList.erase(*lruData.lruIt);
         lruData.lruIt.clear();
 
         m_onOpen(uuid);
+    }
+}
+
+void LRUMetadataCache::pinDirectory(const folly::fbstring &uuid)
+{
+    LOG_FCALL() << LOG_FARG(uuid);
+
+    auto res = m_lruDirectoryData.emplace(uuid, LRUData{});
+
+    auto &lruData = res.first->second;
+
+    ++lruData.openCount;
+
+    LOG(ERROR) << "Increased LRU directory children open count of " << uuid
+               << " to " << lruData.openCount;
+
+    if (lruData.lruIt) {
+        m_lruDirectoryList.erase(*lruData.lruIt);
+        lruData.lruIt.clear();
     }
 }
 
@@ -67,18 +87,22 @@ std::shared_ptr<LRUMetadataCache::OpenFileToken> LRUMetadataCache::open(
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
-    pinEntry(uuid);
-
     try {
         auto attr = MetadataCache::getAttr(uuid);
         MetadataCache::ensureAttrAndLocationCached(uuid);
+
+        pinFile(uuid);
+        if (attr->parentUuid())
+            pinDirectory(*attr->parentUuid());
+
         prune();
+
         return std::make_shared<OpenFileToken>(std::move(attr), *this);
     }
     catch (...) {
         LOG(ERROR) << " Removing " << uuid
                    << " from LRU metadata cache due to unexpected error.";
-        release(uuid);
+        releaseFile(uuid);
         throw;
     }
 }
@@ -89,7 +113,9 @@ std::shared_ptr<LRUMetadataCache::OpenFileToken> LRUMetadataCache::open(
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
-    pinEntry(uuid);
+    pinFile(uuid);
+    if (attr->parentUuid())
+        pinDirectory(*attr->parentUuid());
 
     MetadataCache::putAttr(attr);
     MetadataCache::putLocation(std::move(location));
@@ -97,25 +123,60 @@ std::shared_ptr<LRUMetadataCache::OpenFileToken> LRUMetadataCache::open(
     return std::make_shared<OpenFileToken>(std::move(attr), *this);
 }
 
-void LRUMetadataCache::release(const folly::fbstring &uuid)
+void LRUMetadataCache::releaseFile(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
-    auto it = m_lruData.find(uuid);
-    if (it == m_lruData.end())
+    auto it = m_lruFileData.find(uuid);
+    if (it == m_lruFileData.end())
         return;
 
+    // If there are other file handles referring to this file
+    // do nothing
     if (--it->second.openCount > 0)
         return;
 
+    // Call on release handlers
     m_onRelease(uuid);
 
+    // If the file has been marked as deleted before it was closed,
+    // remove it now from the cache, otherwise put it at the end of
+    // lru list and call prune
     if (it->second.deleted) {
-        m_lruData.erase(it);
+        m_lruFileData.erase(it);
         MetadataCache::erase(uuid);
     }
     else {
-        it->second.lruIt = m_lruList.emplace(m_lruList.end(), uuid);
+        it->second.lruIt = m_lruFileList.emplace(m_lruFileList.end(), uuid);
+        prune();
+    }
+}
+
+void LRUMetadataCache::releaseDirectory(const folly::fbstring &uuid)
+{
+    LOG_FCALL() << LOG_FARG(uuid);
+
+    auto it = m_lruDirectoryData.find(uuid);
+    if (it == m_lruDirectoryData.end())
+        return;
+
+    // Directory should never be released unless all its children
+    // have been removed
+    assert(it->second.openCount == 0);
+
+    // Call on release handlers
+    m_onRelease(uuid);
+
+    // If the file has been marked as deleted before it was closed,
+    // remove it now from the cache, otherwise put it at the end of
+    // lru list and call prune
+    if (it->second.deleted) {
+        m_lruDirectoryData.erase(it);
+        MetadataCache::erase(uuid);
+    }
+    else {
+        it->second.lruIt =
+            m_lruDirectoryList.emplace(m_lruDirectoryList.end(), uuid);
         prune();
     }
 }
@@ -125,7 +186,9 @@ FileAttrPtr LRUMetadataCache::getAttr(const folly::fbstring &uuid)
     LOG_FCALL() << LOG_FARG(uuid);
 
     auto attr = MetadataCache::getAttr(uuid);
-    noteActivity(uuid);
+    if (attr->parentUuid())
+        noteDirectoryActivity(*attr->parentUuid());
+
     return attr;
 }
 
@@ -135,7 +198,9 @@ FileAttrPtr LRUMetadataCache::getAttr(
     LOG_FCALL() << LOG_FARG(parentUuid) << LOG_FARG(name);
 
     auto attr = MetadataCache::getAttr(parentUuid, name);
-    noteActivity(attr->uuid());
+    if (attr->parentUuid())
+        noteDirectoryActivity(*attr->parentUuid());
+
     return attr;
 }
 
@@ -144,21 +209,26 @@ void LRUMetadataCache::putAttr(std::shared_ptr<FileAttr> attr)
     LOG_FCALL();
 
     MetadataCache::putAttr(attr);
-    noteActivity(attr->uuid());
 }
 
-void LRUMetadataCache::noteActivity(const folly::fbstring &uuid)
+void LRUMetadataCache::noteDirectoryActivity(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
-    auto res = m_lruData.emplace(uuid, LRUData{});
+    auto res = m_lruDirectoryData.emplace(uuid, LRUData{});
+    auto newEntry = res.second;
 
-    if (res.second) {
-        res.first->second.lruIt = m_lruList.emplace(m_lruList.end(), uuid);
+    if (newEntry) {
+        res.first->second.lruIt =
+            m_lruDirectoryList.emplace(m_lruDirectoryList.end(), uuid);
     }
     else if (res.first->second.lruIt) {
-        m_lruList.splice(m_lruList.end(), m_lruList, *res.first->second.lruIt);
+        // Move the entry to the end of the LRU list
+        m_lruDirectoryList.splice(m_lruDirectoryList.end(), m_lruDirectoryList,
+            *res.first->second.lruIt);
     }
+
+    rest.first->second.touch();
 
     prune();
 }
@@ -167,16 +237,62 @@ void LRUMetadataCache::prune()
 {
     LOG_FCALL();
 
-    if (m_lruData.size() > m_targetSize && !m_lruList.empty()) {
-        LOG_DBG(1) << "Pruning LRU metadata cache front because it exceeds "
-                      "target size ("
-                   << m_lruData.size() << ">" << m_targetSize << ")";
-        auto uuid = std::move(m_lruList.front());
-        m_lruList.pop_front();
-        m_lruData.erase(uuid);
-        MetadataCache::erase(uuid);
-        m_onPrune(uuid);
+    // if (MetadataCache::size() > m_targetSize) {
+    LOG(ERROR) << "MetadataCache size is larger than requested maximum size: "
+               << MetadataCache::size();
+    // Invalidate all directories and their direct children which are
+    // expired and do not contain any opened files
+    while (m_lruDirectoryList.size()) {
+        LOG(ERROR) << "Directory LRU list size is: "
+                   << m_lruDirectoryList.size();
+        auto &uuid = m_lruDirectoryList.front();
+        auto oldestItem = m_lruDirectoryData.find(uuid);
+
+        if (oldestItem == m_lruDirectoryData.end()) {
+            m_lruDirectoryList.pop_front();
+            continue;
+        }
+
+        LOG(ERROR) << "Latest activity in directory " << uuid << " was "
+                   << std::chrono::duration_cast<std::chrono::seconds>(
+                          std::chrono::system_clock::now() -
+                          oldestItem->second.lastUsed)
+                          .count()
+                   << " seconds ago";
+
+        if (oldestItem->second.expired()) {
+            if (oldestItem->second.openCount > 0)
+                continue;
+
+            auto uuid = std::move(m_lruDirectoryList.front());
+            LOG(ERROR) << "Removing directory " << uuid
+                       << " from metadata cache";
+            m_lruDirectoryList.pop_front();
+            m_lruDirectoryData.erase(uuid);
+            MetadataCache::erase(uuid);
+            m_onDropDirectory(uuid);
+
+            // TODO: Update attributes of all opened files from dropped
+            // directory
+            MetadataCache::invalidateChildren(uuid);
+        }
+        else
+            break;
     }
+    //}
+
+    /*
+     *if (m_lruData.size() > m_targetSize && !m_lruList.empty()) {
+     *    LOG_DBG(1) << "Pruning LRU metadata cache front because it exceeds "
+     *                  "target size ("
+     *               << m_lruData.size() << ">" << m_targetSize << ")";
+     *    auto uuid = std::move(m_lruList.front());
+     *    m_lruList.pop_front();
+     *    m_lruData.erase(uuid);
+     *    MetadataCache::erase(uuid);
+     *    m_onPrune(uuid);
+     *}
+     */
 }
 
 bool LRUMetadataCache::rename(folly::fbstring uuid,
@@ -186,7 +302,7 @@ bool LRUMetadataCache::rename(folly::fbstring uuid,
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(newParentUuid)
                 << LOG_FARG(newName) << LOG_FARG(newUuid);
 
-    noteActivity(uuid);
+    noteDirectoryActivity(newParentUuid);
     return MetadataCache::rename(uuid, newParentUuid, newName, newUuid);
 }
 
@@ -194,7 +310,10 @@ void LRUMetadataCache::truncate(folly::fbstring uuid, const std::size_t newSize)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(newSize);
 
-    noteActivity(uuid);
+    auto attr = MetadataCache::getAttr(uuid);
+    if (attr->parentUuid())
+        noteDirectoryActivity(*attr->parentUuid());
+
     MetadataCache::truncate(uuid, newSize);
 }
 
@@ -203,7 +322,10 @@ void LRUMetadataCache::updateTimes(
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
-    noteActivity(uuid);
+    auto attr = MetadataCache::getAttr(uuid);
+    if (attr->parentUuid())
+        noteDirectoryActivity(*attr->parentUuid());
+
     MetadataCache::updateTimes(uuid, updateTimes);
 }
 
@@ -212,7 +334,10 @@ void LRUMetadataCache::changeMode(
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(newMode);
 
-    noteActivity(uuid);
+    auto attr = MetadataCache::getAttr(uuid);
+    if (attr->parentUuid())
+        noteDirectoryActivity(*attr->parentUuid());
+
     MetadataCache::changeMode(uuid, newMode);
 }
 
@@ -220,7 +345,6 @@ void LRUMetadataCache::putLocation(std::unique_ptr<FileLocation> location)
 {
     LOG_FCALL();
 
-    noteActivity(location->uuid());
     MetadataCache::putLocation(std::move(location));
 }
 
@@ -247,17 +371,34 @@ void LRUMetadataCache::handleMarkDeleted(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
-    auto it = m_lruData.find(uuid);
-    if (it == m_lruData.end())
-        return;
+    auto attr = getAttr(uuid);
 
-    it->second.deleted = true;
+    if (attr->type() == FileAttr::FileType::directory) {
+        auto it = m_lruDirectoryData.find(uuid);
+        if (it == m_lruDirectoryData.end())
+            return;
 
-    if (it->second.lruIt) {
-        m_lruList.erase(*it->second.lruIt);
-        m_lruData.erase(it);
-        MetadataCache::erase(uuid);
+        it->second.deleted = true;
+
+        if (it->second.lruIt) {
+            m_lruDirectoryList.erase(*it->second.lruIt);
+            m_lruDirectoryData.erase(it);
+        }
     }
+    else {
+        auto it = m_lruFileData.find(uuid);
+        if (it == m_lruFileData.end())
+            return;
+
+        it->second.deleted = true;
+
+        if (it->second.lruIt) {
+            m_lruFileList.erase(*it->second.lruIt);
+            m_lruFileData.erase(it);
+        }
+    }
+
+    MetadataCache::erase(uuid);
 
     m_onMarkDeleted(uuid);
 }
@@ -267,33 +408,40 @@ void LRUMetadataCache::handleRename(
 {
     LOG_FCALL() << LOG_FARG(oldUuid) << LOG_FARG(newUuid);
 
-    auto it = m_lruData.find(oldUuid);
-    if (it == m_lruData.end())
-        return;
-
-    auto lruData = std::move(it->second);
-    m_lruData.erase(it);
-
-    auto res = m_lruData.emplace(newUuid, LRUData{});
-    if (res.second) {
-        res.first->second = std::move(lruData);
-        if (res.first->second.lruIt) {
-            auto oldIt = *(res.first->second.lruIt);
-            res.first->second.lruIt = m_lruList.emplace(oldIt, newUuid);
-            m_lruList.erase(oldIt);
-        }
+    auto attr = getAttr(oldUuid);
+    if (attr->type() == FileAttr::FileType::directory) {
+        LOG(ERROR) << "RENAMING DIRECTORY FROM " << oldUuid << " TO "
+                   << newUuid;
     }
     else {
-        LOG(WARNING) << "Target UUID '" << newUuid
-                     << "' of rename is already used; merging metadata "
-                        "usage records.";
+        auto it = m_lruFileData.find(oldUuid);
+        if (it == m_lruFileData.end())
+            return;
 
-        auto &oldRecord = res.first->second;
-        oldRecord.openCount += lruData.openCount;
-        oldRecord.deleted = oldRecord.deleted || lruData.deleted;
+        auto lruData = std::move(it->second);
+        m_lruFileData.erase(it);
 
-        if (lruData.lruIt)
-            m_lruList.erase(*lruData.lruIt);
+        auto res = m_lruFileData.emplace(newUuid, LRUData{});
+        if (res.second) {
+            res.first->second = std::move(lruData);
+            if (res.first->second.lruIt) {
+                auto oldIt = *(res.first->second.lruIt);
+                res.first->second.lruIt = m_lruFileList.emplace(oldIt, newUuid);
+                m_lruFileList.erase(oldIt);
+            }
+        }
+        else {
+            LOG(WARNING) << "Target UUID '" << newUuid
+                         << "' of rename is already used; merging metadata "
+                            "usage records.";
+
+            auto &oldRecord = res.first->second;
+            oldRecord.openCount += lruData.openCount;
+            oldRecord.deleted = oldRecord.deleted || lruData.deleted;
+
+            if (lruData.lruIt)
+                m_lruFileList.erase(*lruData.lruIt);
+        }
     }
 
     m_onRename(oldUuid, newUuid);

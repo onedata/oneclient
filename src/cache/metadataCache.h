@@ -57,6 +57,8 @@ public:
      */
     void setReaddirCache(std::shared_ptr<ReaddirCache> readdirCache);
 
+    void invalidateChildren(const folly::fbstring &uuid);
+
     /**
      * Retrieves file attributes by uuid.
      * @param uuid Uuid of the file.
@@ -246,6 +248,11 @@ public:
     }
 
     folly::fbstring uuidToSpaceId(const folly::fbstring &uuid) const;
+
+    /**
+     * Returns the current size of the metadata cache size
+     */
+    std::size_t size() const { return m_cache.size(); }
 
 private:
     struct Metadata {

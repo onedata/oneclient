@@ -142,9 +142,19 @@ public:
      * cache.
      * @param cb The callback which takes uuid as parameter.
      */
-    void onPrune(std::function<void(const folly::fbstring &)> cb)
+    void onDropFile(std::function<void(const folly::fbstring &)> cb)
     {
-        m_onPrune = std::move(cb);
+        m_onDropFile = std::move(cb);
+    }
+
+    /**
+     * Sets a callback that will be called after a directory is pruned from the
+     * cache.
+     * @param cb The callback which takes uuid as parameter.
+     */
+    void onDropDirectory(std::function<void(const folly::fbstring &)> cb)
+    {
+        m_onDropDirectory = std::move(cb);
     }
 
     /**
@@ -224,22 +234,75 @@ public:
 
     using MetadataCache::markDeleted;
     using MetadataCache::putAttr;
+    using MetadataCache::size;
     using MetadataCache::updateAttr;
 
 private:
+    /**
+     * This structure contains information about currently opened files along
+     * with their open count or directories for which file attributes have been
+     * accessed recently.
+     */
     struct LRUData {
-        std::size_t openCount = 0;
-        bool deleted = false;
+        LRUData()
+            : lastUsed{std::chrono::system_clock::now()}
+            , openCount{0}
+            , deleted{false}
+        {
+        }
+
+        // When was the file or directory last used
+        std::chrono::system_clock::time_point lastUsed;
+
+        // Number of open file descriptors for given file, in case the entry is
+        // directory, the openCount is a sum of all files opened in this
+        // directory This is used to decide whether a directory subscription can
+        // be cancelled
+        std::size_t openCount;
+
+        // True when file has been marked as deleted, but is still opened
+        bool deleted;
+
+        // Iterator to current position in the lru list, to optimize search for
+        // uuid in the LRU list
         folly::Optional<std::list<folly::fbstring>::iterator> lruIt;
+
+        void touch() { lastUsed = std::chrono::system_clock::now(); }
+
+        bool expired()
+        {
+            using namespace std::literals::chrono_literals;
+            return (std::chrono::system_clock::now() - lastUsed) > 30s;
+        }
     };
 
-    void pinEntry(const folly::fbstring &uuid);
+    /**
+     * Mark file as opened, and add it to the m_lruList. In case the file
+     * is opened, increase the open count.
+     * @param uuid UUID of the opened file.
+     * @param parentUuid UUID of the parent of the opened file.
+     */
+    void pinFile(const folly::fbstring &uuid);
+    void pinDirectory(const folly::fbstring &uuid);
 
-    void noteActivity(const folly::fbstring &uuid);
+    /**
+     * Update the LRU directory list to reflect an activity in a directory
+     * `uuid`
+     * @parma uuid UUID of the directory where some activity occured
+     */
+    void noteDirectoryActivity(const folly::fbstring &uuid);
 
-    void release(const folly::fbstring &uuid);
+    /**
+     * Release a file from cache, when a file descriptor for this file
+     * has been closed.
+     * @param uuid UUID of the closed file
+     */
+    void releaseFile(const folly::fbstring &uuid);
+    void releaseDirectory(const folly::fbstring &uuid);
 
     void prune();
+
+    void onPrune();
 
     void handleMarkDeleted(const folly::fbstring &uuid);
 
@@ -248,12 +311,16 @@ private:
 
     const std::size_t m_targetSize;
 
-    std::list<folly::fbstring> m_lruList;
-    std::unordered_map<folly::fbstring, LRUData> m_lruData;
+    std::list<folly::fbstring> m_lruFileList;
+    std::unordered_map<folly::fbstring, LRUData> m_lruFileData;
+    std::list<folly::fbstring> m_lruDirectoryList;
+    std::unordered_map<folly::fbstring, LRUData> m_lruDirectoryData;
 
     std::function<void(const folly::fbstring &)> m_onOpen = [](auto &) {};
     std::function<void(const folly::fbstring &)> m_onRelease = [](auto &) {};
-    std::function<void(const folly::fbstring &)> m_onPrune = [](auto &) {};
+    std::function<void(const folly::fbstring &)> m_onDropFile = [](auto &) {};
+    std::function<void(const folly::fbstring &)> m_onDropDirectory =
+        [](auto &) {};
     std::function<void(const folly::fbstring &)> m_onMarkDeleted = [](auto) {};
     std::function<void(const folly::fbstring &, const folly::fbstring &)>
         m_onRename = [](auto, auto) {};

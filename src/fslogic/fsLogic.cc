@@ -50,7 +50,6 @@
 #include "monitoring/monitoring.h"
 #include "util/cdmi.h"
 #include "util/xattrHelper.h"
-//#include "webDAVHelper.h"
 
 #include <boost/icl/interval_set.hpp>
 #include <folly/Demangle.h>
@@ -162,12 +161,15 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     // Quota initial configuration
     m_eventManager.subscribe(
         events::QuotaExceededSubscription{[=](auto events) {
-            m_runInFiber([ this, events = std::move(events) ] {
+            m_runInFiber([this, events = std::move(events)] {
                 this->disableSpaces(events.back()->spaces());
             });
         }});
     disableSpaces(configuration->disabledSpaces());
 
+    //
+    // Registration of force proxy IO cache callbacks
+    //
     m_forceProxyIOCache.onAdd([this](const folly::fbstring &uuid) {
         m_fsSubscriptions.subscribeFilePermChanged(uuid);
     });
@@ -176,43 +178,67 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
         m_fsSubscriptions.unsubscribeFilePermChanged(uuid);
     });
 
+    //
+    // Registration of medatacache events callbacks
+    //
+    // Called when file attributes are added to the metadata cache
     m_metadataCache.onAdd([this](const folly::fbstring &uuid) {
+        LOG(ERROR) << "Creating metadata subscription for " << uuid;
         m_fsSubscriptions.subscribeFileAttrChanged(uuid);
         m_fsSubscriptions.subscribeFileRemoved(uuid);
         m_fsSubscriptions.subscribeFileRenamed(uuid);
     });
 
+    // Called when file is opened
     m_metadataCache.onOpen([this](const folly::fbstring &uuid) {
+        LOG(ERROR) << "Creating open file subscriptions for " << uuid;
         m_fsSubscriptions.subscribeFileAttrChanged(uuid);
         m_fsSubscriptions.subscribeFileLocationChanged(uuid);
+        m_fsSubscriptions.subscribeFileRemoved(uuid);
+        m_fsSubscriptions.subscribeFileRenamed(uuid);
     });
 
+    // Called when file is closed
     m_metadataCache.onRelease([this](const folly::fbstring &uuid) {
+        LOG(ERROR) << "Closing open file subscriptions for " << uuid;
         m_fsSubscriptions.unsubscribeFileLocationChanged(uuid);
     });
 
-    m_metadataCache.onPrune([this](const folly::fbstring &uuid) {
+    // Called when file attributes are dropped from metadata cache
+    m_metadataCache.onDropFile([this](const folly::fbstring &uuid) {
+        LOG(ERROR) << "Closing subscription for file " << uuid;
         m_fsSubscriptions.unsubscribeFileAttrChanged(uuid);
         m_fsSubscriptions.unsubscribeFileLocationChanged(uuid);
         m_fsSubscriptions.unsubscribeFileRemoved(uuid);
         m_fsSubscriptions.unsubscribeFileRenamed(uuid);
     });
 
+    // Called when directory attributes are dropped from metadata cache
+    m_metadataCache.onDropDirectory([this](const folly::fbstring &uuid) {
+        LOG(ERROR) << "Closing subscription for directory " << uuid;
+        m_fsSubscriptions.unsubscribeFileAttrChanged(uuid);
+        m_fsSubscriptions.unsubscribeFileRemoved(uuid);
+        m_fsSubscriptions.unsubscribeFileRenamed(uuid);
+    });
+
+    // Called when file is renamed
     m_metadataCache.onRename(
         [this](const folly::fbstring &oldUuid, const folly::fbstring &newUuid) {
-            m_fsSubscriptions.unsubscribeFileAttrChanged(oldUuid);
-            m_fsSubscriptions.unsubscribeFileRemoved(oldUuid);
-            m_fsSubscriptions.unsubscribeFileRenamed(oldUuid);
-            m_fsSubscriptions.subscribeFileAttrChanged(newUuid);
-            m_fsSubscriptions.subscribeFileRemoved(newUuid);
-            m_fsSubscriptions.subscribeFileRenamed(newUuid);
+            if (oldUuid != newUuid) {
+                m_fsSubscriptions.unsubscribeFileAttrChanged(oldUuid);
+                m_fsSubscriptions.unsubscribeFileRemoved(oldUuid);
+                m_fsSubscriptions.unsubscribeFileRenamed(oldUuid);
+                m_fsSubscriptions.subscribeFileAttrChanged(newUuid);
+                m_fsSubscriptions.subscribeFileRemoved(newUuid);
+                m_fsSubscriptions.subscribeFileRenamed(newUuid);
 
-            if (m_fsSubscriptions.unsubscribeFileLocationChanged(oldUuid))
-                m_fsSubscriptions.subscribeFileLocationChanged(newUuid);
-
+                if (m_fsSubscriptions.unsubscribeFileLocationChanged(oldUuid))
+                    m_fsSubscriptions.subscribeFileLocationChanged(newUuid);
+            }
             m_onRename(oldUuid, newUuid);
         });
 
+    // Called when file is removed
     m_metadataCache.onMarkDeleted(
         [this](const folly::fbstring &uuid) { m_onMarkDeleted(uuid); });
 
@@ -895,18 +921,17 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
             // uuid, spaceId, fileBlock.storageId(), fileBlock.fileId());
             folly::fibers::await(
                 [&](folly::fibers::Promise<folly::Unit> promise) {
-                    promise.setWith([
-                        this, storageId = fileBlock.storageId(),
-                        spaceId = m_metadataCache.getSpaceId(uuid),
-                        fuseFileHandle, uuid
-                    ]() {
-                        // Invalidate the read cache so that it forgets
-                        // the ekeyexpired exception
-                        return m_helpersCache
-                            ->refreshHelperParameters(storageId, spaceId)
-                            .within(m_providerTimeout)
-                            .get();
-                    });
+                    promise.setWith(
+                        [this, storageId = fileBlock.storageId(),
+                            spaceId = m_metadataCache.getSpaceId(uuid),
+                            fuseFileHandle, uuid]() {
+                            // Invalidate the read cache so that it forgets
+                            // the ekeyexpired exception
+                            return m_helpersCache
+                                ->refreshHelperParameters(storageId, spaceId)
+                                .within(m_providerTimeout)
+                                .get();
+                        });
                 });
 
             return write(uuid, fuseFileHandleId, offset, std::move(buf),
@@ -1419,10 +1444,8 @@ SrvMsg FsLogic::communicate(CliMsg &&msg, const std::chrono::seconds timeout)
     return m_context->communicator()
         ->communicate<SrvMsg>(std::forward<CliMsg>(msg))
         .onTimeout(timeout,
-            [
-                messageString = std::move(messageString),
-                timeout = timeout.count()
-            ]() {
+            [messageString = std::move(messageString),
+                timeout = timeout.count()]() {
                 LOG(ERROR) << "Response to message : " << messageString
                            << " not received within " << timeout << " seconds.";
                 return folly::makeFuture<SrvMsg>(std::system_error{
@@ -1488,21 +1511,20 @@ folly::fbstring FsLogic::computeHash(const folly::IOBufQueue &buf)
     // TODO: move this to CPU-bound threadpool
     return folly::fibers::await(
         [&](folly::fibers::Promise<folly::fbstring> promise) {
-            m_context->scheduler()->post(
-                [&, promise = std::move(promise) ]() mutable {
-                    folly::fbstring hash(MD4_DIGEST_LENGTH, '\0');
-                    MD4_CTX ctx;
-                    MD4_Init(&ctx);
+            m_context->scheduler()->post([&,
+                                             promise =
+                                                 std::move(promise)]() mutable {
+                folly::fbstring hash(MD4_DIGEST_LENGTH, '\0');
+                MD4_CTX ctx;
+                MD4_Init(&ctx);
 
-                    if (!buf.empty())
-                        for (auto &byteRange : *buf.front())
-                            MD4_Update(
-                                &ctx, byteRange.data(), byteRange.size());
+                if (!buf.empty())
+                    for (auto &byteRange : *buf.front())
+                        MD4_Update(&ctx, byteRange.data(), byteRange.size());
 
-                    MD4_Final(
-                        reinterpret_cast<unsigned char *>(&hash[0]), &ctx);
-                    promise.setValue(std::move(hash));
-                });
+                MD4_Final(reinterpret_cast<unsigned char *>(&hash[0]), &ctx);
+                promise.setValue(std::move(hash));
+            });
         });
 }
 

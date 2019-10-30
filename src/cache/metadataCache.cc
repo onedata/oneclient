@@ -45,6 +45,19 @@ void MetadataCache::setReaddirCache(std::shared_ptr<ReaddirCache> readdirCache)
     m_readdirCache = readdirCache;
 }
 
+void MetadataCache::invalidateChildren(const folly::fbstring &uuid) {
+    LOG(ERROR) << "REMOVING CHILDREN OF " <<  uuid;
+    auto &index = bmi::get<ByParent>(m_cache);
+    auto irange = boost::make_iterator_range(index.equal_range(uuid));
+    /*
+     *for(auto it = irange.begin(); it != irange.end(); it++) {
+     *    LOG(ERROR) << "REMOVING CHILD: " << it->attr->name();
+     *    index.erase(it);
+     *}
+     */
+    index.erase(irange.begin(), irange.end());
+}
+
 FileAttrPtr MetadataCache::getAttr(const folly::fbstring &uuid)
 {
     return getAttrIt(uuid)->attr;
@@ -88,7 +101,9 @@ bool MetadataCache::putAttr(std::shared_ptr<FileAttr> attr)
     LOG_FCALL() << LOG_FARG(attr->toString());
 
     auto result = m_cache.emplace(attr);
-    if (!result.second) {
+    auto newEntry = result.second;
+
+    if (!newEntry) {
         LOG_DBG(2) << "Attribute for " << attr->uuid()
                    << " already existed in the cache - updating...";
         m_cache.modify(result.first, [attr](Metadata &m) { m.attr = attr; });
@@ -399,7 +414,8 @@ void MetadataCache::markDeletedIt(const Map::iterator &it)
     auto parentUuid = it->attr->parentUuid();
 
     m_cache.modify(it, [&](Metadata &m) {
-        m.attr->setParentUuid("");
+        // Why was this here?
+        //m.attr->setParentUuid("");
         m.deleted = true;
     });
 
