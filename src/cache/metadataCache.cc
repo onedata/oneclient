@@ -45,17 +45,35 @@ void MetadataCache::setReaddirCache(std::shared_ptr<ReaddirCache> readdirCache)
     m_readdirCache = readdirCache;
 }
 
-void MetadataCache::invalidateChildren(const folly::fbstring &uuid) {
-    LOG(ERROR) << "REMOVING CHILDREN OF " <<  uuid;
+void MetadataCache::invalidateChildren(const folly::fbstring &uuid)
+{
+    LOG(ERROR) << "REMOVING CHILDREN OF " << uuid;
     auto &index = bmi::get<ByParent>(m_cache);
     auto irange = boost::make_iterator_range(index.equal_range(uuid));
-    /*
-     *for(auto it = irange.begin(); it != irange.end(); it++) {
-     *    LOG(ERROR) << "REMOVING CHILD: " << it->attr->name();
-     *    index.erase(it);
-     *}
-     */
     index.erase(irange.begin(), irange.end());
+}
+
+folly::fbvector<folly::fbstring> MetadataCache::readdir(
+    const folly::fbstring &uuid, off_t off, std::size_t chunkSize)
+{
+    folly::fbvector<folly::fbstring> result;
+    auto &index = bmi::get<ByParent>(m_cache);
+    auto irange = boost::make_iterator_range(index.equal_range(uuid));
+
+    // Advance the iterator to off safely
+    off_t offCount = 0;
+    auto it = irange.begin();
+    for (; (offCount < off) && (it != irange.end()); it++, offCount++) {
+    }
+    if (offCount < off)
+        return result;
+
+    size_t count = 0;
+    for (count = 0; (it != irange.end()) && (count < chunkSize); it++, count++) {
+        result.emplace_back(it->attr->name());
+    }
+
+    return result;
 }
 
 FileAttrPtr MetadataCache::getAttr(const folly::fbstring &uuid)
@@ -415,7 +433,7 @@ void MetadataCache::markDeletedIt(const Map::iterator &it)
 
     m_cache.modify(it, [&](Metadata &m) {
         // Why was this here?
-        //m.attr->setParentUuid("");
+        // m.attr->setParentUuid("");
         m.deleted = true;
     });
 

@@ -59,6 +59,8 @@ public:
 
     void invalidateChildren(const folly::fbstring &uuid);
 
+    folly::fbvector<folly::fbstring> readdir(
+        const folly::fbstring &uuid, off_t off, std::size_t chunkSize);
     /**
      * Retrieves file attributes by uuid.
      * @param uuid Uuid of the file.

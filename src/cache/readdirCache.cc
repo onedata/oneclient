@@ -140,9 +140,7 @@ void ReaddirCache::fetch(const folly::fbstring &uuid)
         folly::SharedPromise<std::shared_ptr<DirCacheEntry>>>();
     m_cache.emplace(uuid, p);
 
-    m_context.lock()->scheduler()->post([
-        this, uuid = uuid, p = std::move(p)
-    ] {
+    m_context.lock()->scheduler()->post([this, uuid = uuid, p = std::move(p)] {
         p->setWith([=] {
             auto cacheEntry =
                 std::make_shared<DirCacheEntry>(m_cacheValidityPeriod);
@@ -177,7 +175,7 @@ void ReaddirCache::fetch(const folly::fbstring &uuid)
                     if (uuid == m_rootUuid && !isSpaceWhitelisted(it->name()))
                         continue;
 
-                    m_runInFiber([ this, attr = *it ] {
+                    m_runInFiber([this, attr = *it] {
                         if (!m_metadataCache.updateAttr(attr)) {
                             m_metadataCache.putAttr(
                                 std::make_shared<FileAttr>(attr));
@@ -193,9 +191,11 @@ void ReaddirCache::fetch(const folly::fbstring &uuid)
             cacheEntry->touch();
             cacheEntry->markCreated();
 
-            m_context.lock()->scheduler()->schedule(4 * m_cacheValidityPeriod, [
-                uuid = uuid, cacheEntry = cacheEntry, self = shared_from_this()
-            ]() { self->purgeWorker(uuid, cacheEntry); });
+            m_context.lock()->scheduler()->schedule(4 * m_cacheValidityPeriod,
+                [uuid = uuid, cacheEntry = cacheEntry,
+                    self = shared_from_this()]() {
+                    self->purgeWorker(uuid, cacheEntry);
+                });
 
             return cacheEntry;
         });
@@ -216,10 +216,11 @@ void ReaddirCache::purgeWorker(
         LOG_DBG(2) << "Readdir cache entry " << uuid
                    << " still valid - scheduling next purge";
 
-        m_context.lock()->scheduler()->schedule(2 * m_cacheValidityPeriod, [
-            uuid = std::move(uuid), entry = std::move(entry),
-            self = shared_from_this()
-        ]() { self->purgeWorker(uuid, entry); });
+        m_context.lock()->scheduler()->schedule(2 * m_cacheValidityPeriod,
+            [uuid = std::move(uuid), entry = std::move(entry),
+                self = shared_from_this()]() {
+                self->purgeWorker(uuid, entry);
+            });
     }
 }
 
@@ -236,6 +237,13 @@ folly::fbvector<folly::fbstring> ReaddirCache::readdir(
     // be propagated upwards
     {
         std::lock_guard<std::mutex> lock(m_cacheMutex);
+
+        // Check if the directory is already in the metadata cache, if yes, just
+        // return the result
+        auto cachedDir = m_metadataCache.readdir(uuid, off, chunkSize);
+
+        if((cachedDir.size() > 0) || (cachedDir.size() == 0 && off > 0))
+            return cachedDir;
 
         auto uuidIt = m_cache.find(uuid);
 

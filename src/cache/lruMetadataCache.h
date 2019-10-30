@@ -236,6 +236,7 @@ public:
     using MetadataCache::putAttr;
     using MetadataCache::size;
     using MetadataCache::updateAttr;
+    using MetadataCache::readdir;
 
 private:
     /**

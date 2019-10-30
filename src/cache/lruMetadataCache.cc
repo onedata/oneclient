@@ -228,7 +228,7 @@ void LRUMetadataCache::noteDirectoryActivity(const folly::fbstring &uuid)
             *res.first->second.lruIt);
     }
 
-    rest.first->second.touch();
+    res.first->second.touch();
 
     prune();
 }
