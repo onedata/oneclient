@@ -132,6 +132,7 @@ if(WITH_CEPH)
     find_library(CEPHCOMMON_LIBRARY "ceph-common" NAMES "ceph-common" "libceph-common.so.0" PATH_SUFFIXES "ceph")
     find_library(RADOS_LIBRARY rados)
     find_library(RADOSSTRIPER_LIBRARY radosstriper)
+    get_filename_component(CEPHCOMMON_RPATH "${CEPHCOMMON_LIBRARY}" DIRECTORY)
 endif(WITH_CEPH)
 
 # AWS SDK library
@@ -241,6 +242,7 @@ add_definitions(
 
 if(WITH_CEPH)
     add_definitions(-DWITH_CEPH=1)
+    list(APPEND CUSTOM_RPATH "${CEPHCOMMON_RPATH}")
 else(WITH_CEPH)
     add_definitions(-DWITH_CEPH=0)
 endif(WITH_CEPH)
@@ -363,6 +365,10 @@ if(WITH_ONEDATAFS)
     set_target_properties(onedatafs.py2 PROPERTIES LINK_FLAGS ${PYTHON2_LDFLAGS})
     set_target_properties(onedatafs.py2 PROPERTIES VERSION ${GIT_VERSION}
       SOVERSION ${GIT_VERSION})
+    set_target_properties(onedatafs.py2 PROPERTIES
+      BUILD_WITH_INSTALL_RPATH true
+      INSTALL_RPATH_USE_LINK_PATH true
+      INSTALL_RPATH "${CUSTOM_RPATH}")
   endif(PYTHON2_FOUND)
 
   if(PYTHON3_FOUND)
@@ -374,6 +380,10 @@ if(WITH_ONEDATAFS)
     set_target_properties(onedatafs.py3 PROPERTIES LINK_FLAGS ${PYTHON3_LDFLAGS})
     set_target_properties(onedatafs.py3 PROPERTIES VERSION ${GIT_VERSION}
       SOVERSION ${GIT_VERSION})
+    set_target_properties(onedatafs.py3 PROPERTIES
+      BUILD_WITH_INSTALL_RPATH true
+      INSTALL_RPATH_USE_LINK_PATH true
+      INSTALL_RPATH "${CUSTOM_RPATH}")
   endif(PYTHON3_FOUND)
 endif(WITH_ONEDATAFS)
 
