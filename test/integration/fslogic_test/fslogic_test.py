@@ -35,7 +35,15 @@ def endpoint(appmock_client):
 
 @pytest.fixture
 def fl(endpoint):
-    return fslogic.FsLogicProxy(endpoint.ip, endpoint.port)
+    return fslogic.FsLogicProxy(endpoint.ip, endpoint.port, 10000, 5*60)
+
+
+@pytest.fixture
+def fl_dircache(endpoint):
+    return fslogic.FsLogicProxy(endpoint.ip, endpoint.port,
+            25, # Max metadata cache size
+            3   # Directory cache expires after 3 seconds
+            )
 
 
 @pytest.fixture
@@ -370,10 +378,6 @@ def test_getattrs_should_cache_attrs(endpoint, fl, uuid, parentUuid):
 
     assert stat == new_stat
 
-    # There should be 4 outstanding messages sent to the Oneprovider
-    # representing the 4 subscriptions created on the 'parentUuid'
-    assert 3 == endpoint.all_messages_count()
-
 
 def test_mkdir_should_mkdir(endpoint, fl):
     getattr_response = prepare_attr_response('parentUuid', fuse_messages_pb2.DIR)
@@ -396,6 +400,41 @@ def test_mkdir_should_mkdir(endpoint, fl):
     assert create_dir.mode == 0123
     assert file_request.context_guid == \
            getattr_response.fuse_response.file_attr.uuid
+
+
+def test_mkdir_should_recreate_dir(endpoint, fl):
+    getattr_response = prepare_attr_response('parentUuid', fuse_messages_pb2.DIR)
+
+    def mkdir():
+        response = messages_pb2.ServerMessage()
+        response.fuse_response.status.code = common_messages_pb2.Status.ok
+
+        with reply(endpoint, [response, getattr_response]) as queue:
+            fl.mkdir('parentUuid', 'name', 0123)
+            client_message = queue.get()
+
+        assert client_message.HasField('fuse_request')
+        assert client_message.fuse_request.HasField('file_request')
+
+        file_request = client_message.fuse_request.file_request
+        assert file_request.context_guid == 'parentUuid'
+
+        assert file_request.HasField('create_dir')
+        create_dir = file_request.create_dir
+        assert create_dir.name == 'name'
+        assert create_dir.mode == 0123
+        assert file_request.context_guid == \
+            getattr_response.fuse_response.file_attr.uuid
+
+    mkdir()
+
+    response_ok = messages_pb2.ServerMessage()
+    response_ok.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    with reply(endpoint, [getattr_response, response_ok]) as queue:
+        fl.unlink('parentUuid', 'name')
+
+    mkdir()
 
 
 def test_mkdir_should_pass_mkdir_errors(endpoint, fl):
@@ -441,7 +480,31 @@ def test_rmdir_should_pass_rmdir_errors(endpoint, fl, uuid):
     assert 'Operation not permitted' in str(excinfo.value)
 
 
-def test_rename_should_rename(endpoint, fl, uuid):
+def test_rename_should_rename_file(endpoint, fl, uuid):
+    getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.REG, 1024, 'parentUuid')
+    getattr_parent_response = prepare_attr_response('parentUuid', fuse_messages_pb2.DIR)
+    rename_response = prepare_rename_response('newUuid')
+
+    with reply(endpoint, [getattr_response, getattr_parent_response, rename_response]) as queue:
+        fl.rename('parentUuid', 'name', 'newParentUuid', 'newName')
+        queue.get()
+        queue.get()
+        client_message = queue.get()
+
+    assert client_message.HasField('fuse_request')
+    assert client_message.fuse_request.HasField('file_request')
+
+    file_request = client_message.fuse_request.file_request
+    assert file_request.HasField('rename')
+
+    rename = file_request.rename
+    assert rename.target_parent_uuid == 'newParentUuid'
+    assert rename.target_name == 'newName'
+    assert file_request.context_guid == \
+           getattr_response.fuse_response.file_attr.uuid
+
+
+def test_rename_should_rename_directory(endpoint, fl, uuid):
     getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.DIR)
     rename_response = prepare_rename_response('newUuid')
 
@@ -498,11 +561,13 @@ def test_rename_should_pass_rename_errors(endpoint, fl, uuid):
 
 
 def test_chmod_should_change_mode(endpoint, fl, uuid):
-    getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.DIR)
-    response = messages_pb2.ServerMessage()
-    response.fuse_response.status.code = common_messages_pb2.Status.ok
+    getattr_parent_response = prepare_attr_response('parentUuid', fuse_messages_pb2.DIR)
+    getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.REG, 1024, 'parentUuid')
+    ok_response = messages_pb2.ServerMessage()
+    ok_response.fuse_response.status.code = common_messages_pb2.Status.ok
 
-    with reply(endpoint, [response, response, getattr_response]) as queue:
+    with reply(endpoint,
+            [ok_response, getattr_parent_response, ok_response, getattr_response]) as queue:
         fl.chmod(uuid, 0123)
         client_message = queue.get()
 
@@ -667,8 +732,10 @@ def test_readdir_should_read_dir(endpoint, fl, uuid, stat):
         _ = queue.get()
         assert len(children_chunk) == 12
 
+    time.sleep(2)
+
     #
-    # Immediately after the last request the value should be available
+    # After the last request the value should be available
     # from readdir cache, without any communication with provider
     #
     for i in range(3):
@@ -677,29 +744,8 @@ def test_readdir_should_read_dir(endpoint, fl, uuid, stat):
             assert len(children_chunk) == 5
         time.sleep(1)
 
-    #
-    # After time validity has passed, the cache should be empty again
-    #
-    time.sleep(3)
 
-    repl4 = fuse_messages_pb2.FileChildrenAttrs()
-    repl4.child_attrs.extend([])
-
-    response4 = messages_pb2.ServerMessage()
-    response4.fuse_response.file_children_attrs.CopyFrom(repl4)
-    response4.fuse_response.status.code = common_messages_pb2.Status.ok
-
-    children = []
-    with reply(endpoint, [response4]) as queue:
-        children_chunk = fl.readdir(uuid, 5, 0)
-        _ = queue.get()
-        assert len(children_chunk) == 2
-        children += children_chunk
-
-    assert sorted(children) == sorted(['..', '.'])
-
-
-def test_readdir_should_create_subscription(endpoint, fl, parentUuid, stat):
+def test_readdir_should_handle_fileattrchanged_event(endpoint, fl, parentUuid, stat):
     #
     # Prepare first response with 3 files
     #
@@ -822,6 +868,132 @@ def test_readdir_should_not_get_stuck_on_errors(endpoint, fl, uuid, stat):
         children_chunk = fl.readdir(uuid, chunk_size, offset)
         _ = queue.get()
         assert len(children_chunk) == 12
+
+
+def test_metadatacache_should_drop_expired_directories(endpoint, fl_dircache):
+    #
+    # Prepare readdir response with 10 files
+    #
+    repl1 = prepare_file_children_attr_response('parentUuid', "afiles-", 10)
+    repl1.is_last = True
+
+    response1 = messages_pb2.ServerMessage()
+    response1.fuse_response.file_children_attrs.CopyFrom(repl1)
+    response1.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    children = []
+    offset = 0
+    chunk_size = 50
+    with reply(endpoint, [response1]) as queue:
+        children_chunk = fl_dircache.readdir('parentUuid', chunk_size, offset)
+        _ = queue.get()
+        children.extend(children_chunk)
+
+    assert len(children) == 10+2
+
+    time.sleep(1)
+
+    assert fl_dircache.metadata_cache_size() == 10
+
+    # Wait past directory cache expiry which is 3 seconds
+    time.sleep(5)
+
+    assert fl_dircache.metadata_cache_size() == 0
+
+
+def test_metadatacache_should_prune_when_size_exceeded(endpoint, fl_dircache):
+    #
+    # Prepare readdir response with 20 files
+    #
+    repl1 = prepare_file_children_attr_response('parentUuid', "afiles-", 20)
+    repl1.is_last = True
+
+    response1 = messages_pb2.ServerMessage()
+    response1.fuse_response.file_children_attrs.CopyFrom(repl1)
+    response1.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    children = []
+    offset = 0
+    chunk_size = 50
+    with reply(endpoint, [response1]) as queue:
+        children_chunk = fl_dircache.readdir('parentUuid', chunk_size, offset)
+        _ = queue.get()
+        children.extend(children_chunk)
+
+    assert len(children) == 20+2
+
+    time.sleep(1)
+
+    assert fl_dircache.metadata_cache_size() == 20
+
+    repl2 = prepare_file_children_attr_response('parentUuid2', "bfiles-", 10)
+    repl2.is_last = True
+
+    response2 = messages_pb2.ServerMessage()
+    response2.fuse_response.file_children_attrs.CopyFrom(repl2)
+    response2.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    children = []
+    offset = 0
+    chunk_size = 50
+    with reply(endpoint, [response2]) as queue:
+        children_chunk = fl_dircache.readdir('parentUuid2', chunk_size, offset)
+        _ = queue.get()
+        children.extend(children_chunk)
+
+    assert len(children) == 10+2
+
+    time.sleep(1)
+    fl_dircache.getattr(repl2.child_attrs[0].uuid)
+
+    assert fl_dircache.metadata_cache_size() == 10
+
+
+def test_metadatacache_should_drop_removed_files(endpoint, fl_dircache):
+    #
+    # Prepare readdir response with 5 files
+    #
+    repl1 = prepare_file_children_attr_response('parentUuid', "afiles-", 5)
+    repl1.is_last = True
+
+    response1 = messages_pb2.ServerMessage()
+    response1.fuse_response.file_children_attrs.CopyFrom(repl1)
+    response1.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    children = []
+    offset = 0
+    chunk_size = 50
+    with reply(endpoint, [response1]) as queue:
+        children_chunk = fl_dircache.readdir('parentUuid', chunk_size, offset)
+        _ = queue.get()
+        children.extend(children_chunk)
+
+    assert len(children) == 5+2
+
+    time.sleep(1)
+    assert fl_dircache.metadata_cache_size() == 5
+
+    response_ok = messages_pb2.ServerMessage()
+    response_ok.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    # Remove one of the files from directory
+    with reply(endpoint, [response_ok]) as queue:
+        fl_dircache.unlink('parentUuid', 'afiles-0')
+
+    time.sleep(1)
+    assert fl_dircache.metadata_cache_size() == 4
+
+# def test_metadatacache_should_drop_renamed_files():
+
+    # # TODO
+
+# def test_metadatacache_should_drop_renamed_directories():
+
+    # # TODO
+
+# def test_metadatacache_should_drop_removed_directories():
+
+    # # TODO
 
 
 def test_mknod_should_make_new_location(endpoint, fl, uuid, parentUuid, parentStat):

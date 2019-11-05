@@ -47,7 +47,8 @@ void MetadataCache::setReaddirCache(std::shared_ptr<ReaddirCache> readdirCache)
 
 void MetadataCache::invalidateChildren(const folly::fbstring &uuid)
 {
-    LOG(ERROR) << "REMOVING CHILDREN OF " << uuid;
+    LOG_FCALL() << LOG_FARG(uuid);
+
     auto &index = bmi::get<ByParent>(m_cache);
     auto irange = boost::make_iterator_range(index.equal_range(uuid));
     index.erase(irange.begin(), irange.end());
@@ -56,6 +57,8 @@ void MetadataCache::invalidateChildren(const folly::fbstring &uuid)
 folly::fbvector<folly::fbstring> MetadataCache::readdir(
     const folly::fbstring &uuid, off_t off, std::size_t chunkSize)
 {
+    LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(off) << LOG_FARG(chunkSize);
+
     folly::fbvector<folly::fbstring> result;
     auto &index = bmi::get<ByParent>(m_cache);
     auto irange = boost::make_iterator_range(index.equal_range(uuid));
@@ -69,7 +72,8 @@ folly::fbvector<folly::fbstring> MetadataCache::readdir(
         return result;
 
     size_t count = 0;
-    for (count = 0; (it != irange.end()) && (count < chunkSize); it++, count++) {
+    for (count = 0; (it != irange.end()) && (count < chunkSize);
+         it++, count++) {
         result.emplace_back(it->attr->name());
     }
 
@@ -85,8 +89,6 @@ FileAttrPtr MetadataCache::getAttr(
     const folly::fbstring &parentUuid, const folly::fbstring &name)
 {
     LOG_FCALL() << LOG_FARG(parentUuid) << LOG_FARG(name);
-    LOG_DBG(2) << "Getting attributes for child '" << name << "' of '"
-               << parentUuid << "'";
 
     auto &index = bmi::get<ByParentName>(m_cache);
     auto it = index.find(std::make_tuple(parentUuid, name));
@@ -100,7 +102,7 @@ FileAttrPtr MetadataCache::getAttr(
         LOG(WARNING) << "Lookup ('" << parentUuid << "', '" << name
                      << "') found a deleted file";
 
-        index.modify(it, [&](Metadata &m) { m.attr->setParentUuid(""); });
+        index.modify(it, [&](Metadata &m) { m.attr->setParentUuid("__deleted__"); });
     }
 
     LOG_DBG(2) << "Metadata attr for file " << name << " in directory "
@@ -119,9 +121,9 @@ bool MetadataCache::putAttr(std::shared_ptr<FileAttr> attr)
     LOG_FCALL() << LOG_FARG(attr->toString());
 
     auto result = m_cache.emplace(attr);
-    auto newEntry = result.second;
+    auto isNewEntry = result.second;
 
-    if (!newEntry) {
+    if (!isNewEntry) {
         LOG_DBG(2) << "Attribute for " << attr->uuid()
                    << " already existed in the cache - updating...";
         m_cache.modify(result.first, [attr](Metadata &m) { m.attr = attr; });
@@ -136,7 +138,7 @@ bool MetadataCache::putAttr(std::shared_ptr<FileAttr> attr)
         ONE_METRIC_COUNTER_INC("comp.oneclient.mod.metadatacache.size");
     }
 
-    return result.second;
+    return isNewEntry;
 }
 
 MetadataCache::Map::iterator MetadataCache::getAttrIt(
@@ -421,25 +423,27 @@ bool MetadataCache::markDeleted(folly::fbstring uuid)
     }
 
     markDeletedIt(it);
+
     return true;
 }
 
 void MetadataCache::markDeletedIt(const Map::iterator &it)
 {
     LOG_FCALL() << LOG_FARG(it->attr->uuid());
+    LOG(ERROR) << "markDeleted called for " << it->attr->uuid();
 
     auto uuid = it->attr->uuid();
     auto parentUuid = it->attr->parentUuid();
 
     m_cache.modify(it, [&](Metadata &m) {
-        // Why was this here?
-        // m.attr->setParentUuid("");
+        m.attr->setParentUuid("__deleted__");
+        LOG(ERROR) << "Marking " << uuid  << " as deleted";
         m.deleted = true;
     });
 
     // Invalidate readdir cache for parent directory of deleted entry
     if (parentUuid)
-        m_readdirCache->invalidate(*(it->attr->parentUuid()));
+        m_readdirCache->invalidate(parentUuid.value());
 
     m_onMarkDeleted(uuid);
 }
@@ -500,9 +504,8 @@ bool MetadataCache::updateAttr(const FileAttr &newAttr)
     auto &index = bmi::get<ByUuid>(m_cache);
     auto it = index.find(newAttr.uuid());
     if (it == index.end()) {
-        LOG_DBG(1) << "Update attr failed - file " << newAttr.name() << "("
-                   << newAttr.uuid() << ") not found in metadata cache";
-        return false;
+        putAttr(std::make_shared<FileAttr>(newAttr));
+        return true;
     }
 
     LOG_DBG(2) << "Updating attribute for " << newAttr.uuid();
@@ -521,6 +524,7 @@ bool MetadataCache::updateAttr(const FileAttr &newAttr)
         m.attr->atime(std::max(m.attr->atime(), newAttr.atime()));
         m.attr->ctime(std::max(m.attr->ctime(), newAttr.ctime()));
         m.attr->mtime(std::max(m.attr->mtime(), newAttr.mtime()));
+
         m.attr->gid(newAttr.gid());
         m.attr->mode(newAttr.mode());
         if (newAttr.size())

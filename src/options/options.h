@@ -53,6 +53,7 @@ static constexpr auto DEFAULT_PREFETCH_CLUSTER_WINDOW_SIZE = 20971520;
 static constexpr auto DEFAULT_PREFETCH_CLUSTER_BLOCK_THRESHOLD = 5;
 static constexpr auto DEFAULT_METADATA_CACHE_SIZE = 20'000;
 static constexpr auto DEFAULT_READDIR_PREFETCH_SIZE = 2500;
+static constexpr auto DEFAULT_DIR_CACHE_DROP_AFTER = 5 * 60;
 static constexpr auto DEFAULT_PROVIDER_TIMEOUT = 2 * 60;
 static constexpr auto DEFAULT_MONITORING_PERIOD_SECONDS = 30;
 #if defined(__APPLE__)
@@ -342,6 +343,11 @@ public:
      * @return Get size of emulated available space.
      */
     uint64_t getEmulateAvailableSpace() const;
+
+    /*
+     * @return Duration after which directory cache entries are dropped.
+     */
+    std::chrono::seconds getDirectoryCacheDropAfter() const;
 
     /*
      * @return Get xattr on-modify tag.

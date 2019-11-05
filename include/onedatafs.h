@@ -316,11 +316,12 @@ public:
         std::shared_ptr<messages::Configuration> configuration,
         std::unique_ptr<cache::HelpersCache> helpersCache,
         unsigned int metadataCacheSize, bool readEventsDisabled,
-        bool forceFullblockRead, const std::chrono::seconds providerTimeout)
+        bool forceFullblockRead, const std::chrono::seconds providerTimeout,
+        const std::chrono::seconds dropDirectoryCacheAfter)
         : m_fsLogic{std::make_unique<FiberFsLogic>(std::move(context),
               std::move(configuration), std::move(helpersCache),
               metadataCacheSize, readEventsDisabled, forceFullblockRead,
-              providerTimeout, makeRunInFiber())}
+              providerTimeout, dropDirectoryCacheAfter, makeRunInFiber())}
         , m_rootUuid{std::move(rootUuid)}
         , m_sessionId{std::move(sessionId)}
     {
@@ -660,7 +661,8 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(std::string host, std::string token,
     std::vector<std::string> space = {}, std::vector<std::string> space_id = {},
     bool insecure = false, bool force_proxy_io = false,
     bool force_direct_io = false, bool no_buffer = false, int port = 443,
-    bool io_trace_log = false, int provider_timeout = 120)
+    bool io_trace_log = false, int provider_timeout = 2 * 60,
+    int drop_directory_cache_after = 5 * 60)
 {
     FLAGS_minloglevel = 1;
 
@@ -730,7 +732,8 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(std::string host, std::string token,
     return boost::make_shared<OnedataFS>(sessionId, rootUuid.toStdString(),
         std::move(context), std::move(configuration), std::move(helpersCache),
         options->getMetadataCacheSize(), options->areFileReadEventsDisabled(),
-        options->isFullblockReadEnabled(), options->getProviderTimeout());
+        options->isFullblockReadEnabled(), options->getProviderTimeout(),
+        options->getDirectoryCacheDropAfter());
 }
 
 int regularMode() { return S_IFREG; }

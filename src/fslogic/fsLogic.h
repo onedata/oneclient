@@ -83,6 +83,7 @@ public:
         std::unique_ptr<cache::HelpersCache> helpersCache,
         unsigned int metadataCacheSize, bool readEventsDisabled,
         bool forceFullblockRead, const std::chrono::seconds providerTimeout,
+        const std::chrono::seconds directoryCacheDropAfter,
         std::function<void(folly::Function<void()>)> runInFiber);
 
     ~FsLogic();
@@ -262,6 +263,8 @@ public:
     std::map<folly::fbstring, folly::fbvector<std::pair<off_t, off_t>>>
     getFileLocalBlocks(const folly::fbstring &uuid);
 
+    cache::LRUMetadataCache &metadataCache() { return m_metadataCache; }
+
 private:
     template <typename SrvMsg = messages::fuse::FuseResponse, typename CliMsg>
     SrvMsg communicate(CliMsg &&msg, const std::chrono::seconds timeout);
@@ -301,6 +304,7 @@ private:
      * @param retriesLeft Current number of retries left
      */
     void fiberRetryDelay(int retriesLeft);
+    void pruneExpiredDirectories(const std::chrono::seconds delay);
 
     std::shared_ptr<Context> m_context;
     events::Manager m_eventManager{m_context};
@@ -348,6 +352,9 @@ private:
     std::random_device m_clusterPrefetchRD{};
     std::mt19937 m_clusterPrefetchRandomGenerator{m_clusterPrefetchRD()};
     std::uniform_int_distribution<> m_clusterPrefetchDistribution;
+
+    folly::fibers::Baton m_directoryCachePruneBaton;
+    bool m_stopped{};
 };
 } // namespace fslogic
 } // namespace client

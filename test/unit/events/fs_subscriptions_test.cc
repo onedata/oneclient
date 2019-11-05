@@ -33,7 +33,7 @@ struct FsSubscriptionsTest : public ::testing::Test {
     std::int64_t subscriptionId;
     std::shared_ptr<Context> context = testContext();
     MockManager mockManager{context};
-    LRUMetadataCache metadataCache{*context->communicator(), 10000, 60s};
+    LRUMetadataCache metadataCache{*context->communicator(), 10000, 60s, 60s};
     ForceProxyIOCache forceProxyIOCache;
     FsSubscriptions fsSubscriptions{
         mockManager, metadataCache, forceProxyIOCache, [](auto) {}};

@@ -68,7 +68,8 @@ public:
      */
     LRUMetadataCache(communication::Communicator &communicator,
         const std::size_t targetSize,
-        const std::chrono::seconds providerTimeout);
+        const std::chrono::seconds providerTimeout,
+        const std::chrono::seconds directoryCacheDropAfter);
 
     /**
      * Sets a pointer to an instance of @c ReaddirCache.
@@ -76,6 +77,8 @@ public:
      */
     void setReaddirCache(std::shared_ptr<ReaddirCache> readdirCache);
 
+    folly::fbvector<folly::fbstring> readdir(
+        const folly::fbstring &uuid, off_t off, std::size_t chunkSize);
     /**
      * Opens a file in the cache.
      * @param uuid Uuid of the file.
@@ -226,6 +229,24 @@ public:
     bool updateLocation(
         const off_t start, const off_t end, const FileLocation &locationUpdate);
 
+    /**
+     * Removes from metadata cache directories which haven't been used recently.
+     */
+    void pruneExpiredDirectories();
+
+    /**
+     * Returns true if the directory uuid has been at least once synced from the
+     * server through readdir.
+     * @param uuid UUID of the synced directory.
+     */
+    bool isDirectorySynced(const folly::fbstring &uuid);
+
+    /**
+     * Marks a directory as synced, after readdir has been complete.
+     * @param uuid UUID of the synced directory.
+     */
+    void setDirectorySynced(const folly::fbstring &uuid);
+
     // Operations used only on open files
     using MetadataCache::addBlock;
     using MetadataCache::getBlock;
@@ -236,7 +257,6 @@ public:
     using MetadataCache::putAttr;
     using MetadataCache::size;
     using MetadataCache::updateAttr;
-    using MetadataCache::readdir;
 
 private:
     /**
@@ -249,6 +269,7 @@ private:
             : lastUsed{std::chrono::system_clock::now()}
             , openCount{0}
             , deleted{false}
+            , dirRead{false}
         {
         }
 
@@ -261,8 +282,13 @@ private:
         // be cancelled
         std::size_t openCount;
 
-        // True when file has been marked as deleted, but is still opened
+        // True when file or directory has been marked as deleted, but is still
+        // opened
         bool deleted;
+
+        // True when this directory has been synced through readdir at least
+        // once
+        bool dirRead;
 
         // Iterator to current position in the lru list, to optimize search for
         // uuid in the LRU list
@@ -270,10 +296,14 @@ private:
 
         void touch() { lastUsed = std::chrono::system_clock::now(); }
 
-        bool expired()
+        bool expired(const std::chrono::seconds &expireAfter)
         {
             using namespace std::literals::chrono_literals;
-            return (std::chrono::system_clock::now() - lastUsed) > 30s;
+
+            if (expireAfter.count() == 0)
+                return false;
+
+            return (std::chrono::system_clock::now() - lastUsed) > expireAfter;
         }
     };
 
@@ -311,6 +341,7 @@ private:
         const folly::fbstring &oldUuid, const folly::fbstring &newUuid);
 
     const std::size_t m_targetSize;
+    const std::chrono::seconds m_directoryCacheDropAfter;
 
     std::list<folly::fbstring> m_lruFileList;
     std::unordered_map<folly::fbstring, LRUData> m_lruFileData;
