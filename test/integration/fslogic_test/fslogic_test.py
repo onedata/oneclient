@@ -467,6 +467,11 @@ def test_rmdir_should_rmdir(endpoint, fl, uuid):
     assert file_request.context_guid == \
            getattr_response.fuse_response.file_attr.uuid
 
+    with pytest.raises(RuntimeError) as excinfo:
+        fl.getattr(uuid)
+
+    assert 'No such file or directory' in str(excinfo.value)
+
 
 def test_rmdir_should_pass_rmdir_errors(endpoint, fl, uuid):
     getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.DIR)
@@ -947,53 +952,6 @@ def test_metadatacache_should_prune_when_size_exceeded(endpoint, fl_dircache):
     fl_dircache.getattr(repl2.child_attrs[0].uuid)
 
     assert fl_dircache.metadata_cache_size() == 10
-
-
-def test_metadatacache_should_drop_removed_files(endpoint, fl_dircache):
-    #
-    # Prepare readdir response with 5 files
-    #
-    repl1 = prepare_file_children_attr_response('parentUuid', "afiles-", 5)
-    repl1.is_last = True
-
-    response1 = messages_pb2.ServerMessage()
-    response1.fuse_response.file_children_attrs.CopyFrom(repl1)
-    response1.fuse_response.status.code = common_messages_pb2.Status.ok
-
-    children = []
-    offset = 0
-    chunk_size = 50
-    with reply(endpoint, [response1]) as queue:
-        children_chunk = fl_dircache.readdir('parentUuid', chunk_size, offset)
-        _ = queue.get()
-        children.extend(children_chunk)
-
-    assert len(children) == 5+2
-
-    time.sleep(1)
-    assert fl_dircache.metadata_cache_size() == 5
-
-    response_ok = messages_pb2.ServerMessage()
-    response_ok.fuse_response.status.code = common_messages_pb2.Status.ok
-
-    # Remove one of the files from directory
-    with reply(endpoint, [response_ok]) as queue:
-        fl_dircache.unlink('parentUuid', 'afiles-0')
-
-    time.sleep(1)
-    assert fl_dircache.metadata_cache_size() == 4
-
-# def test_metadatacache_should_drop_renamed_files():
-
-    # # TODO
-
-# def test_metadatacache_should_drop_renamed_directories():
-
-    # # TODO
-
-# def test_metadatacache_should_drop_removed_directories():
-
-    # # TODO
 
 
 def test_mknod_should_make_new_location(endpoint, fl, uuid, parentUuid, parentStat):

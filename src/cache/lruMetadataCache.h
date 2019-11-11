@@ -119,6 +119,7 @@ public:
      */
     void onAdd(std::function<void(const folly::fbstring &)> cb)
     {
+        m_onSyncDirectory = cb;
         MetadataCache::onAdd(std::move(cb));
     }
 
@@ -348,6 +349,8 @@ private:
     std::list<folly::fbstring> m_lruDirectoryList;
     std::unordered_map<folly::fbstring, LRUData> m_lruDirectoryData;
 
+    std::function<void(const folly::fbstring &)> m_onSyncDirectory =
+        [](auto &) {};
     std::function<void(const folly::fbstring &)> m_onOpen = [](auto &) {};
     std::function<void(const folly::fbstring &)> m_onRelease = [](auto &) {};
     std::function<void(const folly::fbstring &)> m_onDropFile = [](auto &) {};

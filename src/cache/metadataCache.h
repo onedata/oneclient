@@ -40,6 +40,8 @@ namespace cache {
 
 class ReaddirCache;
 
+constexpr auto kDeletedTag = "__deleted__";
+
 namespace bmi = boost::multi_index;
 
 /**

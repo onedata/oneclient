@@ -49,6 +49,9 @@ void MetadataCache::invalidateChildren(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
+    assert(!uuid.empty());
+    assert(uuid != kDeletedTag);
+
     auto &index = bmi::get<ByParent>(m_cache);
     auto irange = boost::make_iterator_range(index.equal_range(uuid));
     index.erase(irange.begin(), irange.end());
@@ -58,6 +61,9 @@ folly::fbvector<folly::fbstring> MetadataCache::readdir(
     const folly::fbstring &uuid, off_t off, std::size_t chunkSize)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(off) << LOG_FARG(chunkSize);
+
+    assert(!uuid.empty());
+    assert(uuid != kDeletedTag);
 
     folly::fbvector<folly::fbstring> result;
     auto &index = bmi::get<ByParent>(m_cache);
@@ -102,7 +108,8 @@ FileAttrPtr MetadataCache::getAttr(
         LOG(WARNING) << "Lookup ('" << parentUuid << "', '" << name
                      << "') found a deleted file";
 
-        index.modify(it, [&](Metadata &m) { m.attr->setParentUuid("__deleted__"); });
+        index.modify(
+            it, [&](Metadata &m) { m.attr->setParentUuid(kDeletedTag); });
     }
 
     LOG_DBG(2) << "Metadata attr for file " << name << " in directory "
@@ -430,14 +437,12 @@ bool MetadataCache::markDeleted(folly::fbstring uuid)
 void MetadataCache::markDeletedIt(const Map::iterator &it)
 {
     LOG_FCALL() << LOG_FARG(it->attr->uuid());
-    LOG(ERROR) << "markDeleted called for " << it->attr->uuid();
 
     auto uuid = it->attr->uuid();
     auto parentUuid = it->attr->parentUuid();
 
     m_cache.modify(it, [&](Metadata &m) {
-        m.attr->setParentUuid("__deleted__");
-        LOG(ERROR) << "Marking " << uuid  << " as deleted";
+        m.attr->setParentUuid(kDeletedTag);
         m.deleted = true;
     });
 
@@ -506,6 +511,13 @@ bool MetadataCache::updateAttr(const FileAttr &newAttr)
     if (it == index.end()) {
         putAttr(std::make_shared<FileAttr>(newAttr));
         return true;
+    }
+
+    if (it->attr->parentUuid() &&
+        it->attr->parentUuid().value() == kDeletedTag) {
+        LOG_DBG(2) << "Update for deleted file or directory "
+                   << it->attr->uuid() << " - ignoring";
+        return false;
     }
 
     LOG_DBG(2) << "Updating attribute for " << newAttr.uuid();

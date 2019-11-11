@@ -23,7 +23,7 @@ struct stat toStatbuf(const FileAttrPtr &attr, const fuse_ino_t ino)
     statbuf.st_gid = attr->gid();
     statbuf.st_uid = attr->uid();
     statbuf.st_mode = attr->mode();
-    statbuf.st_size = attr->size()?*attr->size():0;
+    statbuf.st_size = attr->size() ? *attr->size() : 0;
     statbuf.st_nlink = 1;
     statbuf.st_blocks = 0;
     statbuf.st_ino = ino;

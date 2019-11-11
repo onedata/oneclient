@@ -1150,11 +1150,18 @@ void FsLogic::unlink(
 
     // TODO: directly order provider to delete {parentUuid, name}
     auto attr = m_metadataCache.getAttr(parentUuid, name);
-    communicate(messages::fuse::DeleteFile{attr->uuid().toStdString()},
-        m_providerTimeout);
+    try {
+        communicate(messages::fuse::DeleteFile{attr->uuid().toStdString()},
+            m_providerTimeout);
+    }
+    catch (std::system_error &e) {
+        LOG_DBG(1) << e.what();
+        m_metadataCache.markDeleted(attr->uuid());
+        m_readdirCache->invalidate(parentUuid);
+        throw e;
+    }
 
     m_metadataCache.markDeleted(attr->uuid());
-
     m_readdirCache->invalidate(parentUuid);
 
     IOTRACE_END(IOTraceUnlink, IOTraceLogger::OpType::UNLINK, parentUuid, 0,
