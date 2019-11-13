@@ -66,20 +66,24 @@ folly::fbvector<folly::fbstring> MetadataCache::readdir(
     assert(uuid != kDeletedTag);
 
     folly::fbvector<folly::fbstring> result;
+    if (off == 0) {
+        result.emplace_back(".");
+        result.emplace_back("..");
+    }
+
     auto &index = bmi::get<ByParent>(m_cache);
     auto irange = boost::make_iterator_range(index.equal_range(uuid));
 
     // Advance the iterator to off safely
-    off_t offCount = 0;
+    off_t offCount{0};
     auto it = irange.begin();
-    for (; (offCount < off) && (it != irange.end()); it++, offCount++) {
+    for (; (offCount < off - 2) && (it != irange.end()); it++, offCount++) {
     }
-    if (offCount < off)
+    if (offCount < off - 2)
         return result;
 
-    size_t count = 0;
-    for (count = 0; (it != irange.end()) && (count < chunkSize);
-         it++, count++) {
+    for (size_t count = (off > 0) ? 0 : 2;
+         (it != irange.end()) && (count < chunkSize); it++, count++) {
         result.emplace_back(it->attr->name());
     }
 
@@ -446,10 +450,6 @@ void MetadataCache::markDeletedIt(const Map::iterator &it)
         m.deleted = true;
     });
 
-    // Invalidate readdir cache for parent directory of deleted entry
-    if (parentUuid)
-        m_readdirCache->invalidate(parentUuid.value());
-
     m_onMarkDeleted(uuid);
 }
 
@@ -488,10 +488,6 @@ bool MetadataCache::rename(folly::fbstring uuid, folly::fbstring newParentUuid,
             m.attr->setParentUuid(newParentUuid);
             m.location = nullptr;
         });
-
-        if (it->attr->parentUuid())
-            m_readdirCache->invalidate(*(it->attr->parentUuid()));
-        m_readdirCache->invalidate(newParentUuid);
 
         LOG_DBG(2) << "Renamed file " << uuid << " to " << newName
                    << " with new uuid " << newUuid << " in " << newParentUuid;

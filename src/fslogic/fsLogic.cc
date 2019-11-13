@@ -923,9 +923,6 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
             LOG_DBG(2) << "Key or token to storage " << fileBlock.storageId()
                        << " expired. Refreshing helper parameters...";
 
-            // ?????
-            // auto helperHandle = fuseFileHandle->getHelperHandle(
-            // uuid, spaceId, fileBlock.storageId(), fileBlock.fileId());
             folly::fibers::await(
                 [&](folly::fibers::Promise<folly::Unit> promise) {
                     promise.setWith([
@@ -1065,8 +1062,6 @@ FileAttrPtr FsLogic::mknod(const folly::fbstring &parentUuid,
     auto sharedAttr = std::make_shared<FileAttr>(std::move(attr));
     m_metadataCache.putAttr(sharedAttr);
 
-    m_readdirCache->invalidate(parentUuid);
-
     IOTRACE_END(IOTraceMknod, IOTraceLogger::OpType::MKNOD, parentUuid, 0, name,
         sharedAttr->uuid(), mode)
 
@@ -1115,8 +1110,6 @@ std::pair<FileAttrPtr, std::uint64_t> FsLogic::create(
     LOG_DBG(2) << "Created file " << name << " in " << parentUuid
                << " with uuid " << uuid;
 
-    m_readdirCache->invalidate(parentUuid);
-
     if (m_tagOnCreate && !fuseFileHandle->isOnCreateTagSet()) {
         std::string tagNameJsonEncoded;
         std::string tagValueJsonEncoded;
@@ -1157,12 +1150,10 @@ void FsLogic::unlink(
     catch (std::system_error &e) {
         LOG_DBG(1) << e.what();
         m_metadataCache.markDeleted(attr->uuid());
-        m_readdirCache->invalidate(parentUuid);
         throw e;
     }
 
     m_metadataCache.markDeleted(attr->uuid());
-    m_readdirCache->invalidate(parentUuid);
 
     IOTRACE_END(IOTraceUnlink, IOTraceLogger::OpType::UNLINK, parentUuid, 0,
         name, attr->uuid())
