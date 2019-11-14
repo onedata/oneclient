@@ -318,6 +318,32 @@ FileAttrPtr FsLogic::getattr(const folly::fbstring &uuid)
     return m_metadataCache.getAttr(uuid);
 }
 
+std::uint64_t FsLogic::opendir(const folly::fbstring &uuid)
+{
+    LOG_FCALL() << LOG_FARG(uuid);
+
+    // Check that directory exists
+    auto attr = m_metadataCache.getAttr(uuid);
+
+    if (attr->type() != FileAttr::FileType::directory)
+        throw std::system_error(
+            std::make_error_code(std::errc::no_such_file_or_directory));
+
+    const auto fuseFileHandleId = m_nextFuseHandleId++;
+
+    m_metadataCache.opendir(uuid);
+
+    return fuseFileHandleId;
+}
+
+void FsLogic::releasedir(
+    const folly::fbstring &uuid, const std::uint64_t /*fileHandleId*/)
+{
+    LOG_FCALL() << LOG_FARG(uuid);
+
+    m_metadataCache.releasedir(uuid);
+}
+
 folly::fbvector<folly::fbstring> FsLogic::readdir(
     const folly::fbstring &uuid, const size_t maxSize, const off_t off)
 {

@@ -77,8 +77,13 @@ public:
      */
     void setReaddirCache(std::shared_ptr<ReaddirCache> readdirCache);
 
+    void opendir(const folly::fbstring &uuid);
+
+    void releasedir(const folly::fbstring &uuid);
+
     folly::fbvector<folly::fbstring> readdir(
         const folly::fbstring &uuid, off_t off, std::size_t chunkSize);
+
     /**
      * Opens a file in the cache.
      * @param uuid Uuid of the file.

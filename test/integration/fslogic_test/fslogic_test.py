@@ -708,7 +708,11 @@ def test_utime_should_pass_utime_errors(endpoint, fl, uuid, stat):
     assert 'Operation not permitted' in str(excinfo.value)
 
 
-def test_readdir_should_read_dir(endpoint, fl, uuid, stat):
+def test_readdir_should_read_dir(endpoint, fl, stat):
+    uuid = 'parentUuid'
+
+    getattr_reponse = prepare_attr_response(uuid, fuse_messages_pb2.DIR)
+
     #
     # Prepare first response with 5 files
     #
@@ -732,9 +736,11 @@ def test_readdir_should_read_dir(endpoint, fl, uuid, stat):
     children = []
     offset = 0
     chunk_size = 50
-    with reply(endpoint, [response1, response2]) as queue:
+    with reply(endpoint, [getattr_reponse, response1, response2]) as queue:
+        d = fl.opendir(uuid)
         children_chunk = fl.readdir(uuid, chunk_size, offset)
         _ = queue.get()
+        fl.releasedir(uuid, d)
         assert len(children_chunk) == 12
 
     time.sleep(2)
@@ -745,12 +751,16 @@ def test_readdir_should_read_dir(endpoint, fl, uuid, stat):
     #
     for i in range(3):
         with reply(endpoint, []) as queue:
+            d = fl.opendir(uuid)
             children_chunk = fl.readdir(uuid, 5, 0)
+            fl.releasedir(uuid, d)
             assert len(children_chunk) == 5
         time.sleep(1)
 
 
 def test_readdir_should_handle_fileattrchanged_event(endpoint, fl, parentUuid, stat):
+    getattr_reponse = prepare_attr_response(parentUuid, fuse_messages_pb2.DIR)
+
     #
     # Prepare first response with 3 files
     #
@@ -769,9 +779,11 @@ def test_readdir_should_handle_fileattrchanged_event(endpoint, fl, parentUuid, s
     children = []
     offset = 0
     chunk_size = 50
-    with reply(endpoint, [readdir_response]) as queue:
+    with reply(endpoint, [getattr_reponse, readdir_response]) as queue:
+        d = fl.opendir(parentUuid)
         children_chunk = fl.readdir(parentUuid, chunk_size, offset)
         _ = queue.get()
+        fl.releasedir(parentUuid, d)
         assert len(children_chunk) == len(['.', '..']) + dir_size
 
     #
@@ -793,7 +805,11 @@ def test_readdir_should_handle_fileattrchanged_event(endpoint, fl, parentUuid, s
     assert attr.size == 12345
 
 
-def test_readdir_should_return_unique_entries(endpoint, fl, uuid, stat):
+def test_readdir_should_return_unique_entries(endpoint, fl, stat):
+    uuid = 'parentUuid'
+
+    getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.DIR)
+
     #
     # Prepare first response with 5 files
     #
@@ -817,32 +833,46 @@ def test_readdir_should_return_unique_entries(endpoint, fl, uuid, stat):
     children = []
     offset = 0
     chunk_size = 50
-    with reply(endpoint, [response1, response2]) as queue:
+    with reply(endpoint, [getattr_response, response1, response2]) as queue:
+        d = fl.opendir(uuid)
         children_chunk = fl.readdir(uuid, chunk_size, offset)
         _ = queue.get()
+        fl.releasedir(uuid, d)
         children.extend(children_chunk)
 
     assert len(children) == 5 + 2
 
 
-def test_readdir_should_pass_readdir_errors(endpoint, fl, uuid, stat):
+def test_readdir_should_pass_readdir_errors(endpoint, fl, stat):
+    uuid = 'parentUuid'
+
+    getattr_reponse = prepare_attr_response(uuid, fuse_messages_pb2.DIR)
+
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.eperm
 
     with pytest.raises(RuntimeError) as excinfo:
-        with reply(endpoint, response):
+        with reply(endpoint, [getattr_reponse, response]):
+            d = fl.opendir(uuid)
             fl.readdir(uuid, 1024, 0)
+            fl.releasedir(uuid, d)
 
     assert 'Operation not permitted' in str(excinfo.value)
 
 
-def test_readdir_should_not_get_stuck_on_errors(endpoint, fl, uuid, stat):
+def test_readdir_should_not_get_stuck_on_errors(endpoint, fl, stat):
+    uuid = 'parentUuid'
+
+    getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.DIR)
+
     response0 = messages_pb2.ServerMessage()
     response0.fuse_response.status.code = common_messages_pb2.Status.eperm
 
     with pytest.raises(RuntimeError) as excinfo:
-        with reply(endpoint, response0):
+        with reply(endpoint, [getattr_response, response0]):
+            d = fl.opendir(uuid)
             fl.readdir(uuid, 1024, 0)
+            fl.releasedir(uuid, d)
 
     assert 'Operation not permitted' in str(excinfo.value)
 
@@ -870,8 +900,10 @@ def test_readdir_should_not_get_stuck_on_errors(endpoint, fl, uuid, stat):
     offset = 0
     chunk_size = 50
     with reply(endpoint, [response1, response2]) as queue:
+        d = fl.opendir(uuid)
         children_chunk = fl.readdir(uuid, chunk_size, offset)
         _ = queue.get()
+        fl.releasedir(uuid, d)
         assert len(children_chunk) == 12
 
 
@@ -907,6 +939,8 @@ def test_metadatacache_should_drop_expired_directories(endpoint, fl_dircache):
 
 
 def test_metadatacache_should_prune_when_size_exceeded(endpoint, fl_dircache):
+    getattr_response = prepare_attr_response('parentUuid', fuse_messages_pb2.DIR)
+
     #
     # Prepare readdir response with 20 files
     #
@@ -920,16 +954,20 @@ def test_metadatacache_should_prune_when_size_exceeded(endpoint, fl_dircache):
     children = []
     offset = 0
     chunk_size = 50
-    with reply(endpoint, [response1]) as queue:
+    with reply(endpoint, [getattr_response, response1]) as queue:
+        d = fl_dircache.opendir('parentUuid')
         children_chunk = fl_dircache.readdir('parentUuid', chunk_size, offset)
         _ = queue.get()
+        fl_dircache.releasedir('parentUuid', d)
         children.extend(children_chunk)
 
     assert len(children) == 20+2
 
     time.sleep(1)
 
-    assert fl_dircache.metadata_cache_size() == 20
+    assert fl_dircache.metadata_cache_size() == 21
+
+    getattr_response2 = prepare_attr_response('parentUuid2', fuse_messages_pb2.DIR)
 
     repl2 = prepare_file_children_attr_response('parentUuid2', "bfiles-", 10)
     repl2.is_last = True
@@ -941,17 +979,20 @@ def test_metadatacache_should_prune_when_size_exceeded(endpoint, fl_dircache):
     children = []
     offset = 0
     chunk_size = 50
-    with reply(endpoint, [response2]) as queue:
+    with reply(endpoint, [getattr_response2, response2]) as queue:
+        d = fl_dircache.opendir('parentUuid2')
         children_chunk = fl_dircache.readdir('parentUuid2', chunk_size, offset)
         _ = queue.get()
+        fl_dircache.releasedir('parentUuid2', d)
         children.extend(children_chunk)
 
     assert len(children) == 10+2
 
     time.sleep(1)
+
     fl_dircache.getattr(repl2.child_attrs[0].uuid)
 
-    assert fl_dircache.metadata_cache_size() == 10
+    assert fl_dircache.metadata_cache_size() == 11
 
 
 def test_mknod_should_make_new_location(endpoint, fl, uuid, parentUuid, parentStat):
@@ -1091,21 +1132,22 @@ def test_truncate_should_pass_truncate_errors(endpoint, fl, uuid):
     assert 'Operation not permitted' in str(excinfo.value)
 
 
-@pytest.mark.skip(reason="TODO VFS-3718")
 def test_readdir_big_directory(endpoint, fl, uuid, stat):
     chunk_size = 2500
     children_num = 10*chunk_size
 
+    getattr_response = prepare_attr_response('parentUuid', fuse_messages_pb2.DIR)
+
     # Prepare an array of responses of appropriate sizes to client
     # requests
-    responses = []
+    responses = [getattr_response]
     for i in xrange(0, children_num/chunk_size):
         repl = fuse_messages_pb2.FileChildrenAttrs()
         for j in xrange(0, chunk_size):
-            link = prepare_attr_response(uuid, fuse_messages_pb2.REG).\
+            link = prepare_attr_response(uuid, fuse_messages_pb2.REG, 1024, 'parentUuid').\
                         fuse_response.file_attr
             link.uuid = "childUuid_"+str(i)+"_"+str(j)
-            link.name = "file_"+str(i)+"+"+str(j)
+            link.name = "file_"+str(i)+"_"+str(j)
             repl.child_attrs.extend([link])
 
         response = messages_pb2.ServerMessage()
@@ -1114,6 +1156,8 @@ def test_readdir_big_directory(endpoint, fl, uuid, stat):
 
         responses.append(response)
 
+    # Prepare empty response after entire directory has been fetched
+    # by FsLogic
     empty_repl = fuse_messages_pb2.FileChildrenAttrs()
     empty_repl.child_attrs.extend([])
     empty_repl.is_last = True
@@ -1123,18 +1167,20 @@ def test_readdir_big_directory(endpoint, fl, uuid, stat):
 
     responses.append(empty_response)
 
-    assert len(responses) == children_num/chunk_size + 1
+    assert len(responses) == 1 + children_num/chunk_size + 1
 
     children = []
     offset = 0
     with reply(endpoint, responses) as queue:
+        d = fl.opendir('parentUuid')
         while True:
-            children_chunk = fl.readdir(uuid, chunk_size, offset)
+            children_chunk = fl.readdir('parentUuid', chunk_size, offset)
             client_message = queue.get()
             children.extend(children_chunk)
             if len(children_chunk) < chunk_size:
                 break
             offset += len(children_chunk)
+        fl.releasedir('parentUuid', d)
 
     assert len(children) == children_num + 2
 

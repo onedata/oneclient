@@ -108,6 +108,19 @@ public:
     FileAttrPtr getattr(const folly::fbstring &uuid);
 
     /**
+     * FUSE @c opendir callback.
+     * @see https://libfuse.github.io/doxygen/structfuse__lowlevel__ops.html
+     */
+    std::uint64_t opendir(const folly::fbstring &uuid);
+
+    /**
+     * FUSE @c releasedir callback.
+     * @see https://libfuse.github.io/doxygen/structfuse__lowlevel__ops.html
+     */
+    void releasedir(
+        const folly::fbstring &uuid, const std::uint64_t fileHandleId);
+
+    /**
      * FUSE @c readdir callback.
      * @see https://libfuse.github.io/doxygen/structfuse__lowlevel__ops.html
      */

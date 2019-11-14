@@ -197,6 +197,20 @@ public:
             uuid, statbuf, FUSE_SET_ATTR_ATIME | FUSE_SET_ATTR_MTIME);
     }
 
+    int opendir(std::string uuid)
+    {
+        ReleaseGIL guard;
+
+        return m_fsLogic.opendir(uuid);
+    }
+
+    void releasedir(std::string uuid, int fuseHandleId)
+    {
+        ReleaseGIL guard;
+
+        m_fsLogic.releasedir(uuid, fuseHandleId);
+    }
+
     std::vector<std::string> readdir(
         std::string uuid, int chunkSize, int offset)
     {
@@ -409,6 +423,8 @@ BOOST_PYTHON_MODULE(fslogic)
         .def("chmod", &FsLogicProxy::chmod)
         .def("utime", &FsLogicProxy::utime)
         .def("utime_buf", &FsLogicProxy::utime_buf)
+        .def("opendir", &FsLogicProxy::opendir)
+        .def("releasedir", &FsLogicProxy::releasedir)
         .def("readdir", &FsLogicProxy::readdir)
         .def("mknod", &FsLogicProxy::mknod)
         .def("open", &FsLogicProxy::open)

@@ -57,10 +57,39 @@ void LRUMetadataCache::setDirectorySynced(const folly::fbstring &uuid)
 {
     noteDirectoryActivity(uuid);
     auto it = m_lruDirectoryData.find(uuid);
+
+    assert(it != m_lruDirectoryData.end());
+
     if (it != m_lruDirectoryData.end())
         it->second.dirRead = true;
 
     m_onSyncDirectory(uuid);
+}
+
+void LRUMetadataCache::opendir(const folly::fbstring &uuid)
+{
+    LOG_FCALL() << LOG_FARG(uuid);
+
+    noteDirectoryActivity(uuid);
+    auto it = m_lruDirectoryData.find(uuid);
+
+    assert(it != m_lruDirectoryData.end());
+
+    it->second.openCount++;
+}
+
+void LRUMetadataCache::releasedir(const folly::fbstring &uuid)
+{
+    LOG_FCALL() << LOG_FARG(uuid);
+
+    auto res = m_lruDirectoryData.emplace(uuid, LRUData{});
+
+    auto &lruData = res.first->second;
+
+    if (lruData.openCount > 0)
+        lruData.openCount--;
+
+    prune();
 }
 
 folly::fbvector<folly::fbstring> LRUMetadataCache::readdir(
@@ -272,8 +301,6 @@ void LRUMetadataCache::noteDirectoryActivity(const folly::fbstring &uuid)
     }
 
     res.first->second.touch();
-
-    prune();
 }
 
 void LRUMetadataCache::pruneExpiredDirectories()
@@ -298,8 +325,6 @@ void LRUMetadataCache::pruneExpiredDirectories()
                 continue;
 
             auto uuid = std::move(m_lruDirectoryList.front());
-            LOG_DBG(2) << "Removing directory " << uuid
-                       << " from metadata cache";
             m_lruDirectoryList.pop_front();
             m_lruDirectoryData.erase(uuid);
             m_onDropDirectory(uuid);
