@@ -77,10 +77,31 @@ public:
      */
     void setReaddirCache(std::shared_ptr<ReaddirCache> readdirCache);
 
+    /**
+     * Increases the open counter on the directory cache entry.
+     * The directory is opened typically by Fuse opendir call, which is
+     * released after directory contents have been listed.
+     *
+     * @param uuid UUID of the directory
+     */
     void opendir(const folly::fbstring &uuid);
 
+    /**
+     * Decrements the open counter on the directory cache entry.
+     *
+     * @param uuid UUID of the directory
+     */
     void releasedir(const folly::fbstring &uuid);
 
+    /**
+     * Returns the directory contents at specific offset and amount
+     * from the metadata cache.
+     *
+     * @param uuid UUID of the directory
+     * @param off Offset in the directory
+     * @param chunkSize Number of entries which should be returned
+     * @return List of file or directory names.
+     */
     folly::fbvector<folly::fbstring> readdir(
         const folly::fbstring &uuid, off_t off, std::size_t chunkSize);
 

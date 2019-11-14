@@ -51,7 +51,7 @@ static constexpr auto DEFAULT_PREFETCH_TARGET_LATENCY =
     std::chrono::nanoseconds{1000}; // NOLINT
 static constexpr auto DEFAULT_PREFETCH_CLUSTER_WINDOW_SIZE = 20971520;
 static constexpr auto DEFAULT_PREFETCH_CLUSTER_BLOCK_THRESHOLD = 5;
-static constexpr auto DEFAULT_METADATA_CACHE_SIZE = 20'000;
+static constexpr auto DEFAULT_METADATA_CACHE_SIZE = 5'000'000;
 static constexpr auto DEFAULT_READDIR_PREFETCH_SIZE = 2500;
 static constexpr auto DEFAULT_DIR_CACHE_DROP_AFTER = 5 * 60;
 static constexpr auto DEFAULT_PROVIDER_TIMEOUT = 2 * 60;
