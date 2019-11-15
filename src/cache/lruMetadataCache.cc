@@ -246,9 +246,14 @@ FileAttrPtr LRUMetadataCache::getAttr(const folly::fbstring &uuid)
 
     auto attr = MetadataCache::getAttr(uuid);
 
-    if (attr->parentUuid() && attr->parentUuid().value() == kDeletedTag)
+    if (attr->parentUuid() && attr->parentUuid().value() == kDeletedTag) {
+        // In case a deleted file is still opened, return it
+        if (m_lruFileData.find(uuid) != m_lruFileData.end())
+            return attr;
+
         throw std::system_error(
             std::make_error_code(std::errc::no_such_file_or_directory));
+    }
 
     if (attr->parentUuid() && !attr->parentUuid()->empty())
         noteDirectoryActivity(*attr->parentUuid());

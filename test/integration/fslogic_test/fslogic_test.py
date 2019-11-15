@@ -133,12 +133,12 @@ def prepare_sync_request(offset, size):
     return client_request
 
 
-def prepare_attr_response(uuid, filetype, size=None, parent_uuid=None):
+def prepare_attr_response(uuid, filetype, size=None, parent_uuid=None, name='filename'):
     repl = fuse_messages_pb2.FileAttr()
     repl.uuid = uuid
     if parent_uuid:
         repl.parent_uuid = parent_uuid
-    repl.name = 'filename'
+    repl.name = name
     repl.mode = random.randint(0, 1023)
     repl.uid = random.randint(0, 20000)
     repl.gid = random.randint(0, 20000)
@@ -908,6 +908,8 @@ def test_readdir_should_not_get_stuck_on_errors(endpoint, fl, stat):
 
 
 def test_metadatacache_should_drop_expired_directories(endpoint, fl_dircache):
+    getattr_response = prepare_attr_response('parentUuid', fuse_messages_pb2.DIR)
+
     #
     # Prepare readdir response with 10 files
     #
@@ -921,16 +923,18 @@ def test_metadatacache_should_drop_expired_directories(endpoint, fl_dircache):
     children = []
     offset = 0
     chunk_size = 50
-    with reply(endpoint, [response1]) as queue:
+    with reply(endpoint, [getattr_response, response1]) as queue:
+        d = fl_dircache.opendir('parentUuid')
         children_chunk = fl_dircache.readdir('parentUuid', chunk_size, offset)
         _ = queue.get()
+        fl_dircache.releasedir('parentUuid', d)
         children.extend(children_chunk)
 
     assert len(children) == 10+2
 
     time.sleep(1)
 
-    assert fl_dircache.metadata_cache_size() == 10
+    assert fl_dircache.metadata_cache_size() == 10 + 1
 
     # Wait past directory cache expiry which is 3 seconds
     time.sleep(5)
