@@ -213,16 +213,20 @@ MetadataCache::Map::iterator MetadataCache::fetchAttr(ReqMsg &&msg)
 
     auto sharedAttr = std::make_shared<FileAttr>(std::move(attr));
     auto result = m_cache.emplace(sharedAttr);
+
     LOG_DBG(2) << "Got attribute for file: " << sharedAttr->uuid()
                << " with parent UUID: " << sharedAttr->parentUuid().value();
+
     if (!result.second) {
         LOG_DBG(2) << "Updating fetched attribute in cache: "
                    << sharedAttr->uuid();
+
         m_cache.modify(result.first, [&](Metadata &m) { m.attr = sharedAttr; });
     }
     else {
         LOG_DBG(2) << "Added new fetched attribute to cache: "
                    << sharedAttr->uuid();
+
         // In case the parent of uuid is not in the cache, add it and subscribe
         // for change events on that directory
         if (sharedAttr->parentUuid() &&
@@ -445,10 +449,11 @@ void MetadataCache::markDeletedIt(const Map::iterator &it)
     auto uuid = it->attr->uuid();
     auto parentUuid = it->attr->parentUuid();
 
-    m_cache.modify(it, [&](Metadata &m) {
-        m.attr->setParentUuid(kDeletedTag);
-        m.deleted = true;
-    });
+    auto m = *it;
+    m.attr->setParentUuid(kDeletedTag);
+    m.deleted = true;
+
+    m_cache.replace(it, std::move(m));
 
     m_onMarkDeleted(uuid);
 }

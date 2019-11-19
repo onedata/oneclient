@@ -405,11 +405,11 @@ def test_mkdir_should_mkdir(endpoint, fl):
 def test_mkdir_should_recreate_dir(endpoint, fl):
     getattr_response = prepare_attr_response('parentUuid', fuse_messages_pb2.DIR)
 
-    def mkdir():
+    def mkdir(getattr_response_param):
         response = messages_pb2.ServerMessage()
         response.fuse_response.status.code = common_messages_pb2.Status.ok
 
-        with reply(endpoint, [response, getattr_response]) as queue:
+        with reply(endpoint, [response, getattr_response_param]) as queue:
             fl.mkdir('parentUuid', 'name', 0123)
             client_message = queue.get()
 
@@ -426,7 +426,7 @@ def test_mkdir_should_recreate_dir(endpoint, fl):
         assert file_request.context_guid == \
             getattr_response.fuse_response.file_attr.uuid
 
-    mkdir()
+    mkdir(getattr_response)
 
     response_ok = messages_pb2.ServerMessage()
     response_ok.fuse_response.status.code = common_messages_pb2.Status.ok
@@ -434,7 +434,8 @@ def test_mkdir_should_recreate_dir(endpoint, fl):
     with reply(endpoint, [getattr_response, response_ok]) as queue:
         fl.unlink('parentUuid', 'name')
 
-    mkdir()
+    getattr_response2 = prepare_attr_response('parentUuid2', fuse_messages_pb2.DIR)
+    mkdir(getattr_response2)
 
 
 def test_mkdir_should_pass_mkdir_errors(endpoint, fl):
@@ -905,6 +906,57 @@ def test_readdir_should_not_get_stuck_on_errors(endpoint, fl, stat):
         _ = queue.get()
         fl.releasedir(uuid, d)
         assert len(children_chunk) == 12
+
+def test_metadatacache_should_keep_open_file_metadata(endpoint, fl):
+
+    parent = 'parentUuid'
+    name = 'a.txt'
+    uuid1 = 'uuid1'
+    uuid2 = 'uuid2'
+    size = 1024
+    blocks=[(0, 10)]
+    handle_id = 'handle_id'
+
+    ok = messages_pb2.ServerMessage()
+    ok.fuse_response.status.code = common_messages_pb2.Status.ok
+
+
+    # Create a file and open it, then delete while opened, and the perform a read
+    # and release the file
+    attr_parent_response = prepare_attr_response(parent, fuse_messages_pb2.DIR)
+    attr_response = prepare_attr_response(uuid1, fuse_messages_pb2.REG,
+                                          size, parent, name)
+    location_response = prepare_location_response(uuid1, blocks)
+    open_response = prepare_open_response(handle_id)
+
+    with reply(endpoint, [attr_response, attr_parent_response, location_response, open_response]):
+        fh = fl.open(uuid1, 0)
+        assert fh >= 0
+
+    with reply(endpoint, [ok]) as queue:
+        fl.unlink(parent, name)
+
+    assert 5 == len(fl.read(uuid1, fh, 0, 5))
+
+    do_release(endpoint, fl, uuid1, fh)
+
+    # Repeat the same steps again with a different file with the same name
+    # in the same directory
+    attr_response = prepare_attr_response(uuid2, fuse_messages_pb2.REG,
+                                          size, parent, name)
+    location_response = prepare_location_response(uuid2, blocks)
+    open_response = prepare_open_response(handle_id)
+
+    with reply(endpoint, [attr_response, location_response, open_response]):
+        fh = fl.open(uuid2, 0)
+        assert fh >= 0
+
+    with reply(endpoint, [ok]) as queue:
+        fl.unlink(parent, name)
+
+    assert 5 == len(fl.read(uuid2, fh, 0, 5))
+
+    do_release(endpoint, fl, uuid2, fh)
 
 
 def test_metadatacache_should_drop_expired_directories(endpoint, fl_dircache):
