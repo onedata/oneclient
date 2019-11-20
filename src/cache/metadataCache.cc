@@ -105,7 +105,16 @@ FileAttrPtr MetadataCache::getAttr(
     if (it != index.end() && !it->deleted) {
         LOG_DBG(2) << "Found metadata attr for file " << name
                    << " in directory " << parentUuid;
-        return it->attr;
+
+        if (it->attr->type() == FileAttr::FileType::regular &&
+            !it->attr->size()) {
+            LOG_DBG(2)
+                << "Metadata for file " << parentUuid << "/" << name
+                << " exists, but size is undefined, fetch the attribute again";
+        }
+        else {
+            return it->attr;
+        }
     }
 
     if (it != index.end() && it->deleted) {
@@ -159,7 +168,16 @@ MetadataCache::Map::iterator MetadataCache::getAttrIt(
     auto it = index.find(uuid);
     if (it != index.end()) {
         LOG_DBG(2) << "Metadata attr for file " << uuid << " found in cache";
-        return it;
+
+        if (it->attr->type() == FileAttr::FileType::regular &&
+            !it->attr->size()) {
+            LOG_DBG(2)
+                << "Metadata for file " << uuid
+                << " exists, but size is undefined, fetch the attribute again";
+        }
+        else {
+            return it;
+        }
     }
 
     LOG_DBG(2) << "Metadata attributes for " << uuid
@@ -499,7 +517,7 @@ bool MetadataCache::rename(folly::fbstring uuid, folly::fbstring newParentUuid,
     }
 
     m_onAdd(newParentUuid);
-    if(renewSubscriptions)
+    if (renewSubscriptions)
         m_onRename(uuid, newUuid);
 
     return true;
@@ -525,27 +543,32 @@ bool MetadataCache::updateAttr(const FileAttr &newAttr)
 
     LOG_DBG(2) << "Updating attribute for " << newAttr.uuid();
 
-    index.modify(it, [&](Metadata &m) {
-        if (newAttr.size() && *newAttr.size() < *m.attr->size() && m.location) {
-            LOG_DBG(2) << "Truncating file size based on updated attributes "
-                          "for uuid: '"
-                       << newAttr.uuid() << "'";
+    index.modify(
+        it, [&](Metadata &m) {
+            if (m.attr->type() == FileAttr::FileType::regular) {
+                if (newAttr.size() && m.attr->size() &&
+                    (*newAttr.size() < *m.attr->size()) && m.location) {
+                    LOG_DBG(2)
+                        << "Truncating file size based on updated attributes "
+                           "for uuid: '"
+                        << newAttr.uuid() << "'";
 
-            m.location->truncate(
-                boost::icl::discrete_interval<off_t>::right_open(
-                    0, *newAttr.size()));
-        }
+                    m.location->truncate(
+                        boost::icl::discrete_interval<off_t>::right_open(
+                            0, *newAttr.size()));
+                }
+                if (newAttr.size())
+                    m.attr->size(*newAttr.size());
+            }
 
-        m.attr->atime(std::max(m.attr->atime(), newAttr.atime()));
-        m.attr->ctime(std::max(m.attr->ctime(), newAttr.ctime()));
-        m.attr->mtime(std::max(m.attr->mtime(), newAttr.mtime()));
+            m.attr->atime(std::max(m.attr->atime(), newAttr.atime()));
+            m.attr->ctime(std::max(m.attr->ctime(), newAttr.ctime()));
+            m.attr->mtime(std::max(m.attr->mtime(), newAttr.mtime()));
 
-        m.attr->gid(newAttr.gid());
-        m.attr->mode(newAttr.mode());
-        if (newAttr.size())
-            m.attr->size(*newAttr.size());
-        m.attr->uid(newAttr.uid());
-    });
+            m.attr->gid(newAttr.gid());
+            m.attr->mode(newAttr.mode());
+            m.attr->uid(newAttr.uid());
+        });
 
     return true;
 }
