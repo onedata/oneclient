@@ -220,7 +220,7 @@ public:
      * @returns true if file has been renamed, false if it was not cached.
      */
     bool rename(folly::fbstring uuid, folly::fbstring newParentUuid,
-        folly::fbstring newName, folly::fbstring newUuid);
+        folly::fbstring newName, folly::fbstring newUuid, bool renewSubscriptions);
 
     /**
      * Sets a callback that will be called after a file is added to the cache.

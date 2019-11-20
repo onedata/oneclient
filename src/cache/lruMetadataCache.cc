@@ -136,10 +136,7 @@ void LRUMetadataCache::pinDirectory(const folly::fbstring &uuid)
     LOG_DBG(2) << "Increased LRU directory children open count of " << uuid
                << " to " << lruData.openCount;
 
-    if (lruData.lruIt) {
-        m_lruDirectoryList.erase(*lruData.lruIt);
-        lruData.lruIt.clear();
-    }
+    noteDirectoryActivity(uuid);
 }
 
 std::shared_ptr<LRUMetadataCache::OpenFileToken> LRUMetadataCache::open(
@@ -152,10 +149,8 @@ std::shared_ptr<LRUMetadataCache::OpenFileToken> LRUMetadataCache::open(
         MetadataCache::ensureAttrAndLocationCached(uuid);
 
         pinFile(uuid);
-        if (attr->parentUuid())
+        if (attr->parentUuid() && !attr->parentUuid().value().empty())
             pinDirectory(*attr->parentUuid());
-
-        prune();
 
         return std::make_shared<OpenFileToken>(std::move(attr), *this);
     }
@@ -174,12 +169,11 @@ std::shared_ptr<LRUMetadataCache::OpenFileToken> LRUMetadataCache::open(
     LOG_FCALL() << LOG_FARG(uuid);
 
     pinFile(uuid);
-    if (attr->parentUuid())
+    if (attr->parentUuid() && !attr->parentUuid().value().empty())
         pinDirectory(*attr->parentUuid());
 
     MetadataCache::putAttr(attr);
     MetadataCache::putLocation(std::move(location));
-    prune();
     return std::make_shared<OpenFileToken>(std::move(attr), *this);
 }
 
@@ -374,8 +368,16 @@ bool LRUMetadataCache::rename(folly::fbstring uuid,
 
     assert(!newName.empty());
 
-    noteDirectoryActivity(newParentUuid);
-    return MetadataCache::rename(uuid, newParentUuid, newName, newUuid);
+    pinDirectory(newParentUuid);
+
+    // Recreate the subscriptions only if the old uuid is different from the new
+    // one and the file is opened
+    bool renewSubscriptions = (uuid != newUuid) &&
+        (std::find(m_lruFileList.begin(), m_lruFileList.end(), uuid) !=
+            m_lruFileList.end());
+
+    return MetadataCache::rename(
+        uuid, newParentUuid, newName, newUuid, renewSubscriptions);
 }
 
 void LRUMetadataCache::truncate(folly::fbstring uuid, const std::size_t newSize)

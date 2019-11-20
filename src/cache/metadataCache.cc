@@ -459,7 +459,7 @@ void MetadataCache::markDeletedIt(const Map::iterator &it)
 }
 
 bool MetadataCache::rename(folly::fbstring uuid, folly::fbstring newParentUuid,
-    folly::fbstring newName, folly::fbstring newUuid)
+    folly::fbstring newName, folly::fbstring newUuid, bool renewSubscriptions)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(newParentUuid)
                 << LOG_FARG(newName) << LOG_FARG(newUuid);
@@ -498,7 +498,9 @@ bool MetadataCache::rename(folly::fbstring uuid, folly::fbstring newParentUuid,
                    << " with new uuid " << newUuid << " in " << newParentUuid;
     }
 
-    m_onRename(uuid, newUuid);
+    m_onAdd(newParentUuid);
+    if(renewSubscriptions)
+        m_onRename(uuid, newUuid);
 
     return true;
 }

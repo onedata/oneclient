@@ -39,6 +39,8 @@ void FsSubscriptions::subscribeFileAttrChanged(const folly::fbstring &fileUuid)
     ONE_METRIC_COUNTER_INC(
         "comp.oneclient.mod.events.submod.subscriptions.file_attr_changed");
 
+    LOG_DBG(2) << "Subscribing for FileAttrChanged for file " << fileUuid;
+
     subscribe(fileUuid,
         events::FileAttrChangedSubscription{fileUuid.toStdString(),
             REMOTE_TIME_THRESHOLD, [this](auto events) mutable {
