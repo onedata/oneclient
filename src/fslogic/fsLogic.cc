@@ -1175,7 +1175,11 @@ void FsLogic::unlink(
     }
     catch (std::system_error &e) {
         LOG_DBG(1) << e.what();
-        m_metadataCache.markDeleted(attr->uuid());
+        if (e.code().value() == ENOENT) {
+            LOG_DBG(1) << "File or directory " << name << " in parent "
+                       << parentUuid << " doesn't exist";
+            m_metadataCache.markDeleted(attr->uuid());
+        }
         throw e;
     }
 
