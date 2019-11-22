@@ -270,7 +270,7 @@ def prepare_events(evt_list):
 
     return msg
 
-def prepare_file_attr_changed_event(uuid, type, size):
+def prepare_file_attr_changed_event(uuid, type, size, parent_uuid):
     attr = fuse_messages_pb2.FileAttr()
     attr.uuid = uuid
     attr.name = 'filename'
@@ -284,6 +284,7 @@ def prepare_file_attr_changed_event(uuid, type, size):
     attr.size = size
     attr.owner_id = ''
     attr.provider_id = ''
+    attr.parent_uuid = parent_uuid
 
     attr_evt = event_messages_pb2.FileAttrChangedEvent()
     attr_evt.file_attr.CopyFrom(attr)
@@ -793,7 +794,7 @@ def test_readdir_should_handle_fileattrchanged_event(endpoint, fl, parentUuid, s
     file_uuid = repl.child_attrs[0].uuid
     attr = fl.getattr(file_uuid)
 
-    evt = prepare_file_attr_changed_event(file_uuid, fuse_messages_pb2.REG, 12345)
+    evt = prepare_file_attr_changed_event(file_uuid, fuse_messages_pb2.REG, 12345, 'parentUuid')
     with send(endpoint, [evt]):
         pass
 
