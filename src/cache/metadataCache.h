@@ -184,7 +184,7 @@ public:
      * @returns true if attributes have been updated, false if they were not
      * cached.
      */
-    bool updateAttr(const FileAttr &newAttr);
+    bool updateAttr(FileAttr newAttr);
 
     /**
      * Updates file location, if cached.

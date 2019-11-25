@@ -270,18 +270,19 @@ def prepare_events(evt_list):
 
     return msg
 
-def prepare_file_attr_changed_event(uuid, type, size, parent_uuid):
+def prepare_file_attr_changed_event(uuid, type, size, parent_uuid, mode=None):
     attr = fuse_messages_pb2.FileAttr()
     attr.uuid = uuid
     attr.name = 'filename'
-    attr.mode = random_int(upper_bound=0777)
+    attr.mode = mode if mode else random_int(upper_bound=0777)
     attr.uid = random_int(upper_bound=20000)
     attr.gid = random_int(upper_bound=20000)
     attr.mtime = int(time.time()) - random_int(upper_bound=1000000)
     attr.atime = attr.mtime - random_int(upper_bound=1000000)
     attr.ctime = attr.atime - random_int(upper_bound=1000000)
     attr.type = type
-    attr.size = size
+    if size:
+        attr.size = size
     attr.owner_id = ''
     attr.provider_id = ''
     attr.parent_uuid = parent_uuid
@@ -907,6 +908,118 @@ def test_readdir_should_not_get_stuck_on_errors(endpoint, fl, stat):
         _ = queue.get()
         fl.releasedir(uuid, d)
         assert len(children_chunk) == 12
+
+
+def test_metadatacache_should_ignore_changes_on_deleted_files(endpoint, fl):
+    getattr_response = prepare_attr_response('parentUuid', fuse_messages_pb2.DIR)
+
+    #
+    # Prepare readdir response with 1 file
+    #
+    repl1 = prepare_file_children_attr_response('parentUuid', "afiles-", 1)
+    repl1.is_last = True
+
+    response1 = messages_pb2.ServerMessage()
+    response1.fuse_response.file_children_attrs.CopyFrom(repl1)
+    response1.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    children = []
+    offset = 0
+    chunk_size = 50
+    with reply(endpoint, [getattr_response, response1]) as queue:
+        d = fl.opendir('parentUuid')
+        children_chunk = fl.readdir('parentUuid', chunk_size, offset)
+        _ = queue.get()
+        fl.releasedir('parentUuid', d)
+        children.extend(children_chunk)
+
+    assert len(children) == 1+2
+
+    time.sleep(1)
+
+    assert fl.metadata_cache_size() == 1+1
+
+    afiles_0_uuid = repl1.child_attrs[0].uuid
+
+    fl.getattr(afiles_0_uuid)
+
+    #
+    # Remove file 'afiles-0'
+    #
+    ok = messages_pb2.ServerMessage()
+    ok.fuse_response.status.code = common_messages_pb2.Status.ok
+    with reply(endpoint, [ok]) as queue:
+        fl.unlink('parentUuid', 'afiles-0')
+
+    time.sleep(1)
+
+    evt = prepare_file_attr_changed_event(
+        afiles_0_uuid, fuse_messages_pb2.REG, None, 'parentUuid', 0655)
+
+    with send(endpoint, [evt]):
+        pass
+
+    time.sleep(1)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        fl.getattr(afiles_0_uuid)
+
+    assert 'No such file or directory' in str(excinfo.value)
+
+
+def test_metadatacache_should_ignore_changes_on_deleted_directories(endpoint, fl):
+    getattr_response = prepare_attr_response(
+        'parentUuid', fuse_messages_pb2.DIR, None, 'parentParentUuid', 'dir1')
+    getattr_parent_response = prepare_attr_response(
+        'parentParentUuid', fuse_messages_pb2.DIR, None)
+
+
+    #
+    # Prepare readdir response with 1 file
+    #
+    repl1 = prepare_file_children_attr_response('parentUuid', "afiles-", 1)
+    repl1.is_last = True
+
+    response1 = messages_pb2.ServerMessage()
+    response1.fuse_response.file_children_attrs.CopyFrom(repl1)
+    response1.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    children = []
+    offset = 0
+    chunk_size = 50
+    with reply(endpoint, [getattr_response, getattr_parent_response, response1]) as queue:
+        d = fl.opendir('parentUuid')
+        children_chunk = fl.readdir('parentUuid', chunk_size, offset)
+        _ = queue.get()
+        fl.releasedir('parentUuid', d)
+        children.extend(children_chunk)
+
+    assert len(children) == 1+2
+
+    time.sleep(1)
+
+    assert fl.metadata_cache_size() == 2+1
+
+    #
+    # Remove file 'afiles-0'
+    #
+    ok = messages_pb2.ServerMessage()
+    ok.fuse_response.status.code = common_messages_pb2.Status.ok
+    with reply(endpoint, [ok]) as queue:
+        fl.unlink('parentParentUuid', 'dir1')
+
+    evt = prepare_file_attr_changed_event(
+        'parentUuid', fuse_messages_pb2.DIR, 0, 'parentParentUuid')
+
+    with send(endpoint, [evt]):
+        pass
+
+    time.sleep(1)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        fl.getattr('parentUuid')
+
+    assert 'No such file or directory' in str(excinfo.value)
 
 def test_metadatacache_should_keep_open_file_metadata(endpoint, fl):
 
