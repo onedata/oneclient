@@ -489,11 +489,16 @@ def test_rmdir_should_pass_rmdir_errors(endpoint, fl, uuid):
 
 
 def test_rename_should_rename_file(endpoint, fl, uuid):
-    getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.REG, 1024, 'parentUuid')
-    getattr_parent_response = prepare_attr_response('parentUuid', fuse_messages_pb2.DIR)
+    getattr_response = \
+        prepare_attr_response(uuid, fuse_messages_pb2.REG, 1024, 'parentUuid')
+    getattr_parent_response = \
+        prepare_attr_response('parentUuid', fuse_messages_pb2.DIR)
+    getattr_newparent_response = \
+        prepare_attr_response('newParentUuid', fuse_messages_pb2.DIR)
     rename_response = prepare_rename_response('newUuid')
 
-    with reply(endpoint, [getattr_response, getattr_parent_response, rename_response]) as queue:
+    with reply(endpoint, [getattr_response, getattr_parent_response,
+                          rename_response, getattr_newparent_response]) as queue:
         fl.rename('parentUuid', 'name', 'newParentUuid', 'newName')
         queue.get()
         queue.get()
@@ -513,11 +518,18 @@ def test_rename_should_rename_file(endpoint, fl, uuid):
 
 
 def test_rename_should_rename_directory(endpoint, fl, uuid):
-    getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.DIR)
+    getattr_response = \
+        prepare_attr_response(uuid, fuse_messages_pb2.DIR, 1234, 'parentUuid', 'name')
+    getattr_parent_response = \
+        prepare_attr_response('parentUuid', fuse_messages_pb2.DIR)
+    getattr_newparent_response = \
+        prepare_attr_response('newParentUuid', fuse_messages_pb2.DIR)
     rename_response = prepare_rename_response('newUuid')
 
-    with reply(endpoint, [getattr_response, rename_response]) as queue:
+    with reply(endpoint, [getattr_response, getattr_parent_response, rename_response,
+                          getattr_newparent_response]) as queue:
         fl.rename('parentUuid', 'name', 'newParentUuid', 'newName')
+        queue.get()
         queue.get()
         client_message = queue.get()
 
@@ -535,10 +547,16 @@ def test_rename_should_rename_directory(endpoint, fl, uuid):
 
 
 def test_rename_should_change_caches(appmock_client, endpoint, fl, uuid):
-    getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.DIR)
+    getattr_response = \
+        prepare_attr_response(uuid, fuse_messages_pb2.DIR, 1234, 'parentUuid', 'name')
+    getattr_parent_response = \
+        prepare_attr_response('parentUuid', fuse_messages_pb2.DIR)
+    getattr_newparent_response = \
+        prepare_attr_response('newParentUuid', fuse_messages_pb2.DIR)
     rename_response = prepare_rename_response('newUuid')
 
-    with reply(endpoint, [getattr_response, rename_response]):
+    with reply(endpoint, [getattr_response, getattr_parent_response,
+                          rename_response, getattr_newparent_response]):
         fl.rename('parentUuid', 'name', 'newParentUuid', 'newName')
 
     stat = fl.getattr('newUuid')
@@ -550,8 +568,7 @@ def test_rename_should_change_caches(appmock_client, endpoint, fl, uuid):
     response.fuse_response.status.code = common_messages_pb2.Status.enoent
 
     with pytest.raises(RuntimeError) as excinfo:
-        with reply(endpoint, response):
-            fl.getattr(uuid)
+        fl.getattr(uuid)
 
     assert 'No such file or directory' in str(excinfo.value)
 
@@ -569,13 +586,15 @@ def test_rename_should_pass_rename_errors(endpoint, fl, uuid):
 
 
 def test_chmod_should_change_mode(endpoint, fl, uuid):
-    getattr_parent_response = prepare_attr_response('parentUuid', fuse_messages_pb2.DIR)
-    getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.REG, 1024, 'parentUuid')
+    getattr_parent_response = \
+        prepare_attr_response('parentUuid', fuse_messages_pb2.DIR)
+    getattr_response = \
+        prepare_attr_response(uuid, fuse_messages_pb2.REG, 1024, 'parentUuid')
     ok_response = messages_pb2.ServerMessage()
     ok_response.fuse_response.status.code = common_messages_pb2.Status.ok
 
-    with reply(endpoint,
-            [ok_response, getattr_parent_response, ok_response, getattr_response]) as queue:
+    with reply(endpoint, [ok_response, getattr_parent_response,
+                          ok_response, getattr_response]) as queue:
         fl.chmod(uuid, 0123)
         client_message = queue.get()
 
@@ -646,8 +665,10 @@ def test_utime_should_update_times(endpoint, fl, uuid, stat):
 
 
 def test_utime_should_change_cached_times(appmock_client, endpoint, fl, uuid, parentUuid):
-    getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.REG, 1, parentUuid)
-    getattr_parent_response = prepare_attr_response(parentUuid, fuse_messages_pb2.DIR)
+    getattr_response = \
+        prepare_attr_response(uuid, fuse_messages_pb2.REG, 1, parentUuid)
+    getattr_parent_response = \
+        prepare_attr_response(parentUuid, fuse_messages_pb2.DIR)
 
     with reply(endpoint, [getattr_response, getattr_parent_response]):
         stat = fl.getattr(uuid)
@@ -795,7 +816,8 @@ def test_readdir_should_handle_fileattrchanged_event(endpoint, fl, parentUuid, s
     file_uuid = repl.child_attrs[0].uuid
     attr = fl.getattr(file_uuid)
 
-    evt = prepare_file_attr_changed_event(file_uuid, fuse_messages_pb2.REG, 12345, 'parentUuid')
+    evt = prepare_file_attr_changed_event(
+            file_uuid, fuse_messages_pb2.REG, 12345, 'parentUuid')
     with send(endpoint, [evt]):
         pass
 
@@ -973,7 +995,6 @@ def test_metadatacache_should_ignore_changes_on_deleted_directories(endpoint, fl
     getattr_parent_response = prepare_attr_response(
         'parentParentUuid', fuse_messages_pb2.DIR, None)
 
-
     #
     # Prepare readdir response with 1 file
     #
@@ -987,7 +1008,8 @@ def test_metadatacache_should_ignore_changes_on_deleted_directories(endpoint, fl
     children = []
     offset = 0
     chunk_size = 50
-    with reply(endpoint, [getattr_response, getattr_parent_response, response1]) as queue:
+    with reply(endpoint, [getattr_response, getattr_parent_response,
+                          response1]) as queue:
         d = fl.opendir('parentUuid')
         children_chunk = fl.readdir('parentUuid', chunk_size, offset)
         _ = queue.get()
@@ -1043,7 +1065,8 @@ def test_metadatacache_should_keep_open_file_metadata(endpoint, fl):
     location_response = prepare_location_response(uuid1, blocks)
     open_response = prepare_open_response(handle_id)
 
-    with reply(endpoint, [attr_response, attr_parent_response, location_response, open_response]):
+    with reply(endpoint, [attr_response, attr_parent_response,
+                          location_response, open_response]):
         fh = fl.open(uuid1, 0)
         assert fh >= 0
 
@@ -1529,17 +1552,24 @@ def test_release_should_send_fsync_message(endpoint, fl, uuid):
 
 
 def test_fslogic_should_handle_processing_status_message(endpoint, fl, uuid):
-    getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.DIR)
+    getattr_response = \
+        prepare_attr_response(uuid, fuse_messages_pb2.DIR, 0, 'parentUuid', 'name')
+    getattr_parent_response = \
+        prepare_attr_response('parentUuid', fuse_messages_pb2.DIR)
+    getattr_newparent_response = \
+        prepare_attr_response('newParentUuid', fuse_messages_pb2.DIR)
     rename_response = prepare_rename_response('newUuid')
     processing_status_responses = \
         [prepare_processing_status_response(messages_pb2.IN_PROGRESS)
                 for _ in range(5)]
 
-    responses = [getattr_response]
+    responses = [getattr_response, getattr_parent_response]
     responses.extend(processing_status_responses)
     responses.append(rename_response)
+    responses.append(getattr_newparent_response)
     with reply(endpoint, responses) as queue:
         fl.rename('parentUuid', 'name', 'newParentUuid', 'newName')
+        queue.get()
         queue.get()
         client_message = queue.get()
 

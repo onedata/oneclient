@@ -40,8 +40,6 @@ namespace cache {
 
 class ReaddirCache;
 
-constexpr auto kDeletedTag = "__deleted__";
-
 namespace bmi = boost::multi_index;
 
 /**
@@ -68,7 +66,7 @@ public:
      * @param uuid Uuid of the file.
      * @returns Attributes of the file.
      */
-    FileAttrPtr getAttr(const folly::fbstring &uuid);
+    std::shared_ptr<FileAttr> getAttr(const folly::fbstring &uuid);
 
     /**
      * Retrieves file attributes by parent's uuid and file name.
@@ -93,9 +91,11 @@ public:
      * @param range The range of the added block.
      * @param fileBlock The block.
      */
-    void addBlock(const folly::fbstring &uuid,
-        const boost::icl::discrete_interval<off_t> range,
-        messages::fuse::FileBlock fileBlock);
+    /*
+     *void addBlock(const folly::fbstring &uuid,
+     *    const boost::icl::discrete_interval<off_t> range,
+     *    messages::fuse::FileBlock fileBlock);
+     */
 
     /**
      * Retrieves a block from file locations that contains a specific
@@ -104,9 +104,11 @@ public:
      * @param offset Offset to search for.
      * @returns Pair of range and block denoting the found block.
      */
-    folly::Optional<std::pair<boost::icl::discrete_interval<off_t>,
-        messages::fuse::FileBlock>>
-    getBlock(const folly::fbstring &uuid, const off_t offset);
+    /*
+     *folly::Optional<std::pair<boost::icl::discrete_interval<off_t>,
+     *    messages::fuse::FileBlock>>
+     *getBlock(const folly::fbstring &uuid, const off_t offset);
+     */
 
     /**
      * Retrieves a default block from file locations.
@@ -115,7 +117,7 @@ public:
      * @param uuid Uuid of the file.
      * @returns File block.
      */
-    messages::fuse::FileBlock getDefaultBlock(const folly::fbstring &uuid);
+    // messages::fuse::FileBlock getDefaultBlock(const folly::fbstring &uuid);
 
     /**
      * Inserts an externally fetched file location into the cache.
@@ -140,7 +142,7 @@ public:
      * @param uuid Uuid of the file.
      * @returns Id of space this file belongs to.
      */
-    const std::string &getSpaceId(const folly::fbstring &uuid);
+    // const std::string &getSpaceId(const folly::fbstring &uuid);
 
     /**
      * Ensures that file attributes and location is present in the cache by
@@ -302,6 +304,7 @@ private:
     using ParentNameIndexHash =
         bmi::composite_key_hash<std::hash<folly::fbstring>,
             std::hash<folly::fbstring>>;
+
     using ParentNameIndex = bmi::hashed_unique<bmi::tag<ByParentName>,
         bmi::composite_key<Metadata, ParentUuidExtractor, NameExtractor>,
         ParentNameIndexHash>;
@@ -324,6 +327,7 @@ private:
     communication::Communicator &m_communicator;
 
     Map m_cache;
+    std::set<folly::fbstring> m_deletedUuids;
 
     std::function<void(const folly::fbstring &)> m_onAdd = [](auto) {};
     std::function<void(const folly::fbstring &)> m_onMarkDeleted = [](auto) {};

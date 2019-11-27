@@ -274,16 +274,23 @@ public:
      */
     void setDirectorySynced(const folly::fbstring &uuid);
 
-    // Operations used only on open files
-    using MetadataCache::addBlock;
-    using MetadataCache::getBlock;
-    using MetadataCache::getDefaultBlock;
-    using MetadataCache::getSpaceId;
+    void addBlock(const folly::fbstring &uuid,
+        const boost::icl::discrete_interval<off_t> range,
+        messages::fuse::FileBlock fileBlock);
+
+    folly::Optional<std::pair<boost::icl::discrete_interval<off_t>,
+        messages::fuse::FileBlock>>
+    getBlock(const folly::fbstring &uuid, const off_t offset);
+
+    messages::fuse::FileBlock getDefaultBlock(const folly::fbstring &uuid);
+
+    const std::string &getSpaceId(const folly::fbstring &uuid);
+
+    bool updateAttr(FileAttr newAttr);
 
     using MetadataCache::markDeleted;
     using MetadataCache::putAttr;
     using MetadataCache::size;
-    using MetadataCache::updateAttr;
 
 private:
     /**
@@ -299,6 +306,14 @@ private:
             , dirRead{false}
         {
         }
+
+        // Shared pointer to the file attr, necessary for deleted opened files
+        // or directories
+        std::shared_ptr<FileAttr> attr;
+
+        // Shared pointer to the file location, necessary for deleted opened
+        // files
+        std::shared_ptr<FileLocation> location;
 
         // When was the file or directory last used
         std::chrono::system_clock::time_point lastUsed;
@@ -341,7 +356,6 @@ private:
      * @param parentUuid UUID of the parent of the opened file.
      */
     void pinFile(const folly::fbstring &uuid);
-    void pinDirectory(const folly::fbstring &uuid);
 
     /**
      * Update the LRU directory list to reflect an activity in a directory
@@ -356,7 +370,6 @@ private:
      * @param uuid UUID of the closed file
      */
     void releaseFile(const folly::fbstring &uuid);
-    void releaseDirectory(const folly::fbstring &uuid);
 
     void prune();
 
