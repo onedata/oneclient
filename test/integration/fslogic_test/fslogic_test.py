@@ -517,6 +517,35 @@ def test_rename_should_rename_file(endpoint, fl, uuid):
            getattr_response.fuse_response.file_attr.uuid
 
 
+def test_rename_should_rename_file_with_the_same_uuid(endpoint, fl, uuid):
+    getattr_response = \
+        prepare_attr_response(uuid, fuse_messages_pb2.REG, 1024, 'parentUuid')
+    getattr_parent_response = \
+        prepare_attr_response('parentUuid', fuse_messages_pb2.DIR)
+    getattr_newparent_response = \
+        prepare_attr_response('newParentUuid', fuse_messages_pb2.DIR)
+    rename_response = prepare_rename_response(uuid)
+
+    with reply(endpoint, [getattr_response, getattr_parent_response,
+                          rename_response, getattr_newparent_response]) as queue:
+        fl.rename('parentUuid', 'name', 'newParentUuid', 'newName')
+        queue.get()
+        queue.get()
+        client_message = queue.get()
+
+    assert client_message.HasField('fuse_request')
+    assert client_message.fuse_request.HasField('file_request')
+
+    file_request = client_message.fuse_request.file_request
+    assert file_request.HasField('rename')
+
+    rename = file_request.rename
+    assert rename.target_parent_uuid == 'newParentUuid'
+    assert rename.target_name == 'newName'
+    assert file_request.context_guid == \
+           getattr_response.fuse_response.file_attr.uuid
+
+
 def test_rename_should_rename_directory(endpoint, fl, uuid):
     getattr_response = \
         prepare_attr_response(uuid, fuse_messages_pb2.DIR, 1234, 'parentUuid', 'name')

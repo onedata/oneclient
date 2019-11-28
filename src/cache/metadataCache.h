@@ -85,41 +85,6 @@ public:
     bool putAttr(std::shared_ptr<FileAttr> attr);
 
     /**
-     * Adds a specific block to a cached file locations. File location must be
-     * present in the cache.
-     * @param uuid Uuid of the file.
-     * @param range The range of the added block.
-     * @param fileBlock The block.
-     */
-    /*
-     *void addBlock(const folly::fbstring &uuid,
-     *    const boost::icl::discrete_interval<off_t> range,
-     *    messages::fuse::FileBlock fileBlock);
-     */
-
-    /**
-     * Retrieves a block from file locations that contains a specific
-     * offset.
-     * @param uuid Uuid of the file.
-     * @param offset Offset to search for.
-     * @returns Pair of range and block denoting the found block.
-     */
-    /*
-     *folly::Optional<std::pair<boost::icl::discrete_interval<off_t>,
-     *    messages::fuse::FileBlock>>
-     *getBlock(const folly::fbstring &uuid, const off_t offset);
-     */
-
-    /**
-     * Retrieves a default block from file locations.
-     * If the file has no cached attributes, they are first fetched from the
-     * server.
-     * @param uuid Uuid of the file.
-     * @returns File block.
-     */
-    // messages::fuse::FileBlock getDefaultBlock(const folly::fbstring &uuid);
-
-    /**
      * Inserts an externally fetched file location into the cache.
      * If the file has no cached attributes, they are first fetched from the
      * server.
@@ -136,13 +101,6 @@ public:
      */
     std::shared_ptr<FileLocation> getLocation(
         const folly::fbstring &uuid, bool forceUpdate = false);
-
-    /**
-     * Retrieves space Id by uuid.
-     * @param uuid Uuid of the file.
-     * @returns Id of space this file belongs to.
-     */
-    // const std::string &getSpaceId(const folly::fbstring &uuid);
 
     /**
      * Ensures that file attributes and location is present in the cache by
@@ -261,7 +219,7 @@ public:
      */
     std::size_t size() const { return m_cache.size(); }
 
-private:
+protected:
     struct Metadata {
         Metadata(std::shared_ptr<FileAttr>);
         std::shared_ptr<FileAttr> attr;
@@ -293,6 +251,7 @@ private:
         result_type operator()(const Metadata &m) const;
     };
 
+private:
     using UuidIndexHash = std::hash<folly::fbstring>;
     using UuidIndex =
         bmi::hashed_unique<bmi::tag<ByUuid>, UuidExtractor, UuidIndexHash>;
@@ -326,9 +285,11 @@ private:
 
     communication::Communicator &m_communicator;
 
+protected:
     Map m_cache;
     std::set<folly::fbstring> m_deletedUuids;
 
+private:
     std::function<void(const folly::fbstring &)> m_onAdd = [](auto) {};
     std::function<void(const folly::fbstring &)> m_onMarkDeleted = [](auto) {};
     std::function<void(const folly::fbstring &, const folly::fbstring &)>

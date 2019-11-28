@@ -485,27 +485,44 @@ void LRUMetadataCache::addBlock(const folly::fbstring &uuid,
     const boost::icl::discrete_interval<off_t> range,
     messages::fuse::FileBlock fileBlock)
 {
-    std::shared_ptr<FileAttr> attr;
+    LOG_FCALL() << LOG_FARG(uuid);
+
     std::shared_ptr<FileLocation> location;
 
-    if (m_lruFileData.find(uuid) != m_lruFileData.end()) {
-        // Check if the uuid points to an opened file
-        attr = m_lruFileData.at(uuid).attr;
+    if (m_lruFileData.find(uuid) != m_lruFileData.end() &&
+        m_lruFileData[uuid].deleted) {
+        // Check if the uuid points to an opened deleted file
+        // In that case it won't be in the metadata cache anymore
+        assert(m_lruFileData.at(uuid).attr.get() ==
+            MetadataCache::getAttr(uuid).get());
+
+        auto newSize = std::max<off_t>(
+            boost::icl::last(range) + 1, *m_lruFileData.at(uuid).attr->size());
+        MetadataCache::getAttr(uuid)->size(newSize);
+
         location = m_lruFileData.at(uuid).location;
     }
     else {
-        // Get the attribute from the general cache
-        attr = MetadataCache::getAttr(uuid);
+        // Update the attribute in the general cache
+        std::shared_ptr<FileAttr> attr;
+
+        auto it = bmi::get<ByUuid>(m_cache).find(uuid);
+        m_cache.modify(it, [&](Metadata &m) {
+            auto newSize =
+                std::max<off_t>(boost::icl::last(range) + 1, *m.attr->size());
+
+            LOG_DBG(2) << "Updating file size for " << uuid << " to "
+                       << newSize;
+            m.attr->size(newSize);
+        });
+
         location = MetadataCache::getLocation(uuid);
     }
 
     assert(location);
-    assert(attr);
 
     auto newBlock = std::make_pair(range, std::move(fileBlock));
     location->putBlock(newBlock);
-
-    attr->size(std::max<off_t>(boost::icl::last(range) + 1, *attr->size()));
 }
 
 folly::Optional<
