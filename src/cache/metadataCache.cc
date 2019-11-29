@@ -135,27 +135,32 @@ bool MetadataCache::putAttr(std::shared_ptr<FileAttr> attr)
     assert(attr->parentUuid());
 
     try {
-        if (!attr->size())
-            attr->size(0);
+        if (attr->type() == FileAttr::FileType::regular && !attr->size()) {
+            LOG(ERROR) << "New attribute without size for file: "
+                       << attr->uuid() << " - ignoring";
+            return false;
+        }
+
         auto result = m_cache.emplace(attr);
         auto isNewEntry = result.second;
 
         if (!isNewEntry) {
-            LOG_DBG(2) << "Attribute for " << attr->uuid()
-                       << " already existed in the cache - updating...";
-            m_cache.modify(
-                result.first, [attr](Metadata &m) { m.attr = attr; });
+            LOG(ERROR) << "File " << attr->uuid()
+                       << " already exists in the cache - ignoring";
+            return false;
         }
-        else {
-            LOG_DBG(2) << "Added new attribute to the metadata cache for: "
-                       << attr->uuid();
 
-            if (attr->parentUuid() && !attr->parentUuid().value().empty()) {
-                m_onAdd(attr->parentUuid().value());
-            }
+        LOG_DBG(2) << "Added new attribute to the metadata cache for: "
+                   << attr->uuid();
 
-            ONE_METRIC_COUNTER_INC("comp.oneclient.mod.metadatacache.size");
+        if (attr->parentUuid() && !attr->parentUuid().value().empty()) {
+            LOG_DBG(2)
+                << "Subscribing for changes on the parent of newly added file: "
+                << attr->uuid();
+            m_onAdd(attr->parentUuid().value());
         }
+
+        ONE_METRIC_COUNTER_INC("comp.oneclient.mod.metadatacache.size");
         return isNewEntry;
     }
     catch (std::exception &e) {
@@ -206,8 +211,8 @@ MetadataCache::Map::iterator MetadataCache::fetchAttr(ReqMsg &&msg)
         m_providerTimeout);
 
     if (!attr.size()) {
-        LOG(ERROR)
-            << "Received invalid message from server when fetching attribute.";
+        LOG(ERROR) << "Received invalid message from server when fetching "
+                      "attribute - size is unset.";
         throw std::errc::protocol_error; // NOLINT
     }
 
