@@ -286,7 +286,7 @@ public:
 
     const std::string &getSpaceId(const folly::fbstring &uuid);
 
-    bool updateAttr(FileAttr newAttr);
+    bool updateAttr(std::shared_ptr<FileAttr> newAttr);
 
     using MetadataCache::markDeleted;
     using MetadataCache::putAttr;

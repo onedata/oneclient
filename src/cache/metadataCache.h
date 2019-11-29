@@ -144,7 +144,7 @@ public:
      * @returns true if attributes have been updated, false if they were not
      * cached.
      */
-    bool updateAttr(FileAttr newAttr);
+    bool updateAttr(std::shared_ptr<FileAttr> newAttr);
 
     /**
      * Updates file location, if cached.

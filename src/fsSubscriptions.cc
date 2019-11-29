@@ -57,20 +57,20 @@ void FsSubscriptions::handleFileAttrChanged(
     m_runInFiber(
         [ this, events = std::move(events) ] {
             for (auto &event : events) {
-                auto &attr = event->fileAttr();
+                auto attr = std::make_shared<FileAttr>(event->fileAttr());
 
                 LOG_DBG(2) << " Received FileAttrChanged event: "
-                           << attr.toString();
+                           << attr->toString();
 
                 if (m_metadataCache.updateAttr(attr)) {
                     LOG_DBG(2)
-                        << "Updated attributes for uuid: '" << attr.uuid()
-                        << "', size: " << (attr.size() ? *attr.size() : -1);
+                        << "Updated attributes for uuid: '" << attr->uuid()
+                        << "', size: " << (attr->size() ? *attr->size() : -1);
                 }
                 else {
                     LOG_DBG(2)
                         << "Update or insert of attribute failed for uuid : '"
-                        << attr.uuid() << "'";
+                        << attr->uuid() << "'";
                 }
             }
         });

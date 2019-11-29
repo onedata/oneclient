@@ -102,7 +102,8 @@ void ReaddirCache::fetch(const folly::fbstring &uuid)
                                 continue;
                             }
 
-                            m_metadataCache.updateAttr(*it);
+                            m_metadataCache.updateAttr(
+                                std::make_shared<FileAttr>(*it));
                         }
                         partialPromise.setValue();
                     });

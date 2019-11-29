@@ -172,7 +172,7 @@ std::shared_ptr<LRUMetadataCache::OpenFileToken> LRUMetadataCache::open(
     if (attr->parentUuid() && !attr->parentUuid().value().empty())
         noteDirectoryActivity(*attr->parentUuid());
 
-    MetadataCache::putAttr(attr);
+    MetadataCache::updateAttr(attr);
     MetadataCache::putLocation(std::move(location));
     return std::make_shared<OpenFileToken>(std::move(attr), *this);
 }
@@ -598,38 +598,38 @@ const std::string &LRUMetadataCache::getSpaceId(const folly::fbstring &uuid)
     return location->spaceId();
 }
 
-bool LRUMetadataCache::updateAttr(FileAttr newAttr)
+bool LRUMetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr)
 {
     if (MetadataCache::updateAttr(newAttr))
         return true;
 
     // Check if the uuid points to an opened file
-    if (m_lruFileData.find(newAttr.uuid()) != m_lruFileData.end()) {
-        auto attr = m_lruFileData.at(newAttr.uuid()).attr;
-        auto location = m_lruFileData.at(newAttr.uuid()).location;
+    if (m_lruFileData.find(newAttr->uuid()) != m_lruFileData.end()) {
+        auto attr = m_lruFileData.at(newAttr->uuid()).attr;
+        auto location = m_lruFileData.at(newAttr->uuid()).location;
         if (attr->type() == FileAttr::FileType::regular) {
-            if (newAttr.size() && attr->size() &&
-                (*newAttr.size() < *attr->size()) && location) {
+            if (newAttr->size() && attr->size() &&
+                (*newAttr->size() < *attr->size()) && location) {
                 LOG_DBG(2)
                     << "Truncating file size based on updated attributes "
                        "for uuid: '"
-                    << newAttr.uuid() << "'";
+                    << newAttr->uuid() << "'";
 
                 location->truncate(
                     boost::icl::discrete_interval<off_t>::right_open(
-                        0, *newAttr.size()));
+                        0, *newAttr->size()));
             }
-            if (newAttr.size())
-                attr->size(*newAttr.size());
+            if (newAttr->size())
+                attr->size(*newAttr->size());
         }
 
-        attr->atime(std::max(attr->atime(), newAttr.atime()));
-        attr->ctime(std::max(attr->ctime(), newAttr.ctime()));
-        attr->mtime(std::max(attr->mtime(), newAttr.mtime()));
+        attr->atime(std::max(attr->atime(), newAttr->atime()));
+        attr->ctime(std::max(attr->ctime(), newAttr->ctime()));
+        attr->mtime(std::max(attr->mtime(), newAttr->mtime()));
 
-        attr->gid(newAttr.gid());
-        attr->mode(newAttr.mode());
-        attr->uid(newAttr.uid());
+        attr->gid(newAttr->gid());
+        attr->mode(newAttr->mode());
+        attr->uid(newAttr->uid());
     }
 
     return false;

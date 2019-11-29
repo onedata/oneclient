@@ -134,19 +134,31 @@ bool MetadataCache::putAttr(std::shared_ptr<FileAttr> attr)
 
     assert(attr->parentUuid());
 
+    auto const &uuid = attr->uuid();
+
+    if (m_deletedUuids.find(uuid) != m_deletedUuids.end()) {
+        LOG(WARNING) << "Received attribute for deleted file or directory "
+                     << uuid << " - ignoring";
+        return false;
+    }
+
     try {
-        if (attr->type() == FileAttr::FileType::regular && !attr->size()) {
-            LOG(ERROR) << "New attribute without size for file: "
-                       << attr->uuid() << " - ignoring";
-            return false;
+        if (attr->type() == FileAttr::FileType::regular &&
+            !(attr->size().hasValue())) {
+            LOG(WARNING)
+                << "Received attribute for new file " << uuid
+                << " without size - fetching full attribute from server...";
+
+            fetchAttr(messages::fuse::GetFileAttr{uuid});
+            return true;
         }
 
         auto result = m_cache.emplace(attr);
         auto isNewEntry = result.second;
 
         if (!isNewEntry) {
-            LOG(ERROR) << "File " << attr->uuid()
-                       << " already exists in the cache - ignoring";
+            LOG(WARNING) << "File " << attr->uuid()
+                         << " already exists in the cache - ignoring";
             return false;
         }
 
@@ -162,6 +174,15 @@ bool MetadataCache::putAttr(std::shared_ptr<FileAttr> attr)
 
         ONE_METRIC_COUNTER_INC("comp.oneclient.mod.metadatacache.size");
         return isNewEntry;
+    }
+    catch (std::system_error &e) {
+        if (e.code().value() == ENOENT) {
+            LOG(ERROR) << "Trying to update attribute for file which not does "
+                          "not exist on the server: "
+                       << uuid << " - ignoring...";
+            return false;
+        }
+        throw;
     }
     catch (std::exception &e) {
         throw;
@@ -399,6 +420,8 @@ bool MetadataCache::markDeleted(folly::fbstring uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
+    m_deletedUuids.insert(uuid);
+
     auto &index = bmi::get<ByUuid>(m_cache);
     auto it = index.find(uuid);
     if (it == index.end()) {
@@ -419,8 +442,6 @@ void MetadataCache::markDeletedIt(const Map::iterator &it)
     auto uuid = it->attr->uuid();
 
     erase(uuid);
-
-    m_deletedUuids.insert(uuid);
 
     m_onMarkDeleted(uuid);
 }
@@ -471,52 +492,53 @@ bool MetadataCache::rename(folly::fbstring uuid, folly::fbstring newParentUuid,
     return true;
 }
 
-bool MetadataCache::updateAttr(FileAttr newAttr)
+bool MetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr)
 {
-    LOG_FCALL() << LOG_FARG(newAttr.toString());
+    LOG_FCALL() << LOG_FARG(newAttr->toString());
 
-    if (m_deletedUuids.find(newAttr.uuid()) != m_deletedUuids.end()) {
-        LOG_DBG(2) << "Update for deleted file or directory " << newAttr.uuid()
+    auto uuid = newAttr->uuid();
+
+    if (m_deletedUuids.find(uuid) != m_deletedUuids.end()) {
+        LOG_DBG(2) << "Update for deleted file or directory " << uuid
                    << " - ignoring";
         return false;
     }
 
     auto &index = bmi::get<ByUuid>(m_cache);
-    auto it = index.find(newAttr.uuid());
+    auto it = index.find(uuid);
     if (it == index.end()) {
-        LOG_DBG(2) << "Attribute for " << newAttr.name() << " ("
-                   << newAttr.uuid() << ")  not found in cache - adding";
-        putAttr(std::make_shared<FileAttr>(newAttr));
-        return true;
+        LOG_DBG(2) << "Attribute for " << newAttr->name() << " (" << uuid
+                   << ")  not found in cache - adding";
+        return putAttr(newAttr);
     }
 
-    LOG_DBG(2) << "Updating attribute for " << newAttr.uuid();
+    LOG_DBG(2) << "Updating attribute for " << uuid;
 
     index.modify(
         it, [&](Metadata &m) {
             if (m.attr->type() == FileAttr::FileType::regular) {
-                if (newAttr.size() && m.attr->size() &&
-                    (*newAttr.size() < *m.attr->size()) && m.location) {
+                if (newAttr->size() && m.attr->size() &&
+                    (*newAttr->size() < *m.attr->size()) && m.location) {
                     LOG_DBG(2)
                         << "Truncating file size based on updated attributes "
                            "for uuid: '"
-                        << newAttr.uuid() << "'";
+                        << uuid << "'";
 
                     m.location->truncate(
                         boost::icl::discrete_interval<off_t>::right_open(
-                            0, *newAttr.size()));
+                            0, *newAttr->size()));
                 }
-                if (newAttr.size())
-                    m.attr->size(*newAttr.size());
+                if (newAttr->size())
+                    m.attr->size(*newAttr->size());
             }
 
-            m.attr->atime(std::max(m.attr->atime(), newAttr.atime()));
-            m.attr->ctime(std::max(m.attr->ctime(), newAttr.ctime()));
-            m.attr->mtime(std::max(m.attr->mtime(), newAttr.mtime()));
+            m.attr->atime(std::max(m.attr->atime(), newAttr->atime()));
+            m.attr->ctime(std::max(m.attr->ctime(), newAttr->ctime()));
+            m.attr->mtime(std::max(m.attr->mtime(), newAttr->mtime()));
 
-            m.attr->gid(newAttr.gid());
-            m.attr->mode(newAttr.mode());
-            m.attr->uid(newAttr.uid());
+            m.attr->gid(newAttr->gid());
+            m.attr->mode(newAttr->mode());
+            m.attr->uid(newAttr->uid());
         });
 
     return true;
