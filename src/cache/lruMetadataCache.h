@@ -288,6 +288,7 @@ public:
 
     bool updateAttr(std::shared_ptr<FileAttr> newAttr);
 
+    using MetadataCache::contains;
     using MetadataCache::markDeleted;
     using MetadataCache::putAttr;
     using MetadataCache::size;

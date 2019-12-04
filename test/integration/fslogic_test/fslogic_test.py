@@ -28,22 +28,28 @@ from proto import messages_pb2, fuse_messages_pb2, event_messages_pb2, \
 SYNCHRONIZE_BLOCK_PRIORITY_IMMEDIATE = 32
 
 
-@pytest.fixture
+@pytest.yield_fixture
 def endpoint(appmock_client):
-    return appmock_client.tcp_endpoint(443)
+    app = appmock_client.tcp_endpoint(443)
+    yield app
+    appmock_client.reset_tcp_history()
 
 
-@pytest.fixture
+@pytest.yield_fixture(scope="function")
 def fl(endpoint):
-    return fslogic.FsLogicProxy(endpoint.ip, endpoint.port, 10000, 5*60)
+    fsl = fslogic.FsLogicProxy(endpoint.ip, endpoint.port, 10000, 5*60)
+    yield fsl
+    fsl.stop()
 
 
-@pytest.fixture
+@pytest.yield_fixture
 def fl_dircache(endpoint):
-    return fslogic.FsLogicProxy(endpoint.ip, endpoint.port,
+    fsl = fslogic.FsLogicProxy(endpoint.ip, endpoint.port,
             25, # Max metadata cache size
             3   # Directory cache expires after 3 seconds
             )
+    yield fsl
+    fsl.stop()
 
 
 @pytest.fixture
@@ -270,6 +276,7 @@ def prepare_events(evt_list):
 
     return msg
 
+
 def prepare_file_attr_changed_event(uuid, type, size, parent_uuid, mode=None):
     attr = fuse_messages_pb2.FileAttr()
     attr.uuid = uuid
@@ -296,13 +303,31 @@ def prepare_file_attr_changed_event(uuid, type, size, parent_uuid, mode=None):
     return prepare_events([evt])
 
 
+def prepare_file_renamed_event(uuid, new_uuid, new_name, new_parent_uuid):
+    top_entry = common_messages_pb2.FileRenamedEntry()
+    top_entry.old_uuid = uuid
+    top_entry.new_uuid = new_uuid
+    top_entry.new_name = new_name
+    top_entry.new_parent_uuid = new_parent_uuid
+
+    rename_evt = event_messages_pb2.FileRenamedEvent()
+    rename_evt.top_entry.CopyFrom(top_entry)
+
+    evt = event_messages_pb2.Event()
+    evt.file_renamed.CopyFrom(rename_evt)
+
+    return prepare_events([evt])
+
+
 def do_open(endpoint, fl, uuid, size=None, blocks=[], handle_id='handle_id'):
     attr_response = prepare_attr_response(uuid, fuse_messages_pb2.REG,
                                           size=size)
     location_response = prepare_location_response(uuid, blocks)
     open_response = prepare_open_response(handle_id)
 
-    with reply(endpoint, [attr_response, location_response, open_response]):
+    with reply(endpoint, [attr_response,
+                          location_response,
+                          open_response]):
         handle = fl.open(uuid, 0)
         assert handle >= 0
         return handle
@@ -316,7 +341,8 @@ def do_release(endpoint, fl, uuid, fh):
     release_response.fuse_response.status.code = common_messages_pb2.Status.ok
 
     result = None
-    with reply(endpoint, [fsync_response, release_response]) as queue:
+    with reply(endpoint, [fsync_response,
+                          release_response]) as queue:
         fl.release(uuid, fh)
         result = queue
     return result
@@ -328,11 +354,12 @@ def get_stream_id_from_location_subscription(subscription_message_data):
     return location_subsc.message_stream.stream_id
 
 
-def test_getattrs_should_get_attrs(endpoint, fl, uuid, parentUuid):
+def test_getattrs_should_get_attrs(appmock_client, endpoint, fl, uuid, parentUuid):
     response = prepare_attr_response(uuid, fuse_messages_pb2.REG, 1, parentUuid)
     parent_response = prepare_attr_response(parentUuid, fuse_messages_pb2.DIR)
 
-    with reply(endpoint, [response, parent_response]) as queue:
+    with reply(endpoint, [response,
+                          parent_response]) as queue:
         stat = fl.getattr(uuid)
         client_message = queue.get()
 
@@ -353,7 +380,7 @@ def test_getattrs_should_get_attrs(endpoint, fl, uuid, parentUuid):
     assert stat.size == repl.size
 
 
-def test_getattrs_should_pass_errors(endpoint, fl, uuid):
+def test_getattrs_should_pass_errors(appmock_client, endpoint, fl, uuid):
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.enoent
 
@@ -364,16 +391,21 @@ def test_getattrs_should_pass_errors(endpoint, fl, uuid):
     assert 'No such file or directory' in str(excinfo.value)
 
 
-def test_getattrs_should_cache_attrs(endpoint, fl, uuid, parentUuid):
-    fuse_response = prepare_attr_response(uuid, fuse_messages_pb2.REG, 1, parentUuid)
-    fuse_parent_response = prepare_attr_response(parentUuid, fuse_messages_pb2.DIR)
+def test_getattrs_should_cache_attrs(appmock_client, endpoint, fl, uuid, parentUuid):
+    attr_response = prepare_attr_response(uuid, fuse_messages_pb2.REG, 1, parentUuid)
+    attr_parent_response = prepare_attr_response(parentUuid, fuse_messages_pb2.DIR)
 
     # FsLogic should first request the FileAttr for uuid, and then
     # call the FileAttr for it's parent since it isn't cached
     # After that it should create subscriptions on the parent for the
     # metadata changes in that directory
-    with reply(endpoint, [fuse_response, fuse_parent_response]):
+    with reply(endpoint, [attr_response, attr_parent_response]):
         stat = fl.getattr(uuid)
+
+    assert fl.metadata_cache_contains(uuid)
+    assert fl.metadata_cache_contains(parentUuid)
+
+    print("ASKJDHKAJSDHKJASHDKJHASKJD")
 
     # This should return the attr without any calls to Oneprovider
     new_stat = fl.getattr(uuid)
@@ -381,7 +413,7 @@ def test_getattrs_should_cache_attrs(endpoint, fl, uuid, parentUuid):
     assert stat == new_stat
 
 
-def test_mkdir_should_mkdir(endpoint, fl):
+def test_mkdir_should_mkdir(appmock_client, endpoint, fl):
     getattr_response = prepare_attr_response('parentUuid', fuse_messages_pb2.DIR)
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.ok
@@ -404,14 +436,15 @@ def test_mkdir_should_mkdir(endpoint, fl):
            getattr_response.fuse_response.file_attr.uuid
 
 
-def test_mkdir_should_recreate_dir(endpoint, fl):
+def test_mkdir_should_recreate_dir(appmock_client, endpoint, fl):
     getattr_response = prepare_attr_response('parentUuid', fuse_messages_pb2.DIR)
 
     def mkdir(getattr_response_param):
         response = messages_pb2.ServerMessage()
         response.fuse_response.status.code = common_messages_pb2.Status.ok
 
-        with reply(endpoint, [response, getattr_response_param]) as queue:
+        with reply(endpoint, [response,
+                              getattr_response_param]) as queue:
             fl.mkdir('parentUuid', 'name', 0123)
             client_message = queue.get()
 
@@ -440,24 +473,25 @@ def test_mkdir_should_recreate_dir(endpoint, fl):
     mkdir(getattr_response2)
 
 
-def test_mkdir_should_pass_mkdir_errors(endpoint, fl):
+def test_mkdir_should_pass_mkdir_errors(appmock_client, endpoint, fl):
     getattr_response = prepare_attr_response('parentUuid', fuse_messages_pb2.DIR)
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.eperm
 
     with pytest.raises(RuntimeError) as excinfo:
         with reply(endpoint, [getattr_response, response]):
-            fl.mkdir('parentUuid', 'name', 0123)
+            fl.mkdir('parentUuid', 'filename', 0123)
 
     assert 'Operation not permitted' in str(excinfo.value)
 
 
-def test_rmdir_should_rmdir(endpoint, fl, uuid):
+def test_rmdir_should_rmdir(appmock_client, endpoint, fl, uuid):
     getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.DIR)
-    response = messages_pb2.ServerMessage()
-    response.fuse_response.status.code = common_messages_pb2.Status.ok
 
-    with reply(endpoint, [getattr_response, response]) as queue:
+    ok = messages_pb2.ServerMessage()
+    ok.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    with reply(endpoint, [getattr_response, ok]) as queue:
         fl.rmdir('parentUuid', 'name')
         queue.get()
         client_message = queue.get()
@@ -476,19 +510,21 @@ def test_rmdir_should_rmdir(endpoint, fl, uuid):
     assert 'No such file or directory' in str(excinfo.value)
 
 
-def test_rmdir_should_pass_rmdir_errors(endpoint, fl, uuid):
+def test_rmdir_should_pass_rmdir_errors(appmock_client, endpoint, fl, uuid):
     getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.DIR)
+    getattr_parent_response = \
+        prepare_attr_response('parentUuid', fuse_messages_pb2.DIR)
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.eperm
 
     with pytest.raises(RuntimeError) as excinfo:
         with reply(endpoint, [getattr_response, response]):
-            fl.rmdir('parentUuid', 'name')
+            fl.rmdir('parentUuid', 'filename')
 
     assert 'Operation not permitted' in str(excinfo.value)
 
 
-def test_rename_should_rename_file(endpoint, fl, uuid):
+def test_rename_should_rename_file_with_different_uuid(appmock_client, endpoint, fl, uuid):
     getattr_response = \
         prepare_attr_response(uuid, fuse_messages_pb2.REG, 1024, 'parentUuid')
     getattr_parent_response = \
@@ -497,12 +533,37 @@ def test_rename_should_rename_file(endpoint, fl, uuid):
         prepare_attr_response('newParentUuid', fuse_messages_pb2.DIR)
     rename_response = prepare_rename_response('newUuid')
 
-    with reply(endpoint, [getattr_response, getattr_parent_response,
-                          rename_response, getattr_newparent_response]) as queue:
-        fl.rename('parentUuid', 'name', 'newParentUuid', 'newName')
+    #
+    # Prepare first response with 5 files
+    #
+    repl = prepare_file_children_attr_response('parentUuid', "afiles-", 5)
+    repl.is_last = True
+
+    readdir_response = messages_pb2.ServerMessage()
+    readdir_response.fuse_response.file_children_attrs.CopyFrom(repl)
+    readdir_response.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    with reply(endpoint, [getattr_response,
+                          getattr_parent_response,
+                          getattr_newparent_response,
+                          readdir_response,
+                          rename_response]) as queue:
+        # Ensure the source file is cached
+        fl.getattr(uuid)
+        queue.get()
+        # Ensure the target directory is cached
+        d = fl.opendir('newParentUuid')
+        fl.readdir('newParentUuid', 100, 0)
+        fl.releasedir('newParentUuid', d)
+        queue.get()
+        # Move the file to new directory
+        fl.rename('parentUuid', 'filename', 'newParentUuid', 'newName')
         queue.get()
         queue.get()
         client_message = queue.get()
+
+    assert not fl.metadata_cache_contains(uuid)
+    assert fl.metadata_cache_contains('newUuid')
 
     assert client_message.HasField('fuse_request')
     assert client_message.fuse_request.HasField('file_request')
@@ -517,7 +578,7 @@ def test_rename_should_rename_file(endpoint, fl, uuid):
            getattr_response.fuse_response.file_attr.uuid
 
 
-def test_rename_should_rename_file_with_the_same_uuid(endpoint, fl, uuid):
+def test_rename_should_rename_file_with_the_same_uuid(appmock_client, endpoint, fl, uuid):
     getattr_response = \
         prepare_attr_response(uuid, fuse_messages_pb2.REG, 1024, 'parentUuid')
     getattr_parent_response = \
@@ -526,95 +587,267 @@ def test_rename_should_rename_file_with_the_same_uuid(endpoint, fl, uuid):
         prepare_attr_response('newParentUuid', fuse_messages_pb2.DIR)
     rename_response = prepare_rename_response(uuid)
 
-    with reply(endpoint, [getattr_response, getattr_parent_response,
-                          rename_response, getattr_newparent_response]) as queue:
-        fl.rename('parentUuid', 'name', 'newParentUuid', 'newName')
-        queue.get()
-        queue.get()
-        client_message = queue.get()
+    #
+    # Prepare first response with 5 files
+    #
+    repl = prepare_file_children_attr_response('parentUuid', "afiles-", 5)
+    repl.is_last = True
 
-    assert client_message.HasField('fuse_request')
-    assert client_message.fuse_request.HasField('file_request')
-
-    file_request = client_message.fuse_request.file_request
-    assert file_request.HasField('rename')
-
-    rename = file_request.rename
-    assert rename.target_parent_uuid == 'newParentUuid'
-    assert rename.target_name == 'newName'
-    assert file_request.context_guid == \
-           getattr_response.fuse_response.file_attr.uuid
+    readdir_response = messages_pb2.ServerMessage()
+    readdir_response.fuse_response.file_children_attrs.CopyFrom(repl)
+    readdir_response.fuse_response.status.code = common_messages_pb2.Status.ok
 
 
-def test_rename_should_rename_directory(endpoint, fl, uuid):
-    getattr_response = \
-        prepare_attr_response(uuid, fuse_messages_pb2.DIR, 1234, 'parentUuid', 'name')
-    getattr_parent_response = \
-        prepare_attr_response('parentUuid', fuse_messages_pb2.DIR)
-    getattr_newparent_response = \
-        prepare_attr_response('newParentUuid', fuse_messages_pb2.DIR)
-    rename_response = prepare_rename_response('newUuid')
-
-    with reply(endpoint, [getattr_response, getattr_parent_response, rename_response,
-                          getattr_newparent_response]) as queue:
-        fl.rename('parentUuid', 'name', 'newParentUuid', 'newName')
-        queue.get()
-        queue.get()
-        client_message = queue.get()
-
-    assert client_message.HasField('fuse_request')
-    assert client_message.fuse_request.HasField('file_request')
-
-    file_request = client_message.fuse_request.file_request
-    assert file_request.HasField('rename')
-
-    rename = file_request.rename
-    assert rename.target_parent_uuid == 'newParentUuid'
-    assert rename.target_name == 'newName'
-    assert file_request.context_guid == \
-           getattr_response.fuse_response.file_attr.uuid
-
-
-def test_rename_should_change_caches(appmock_client, endpoint, fl, uuid):
-    getattr_response = \
-        prepare_attr_response(uuid, fuse_messages_pb2.DIR, 1234, 'parentUuid', 'name')
-    getattr_parent_response = \
-        prepare_attr_response('parentUuid', fuse_messages_pb2.DIR)
-    getattr_newparent_response = \
-        prepare_attr_response('newParentUuid', fuse_messages_pb2.DIR)
-    rename_response = prepare_rename_response('newUuid')
-
-    with reply(endpoint, [getattr_response, getattr_parent_response,
-                          rename_response, getattr_newparent_response]):
-        fl.rename('parentUuid', 'name', 'newParentUuid', 'newName')
-
-    stat = fl.getattr('newUuid')
-
-    assert stat.size == getattr_response.fuse_response.file_attr.size
-    appmock_client.reset_tcp_history()
-
-    response = messages_pb2.ServerMessage()
-    response.fuse_response.status.code = common_messages_pb2.Status.enoent
-
-    with pytest.raises(RuntimeError) as excinfo:
+    with reply(endpoint, [getattr_response,
+                          getattr_parent_response,
+                          getattr_newparent_response,
+                          readdir_response,
+                          rename_response]) as queue:
+        # Ensure the source file is cached
         fl.getattr(uuid)
+        queue.get()
+        # Ensure the target directory is cached
+        d = fl.opendir('newParentUuid')
+        fl.readdir('newParentUuid', 100, 0)
+        fl.releasedir('newParentUuid', d)
+        queue.get()
+        fl.rename('parentUuid', 'filename', 'newParentUuid', 'newName')
+        queue.get()
+        queue.get()
+        client_message = queue.get()
 
-    assert 'No such file or directory' in str(excinfo.value)
+    assert client_message.HasField('fuse_request')
+    assert client_message.fuse_request.HasField('file_request')
+
+    file_request = client_message.fuse_request.file_request
+    assert file_request.HasField('rename')
+
+    rename = file_request.rename
+    assert rename.target_parent_uuid == 'newParentUuid'
+    assert rename.target_name == 'newName'
+    assert file_request.context_guid == \
+           getattr_response.fuse_response.file_attr.uuid
 
 
-def test_rename_should_pass_rename_errors(endpoint, fl, uuid):
+def test_rename_should_rename_directory(appmock_client, endpoint, fl, uuid):
+    getattr_response = \
+        prepare_attr_response(uuid, fuse_messages_pb2.DIR, 1234, 'parentUuid', 'name')
+    getattr_parent_response = \
+        prepare_attr_response('parentUuid', fuse_messages_pb2.DIR)
+    getattr_newparent_response = \
+        prepare_attr_response('newParentUuid', fuse_messages_pb2.DIR)
+    rename_response = prepare_rename_response('newUuid')
+
+    with reply(endpoint, [getattr_response,
+                          getattr_parent_response,
+                          rename_response ]) as queue:
+        fl.rename('parentUuid', 'name', 'newParentUuid', 'newName')
+        queue.get()
+        queue.get()
+        client_message = queue.get()
+
+    assert client_message.HasField('fuse_request')
+    assert client_message.fuse_request.HasField('file_request')
+
+    file_request = client_message.fuse_request.file_request
+    assert file_request.HasField('rename')
+
+    rename = file_request.rename
+    assert rename.target_parent_uuid == 'newParentUuid'
+    assert rename.target_name == 'newName'
+    assert file_request.context_guid == \
+           getattr_response.fuse_response.file_attr.uuid
+
+
+def test_rename_event_should_ignore_uncached_files(appmock_client, endpoint, fl, uuid):
+    evt = prepare_file_renamed_event(
+            uuid, uuid, 'newName', 'newParentUuid')
+
+    with send(endpoint, [evt]):
+        pass
+
+    assert not fl.metadata_cache_contains(uuid)
+    assert not fl.metadata_cache_contains('newParentUuid')
+
+
+def test_rename_event_should_update_old_file_parent_cache(appmock_client, endpoint, fl):
+    parentUuid = 'parentUuid'
+    getattr_reponse = prepare_attr_response(parentUuid, fuse_messages_pb2.DIR)
+
+    #
+    # Prepare first response with 3 files
+    #
+    dir_size = 3
+    repl = prepare_file_children_attr_response(parentUuid, "afiles-", dir_size)
+    repl.is_last = True
+
+    readdir_response = messages_pb2.ServerMessage()
+    readdir_response.fuse_response.file_children_attrs.CopyFrom(repl)
+    readdir_response.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    # When adding the first directory entry, the client will make sure that the
+    # parent attributes are also cached
+    getattr_parent_response = prepare_attr_response(parentUuid, fuse_messages_pb2.DIR)
+
+    children = []
+    offset = 0
+    chunk_size = 50
+    with reply(endpoint, [getattr_reponse,
+                          readdir_response]) as queue:
+        d = fl.opendir(parentUuid)
+        children_chunk = fl.readdir(parentUuid, chunk_size, offset)
+        _ = queue.get()
+        fl.releasedir(parentUuid, d)
+        assert len(children_chunk) == len(['.', '..']) + dir_size
+
+    uuid = repl.child_attrs[0].uuid
+
+    evt = prepare_file_renamed_event(
+            uuid, 'newUuid', 'newName', 'newParentUuid')
+
+    with send(endpoint, [evt]):
+        wait_until(lambda: not fl.metadata_cache_contains(uuid))
+
+    assert fl.metadata_cache_contains('parentUuid')
+    assert not fl.metadata_cache_contains('newUuid')
+    assert not fl.metadata_cache_contains('newParentUuid')
+
+    children_chunk = fl.readdir(parentUuid, chunk_size, offset)
+
+    assert len(children_chunk) == len(['.', '..']) + dir_size - 1
+
+
+def test_rename_event_should_update_new_file_parent_cache(appmock_client, endpoint, fl, uuid):
+    parentUuid = 'newParentUuid'
+    getattr_reponse = prepare_attr_response(parentUuid, fuse_messages_pb2.DIR)
+
+    #
+    # Prepare first response with 3 files
+    #
+    dir_size = 3
+    repl = prepare_file_children_attr_response(parentUuid, "afiles-", dir_size)
+    repl.is_last = True
+
+    readdir_response = messages_pb2.ServerMessage()
+    readdir_response.fuse_response.file_children_attrs.CopyFrom(repl)
+    readdir_response.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    # When adding the first directory entry, the client will make sure that the
+    # parent attributes are also cached
+    getattr_parent_response = prepare_attr_response(parentUuid, fuse_messages_pb2.DIR)
+
+    children = []
+    offset = 0
+    chunk_size = 50
+    with reply(endpoint, [getattr_reponse,
+                          readdir_response]) as queue:
+        d = fl.opendir(parentUuid)
+        children_chunk = fl.readdir(parentUuid, chunk_size, offset)
+        _ = queue.get()
+        fl.releasedir(parentUuid, d)
+        assert len(children_chunk) == len(['.', '..']) + dir_size
+
+    evt = prepare_file_renamed_event(
+            uuid, 'newUuid', 'afiles-NEW', 'newParentUuid')
+
+    getattr_new_response = \
+        prepare_attr_response('newUuid', fuse_messages_pb2.REG, 1234,
+                'newParentUuid', 'afiles-NEW')
+
+    with send(endpoint, [evt]):
+        pass
+
+    with reply(endpoint, [getattr_new_response]) as queue:
+        wait_until(lambda: fl.metadata_cache_contains('newUuid'))
+        assert not fl.metadata_cache_contains(uuid)
+        assert fl.metadata_cache_contains('newParentUuid')
+
+    children_chunk = fl.readdir(parentUuid, chunk_size, offset)
+
+    assert len(children_chunk) == len(['.', '..']) + dir_size + 1
+    assert 'afiles-NEW' in children_chunk
+
+
+def test_rename_should_update_cache(appmock_client, endpoint, fl, uuid):
+    parentUuid = 'parentUuid'
+    newParentUuid = 'newParentUuid'
+    dir_size = 3
+    offset = 0
+    chunk_size = 100
+
+    #
+    # Prepare first response with 3 files
+    #
+    repl = prepare_file_children_attr_response(parentUuid, "afiles-", dir_size)
+    repl.is_last = True
+
+    readdir_response = messages_pb2.ServerMessage()
+    readdir_response.fuse_response.file_children_attrs.CopyFrom(repl)
+    readdir_response.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    # When adding the first directory entry, the client will make sure that the
+    # parent attributes are also cached
+    getattr_parent_response = prepare_attr_response(parentUuid, fuse_messages_pb2.DIR)
+
+    #
+    # Prepare first response with 3 files
+    #
+    repl_new = prepare_file_children_attr_response(newParentUuid, "bfiles-", dir_size)
+    repl_new.is_last = True
+
+    readdir_new_response = messages_pb2.ServerMessage()
+    readdir_new_response.fuse_response.file_children_attrs.CopyFrom(repl_new)
+    readdir_new_response.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    # When adding the first directory entry, the client will make sure that the
+    # parent attributes are also cached
+    getattr_newparent_response = prepare_attr_response(newParentUuid, fuse_messages_pb2.DIR)
+
+    rename_response = prepare_rename_response('newUuid')
+
+    with reply(endpoint, [getattr_parent_response,
+                          readdir_response,
+                          getattr_newparent_response,
+                          readdir_new_response,
+                          rename_response]) as queue:
+        # Ensure the source directory is cached
+        d = fl.opendir(parentUuid)
+        fl.readdir(parentUuid, chunk_size, offset)
+        fl.releasedir(parentUuid, d)
+        # Ensure the target directory is cached
+        d = fl.opendir(newParentUuid)
+        fl.readdir(newParentUuid, chunk_size, offset)
+        fl.releasedir(newParentUuid, d)
+        # Rename the file
+        fl.rename(parentUuid, 'afiles-0', newParentUuid, 'afiles-NEW')
+
+    assert fl.metadata_cache_contains('newUuid')
+
+    children_chunk = fl.readdir(parentUuid, chunk_size, offset)
+
+    assert len(children_chunk) == len(['.', '..']) + dir_size - 1
+    assert 'afiles-0' not in children_chunk
+
+    children_chunk = fl.readdir(newParentUuid, chunk_size, offset)
+
+    assert len(children_chunk) == len(['.', '..']) + dir_size + 1
+    assert 'afiles-NEW' in children_chunk
+
+
+def test_rename_should_pass_rename_errors(appmock_client, endpoint, fl, uuid):
     getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.DIR)
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.eperm
 
     with pytest.raises(RuntimeError) as excinfo:
-        with reply(endpoint, [getattr_response, response]):
+        with reply(endpoint, [getattr_response,
+                              response]):
             fl.rename('parentUuid', 'name', 'newParentUuid', 'newName')
 
     assert 'Operation not permitted' in str(excinfo.value)
 
 
-def test_chmod_should_change_mode(endpoint, fl, uuid):
+def test_chmod_should_change_mode(appmock_client, endpoint, fl, uuid):
     getattr_parent_response = \
         prepare_attr_response('parentUuid', fuse_messages_pb2.DIR)
     getattr_response = \
@@ -622,8 +855,10 @@ def test_chmod_should_change_mode(endpoint, fl, uuid):
     ok_response = messages_pb2.ServerMessage()
     ok_response.fuse_response.status.code = common_messages_pb2.Status.ok
 
-    with reply(endpoint, [ok_response, getattr_parent_response,
-                          ok_response, getattr_response]) as queue:
+    with reply(endpoint, [ok_response,
+                          getattr_parent_response,
+                          ok_response,
+                          getattr_response]) as queue:
         fl.chmod(uuid, 0123)
         client_message = queue.get()
 
@@ -643,12 +878,12 @@ def test_chmod_should_change_cached_mode(appmock_client, endpoint, fl, uuid, par
     getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.REG, 1, parentUuid)
     getattr_parent_response = prepare_attr_response(parentUuid, fuse_messages_pb2.DIR)
 
-    with reply(endpoint, [getattr_response, getattr_parent_response]):
+    with reply(endpoint, [getattr_response,
+                          getattr_parent_response]):
         stat = fl.getattr(uuid)
 
     assert stat.mode == getattr_response.fuse_response.file_attr.mode | \
                         fslogic.regularMode()
-    assert 3 == endpoint.all_messages_count()
     appmock_client.reset_tcp_history()
 
     response = messages_pb2.ServerMessage()
@@ -661,7 +896,7 @@ def test_chmod_should_change_cached_mode(appmock_client, endpoint, fl, uuid, par
     assert stat.mode == 0356 | fslogic.regularMode()
 
 
-def test_chmod_should_pass_chmod_errors(endpoint, fl, uuid):
+def test_chmod_should_pass_chmod_errors(appmock_client, endpoint, fl, uuid):
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.enoent
 
@@ -672,7 +907,7 @@ def test_chmod_should_pass_chmod_errors(endpoint, fl, uuid):
     assert 'No such file or directory' in str(excinfo.value)
 
 
-def test_utime_should_update_times(endpoint, fl, uuid, stat):
+def test_utime_should_update_times(appmock_client, endpoint, fl, uuid, stat):
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.ok
 
@@ -699,12 +934,12 @@ def test_utime_should_change_cached_times(appmock_client, endpoint, fl, uuid, pa
     getattr_parent_response = \
         prepare_attr_response(parentUuid, fuse_messages_pb2.DIR)
 
-    with reply(endpoint, [getattr_response, getattr_parent_response]):
+    with reply(endpoint, [getattr_response,
+                          getattr_parent_response]):
         stat = fl.getattr(uuid)
 
     assert stat.atime == getattr_response.fuse_response.file_attr.atime
     assert stat.mtime == getattr_response.fuse_response.file_attr.mtime
-    assert 3 == endpoint.all_messages_count()
     appmock_client.reset_tcp_history()
 
     response = messages_pb2.ServerMessage()
@@ -719,7 +954,7 @@ def test_utime_should_change_cached_times(appmock_client, endpoint, fl, uuid, pa
     assert stat.mtime != getattr_response.fuse_response.file_attr.mtime
 
 
-def test_utime_should_update_times_with_buf(endpoint, fl, uuid, stat):
+def test_utime_should_update_times_with_buf(appmock_client, endpoint, fl, uuid, stat):
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.ok
 
@@ -743,7 +978,7 @@ def test_utime_should_update_times_with_buf(endpoint, fl, uuid, stat):
     assert file_request.context_guid == uuid
 
 
-def test_utime_should_pass_utime_errors(endpoint, fl, uuid, stat):
+def test_utime_should_pass_utime_errors(appmock_client, endpoint, fl, uuid, stat):
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.eperm
 
@@ -761,7 +996,7 @@ def test_utime_should_pass_utime_errors(endpoint, fl, uuid, stat):
     assert 'Operation not permitted' in str(excinfo.value)
 
 
-def test_readdir_should_read_dir(endpoint, fl, stat):
+def test_readdir_should_read_dir(appmock_client, endpoint, fl, stat):
     uuid = 'parentUuid'
 
     getattr_reponse = prepare_attr_response(uuid, fuse_messages_pb2.DIR)
@@ -789,7 +1024,9 @@ def test_readdir_should_read_dir(endpoint, fl, stat):
     children = []
     offset = 0
     chunk_size = 50
-    with reply(endpoint, [getattr_reponse, response1, response2]) as queue:
+    with reply(endpoint, [getattr_reponse,
+                          response1,
+                          response2]) as queue:
         d = fl.opendir(uuid)
         children_chunk = fl.readdir(uuid, chunk_size, offset)
         _ = queue.get()
@@ -811,7 +1048,7 @@ def test_readdir_should_read_dir(endpoint, fl, stat):
         time.sleep(1)
 
 
-def test_readdir_should_handle_fileattrchanged_event(endpoint, fl, parentUuid, stat):
+def test_readdir_should_handle_fileattrchanged_event(appmock_client, endpoint, fl, parentUuid, stat):
     getattr_reponse = prepare_attr_response(parentUuid, fuse_messages_pb2.DIR)
 
     #
@@ -832,7 +1069,8 @@ def test_readdir_should_handle_fileattrchanged_event(endpoint, fl, parentUuid, s
     children = []
     offset = 0
     chunk_size = 50
-    with reply(endpoint, [getattr_reponse, readdir_response]) as queue:
+    with reply(endpoint, [getattr_reponse,
+                          readdir_response]) as queue:
         d = fl.opendir(parentUuid)
         children_chunk = fl.readdir(parentUuid, chunk_size, offset)
         _ = queue.get()
@@ -887,7 +1125,9 @@ def test_readdir_should_return_unique_entries(endpoint, fl, stat):
     children = []
     offset = 0
     chunk_size = 50
-    with reply(endpoint, [getattr_response, response1, response2]) as queue:
+    with reply(endpoint, [getattr_response,
+                          response1,
+                          response2]) as queue:
         d = fl.opendir(uuid)
         children_chunk = fl.readdir(uuid, chunk_size, offset)
         _ = queue.get()
@@ -897,7 +1137,7 @@ def test_readdir_should_return_unique_entries(endpoint, fl, stat):
     assert len(children) == 5 + 2
 
 
-def test_readdir_should_pass_readdir_errors(endpoint, fl, stat):
+def test_readdir_should_pass_readdir_errors(appmock_client, endpoint, fl, stat):
     uuid = 'parentUuid'
 
     getattr_reponse = prepare_attr_response(uuid, fuse_messages_pb2.DIR)
@@ -906,7 +1146,8 @@ def test_readdir_should_pass_readdir_errors(endpoint, fl, stat):
     response.fuse_response.status.code = common_messages_pb2.Status.eperm
 
     with pytest.raises(RuntimeError) as excinfo:
-        with reply(endpoint, [getattr_reponse, response]):
+        with reply(endpoint, [getattr_reponse,
+                              response]):
             d = fl.opendir(uuid)
             fl.readdir(uuid, 1024, 0)
             fl.releasedir(uuid, d)
@@ -914,7 +1155,7 @@ def test_readdir_should_pass_readdir_errors(endpoint, fl, stat):
     assert 'Operation not permitted' in str(excinfo.value)
 
 
-def test_readdir_should_not_get_stuck_on_errors(endpoint, fl, stat):
+def test_readdir_should_not_get_stuck_on_errors(appmock_client, endpoint, fl, stat):
     uuid = 'parentUuid'
 
     getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.DIR)
@@ -923,7 +1164,8 @@ def test_readdir_should_not_get_stuck_on_errors(endpoint, fl, stat):
     response0.fuse_response.status.code = common_messages_pb2.Status.eperm
 
     with pytest.raises(RuntimeError) as excinfo:
-        with reply(endpoint, [getattr_response, response0]):
+        with reply(endpoint, [getattr_response,
+                              response0]):
             d = fl.opendir(uuid)
             fl.readdir(uuid, 1024, 0)
             fl.releasedir(uuid, d)
@@ -953,7 +1195,8 @@ def test_readdir_should_not_get_stuck_on_errors(endpoint, fl, stat):
     children = []
     offset = 0
     chunk_size = 50
-    with reply(endpoint, [response1, response2]) as queue:
+    with reply(endpoint, [response1,
+                          response2]) as queue:
         d = fl.opendir(uuid)
         children_chunk = fl.readdir(uuid, chunk_size, offset)
         _ = queue.get()
@@ -961,7 +1204,7 @@ def test_readdir_should_not_get_stuck_on_errors(endpoint, fl, stat):
         assert len(children_chunk) == 12
 
 
-def test_metadatacache_should_ignore_changes_on_deleted_files(endpoint, fl):
+def test_metadatacache_should_ignore_changes_on_deleted_files(appmock_client, endpoint, fl):
     getattr_response = prepare_attr_response('parentUuid', fuse_messages_pb2.DIR)
 
     #
@@ -977,7 +1220,8 @@ def test_metadatacache_should_ignore_changes_on_deleted_files(endpoint, fl):
     children = []
     offset = 0
     chunk_size = 50
-    with reply(endpoint, [getattr_response, response1]) as queue:
+    with reply(endpoint, [getattr_response,
+                          response1]) as queue:
         d = fl.opendir('parentUuid')
         children_chunk = fl.readdir('parentUuid', chunk_size, offset)
         _ = queue.get()
@@ -1018,7 +1262,7 @@ def test_metadatacache_should_ignore_changes_on_deleted_files(endpoint, fl):
     assert 'No such file or directory' in str(excinfo.value)
 
 
-def test_metadatacache_should_ignore_changes_on_deleted_directories(endpoint, fl):
+def test_metadatacache_should_ignore_changes_on_deleted_directories(appmock_client, endpoint, fl):
     getattr_response = prepare_attr_response(
         'parentUuid', fuse_messages_pb2.DIR, None, 'parentParentUuid', 'dir1')
     getattr_parent_response = prepare_attr_response(
@@ -1037,7 +1281,8 @@ def test_metadatacache_should_ignore_changes_on_deleted_directories(endpoint, fl
     children = []
     offset = 0
     chunk_size = 50
-    with reply(endpoint, [getattr_response, getattr_parent_response,
+    with reply(endpoint, [getattr_response,
+                          getattr_parent_response,
                           response1]) as queue:
         d = fl.opendir('parentUuid')
         children_chunk = fl.readdir('parentUuid', chunk_size, offset)
@@ -1072,8 +1317,7 @@ def test_metadatacache_should_ignore_changes_on_deleted_directories(endpoint, fl
 
     assert 'No such file or directory' in str(excinfo.value)
 
-def test_metadatacache_should_keep_open_file_metadata(endpoint, fl):
-
+def test_metadatacache_should_keep_open_file_metadata(appmock_client, endpoint, fl):
     parent = 'parentUuid'
     name = 'a.txt'
     uuid1 = 'uuid1'
@@ -1094,13 +1338,20 @@ def test_metadatacache_should_keep_open_file_metadata(endpoint, fl):
     location_response = prepare_location_response(uuid1, blocks)
     open_response = prepare_open_response(handle_id)
 
-    with reply(endpoint, [attr_response, attr_parent_response,
-                          location_response, open_response]):
+    with reply(endpoint, [attr_response,
+                          location_response,
+                          attr_parent_response,
+                          open_response]):
         fh = fl.open(uuid1, 0)
         assert fh >= 0
 
+    assert fl.metadata_cache_contains(uuid1)
+    assert fl.metadata_cache_contains(parent)
+
     with reply(endpoint, [ok]) as queue:
         fl.unlink(parent, name)
+
+    assert not fl.metadata_cache_contains(uuid1)
 
     assert 5 == len(fl.read(uuid1, fh, 0, 5))
 
@@ -1113,7 +1364,9 @@ def test_metadatacache_should_keep_open_file_metadata(endpoint, fl):
     location_response = prepare_location_response(uuid2, blocks)
     open_response = prepare_open_response(handle_id)
 
-    with reply(endpoint, [attr_response, location_response, open_response]):
+    with reply(endpoint, [attr_response,
+                          location_response,
+                          open_response]):
         fh = fl.open(uuid2, 0)
         assert fh >= 0
 
@@ -1125,7 +1378,7 @@ def test_metadatacache_should_keep_open_file_metadata(endpoint, fl):
     do_release(endpoint, fl, uuid2, fh)
 
 
-def test_metadatacache_should_drop_expired_directories(endpoint, fl_dircache):
+def test_metadatacache_should_drop_expired_directories(appmock_client, endpoint, fl_dircache):
     getattr_response = prepare_attr_response('parentUuid', fuse_messages_pb2.DIR)
 
     #
@@ -1141,7 +1394,8 @@ def test_metadatacache_should_drop_expired_directories(endpoint, fl_dircache):
     children = []
     offset = 0
     chunk_size = 50
-    with reply(endpoint, [getattr_response, response1]) as queue:
+    with reply(endpoint, [getattr_response,
+                          response1]) as queue:
         d = fl_dircache.opendir('parentUuid')
         children_chunk = fl_dircache.readdir('parentUuid', chunk_size, offset)
         _ = queue.get()
@@ -1160,7 +1414,7 @@ def test_metadatacache_should_drop_expired_directories(endpoint, fl_dircache):
     assert fl_dircache.metadata_cache_size() == 0
 
 
-def test_metadatacache_should_prune_when_size_exceeded(endpoint, fl_dircache):
+def test_metadatacache_should_prune_when_size_exceeded(appmock_client, endpoint, fl_dircache):
     getattr_response = prepare_attr_response('parentUuid', fuse_messages_pb2.DIR)
 
     #
@@ -1176,7 +1430,8 @@ def test_metadatacache_should_prune_when_size_exceeded(endpoint, fl_dircache):
     children = []
     offset = 0
     chunk_size = 50
-    with reply(endpoint, [getattr_response, response1]) as queue:
+    with reply(endpoint, [getattr_response,
+                          response1]) as queue:
         d = fl_dircache.opendir('parentUuid')
         children_chunk = fl_dircache.readdir('parentUuid', chunk_size, offset)
         _ = queue.get()
@@ -1201,7 +1456,8 @@ def test_metadatacache_should_prune_when_size_exceeded(endpoint, fl_dircache):
     children = []
     offset = 0
     chunk_size = 50
-    with reply(endpoint, [getattr_response2, response2]) as queue:
+    with reply(endpoint, [getattr_response2,
+                          response2]) as queue:
         d = fl_dircache.opendir('parentUuid2')
         children_chunk = fl_dircache.readdir('parentUuid2', chunk_size, offset)
         _ = queue.get()
@@ -1212,12 +1468,13 @@ def test_metadatacache_should_prune_when_size_exceeded(endpoint, fl_dircache):
 
     time.sleep(1)
 
-    fl_dircache.getattr(repl2.child_attrs[0].uuid)
+    assert not fl_dircache.metadata_cache_contains(repl1.child_attrs[0].uuid)
+    assert fl_dircache.metadata_cache_contains(repl2.child_attrs[0].uuid)
 
     assert fl_dircache.metadata_cache_size() == 11
 
 
-def test_mknod_should_make_new_location(endpoint, fl, uuid, parentUuid, parentStat):
+def test_mknod_should_make_new_location(appmock_client, endpoint, fl, uuid, parentUuid, parentStat):
     getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.REG)
 
     with reply(endpoint, [getattr_response]) as queue:
@@ -1236,7 +1493,7 @@ def test_mknod_should_make_new_location(endpoint, fl, uuid, parentUuid, parentSt
     assert file_request.context_guid == parentUuid
 
 
-def test_mknod_should_pass_location_errors(endpoint, fl, parentUuid, parentStat):
+def test_mknod_should_pass_location_errors(appmock_client, endpoint, fl, parentUuid, parentStat):
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.eperm
 
@@ -1275,20 +1532,20 @@ def test_mknod_should_throw_on_unsupported_file_type(endpoint, fl, parentUuid, p
 
     assert 'Operation not supported' in str(excinfo.value)
 
-def test_read_should_read(endpoint, fl, uuid):
+def test_read_should_read(appmock_client, endpoint, fl, uuid):
     fh = do_open(endpoint, fl, uuid, blocks=[(0, 10)])
 
     assert 5 == len(fl.read(uuid, fh, 0, 5))
 
 
-def test_read_should_read_zero_on_eof(endpoint, fl, uuid):
+def test_read_should_read_zero_on_eof(appmock_client, endpoint, fl, uuid):
     fh = do_open(endpoint, fl, uuid, size=10, blocks=[(0, 10)])
 
     assert 10 == len(fl.read(uuid, fh, 0, 12))
     assert 0 == len(fl.read(uuid, fh, 10, 2))
 
 
-def test_read_should_pass_helper_errors(endpoint, fl, uuid):
+def test_read_should_pass_helper_errors(appmock_client, endpoint, fl, uuid):
     fh = do_open(endpoint, fl, uuid, size=10, blocks=[(0, 10)])
 
     with pytest.raises(RuntimeError) as excinfo:
@@ -1298,13 +1555,13 @@ def test_read_should_pass_helper_errors(endpoint, fl, uuid):
     assert 'Owner died' in str(excinfo.value)
 
 
-def test_write_should_write(endpoint, fl, uuid):
+def test_write_should_write(appmock_client, endpoint, fl, uuid):
     fh = do_open(endpoint, fl, uuid, size=10, blocks=[(0, 10)])
 
     assert 5 == fl.write(uuid, fh, 0, 5)
 
 
-def test_write_should_change_file_size(endpoint, fl, uuid):
+def test_write_should_change_file_size(appmock_client, endpoint, fl, uuid):
     fh = do_open(endpoint, fl, uuid, size=5, blocks=[(0, 5)])
     assert 20 == fl.write(uuid, fh, 10, 20)
 
@@ -1312,7 +1569,7 @@ def test_write_should_change_file_size(endpoint, fl, uuid):
     assert 30 == stat.size
 
 
-def test_write_should_pass_helper_errors(endpoint, fl, uuid):
+def test_write_should_pass_helper_errors(appmock_client, endpoint, fl, uuid):
     fh = do_open(endpoint, fl, uuid, size=10, blocks=[(0, 10)])
 
     with pytest.raises(RuntimeError) as excinfo:
@@ -1322,12 +1579,13 @@ def test_write_should_pass_helper_errors(endpoint, fl, uuid):
     assert 'Owner died' in str(excinfo.value)
 
 
-def test_truncate_should_truncate(endpoint, fl, uuid, stat):
+def test_truncate_should_truncate(appmock_client, endpoint, fl, uuid, stat):
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.ok
     location_response = prepare_location_response(uuid)
 
-    with reply(endpoint, [response, location_response]) as queue:
+    with reply(endpoint, [response,
+                          location_response]) as queue:
         fl.truncate(uuid, 4)
         client_message = queue.get()
 
@@ -1342,19 +1600,20 @@ def test_truncate_should_truncate(endpoint, fl, uuid, stat):
     assert file_request.context_guid == uuid
 
 
-def test_truncate_should_pass_truncate_errors(endpoint, fl, uuid):
+def test_truncate_should_pass_truncate_errors(appmock_client, endpoint, fl, uuid):
     getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.REG)
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.eperm
 
     with pytest.raises(RuntimeError) as excinfo:
-        with reply(endpoint, [getattr_response, response]):
+        with reply(endpoint, [getattr_response,
+                              response]):
             fl.truncate(uuid, 3)
 
     assert 'Operation not permitted' in str(excinfo.value)
 
 
-def test_readdir_big_directory(endpoint, fl, uuid, stat):
+def test_readdir_big_directory(appmock_client, endpoint, fl, uuid, stat):
     chunk_size = 2500
     children_num = 10*chunk_size
 
@@ -1407,13 +1666,13 @@ def test_readdir_big_directory(endpoint, fl, uuid, stat):
     assert len(children) == children_num + 2
 
 
-def test_write_should_save_blocks(endpoint, fl, uuid):
+def test_write_should_save_blocks(appmock_client, endpoint, fl, uuid):
     fh = do_open(endpoint, fl, uuid, size=0)
     assert 5 == fl.write(uuid, fh, 0, 5)
     assert 5 == len(fl.read(uuid, fh, 0, 10))
 
 
-def test_read_should_read_partial_content(endpoint, fl, uuid):
+def test_read_should_read_partial_content(appmock_client, endpoint, fl, uuid):
     fh = do_open(endpoint, fl, uuid, size=10, blocks=[(4, 6)])
     data = fl.read(uuid, fh, 6, 4)
 
@@ -1504,7 +1763,7 @@ def test_read_should_continue_reading_after_synchronization_partial(appmock_clie
         assert 5 == len(fl.read(uuid, fh, 2, 5))
 
 
-def test_read_should_should_open_file_block_once(endpoint, fl, uuid):
+def test_read_should_should_open_file_block_once(appmock_client, endpoint, fl, uuid):
     fh = do_open(endpoint, fl, uuid, size=10, blocks=[
         (0, 5, 'storage1', 'file1'), (5, 5, 'storage2', 'file2')])
 
@@ -1523,7 +1782,7 @@ def test_read_should_should_open_file_block_once(endpoint, fl, uuid):
     assert fl.verify_and_clear_expectations()
 
 
-def test_release_should_release_open_file_blocks(endpoint, fl, uuid):
+def test_release_should_release_open_file_blocks(appmock_client, endpoint, fl, uuid):
     fh = do_open(endpoint, fl, uuid, size=10, blocks=[
         (0, 5, 'storage1', 'file1'), (5, 5, 'storage2', 'file2')])
 
@@ -1538,7 +1797,7 @@ def test_release_should_release_open_file_blocks(endpoint, fl, uuid):
     assert fl.verify_and_clear_expectations()
 
 
-def test_release_should_pass_helper_errors(endpoint, fl, uuid):
+def test_release_should_pass_helper_errors(appmock_client, endpoint, fl, uuid):
     fh = do_open(endpoint, fl, uuid, size=10, blocks=[
         (0, 5, 'storage1', 'file1'), (5, 5, 'storage2', 'file2')])
 
@@ -1556,7 +1815,7 @@ def test_release_should_pass_helper_errors(endpoint, fl, uuid):
     assert fl.verify_and_clear_expectations()
 
 
-def test_release_should_send_release_message(endpoint, fl, uuid):
+def test_release_should_send_release_message(appmock_client, endpoint, fl, uuid):
     fh = do_open(endpoint, fl, uuid, size=0)
 
     sent_messages = do_release(endpoint, fl, uuid, fh)
@@ -1568,7 +1827,7 @@ def test_release_should_send_release_message(endpoint, fl, uuid):
     assert client_message.fuse_request.file_request.HasField('release')
 
 
-def test_release_should_send_fsync_message(endpoint, fl, uuid):
+def test_release_should_send_fsync_message(appmock_client, endpoint, fl, uuid):
     fh = do_open(endpoint, fl, uuid, size=0)
 
     sent_messages = do_release(endpoint, fl, uuid, fh)
@@ -1580,7 +1839,7 @@ def test_release_should_send_fsync_message(endpoint, fl, uuid):
     assert client_message.fuse_request.file_request.HasField('fsync')
 
 
-def test_fslogic_should_handle_processing_status_message(endpoint, fl, uuid):
+def test_fslogic_should_handle_processing_status_message(appmock_client, endpoint, fl, uuid):
     getattr_response = \
         prepare_attr_response(uuid, fuse_messages_pb2.DIR, 0, 'parentUuid', 'name')
     getattr_parent_response = \
@@ -1595,7 +1854,7 @@ def test_fslogic_should_handle_processing_status_message(endpoint, fl, uuid):
     responses = [getattr_response, getattr_parent_response]
     responses.extend(processing_status_responses)
     responses.append(rename_response)
-    responses.append(getattr_newparent_response)
+
     with reply(endpoint, responses) as queue:
         fl.rename('parentUuid', 'name', 'newParentUuid', 'newName')
         queue.get()
@@ -1632,7 +1891,8 @@ def test_listxattrs_should_return_listxattrs(endpoint, fl, uuid):
     listxattr_response = prepare_listxattr_response(uuid)
 
     listxattrs = []
-    with reply(endpoint, [listxattr_response, getattr_response]) as queue:
+    with reply(endpoint, [listxattr_response,
+                          getattr_response]) as queue:
         listxattrs = fl.listxattr(uuid)
         client_message = queue.get()
 

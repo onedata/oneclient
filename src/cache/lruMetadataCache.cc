@@ -331,10 +331,41 @@ bool LRUMetadataCache::rename(folly::fbstring uuid,
 
     assert(!newName.empty());
 
-    noteDirectoryActivity(newParentUuid);
+    if (m_lruDirectoryData.find(newParentUuid) != m_lruDirectoryData.end())
+        noteDirectoryActivity(newParentUuid);
+
+    // The client is not caching the parent of the old or new directory
+    // and the file is not opened, in such case the rename event
+    // can be ignored
+    if (!MetadataCache::contains(uuid) &&
+        m_lruFileData.find(uuid) == m_lruFileData.end() &&
+        m_lruDirectoryData.find(newParentUuid) == m_lruDirectoryData.end())
+        return false;
+
+    // The client is caching the old directory from which the file
+    // was moved but the new directory to which the file was moved
+    // remove the uuid from metadata cache and ignore the new attribute
+    if (m_lruFileData.find(uuid) == m_lruFileData.end() &&
+        m_lruDirectoryData.find(newParentUuid) == m_lruDirectoryData.end())
+        return MetadataCache::markDeleted(uuid);
+
+    // The client is caching the new directory to which the file was moved
+    // but not the old directory, then we have to add the attribute to the
+    // cache
+    if (m_lruFileData.find(uuid) == m_lruFileData.end() &&
+        m_lruDirectoryData.find(newParentUuid) == m_lruDirectoryData.end()) {
+        try {
+            MetadataCache::getAttr(newUuid);
+        }
+        catch (...) {
+            return false;
+        }
+
+        return true;
+    }
 
     // Recreate the subscriptions only if the old uuid is different from the new
-    // one and the file is opened
+    // one and the file is opened or directory is cached
     bool renewSubscriptions = (uuid != newUuid) &&
         (std::find(m_lruFileList.begin(), m_lruFileList.end(), uuid) !=
             m_lruFileList.end());

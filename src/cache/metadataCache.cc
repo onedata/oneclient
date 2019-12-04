@@ -45,6 +45,12 @@ void MetadataCache::setReaddirCache(std::shared_ptr<ReaddirCache> readdirCache)
     m_readdirCache = readdirCache;
 }
 
+bool MetadataCache::contains(const folly::fbstring &uuid) const
+{
+    auto &index = bmi::get<ByUuid>(m_cache);
+    return index.find(uuid) != index.end();
+}
+
 void MetadataCache::invalidateChildren(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
@@ -257,7 +263,6 @@ MetadataCache::Map::iterator MetadataCache::fetchAttr(ReqMsg &&msg)
         // for change events on that directory
         if (sharedAttr->parentUuid() &&
             !sharedAttr->parentUuid().value().empty()) {
-            getAttrIt(sharedAttr->parentUuid().value());
             m_onAdd(sharedAttr->parentUuid().value());
         }
 
@@ -463,11 +468,15 @@ bool MetadataCache::rename(folly::fbstring uuid, folly::fbstring newParentUuid,
     auto &index = bmi::get<ByUuid>(m_cache);
     auto it = index.find(uuid);
 
-    assert(it != index.end());
-
     if (uuid != newUuid && (index.count(newUuid) > 0)) {
         LOG(WARNING) << "The rename target '" << newUuid
                      << "' is already cached";
+    }
+    else if (it == index.end()) {
+        // The attributes for the old renamed file have not been cached yet
+        // just add the new attr to the cache if the parent directory of
+        // the newUuid is being cached
+        fetchAttr(messages::fuse::GetFileAttr{newUuid});
     }
     else {
         index.modify(it, [&](Metadata &m) {

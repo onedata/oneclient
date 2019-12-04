@@ -219,6 +219,15 @@ public:
      */
     std::size_t size() const { return m_cache.size(); }
 
+    /**
+     * Returns true if the cache currently contains an entry with the specified
+     * uuid. If not, the entry is not fetched from the server.
+     *
+     * @param uuid UUID of the entry to be found in the cache
+     * @returns True, if the cache currently contains entry with specifed uuid
+     */
+    bool contains(const folly::fbstring &uuid) const;
+
 protected:
     struct Metadata {
         Metadata(std::shared_ptr<FileAttr>);

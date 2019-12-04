@@ -230,7 +230,9 @@ void FsSubscriptions::subscribeFileRenamed(const folly::fbstring &fileUuid)
 
     ONE_METRIC_COUNTER_INC(
         "comp.oneclient.mod.events.submod.subscriptions.file_renamed");
+
     LOG_DBG(2) << "Subscribing for FileRenamed for file " << fileUuid;
+
     subscribe(fileUuid,
         events::FileRenamedSubscription{
             fileUuid.toStdString(), [this](auto events) mutable {

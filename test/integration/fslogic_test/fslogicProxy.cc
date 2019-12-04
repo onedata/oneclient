@@ -108,8 +108,28 @@ public:
         }};
     }
 
+    void stop()
+    {
+        if (!m_stopped) {
+            ReleaseGIL guard;
+            m_stopped = true;
+            folly::Promise<folly::Unit> stopped;
+            auto stoppedFuture = stopped.getFuture();
+
+            m_fiberManager.addTaskRemote(
+                [ this, stopped = std::move(stopped) ]() mutable {
+                    m_context->communicator()->stop();
+                    stopped.setValue();
+                });
+
+            stoppedFuture.get();
+        }
+    }
+
     ~FsLogicProxy()
     {
+        stop();
+
         ReleaseGIL guard;
         m_eventBase.terminateLoopSoon();
         m_thread.join();
@@ -310,7 +330,17 @@ public:
         m_fsLogic.removexattr(uuid, name);
     }
 
-    int metadataCacheSize() { return m_fsLogic.metadataCache().size(); }
+    int metadataCacheSize()
+    {
+        ReleaseGIL guard;
+        return m_fsLogic.metadataCache().size();
+    }
+
+    bool metadataCacheContains(std::string uuid)
+    {
+        ReleaseGIL guard;
+        return m_fsLogic.metadataCache().contains(uuid);
+    }
 
     void expect_call_sh_open(std::string uuid, int times)
     {
@@ -347,6 +377,7 @@ private:
         folly::fibers::getFiberManager(m_eventBase, makeFiberManagerOpts())};
 
     std::thread m_thread;
+    std::atomic_bool m_stopped{};
 
     HelpersCacheProxy *m_helpersCache;
     fslogic::FsLogic m_fsLogic;
@@ -415,6 +446,7 @@ BOOST_PYTHON_MODULE(fslogic)
     class_<FsLogicProxy, boost::noncopyable>("FsLogicProxy", no_init)
         .def("__init__", make_constructor(create))
         .def("failHelper", &FsLogicProxy::failHelper)
+        .def("stop", &FsLogicProxy::stop)
         .def("getattr", &FsLogicProxy::getattr)
         .def("mkdir", &FsLogicProxy::mkdir)
         .def("unlink", &FsLogicProxy::unlink)
@@ -437,6 +469,7 @@ BOOST_PYTHON_MODULE(fslogic)
         .def("setxattr", &FsLogicProxy::setxattr)
         .def("removexattr", &FsLogicProxy::removexattr)
         .def("metadata_cache_size", &FsLogicProxy::metadataCacheSize)
+        .def("metadata_cache_contains", &FsLogicProxy::metadataCacheContains)
         .def("expect_call_sh_open", &FsLogicProxy::expect_call_sh_open)
         .def("expect_call_sh_release", &FsLogicProxy::expect_call_sh_release)
         .def("verify_and_clear_expectations",
