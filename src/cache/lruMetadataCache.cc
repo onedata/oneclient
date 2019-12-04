@@ -342,19 +342,13 @@ bool LRUMetadataCache::rename(folly::fbstring uuid,
         m_lruDirectoryData.find(newParentUuid) == m_lruDirectoryData.end())
         return false;
 
-    // The client is caching the old directory from which the file
-    // was moved but the new directory to which the file was moved
-    // remove the uuid from metadata cache and ignore the new attribute
-    if (m_lruFileData.find(uuid) == m_lruFileData.end() &&
-        m_lruDirectoryData.find(newParentUuid) == m_lruDirectoryData.end())
-        return MetadataCache::markDeleted(uuid);
-
     // The client is caching the new directory to which the file was moved
     // but not the old directory, then we have to add the attribute to the
     // cache
-    if (m_lruFileData.find(uuid) == m_lruFileData.end() &&
+    if (uuid != newUuid && m_lruFileData.find(uuid) == m_lruFileData.end() &&
         m_lruDirectoryData.find(newParentUuid) == m_lruDirectoryData.end()) {
         try {
+            MetadataCache::markDeleted(uuid);
             MetadataCache::getAttr(newUuid);
         }
         catch (...) {
@@ -522,15 +516,11 @@ void LRUMetadataCache::addBlock(const folly::fbstring &uuid,
 
     if (m_lruFileData.find(uuid) != m_lruFileData.end() &&
         m_lruFileData[uuid].deleted) {
-        // Check if the uuid points to an opened deleted file
-        // In that case it won't be in the metadata cache anymore
-        assert(m_lruFileData.at(uuid).attr.get() ==
-            MetadataCache::getAttr(uuid).get());
-
+        // If file is opened and deleted, update only the temporarily cached
+        // attributed, as the file is already removed in the metadata cache
         auto newSize = std::max<off_t>(
             boost::icl::last(range) + 1, *m_lruFileData.at(uuid).attr->size());
-        MetadataCache::getAttr(uuid)->size(newSize);
-
+        m_lruFileData.at(uuid).attr->size(newSize);
         location = m_lruFileData.at(uuid).location;
     }
     else {
