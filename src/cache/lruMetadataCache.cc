@@ -168,12 +168,14 @@ std::shared_ptr<LRUMetadataCache::OpenFileToken> LRUMetadataCache::open(
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
+    MetadataCache::updateAttr(attr);
+    MetadataCache::putLocation(std::move(location));
+
     pinFile(uuid);
+
     if (attr->parentUuid() && !attr->parentUuid().value().empty())
         noteDirectoryActivity(*attr->parentUuid());
 
-    MetadataCache::updateAttr(attr);
-    MetadataCache::putLocation(std::move(location));
     return std::make_shared<OpenFileToken>(std::move(attr), *this);
 }
 
