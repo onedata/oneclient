@@ -27,6 +27,7 @@
 #include <folly/fibers/ForEach.h>
 #include <fuse.h>
 
+#include <atomic>
 #include <memory>
 
 using namespace one;
@@ -110,9 +111,9 @@ public:
 
     void stop()
     {
-        if (!m_stopped) {
+        if (!m_stopped.test_and_set()) {
             ReleaseGIL guard;
-            m_stopped = true;
+
             folly::Promise<folly::Unit> stopped;
             auto stoppedFuture = stopped.getFuture();
 
@@ -377,7 +378,7 @@ private:
         folly::fibers::getFiberManager(m_eventBase, makeFiberManagerOpts())};
 
     std::thread m_thread;
-    std::atomic_bool m_stopped{};
+    std::atomic_flag m_stopped = ATOMIC_FLAG_INIT;
 
     HelpersCacheProxy *m_helpersCache;
     fslogic::FsLogic m_fsLogic;
