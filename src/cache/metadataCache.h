@@ -53,12 +53,29 @@ public:
 
     /**
      * Sets a pointer to an instance of @c ReaddirCache.
+     *
      * @param readdirCache Shared pointer to an instance of @c ReaddirCache.
      */
     void setReaddirCache(std::shared_ptr<ReaddirCache> readdirCache);
 
+    /**
+     * Invalidates (i.e. removes from cache) direct children of directory with
+     * specified uuid.
+     *
+     * @param uuid UUID of the parent whose direct children will be removed from
+     * the cache
+     */
     void invalidateChildren(const folly::fbstring &uuid);
 
+    /**
+     * Read directory entries from cache or if the directory contents are
+     * currently cached by metadata cache.
+     *
+     * @param uuid Directory id.
+     * @param off Directory entry offset.
+     * @param chunkSize Maximum number of directory entries to be returned.
+     * @returns Directory entries in the requested range.
+     */
     folly::fbvector<folly::fbstring> readdir(
         const folly::fbstring &uuid, off_t off, std::size_t chunkSize);
     /**
@@ -212,8 +229,6 @@ public:
         m_onRename = std::move(cb);
     }
 
-    folly::fbstring uuidToSpaceId(const folly::fbstring &uuid) const;
-
     /**
      * Returns the current size of the metadata cache size
      */
@@ -296,9 +311,14 @@ private:
 
 protected:
     Map m_cache;
-    std::set<folly::fbstring> m_deletedUuids;
 
 private:
+    // This set holds UUID's of all files or directories removed in the
+    // oneclient session. This is necessary to ensure that delayed
+    // FileAttrChanged events about deleted files are not treated as
+    // notifications about new files
+    std::set<folly::fbstring> m_deletedUuids;
+
     std::function<void(const folly::fbstring &)> m_onAdd = [](auto) {};
     std::function<void(const folly::fbstring &)> m_onMarkDeleted = [](auto) {};
     std::function<void(const folly::fbstring &, const folly::fbstring &)>

@@ -314,9 +314,17 @@ private:
     /**
      * Suspends current fiber for a random timed delay depending
      * on current retry number.
+     *
      * @param retriesLeft Current number of retries left
      */
     void fiberRetryDelay(int retriesLeft);
+
+    /**
+     * Removes contents of expired directories from cache.
+     *
+     * @param delay Time in seconds after which contents of inactive directories
+     *              are purged from the metadata cache.
+     */
     void pruneExpiredDirectories(const std::chrono::seconds delay);
 
     std::shared_ptr<Context> m_context;

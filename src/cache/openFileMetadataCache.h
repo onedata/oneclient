@@ -274,18 +274,55 @@ public:
      */
     void setDirectorySynced(const folly::fbstring &uuid);
 
+    /**
+     * Adds a specific block to a cached file locations. File location must be
+     * present in the cache.
+     *
+     * @param uuid Uuid of the file.
+     * @param range The range of the added block.
+     * @param fileBlock The block.
+     */
     void addBlock(const folly::fbstring &uuid,
         const boost::icl::discrete_interval<off_t> range,
         messages::fuse::FileBlock fileBlock);
 
+    /**
+     * Retrieves a block from file locations that contains a specific
+     * offset.
+     *
+     * @param uuid Uuid of the file.
+     * @param offset Offset to search for.
+     * @returns Pair of range and block denoting the found block.
+     */
     folly::Optional<std::pair<boost::icl::discrete_interval<off_t>,
         messages::fuse::FileBlock>>
     getBlock(const folly::fbstring &uuid, const off_t offset);
 
+    /**
+     * Retrieves a default block from file locations.
+     * If the file has no cached attributes, they are first fetched from the
+     * server.
+     *
+     * @param uuid Uuid of the file.
+     * @returns File block.
+     */
     messages::fuse::FileBlock getDefaultBlock(const folly::fbstring &uuid);
 
+    /**
+     * Retrieves space Id by uuid.
+     *
+     * @param uuid Uuid of the file.
+     * @returns Id of space this file belongs to.
+     */
     const std::string &getSpaceId(const folly::fbstring &uuid);
 
+    /**
+     * Updates file attributes, if cached.
+     *
+     * @param newAttr Updated attributes.
+     * @returns true if attributes have been updated, false if they were not
+     * cached.
+     */
     bool updateAttr(std::shared_ptr<FileAttr> newAttr);
 
     using MetadataCache::contains;

@@ -163,8 +163,8 @@ bool MetadataCache::putAttr(std::shared_ptr<FileAttr> attr)
         auto isNewEntry = result.second;
 
         if (!isNewEntry) {
-            LOG(WARNING) << "File " << attr->uuid()
-                         << " already exists in the cache - ignoring";
+            LOG_DBG(2) << "File " << attr->uuid()
+                       << " already exists in the cache - ignoring";
             return false;
         }
 
@@ -183,9 +183,10 @@ bool MetadataCache::putAttr(std::shared_ptr<FileAttr> attr)
     }
     catch (std::system_error &e) {
         if (e.code().value() == ENOENT) {
-            LOG(ERROR) << "Trying to update attribute for file which not does "
-                          "not exist on the server: "
-                       << uuid << " - ignoring...";
+            LOG(WARNING)
+                << "Trying to update attribute for file which does not "
+                   "exist on the server: "
+                << uuid << " - ignoring...";
             return false;
         }
         throw;
