@@ -1,5 +1,5 @@
 /**
- * @file lruMetadataCache.h
+ * @file openFileMetadataCache.h
  * @author Konrad Zemek
  * @copyright (C) 2016 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
@@ -27,10 +27,10 @@ namespace cache {
 class ReaddirCache;
 
 /**
- * @c LRUMetadataCache is responsible for managing lifetime of entries cached
- * in @c MetadataCache .
+ * @c OpenFileMetadataCache is responsible for ensuring that open files and
+ * directories entries are cached in the @c MetadataCache .
  */
-class LRUMetadataCache : private MetadataCache {
+class OpenFileMetadataCache : private MetadataCache {
 public:
     /**
      * @c OpenFileToken is a RAII wrapper for an open file.
@@ -43,7 +43,7 @@ public:
          * @param cache An instance of cache on which the release will be
          * called.
          */
-        OpenFileToken(FileAttrPtr attr, LRUMetadataCache &cache);
+        OpenFileToken(FileAttrPtr attr, OpenFileMetadataCache &cache);
 
         /**
          * Destructor.
@@ -56,7 +56,7 @@ public:
 
     private:
         FileAttrPtr m_attr;
-        LRUMetadataCache &m_cache;
+        OpenFileMetadataCache &m_cache;
     };
 
     /**
@@ -66,7 +66,7 @@ public:
      * @param targetSize The target size of the cache; the cache will attempt
      * to keep population no bigger than this number.
      */
-    LRUMetadataCache(communication::Communicator &communicator,
+    OpenFileMetadataCache(communication::Communicator &communicator,
         const std::size_t targetSize,
         const std::chrono::seconds providerTimeout,
         const std::chrono::seconds directoryCacheDropAfter);
@@ -299,8 +299,8 @@ private:
      * with their open count or directories for which file attributes have been
      * accessed recently.
      */
-    struct LRUData {
-        LRUData()
+    struct OpenFileData {
+        OpenFileData()
             : lastUsed{std::chrono::system_clock::now()}
             , openCount{0}
             , deleted{false}
@@ -333,7 +333,7 @@ private:
         // once
         bool dirRead;
 
-        // Iterator to current position in the lru list, to optimize search for
+        // Iterator to current position in LRU list, to optimize search for
         // uuid in the LRU list
         folly::Optional<std::list<folly::fbstring>::iterator> lruIt;
 
@@ -359,7 +359,7 @@ private:
     void pinFile(const folly::fbstring &uuid);
 
     /**
-     * Update the LRU directory list to reflect an activity in a directory
+     * Update the directory list to reflect an activity in a directory
      * `uuid`
      * @parma uuid UUID of the directory where some activity occured
      */
@@ -385,9 +385,9 @@ private:
     const std::chrono::seconds m_directoryCacheDropAfter;
 
     std::list<folly::fbstring> m_lruFileList;
-    std::unordered_map<folly::fbstring, LRUData> m_lruFileData;
+    std::unordered_map<folly::fbstring, OpenFileData> m_lruFileData;
     std::list<folly::fbstring> m_lruDirectoryList;
-    std::unordered_map<folly::fbstring, LRUData> m_lruDirectoryData;
+    std::unordered_map<folly::fbstring, OpenFileData> m_lruDirectoryData;
 
     std::function<void(const folly::fbstring &)> m_onSyncDirectory =
         [](auto &) {};

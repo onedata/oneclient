@@ -13,7 +13,7 @@
 #include "attrs.h"
 #include "cache/forceProxyIOCache.h"
 #include "cache/helpersCache.h"
-#include "cache/lruMetadataCache.h"
+#include "cache/openFileMetadataCache.h"
 #include "cache/readdirCache.h"
 #include "events/events.h"
 #include "fsSubscriptions.h"
@@ -276,7 +276,7 @@ public:
     std::map<folly::fbstring, folly::fbvector<std::pair<off_t, off_t>>>
     getFileLocalBlocks(const folly::fbstring &uuid);
 
-    cache::LRUMetadataCache &metadataCache() { return m_metadataCache; }
+    cache::OpenFileMetadataCache &metadataCache() { return m_metadataCache; }
 
 private:
     template <typename SrvMsg = messages::fuse::FuseResponse, typename CliMsg>
@@ -321,7 +321,7 @@ private:
 
     std::shared_ptr<Context> m_context;
     events::Manager m_eventManager{m_context};
-    cache::LRUMetadataCache m_metadataCache;
+    cache::OpenFileMetadataCache m_metadataCache;
     cache::ForceProxyIOCache m_forceProxyIOCache;
     std::unique_ptr<cache::HelpersCache> m_helpersCache;
     std::shared_ptr<cache::ReaddirCache> m_readdirCache;

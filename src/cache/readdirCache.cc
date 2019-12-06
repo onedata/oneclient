@@ -28,7 +28,7 @@ namespace one {
 namespace client {
 namespace cache {
 
-ReaddirCache::ReaddirCache(LRUMetadataCache &metadataCache,
+ReaddirCache::ReaddirCache(OpenFileMetadataCache &metadataCache,
     std::weak_ptr<Context> context, folly::fbstring rootUuid,
     std::function<void(folly::Function<void()>)> runInFiber)
     : m_metadataCache(metadataCache)

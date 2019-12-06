@@ -10,7 +10,7 @@
 
 #include "scheduler.h"
 
-#include "cache/lruMetadataCache.h"
+#include "cache/openFileMetadataCache.h"
 #include "context.h"
 
 #include <folly/FBString.h>
@@ -44,7 +44,7 @@ public:
      * @param rootUuid The uuid of the mountpoint root. Used to know when
      *                 we are requesting the list of spaces.
      */
-    ReaddirCache(LRUMetadataCache &metadataCache,
+    ReaddirCache(OpenFileMetadataCache &metadataCache,
         std::weak_ptr<Context> context, folly::fbstring rootUuid,
         std::function<void(folly::Function<void()>)> runInFiber);
 
@@ -112,7 +112,7 @@ private:
      * the attributes are automatically stored in the metadatacache so that
      * they are immediately accessible to the client after listing is complete.
      */
-    LRUMetadataCache &m_metadataCache;
+    OpenFileMetadataCache &m_metadataCache;
 
     /**
      * Pointer to Oneclient context, used to access options and scheduler.

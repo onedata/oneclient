@@ -20,7 +20,7 @@ namespace one {
 namespace client {
 namespace cache {
 class ForceProxyIOCache;
-class LRUMetadataCache;
+class OpenFileMetadataCache;
 } // namespace cache
 namespace events {
 class Manager;
@@ -50,12 +50,12 @@ public:
     /**
      * Constructor.
      * @param eventManager @c events::Manager instance.
-     * @param metadataCache @c cache::LRUMetadataCache instance.
+     * @param metadataCache @c cache::OpenFileMetadataCache instance.
      * @param forceProxyIOCache @c cache::ForceProxyIOCache instance.
      * @param runInFiber A function that runs callback inside a main fiber.
      */
     FsSubscriptions(events::Manager &eventManager,
-        cache::LRUMetadataCache &metadataCache,
+        cache::OpenFileMetadataCache &metadataCache,
         cache::ForceProxyIOCache &forceProxyIOCache,
         std::function<void(folly::Function<void()>)> runInFiber);
 
@@ -147,7 +147,7 @@ private:
     void handleFileRenamed(events::Events<events::FileRenamed> events);
 
     events::Manager &m_eventManager;
-    cache::LRUMetadataCache &m_metadataCache;
+    cache::OpenFileMetadataCache &m_metadataCache;
     cache::ForceProxyIOCache &m_forceProxyIOCache;
     std::function<void(folly::Function<void()>)> m_runInFiber;
     tbb::concurrent_hash_map<Key, std::int64_t, StdHashCompare<Key>>

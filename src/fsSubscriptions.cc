@@ -8,7 +8,7 @@
 
 #include "fsSubscriptions.h"
 #include "cache/forceProxyIOCache.h"
-#include "cache/lruMetadataCache.h"
+#include "cache/openFileMetadataCache.h"
 #include "events/events.h"
 #include "messages/fuse/fileAttr.h"
 #include "messages/fuse/fileLocation.h"
@@ -22,7 +22,7 @@ namespace one {
 namespace client {
 
 FsSubscriptions::FsSubscriptions(events::Manager &eventManager,
-    cache::LRUMetadataCache &metadataCache,
+    cache::OpenFileMetadataCache &metadataCache,
     cache::ForceProxyIOCache &forceProxyIOCache,
     std::function<void(folly::Function<void()>)> runInFiber)
     : m_eventManager{eventManager}

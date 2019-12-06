@@ -1,4 +1,4 @@
-#include "lruMetadataCache.h"
+#include "openFileMetadataCache.h"
 
 #include "cache/readdirCache.h"
 #include "helpers/logging.h"
@@ -11,40 +11,42 @@ namespace one {
 namespace client {
 namespace cache {
 
-LRUMetadataCache::OpenFileToken::OpenFileToken(
-    FileAttrPtr attr, LRUMetadataCache &cache)
+OpenFileMetadataCache::OpenFileToken::OpenFileToken(
+    FileAttrPtr attr, OpenFileMetadataCache &cache)
     : m_attr{std::move(attr)}
     , m_cache{cache}
 {
 }
 
-LRUMetadataCache::OpenFileToken::~OpenFileToken()
+OpenFileMetadataCache::OpenFileToken::~OpenFileToken()
 {
     // OpenFileTokens are only created for files, never directories
     m_cache.releaseFile(m_attr->uuid());
 }
 
-LRUMetadataCache::LRUMetadataCache(communication::Communicator &communicator,
-    const std::size_t targetSize, const std::chrono::seconds providerTimeout,
+OpenFileMetadataCache::OpenFileMetadataCache(
+    communication::Communicator &communicator, const std::size_t targetSize,
+    const std::chrono::seconds providerTimeout,
     const std::chrono::seconds directoryCacheDropAfter)
     : MetadataCache{communicator, providerTimeout}
     , m_targetSize{targetSize}
     , m_directoryCacheDropAfter{directoryCacheDropAfter}
 {
-    MetadataCache::onRename(std::bind(&LRUMetadataCache::handleRename, this,
-        std::placeholders::_1, std::placeholders::_2));
+    MetadataCache::onRename(std::bind(&OpenFileMetadataCache::handleRename,
+        this, std::placeholders::_1, std::placeholders::_2));
 
-    MetadataCache::onMarkDeleted(std::bind(
-        &LRUMetadataCache::handleMarkDeleted, this, std::placeholders::_1));
+    MetadataCache::onMarkDeleted(
+        std::bind(&OpenFileMetadataCache::handleMarkDeleted, this,
+            std::placeholders::_1));
 }
 
-void LRUMetadataCache::setReaddirCache(
+void OpenFileMetadataCache::setReaddirCache(
     std::shared_ptr<ReaddirCache> readdirCache)
 {
     MetadataCache::setReaddirCache(readdirCache);
 }
 
-bool LRUMetadataCache::isDirectorySynced(const folly::fbstring &uuid)
+bool OpenFileMetadataCache::isDirectorySynced(const folly::fbstring &uuid)
 {
     auto it = m_lruDirectoryData.find(uuid);
     if (it == m_lruDirectoryData.end())
@@ -53,7 +55,7 @@ bool LRUMetadataCache::isDirectorySynced(const folly::fbstring &uuid)
     return it->second.dirRead;
 }
 
-void LRUMetadataCache::setDirectorySynced(const folly::fbstring &uuid)
+void OpenFileMetadataCache::setDirectorySynced(const folly::fbstring &uuid)
 {
     noteDirectoryActivity(uuid);
     auto it = m_lruDirectoryData.find(uuid);
@@ -66,7 +68,7 @@ void LRUMetadataCache::setDirectorySynced(const folly::fbstring &uuid)
     m_onSyncDirectory(uuid);
 }
 
-void LRUMetadataCache::opendir(const folly::fbstring &uuid)
+void OpenFileMetadataCache::opendir(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
@@ -78,11 +80,11 @@ void LRUMetadataCache::opendir(const folly::fbstring &uuid)
     it->second.openCount++;
 }
 
-void LRUMetadataCache::releasedir(const folly::fbstring &uuid)
+void OpenFileMetadataCache::releasedir(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
-    auto res = m_lruDirectoryData.emplace(uuid, LRUData{});
+    auto res = m_lruDirectoryData.emplace(uuid, OpenFileData{});
 
     auto &lruData = res.first->second;
 
@@ -99,7 +101,7 @@ void LRUMetadataCache::releasedir(const folly::fbstring &uuid)
     prune();
 }
 
-folly::fbvector<folly::fbstring> LRUMetadataCache::readdir(
+folly::fbvector<folly::fbstring> OpenFileMetadataCache::readdir(
     const folly::fbstring &uuid, off_t off, std::size_t chunkSize)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(off) << LOG_FARG(chunkSize);
@@ -109,11 +111,11 @@ folly::fbvector<folly::fbstring> LRUMetadataCache::readdir(
     return MetadataCache::readdir(uuid, off, chunkSize);
 }
 
-void LRUMetadataCache::pinFile(const folly::fbstring &uuid)
+void OpenFileMetadataCache::pinFile(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
-    auto res = m_lruFileData.emplace(uuid, LRUData{});
+    auto res = m_lruFileData.emplace(uuid, OpenFileData{});
 
     auto &lruData = res.first->second;
 
@@ -131,8 +133,8 @@ void LRUMetadataCache::pinFile(const folly::fbstring &uuid)
         m_onOpen(uuid);
 }
 
-std::shared_ptr<LRUMetadataCache::OpenFileToken> LRUMetadataCache::open(
-    const folly::fbstring &uuid)
+std::shared_ptr<OpenFileMetadataCache::OpenFileToken>
+OpenFileMetadataCache::open(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
@@ -162,9 +164,9 @@ std::shared_ptr<LRUMetadataCache::OpenFileToken> LRUMetadataCache::open(
     }
 }
 
-std::shared_ptr<LRUMetadataCache::OpenFileToken> LRUMetadataCache::open(
-    const folly::fbstring &uuid, std::shared_ptr<FileAttr> attr,
-    std::unique_ptr<FileLocation> location)
+std::shared_ptr<OpenFileMetadataCache::OpenFileToken>
+OpenFileMetadataCache::open(const folly::fbstring &uuid,
+    std::shared_ptr<FileAttr> attr, std::unique_ptr<FileLocation> location)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
@@ -179,7 +181,7 @@ std::shared_ptr<LRUMetadataCache::OpenFileToken> LRUMetadataCache::open(
     return std::make_shared<OpenFileToken>(std::move(attr), *this);
 }
 
-void LRUMetadataCache::releaseFile(const folly::fbstring &uuid)
+void OpenFileMetadataCache::releaseFile(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
@@ -201,7 +203,7 @@ void LRUMetadataCache::releaseFile(const folly::fbstring &uuid)
     m_lruFileData.erase(it);
 }
 
-FileAttrPtr LRUMetadataCache::getAttr(const folly::fbstring &uuid)
+FileAttrPtr OpenFileMetadataCache::getAttr(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
@@ -230,7 +232,7 @@ FileAttrPtr LRUMetadataCache::getAttr(const folly::fbstring &uuid)
     return attr;
 }
 
-FileAttrPtr LRUMetadataCache::getAttr(
+FileAttrPtr OpenFileMetadataCache::getAttr(
     const folly::fbstring &parentUuid, const folly::fbstring &name)
 {
     LOG_FCALL() << LOG_FARG(parentUuid) << LOG_FARG(name);
@@ -243,20 +245,20 @@ FileAttrPtr LRUMetadataCache::getAttr(
     return attr;
 }
 
-void LRUMetadataCache::putAttr(std::shared_ptr<FileAttr> attr)
+void OpenFileMetadataCache::putAttr(std::shared_ptr<FileAttr> attr)
 {
     LOG_FCALL();
 
     MetadataCache::putAttr(attr);
 }
 
-void LRUMetadataCache::noteDirectoryActivity(const folly::fbstring &uuid)
+void OpenFileMetadataCache::noteDirectoryActivity(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
     assert(!uuid.empty());
 
-    auto res = m_lruDirectoryData.emplace(uuid, LRUData{});
+    auto res = m_lruDirectoryData.emplace(uuid, OpenFileData{});
     auto newEntry = res.second;
     auto &lruData = res.first->second;
 
@@ -274,7 +276,7 @@ void LRUMetadataCache::noteDirectoryActivity(const folly::fbstring &uuid)
     lruData.touch();
 }
 
-void LRUMetadataCache::pruneExpiredDirectories()
+void OpenFileMetadataCache::pruneExpiredDirectories()
 {
     LOG_FCALL();
 
@@ -312,7 +314,7 @@ void LRUMetadataCache::pruneExpiredDirectories()
     }
 }
 
-void LRUMetadataCache::prune()
+void OpenFileMetadataCache::prune()
 {
     LOG_FCALL();
 
@@ -324,7 +326,7 @@ void LRUMetadataCache::prune()
     }
 }
 
-bool LRUMetadataCache::rename(folly::fbstring uuid,
+bool OpenFileMetadataCache::rename(folly::fbstring uuid,
     folly::fbstring newParentUuid, folly::fbstring newName,
     folly::fbstring newUuid)
 {
@@ -370,7 +372,8 @@ bool LRUMetadataCache::rename(folly::fbstring uuid,
         uuid, newParentUuid, newName, newUuid, renewSubscriptions);
 }
 
-void LRUMetadataCache::truncate(folly::fbstring uuid, const std::size_t newSize)
+void OpenFileMetadataCache::truncate(
+    folly::fbstring uuid, const std::size_t newSize)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(newSize);
 
@@ -389,7 +392,7 @@ void LRUMetadataCache::truncate(folly::fbstring uuid, const std::size_t newSize)
     MetadataCache::truncate(uuid, newSize);
 }
 
-void LRUMetadataCache::updateTimes(
+void OpenFileMetadataCache::updateTimes(
     folly::fbstring uuid, const messages::fuse::UpdateTimes &updateTimes)
 {
     LOG_FCALL() << LOG_FARG(uuid);
@@ -409,7 +412,7 @@ void LRUMetadataCache::updateTimes(
     MetadataCache::updateTimes(uuid, updateTimes);
 }
 
-void LRUMetadataCache::changeMode(
+void OpenFileMetadataCache::changeMode(
     const folly::fbstring &uuid, const mode_t newMode)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(newMode);
@@ -429,7 +432,7 @@ void LRUMetadataCache::changeMode(
     MetadataCache::changeMode(uuid, newMode);
 }
 
-void LRUMetadataCache::putLocation(std::unique_ptr<FileLocation> location)
+void OpenFileMetadataCache::putLocation(std::unique_ptr<FileLocation> location)
 {
     LOG_FCALL();
 
@@ -443,7 +446,7 @@ void LRUMetadataCache::putLocation(std::unique_ptr<FileLocation> location)
         m_lruFileData.at(uuid).location = MetadataCache::getLocation(uuid);
 }
 
-std::shared_ptr<FileLocation> LRUMetadataCache::getLocation(
+std::shared_ptr<FileLocation> OpenFileMetadataCache::getLocation(
     const folly::fbstring &uuid, bool forceUpdate)
 {
     LOG_FCALL();
@@ -454,7 +457,7 @@ std::shared_ptr<FileLocation> LRUMetadataCache::getLocation(
     return MetadataCache::getLocation(uuid, forceUpdate);
 }
 
-bool LRUMetadataCache::updateLocation(const FileLocation &newLocation)
+bool OpenFileMetadataCache::updateLocation(const FileLocation &newLocation)
 {
     LOG_FCALL();
 
@@ -480,7 +483,7 @@ bool LRUMetadataCache::updateLocation(const FileLocation &newLocation)
     return true;
 }
 
-bool LRUMetadataCache::updateLocation(
+bool OpenFileMetadataCache::updateLocation(
     const off_t start, const off_t end, const FileLocation &locationUpdate)
 {
     LOG_FCALL();
@@ -508,7 +511,7 @@ bool LRUMetadataCache::updateLocation(
     return true;
 }
 
-void LRUMetadataCache::addBlock(const folly::fbstring &uuid,
+void OpenFileMetadataCache::addBlock(const folly::fbstring &uuid,
     const boost::icl::discrete_interval<off_t> range,
     messages::fuse::FileBlock fileBlock)
 {
@@ -550,7 +553,7 @@ void LRUMetadataCache::addBlock(const folly::fbstring &uuid,
 
 folly::Optional<
     std::pair<boost::icl::discrete_interval<off_t>, messages::fuse::FileBlock>>
-LRUMetadataCache::getBlock(const folly::fbstring &uuid, const off_t offset)
+OpenFileMetadataCache::getBlock(const folly::fbstring &uuid, const off_t offset)
 {
 
     FileAttrPtr attr;
@@ -580,7 +583,7 @@ LRUMetadataCache::getBlock(const folly::fbstring &uuid, const off_t offset)
     return {};
 }
 
-messages::fuse::FileBlock LRUMetadataCache::getDefaultBlock(
+messages::fuse::FileBlock OpenFileMetadataCache::getDefaultBlock(
     const folly::fbstring &uuid)
 {
     std::shared_ptr<FileAttr> attr;
@@ -603,7 +606,8 @@ messages::fuse::FileBlock LRUMetadataCache::getDefaultBlock(
     return messages::fuse::FileBlock{location->storageId(), location->fileId()};
 }
 
-const std::string &LRUMetadataCache::getSpaceId(const folly::fbstring &uuid)
+const std::string &OpenFileMetadataCache::getSpaceId(
+    const folly::fbstring &uuid)
 {
     std::shared_ptr<FileLocation> location;
 
@@ -621,7 +625,7 @@ const std::string &LRUMetadataCache::getSpaceId(const folly::fbstring &uuid)
     return location->spaceId();
 }
 
-bool LRUMetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr)
+bool OpenFileMetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr)
 {
     if (MetadataCache::updateAttr(newAttr))
         return true;
@@ -658,7 +662,7 @@ bool LRUMetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr)
     return false;
 }
 
-void LRUMetadataCache::handleMarkDeleted(const folly::fbstring &uuid)
+void OpenFileMetadataCache::handleMarkDeleted(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
@@ -693,7 +697,7 @@ void LRUMetadataCache::handleMarkDeleted(const folly::fbstring &uuid)
     m_onMarkDeleted(uuid);
 }
 
-void LRUMetadataCache::handleRename(
+void OpenFileMetadataCache::handleRename(
     const folly::fbstring &oldUuid, const folly::fbstring &newUuid)
 {
     LOG_FCALL() << LOG_FARG(oldUuid) << LOG_FARG(newUuid);
@@ -709,7 +713,7 @@ void LRUMetadataCache::handleRename(
 
         auto lruData = std::move(it->second);
         m_lruDirectoryData.erase(it);
-        auto res = m_lruDirectoryData.emplace(newUuid, LRUData{});
+        auto res = m_lruDirectoryData.emplace(newUuid, OpenFileData{});
         if (res.second) {
             res.first->second = std::move(lruData);
             if (res.first->second.lruIt) {
@@ -743,7 +747,7 @@ void LRUMetadataCache::handleRename(
         auto lruData = std::move(it->second);
         m_lruFileData.erase(it);
 
-        auto res = m_lruFileData.emplace(newUuid, LRUData{});
+        auto res = m_lruFileData.emplace(newUuid, OpenFileData{});
         if (res.second) {
             res.first->second = std::move(lruData);
             if (res.first->second.lruIt) {

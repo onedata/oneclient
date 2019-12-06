@@ -7,7 +7,7 @@
  */
 
 #include "cache/forceProxyIOCache.h"
-#include "cache/lruMetadataCache.h"
+#include "cache/openFileMetadataCache.h"
 #include "mocks/manager_mock.h"
 #include "utils.h"
 
@@ -33,7 +33,8 @@ struct FsSubscriptionsTest : public ::testing::Test {
     std::int64_t subscriptionId;
     std::shared_ptr<Context> context = testContext();
     MockManager mockManager{context};
-    LRUMetadataCache metadataCache{*context->communicator(), 10000, 60s, 60s};
+    OpenFileMetadataCache metadataCache{
+        *context->communicator(), 10000, 60s, 60s};
     ForceProxyIOCache forceProxyIOCache;
     FsSubscriptions fsSubscriptions{
         mockManager, metadataCache, forceProxyIOCache, [](auto) {}};

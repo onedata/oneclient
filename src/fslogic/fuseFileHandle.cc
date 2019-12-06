@@ -20,7 +20,7 @@ constexpr auto FSLOGIC_RECENT_PREFETCH_CACHE_SIZE = 1000U;
 constexpr auto FSLOGIC_RECENT_PREFETCH_CACHE_PRUNE_SIZE = 50U;
 
 FuseFileHandle::FuseFileHandle(const int flags_, folly::fbstring handleId,
-    std::shared_ptr<cache::LRUMetadataCache::OpenFileToken> openFileToken,
+    std::shared_ptr<cache::OpenFileMetadataCache::OpenFileToken> openFileToken,
     cache::HelpersCache &helpersCache,
     cache::ForceProxyIOCache &forceProxyIOCache,
     const std::chrono::seconds providerTimeout,
