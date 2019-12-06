@@ -350,6 +350,29 @@ public:
             .get();
     }
 
+    int opendir(std::string path)
+    {
+        ReleaseGIL guard;
+
+        return m_fiberManager
+            .addTaskRemoteFuture([ this, uuid = uuidFromPath(path) ]() mutable {
+                return m_fsLogic->opendir(uuid);
+            })
+            .get();
+    }
+
+    void releasedir(std::string path, int handleId)
+    {
+        ReleaseGIL guard;
+
+        m_fiberManager
+            .addTaskRemoteFuture(
+                [ this, uuid = uuidFromPath(path), handleId ]() mutable {
+                    m_fsLogic->releasedir(uuid, handleId);
+                })
+            .get();
+    }
+
     std::vector<std::string> readdir(
         std::string path, const size_t maxSize = 9999, const off_t off = 0)
     {
@@ -854,6 +877,8 @@ BOOST_PYTHON_MODULE(onedatafs)
         .def("open", &OnedataFS::open,
             open_overload(
                 (bp::arg("path"), bp::arg("flags") = O_RDWR | O_CREAT)))
+        .def("opendir", &OnedataFS::opendir)
+        .def("releasedir", &OnedataFS::releasedir)
         .def("readdir", &OnedataFS::readdir,
             readdir_overload((bp::arg("path"), bp::arg("maxSize") = 9999,
                 bp::arg("off") = 0)))
