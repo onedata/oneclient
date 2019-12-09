@@ -91,6 +91,12 @@ public:
      * FUSE @c lookup callback.
      * @see https://libfuse.github.io/doxygen/structfuse__lowlevel__ops.html
      */
+    struct statvfs statfs(const folly::fbstring &uuid);
+
+    /**
+     * FUSE @c lookup callback.
+     * @see https://libfuse.github.io/doxygen/structfuse__lowlevel__ops.html
+     */
     FileAttrPtr lookup(
         const folly::fbstring &uuid, const folly::fbstring &name);
 

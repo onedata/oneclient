@@ -487,6 +487,17 @@ Options::Options()
             "storage, e.g. "
             "'d40f2f63433da7c845886f6fe970048b:mountPoint:/mnt/nfs'");
 
+    add<uint64_t>()
+        ->withLongName("emulate-available-space")
+        .withConfigName("emulate_available_space")
+        .withValueName("<bytes>")
+        .withDefaultValue(DEFAULT_EMULATE_AVAILABLE_SPACE,
+            std::to_string(DEFAULT_EMULATE_AVAILABLE_SPACE))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription(
+            "When set to non-zero value, emulates available space reported by "
+            "stat system call to specified number of bytes.");
+
     add<bool>()
         ->asSwitch()
         .withShortName("f")
@@ -1010,6 +1021,12 @@ Options::getHelperOverrideParams(const folly::fbstring &storageId) const
         return overrideParams.at(storageId);
 
     return {};
+}
+
+uint64_t Options::getEmulateAvailableSpace() const
+{
+    return get<uint64_t>({"emulate-available-space", "emulate_available_space"})
+        .get_value_or(DEFAULT_EMULATE_AVAILABLE_SPACE);
 }
 
 bool Options::isMonitoringEnabled() const

@@ -231,6 +231,30 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
 
 FsLogic::~FsLogic() { m_context->communicator()->stop(); }
 
+struct statvfs FsLogic::statfs(const folly::fbstring &uuid)
+{
+    LOG_FCALL() << LOG_FARG(uuid);
+
+    constexpr auto kMaxNameLength = 255;
+    constexpr auto kBlockSize = 4096;
+    constexpr auto kFreeInodes = 10000000;
+
+    auto emulatedFreeSpace = m_context->options()->getEmulateAvailableSpace();
+
+    struct statvfs statinfo = {};
+
+    if (emulatedFreeSpace > 0ULL) {
+        statinfo.f_bsize = kBlockSize;
+        statinfo.f_frsize = statinfo.f_bsize;
+        statinfo.f_blocks = statinfo.f_bfree = statinfo.f_bavail =
+            emulatedFreeSpace / statinfo.f_frsize;
+        statinfo.f_files = statinfo.f_ffree = kFreeInodes;
+    }
+    statinfo.f_namemax = kMaxNameLength;
+
+    return statinfo;
+}
+
 FileAttrPtr FsLogic::lookup(
     const folly::fbstring &uuid, const folly::fbstring &name)
 {

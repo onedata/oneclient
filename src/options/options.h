@@ -55,6 +55,12 @@ static constexpr auto DEFAULT_METADATA_CACHE_SIZE = 20'000;
 static constexpr auto DEFAULT_READDIR_PREFETCH_SIZE = 2500;
 static constexpr auto DEFAULT_PROVIDER_TIMEOUT = 2 * 60;
 static constexpr auto DEFAULT_MONITORING_PERIOD_SECONDS = 30;
+#if defined(__APPLE__)
+static constexpr auto DEFAULT_EMULATE_AVAILABLE_SPACE =
+    1024 * 1024 * 1024 * 1024ULL;
+#else
+static constexpr auto DEFAULT_EMULATE_AVAILABLE_SPACE = 0ULL;
+#endif
 }
 
 class Option;
@@ -333,6 +339,11 @@ public:
     unsigned int getReaddirPrefetchSize() const;
 
     /*
+     * @return Get size of emulated available space.
+     */
+    uint64_t getEmulateAvailableSpace() const;
+
+    /*
      * @return Get xattr on-modify tag.
      */
     boost::optional<std::pair<std::string, std::string>> getOnModifyTag() const;
@@ -518,7 +529,6 @@ Options::get<std::pair<std::string, std::string>>(
     }
     return {};
 }
-
 } // namespace options
 } // namespace client
 } // namespace one
