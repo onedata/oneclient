@@ -411,30 +411,7 @@ void wrap_statfs(fuse_req_t req, fuse_ino_t ino)
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.statfs");
     wrap(&fslogic::Composite::statfs,
         [ req, timer = std::move(timer) ](const struct statvfs &statinfo) {
-            struct statvfs new_statinfo {
-                statinfo
-            };
-            constexpr auto kMaxNameLength = 255;
-#if defined(__APPLE__)
-            /**
-             * Simulate large free space to enable file pasting in Finder
-             */
-            constexpr auto kOSXBlockSize = 4096;
-            constexpr auto kOSXFreeSpace = 1000ULL * 1024 * 1024 * 1024;
-            constexpr auto kOSXFreeInodes = 10000000;
-
-            new_statinfo.f_bsize = kOSXBlockSize;
-            new_statinfo.f_frsize = new_statinfo.f_bsize;
-            new_statinfo.f_blocks = new_statinfo.f_bfree =
-                new_statinfo.f_bavail = kOSXFreeSpace / new_statinfo.f_frsize;
-            new_statinfo.f_files = new_statinfo.f_ffree = kOSXFreeInodes;
-            new_statinfo.f_namemax = kMaxNameLength;
-
-            fuse_reply_statfs(req, &new_statinfo);
-#else
-            new_statinfo.f_namemax = kMaxNameLength;
-            fuse_reply_statfs(req, &new_statinfo);
-#endif
+            fuse_reply_statfs(req, &statinfo);
         },
         req, ino);
 }

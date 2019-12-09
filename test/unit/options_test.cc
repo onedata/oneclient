@@ -142,6 +142,7 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(options::DEFAULT_PREFETCH_CLUSTER_BLOCK_THRESHOLD,
         options.getRandomReadPrefetchClusterBlockThreshold());
     EXPECT_EQ(0.0, options.getRandomReadPrefetchClusterWindowGrowFactor());
+    EXPECT_EQ(0, options.getEmulateAvailableSpace());
     EXPECT_FALSE(options.getProviderHost());
     EXPECT_FALSE(options.getAccessToken());
 }
@@ -515,6 +516,14 @@ TEST_F(OptionsTest, parseCommandLineShouldSetRandomReadClusterWindowGrowFactor)
         {"--rndrd-prefetch-cluster-window-grow-factor", "1.2", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ(1.2, options.getRandomReadPrefetchClusterWindowGrowFactor());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetEmulateAvailableSpace)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"--emulate-available-space", "1125899906842624", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(1125899906842624ULL, options.getEmulateAvailableSpace());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetPrefetchMode)
