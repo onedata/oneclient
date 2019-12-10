@@ -36,11 +36,11 @@ sense that if an entry is not present in the cache, it is fetched directly from
 the provider. As an invariant, every entry has cached attributes (but not
 necessarily its location).
 
-MetadataCache is wrapped by [LRUMetadataCache] that handles cache expiration.
-The LRUMetadataCache ensures that entries for open files are preserved in the
-cache. If the number of entries exceeds a set value AND there are non-open
-entries stored in the cache, the least recently used non-open entries are
-removed from the wrapped MetadataCache
+MetadataCache is wrapped by [OpenFileMetadataCache] that handles cache 
+of open files and directories whose contents are cached.
+The OpenFileMetadataCache ensures that entries for open files are preserved in the
+cache. The entries are removed when their parent directories are invalidated,
+either due to expiration (dropCacheAfter time) or when directory is removed.
 
 ## main() and StorageAccessManager
 
@@ -111,7 +111,7 @@ synchronous operations operations in ASIO async tasks.
 [ForceProxyIOCache]: src/cache/forceProxyIOCache.h
 [HelpersCache]: src/cache/helpersCache.h
 [MetadataCache]: src/cache/metadataCache.h
-[LRUMetadataCache]: src/cache/lruMetadataCache.h
+[OpenFileMetadataCache]: src/cache/openFileMetadataCache.h
 [Manager]: src/events/manager.h
 [Aggregator]: src/events/aggregators/aggregator.h
 [Emitter]: src/events/emitters/emitter.h

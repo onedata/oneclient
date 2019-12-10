@@ -8,7 +8,7 @@
 
 #include "fsSubscriptions.h"
 #include "cache/forceProxyIOCache.h"
-#include "cache/lruMetadataCache.h"
+#include "cache/openFileMetadataCache.h"
 #include "events/events.h"
 #include "messages/fuse/fileAttr.h"
 #include "messages/fuse/fileLocation.h"
@@ -22,7 +22,7 @@ namespace one {
 namespace client {
 
 FsSubscriptions::FsSubscriptions(events::Manager &eventManager,
-    cache::LRUMetadataCache &metadataCache,
+    cache::OpenFileMetadataCache &metadataCache,
     cache::ForceProxyIOCache &forceProxyIOCache,
     std::function<void(folly::Function<void()>)> runInFiber)
     : m_eventManager{eventManager}
@@ -53,17 +53,27 @@ void FsSubscriptions::handleFileAttrChanged(
 {
     ONE_METRIC_COUNTER_INC(
         "comp.oneclient.mod.events.submod.received.file_attr_changed");
-    m_runInFiber([ this, events = std::move(events) ] {
-        for (auto &event : events) {
-            auto &attr = event->fileAttr();
-            if (m_metadataCache.updateAttr(attr))
-                LOG_DBG(2) << "Updated attributes for uuid: '" << attr.uuid()
-                           << "', size: " << (attr.size() ? *attr.size() : -1);
-            else
-                LOG_DBG(2) << "No attributes to update for uuid: '"
-                           << attr.uuid() << "'";
-        }
-    });
+
+    m_runInFiber(
+        [ this, events = std::move(events) ] {
+            for (auto &event : events) {
+                auto attr = std::make_shared<FileAttr>(event->fileAttr());
+
+                LOG_DBG(2) << " Received FileAttrChanged event: "
+                           << attr->toString();
+
+                if (m_metadataCache.updateAttr(attr)) {
+                    LOG_DBG(2)
+                        << "Updated attributes for uuid: '" << attr->uuid()
+                        << "', size: " << (attr->size() ? *attr->size() : -1);
+                }
+                else {
+                    LOG_DBG(2)
+                        << "Update or insert of attribute failed for uuid : '"
+                        << attr->uuid() << "'";
+                }
+            }
+        });
 }
 
 bool FsSubscriptions::unsubscribeFileAttrChanged(
@@ -220,7 +230,9 @@ void FsSubscriptions::subscribeFileRenamed(const folly::fbstring &fileUuid)
 
     ONE_METRIC_COUNTER_INC(
         "comp.oneclient.mod.events.submod.subscriptions.file_renamed");
+
     LOG_DBG(2) << "Subscribing for FileRenamed for file " << fileUuid;
+
     subscribe(fileUuid,
         events::FileRenamedSubscription{
             fileUuid.toStdString(), [this](auto events) mutable {

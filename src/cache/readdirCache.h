@@ -10,7 +10,7 @@
 
 #include "scheduler.h"
 
-#include "cache/lruMetadataCache.h"
+#include "cache/openFileMetadataCache.h"
 #include "context.h"
 
 #include <folly/FBString.h>
@@ -29,99 +29,6 @@ namespace cache {
 
 using namespace std::literals;
 
-constexpr auto READDIR_CACHE_VALIDITY_DURATION = 2000ms;
-
-/**
- * DirCacheEntry stores the list of entries fetched from the
- * provider for a specific directory entry.
- */
-class DirCacheEntry {
-public:
-    DirCacheEntry(std::chrono::milliseconds cacheValidityPeriod);
-    ~DirCacheEntry() = default;
-    DirCacheEntry(const DirCacheEntry &e);
-    DirCacheEntry(DirCacheEntry &&e) noexcept;
-
-    /**
-     * Add directory entry to cache.
-     *
-     * @param name Directory entry name.
-     */
-    void addEntry(const folly::fbstring &name);
-    void addEntry(folly::fbstring &&name);
-
-    /**
-     * Returns const reference to the directory entries.
-     */
-    const std::list<folly::fbstring> &dirEntries() const;
-
-    /**
-     * Checks if the dir cache entry is still valid. In case off
-     * is 0 (i.e. this is a new readdir request compare against
-     * creation time otherwise compare vs access time. This allows
-     * a single thread to list event large directories without
-     * refereshing, while ensuring that it doesn't starve processes
-     * which start new readdir requests.
-     *
-     * @param sinceLastAccess If true validity is checked against last
-     *                        access time, otherwise it is validated
-     *                        since creation.
-     */
-    bool isValid(bool sinceLastAccess);
-
-    /**
-     * Invalidates the cache forcibly.
-     */
-    void invalidate();
-
-    /**
-     * Makes the cache entry fresh again.
-     */
-    void touch();
-
-    /**
-     * Marks the entry as created
-     */
-    void markCreated();
-
-    /**
-     * Remove any duplicates from the directory entries container.
-     */
-    void unique();
-
-private:
-    /**
-     * Absolute creation time.
-     */
-    std::atomic_ullong m_ctime;
-
-    /**
-     * Last access time to this cache entry, stored as milliseconds
-     * since epoch for atomic access.
-     */
-    std::atomic_ullong m_atime;
-
-    /**
-     * When true, this directory cache is invalid and should be purged.
-     */
-    std::atomic_bool m_invalid;
-
-    /**
-     * The directory entries list doesn't have to be locked for now as
-     * it is only filled by a single thread and cannot be accessed
-     * by other threads until is completely fetched from the provider.
-     */
-    std::list<folly::fbstring> m_dirEntries;
-
-    /**
-     * Validity period of dir cache entries.
-     *
-     * If a given entry has not been access in this amount of time,
-     * the entry is invalid and has to retrieved again.
-     */
-    std::chrono::milliseconds m_cacheValidityPeriod;
-};
-
 /**
  * This class provides a cache for readdir entries which can be fetched
  * from Oneprovider in much larger chunks than is allowed by the Fuse
@@ -137,7 +44,7 @@ public:
      * @param rootUuid The uuid of the mountpoint root. Used to know when
      *                 we are requesting the list of spaces.
      */
-    ReaddirCache(LRUMetadataCache &metadataCache,
+    ReaddirCache(OpenFileMetadataCache &metadataCache,
         std::weak_ptr<Context> context, folly::fbstring rootUuid,
         std::function<void(folly::Function<void()>)> runInFiber);
 
@@ -156,11 +63,6 @@ public:
      */
     folly::fbvector<folly::fbstring> readdir(const folly::fbstring &uuid,
         const off_t off, const std::size_t chunkSize);
-
-    /**
-     * Invalidate cache for a specific directory.
-     */
-    void invalidate(const folly::fbstring &uuid);
 
     /**
      * Returns true if cache doesn't contain any elements.
@@ -192,24 +94,14 @@ private:
     void purge(const folly::fbstring &uuid);
 
     /**
-     * Worker function which should be scheduled to clean directory entry after
-     * it becomes stale. It should also schedule itself again in case the entry
-     * is still valid.
-     */
-    void purgeWorker(
-        folly::fbstring uuid, std::shared_ptr<DirCacheEntry> entry);
-
-    /**
-     * Directory entry cache.
+     * Directory fetch cache.
      *
-     * Each directory entry is stored in a shared promise, so that when
-     * several threads try to fetch directory entries in the same time, only
-     * one request to the provider is performed. The first thread will
-     * initiate the fetch from the provider, and the consecutive ones will
-     * wait on the future generated from this promise.
+     * Stores promises for directories which are currently being asynchronusly
+     * fetched from the server in batches, so that the same directory is
+     * not fetched multiple times in parallel.
      */
     std::unordered_map<folly::fbstring,
-        std::shared_ptr<folly::SharedPromise<std::shared_ptr<DirCacheEntry>>>>
+        std::shared_ptr<folly::SharedPromise<folly::Unit>>>
         m_cache;
     std::mutex m_cacheMutex;
 
@@ -220,7 +112,7 @@ private:
      * the attributes are automatically stored in the metadatacache so that
      * they are immediately accessible to the client after listing is complete.
      */
-    LRUMetadataCache &m_metadataCache;
+    OpenFileMetadataCache &m_metadataCache;
 
     /**
      * Pointer to Oneclient context, used to access options and scheduler.
@@ -241,15 +133,6 @@ private:
     const folly::fbstring m_rootUuid;
     std::unordered_set<folly::fbstring> m_whitelistedSpaceNames;
     std::unordered_set<folly::fbstring> m_whitelistedSpaceIds;
-
-    /**
-     * Validity period of dir cache entries.
-     *
-     * If a given entry has not been access in this amount of time,
-     * the entry is invalid and has to retrieved again.
-     */
-    const std::chrono::milliseconds m_cacheValidityPeriod =
-        READDIR_CACHE_VALIDITY_DURATION;
 
     /**
      * Executor enabling to schedule tasks on fslogic fiber

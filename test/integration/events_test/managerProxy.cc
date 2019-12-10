@@ -19,6 +19,7 @@
 #include <boost/python.hpp>
 #include <tbb/concurrent_hash_map.h>
 
+#include <atomic>
 #include <chrono>
 #include <memory>
 #include <unordered_map>
@@ -37,7 +38,7 @@ public:
     {
     }
 
-    ~ManagerProxy() { m_context->communicator()->stop(); }
+    ~ManagerProxy() { stop(); }
 
     void emitFileRead(std::string fileUuid, off_t offset, size_t size)
     {
@@ -133,6 +134,13 @@ public:
         return m_manager.existsSubscription(subscriptionId) == expected;
     }
 
+    void stop()
+    {
+        if (!m_stopped.test_and_set()) {
+            m_context->communicator()->stop();
+        }
+    }
+
 private:
     void incCounter(const std::string &handler)
     {
@@ -164,6 +172,8 @@ private:
 
     using CounterAcc = typename decltype(m_counters)::accessor;
     using ConstCounterAcc = typename decltype(m_counters)::const_accessor;
+
+    std::atomic_flag m_stopped = ATOMIC_FLAG_INIT;
 };
 
 namespace {
@@ -172,8 +182,8 @@ boost::shared_ptr<ManagerProxy> create(
 {
     FLAGS_minloglevel = 1;
 
-    auto communicator = std::make_shared<Communicator>(/*connections*/ 1,
-        /*threads*/ 1, std::move(ip), port,
+    auto communicator = std::make_shared<Communicator>(/*connections*/ 10,
+        /*threads*/ 2, std::move(ip), port,
         /*verifyServerCertificate*/ false, /*upgrade to clproto*/ true,
         /*perform handshake*/ false);
 
@@ -191,6 +201,7 @@ BOOST_PYTHON_MODULE(events)
 {
     class_<ManagerProxy, boost::noncopyable>("Manager", no_init)
         .def("__init__", make_constructor(create))
+        .def("stop", &ManagerProxy::stop)
         .def("emitFileRead", &ManagerProxy::emitFileRead)
         .def("emitFileWritten", &ManagerProxy::emitFileWritten)
         .def("emitFileTruncated", &ManagerProxy::emitFileTruncated)

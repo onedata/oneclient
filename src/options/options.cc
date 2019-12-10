@@ -457,6 +457,17 @@ Options::Options()
         .withDescription("Specify the size of requests made during readdir "
                          "prefetch (in number of dir entries).");
 
+    add<unsigned int>()
+        ->withLongName("dir-cache-drop-after")
+        .withConfigName("dir_cache_drop_after")
+        .withValueName("<seconds>")
+        .withDefaultValue(DEFAULT_DIR_CACHE_DROP_AFTER,
+            std::to_string(DEFAULT_DIR_CACHE_DROP_AFTER))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Specify (in seconds) how long should directories be "
+                         "cached since last activity. When 0 is provided, "
+                         "the cache never expires.");
+
     add<std::string>()
         ->withEnvName("tag_on_create")
         .withLongName("tag-on-create")
@@ -982,6 +993,13 @@ unsigned int Options::getReaddirPrefetchSize() const
 {
     return get<unsigned int>({"readdir-prefetch-size", "readdir_prefetch_size"})
         .get_value_or(DEFAULT_READDIR_PREFETCH_SIZE);
+}
+
+std::chrono::seconds Options::getDirectoryCacheDropAfter() const
+{
+    return std::chrono::seconds{
+        get<unsigned int>({"dir-cache-drop-after", "dir_cache_drop_after"})
+            .get_value_or(DEFAULT_DIR_CACHE_DROP_AFTER)};
 }
 
 boost::optional<std::pair<std::string, std::string>>

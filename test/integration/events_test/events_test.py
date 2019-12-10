@@ -70,9 +70,11 @@ def endpoint(appmock_client):
     return appmock_client.tcp_endpoint(443)
 
 
-@pytest.fixture
+@pytest.yield_fixture
 def manager(endpoint):
-    return events.Manager(endpoint.ip, endpoint.port)
+    mgr = events.Manager(endpoint.ip, endpoint.port)
+    yield mgr
+    mgr.stop()
 
 
 def prepare_file_read_subscription(sid, counter_thr=None, time_thr=None):

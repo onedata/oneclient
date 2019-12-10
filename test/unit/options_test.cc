@@ -132,6 +132,8 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
         options::DEFAULT_METADATA_CACHE_SIZE, options.getMetadataCacheSize());
     EXPECT_EQ(options::DEFAULT_READDIR_PREFETCH_SIZE,
         options.getReaddirPrefetchSize());
+    EXPECT_EQ(options::DEFAULT_DIR_CACHE_DROP_AFTER,
+        options.getDirectoryCacheDropAfter().count());
     EXPECT_EQ(1.0, options.getLinearReadPrefetchThreshold());
     EXPECT_EQ(1.0, options.getRandomReadPrefetchThreshold());
     EXPECT_EQ(options::DEFAULT_PREFETCH_CLUSTER_WINDOW_SIZE,
@@ -415,6 +417,14 @@ TEST_F(OptionsTest, parseCommandLineShouldSetReaddirPrefetchSize)
         cmdArgs.end(), {"--readdir-prefetch-size", "10000", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ(10000, options.getReaddirPrefetchSize());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetDirCacheDropAfter)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--dir-cache-drop-after", "60", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(60, options.getDirectoryCacheDropAfter().count());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetTagOnCreate)
