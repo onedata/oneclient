@@ -40,7 +40,7 @@ if(PYTHON2_CONFIG)
         set(PYTHON2_SITE_DIR "site-packages")
     endif()
 
-    find_library(LIBBOOST_PYTHON2 NAMES boost_python-py27 boost_python)
+    find_library(LIBBOOST_PYTHON2 NAMES boost_python-py27 boost_python libboost_python.so.1.66.0)
 
     message(STATUS "Found Python2 version: ${PYTHON2_VERSION_STRING} (${PYTHON2_VERSION})")
     message(STATUS "Python2 ldflags: ${PYTHON2_LDFLAGS}")

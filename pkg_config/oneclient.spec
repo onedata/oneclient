@@ -29,6 +29,7 @@ BuildRequires: %scl_require_package %{scl} gflags-devel >= 2.1.2
 BuildRequires: %scl_require_package %{scl} glog-devel >= 0.3.4
 BuildRequires: %scl_require_package %{scl} glusterfs-api-devel >= 3.12.15
 BuildRequires: %scl_require_package %{scl} librados-devel
+BuildRequires: %scl_require_package %{scl} libradospp-devel
 BuildRequires: %scl_require_package %{scl} libradosstriper-devel
 BuildRequires: %scl_require_package %{scl} poco-devel
 BuildRequires: %scl_require_package %{scl} poco-foundation
@@ -44,7 +45,7 @@ BuildRequires: %scl_require_package %{scl} swift-sdk-cpp >= 1.0.0
 BuildRequires: %scl_require_package %{scl} tbb-devel >= 2018.5~
 BuildRequires: %scl_require_package %{scl} wangle-devel = %{folly_version}
 BuildRequires: %scl_require_package %{scl} wangle-static = %{folly_version}
-BuildRequires: %scl_require_package devtoolset-6 gcc-c++
+BuildRequires: %scl_require_package devtoolset-7 gcc-c++
 BuildRequires: binutils-devel
 BuildRequires: cmake3
 BuildRequires: double-conversion-devel
@@ -59,8 +60,8 @@ BuildRequires: libtool-ltdl
 BuildRequires: libtool-ltdl-devel
 BuildRequires: nspr-devel
 BuildRequires: nss-devel
-BuildRequires: openssl >= 1.1.0
-BuildRequires: openssl-devel >= 1.1.0
+BuildRequires: openssl >= 1.0.0
+BuildRequires: openssl-devel >= 1.0.0
 BuildRequires: python-devel
 BuildRequires: python36-devel
 BuildRequires: subversion
@@ -97,7 +98,7 @@ Python 3 OnedataFS library.
 %setup -q -n oneclient-base-%{version}
 
 %build
-cat <<SCL_EOF_MACRO | scl enable devtoolset-6 %{scl} --
+cat <<SCL_EOF_MACRO | scl enable devtoolset-7 %{scl} --
 LDFLAGS="-L/opt/onedata/%{scl}/root/usr/lib64" \
 CFLAGS="-I/opt/onedata/%{scl}/root/usr/include" \
 CXXFLAGS="-I/opt/onedata/%{scl}/root/usr/include" \
