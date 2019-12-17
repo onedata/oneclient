@@ -21,8 +21,13 @@
 #include <boost/make_shared.hpp>
 #include <boost/python.hpp>
 #include <boost/python/suite/indexing/vector_indexing_suite.hpp>
+#include <folly/fibers/Baton.h>
+#include <folly/fibers/FiberManager.h>
+#include <folly/fibers/FiberManagerMap.h>
+#include <folly/fibers/ForEach.h>
 #include <fuse.h>
 
+#include <atomic>
 #include <memory>
 
 using namespace one;
@@ -86,17 +91,50 @@ constexpr auto FSLOGIC_PROXY_RETRY_COUNT = 2;
 
 class FsLogicProxy {
 public:
-    FsLogicProxy(std::shared_ptr<Context> context)
+    FsLogicProxy(std::shared_ptr<Context> context,
+        unsigned int metadataCacheSize = 10000,
+        unsigned int dropDirectoryCacheAfter = 60)
         : m_helpersCache{new HelpersCacheProxy(*context->communicator(),
               *context->scheduler(), *context->options())}
         , m_fsLogic{context, std::make_shared<messages::Configuration>(),
-              std::unique_ptr<HelpersCacheProxy>{m_helpersCache}, 100000, false,
-              false, 10s, [](auto f) { f(); }}
+              std::unique_ptr<HelpersCacheProxy>{m_helpersCache},
+              metadataCacheSize, false, false, 10s,
+              std::chrono::seconds{dropDirectoryCacheAfter},
+              makeRunInFiber() /*[](auto f) { f(); }*/}
         , m_context{context}
     {
+        m_thread = std::thread{[this] {
+            folly::setThreadName("InFiber");
+            m_eventBase.loopForever();
+        }};
     }
 
-    ~FsLogicProxy() { ReleaseGIL guard; }
+    void stop()
+    {
+        if (!m_stopped.test_and_set()) {
+            ReleaseGIL guard;
+
+            folly::Promise<folly::Unit> stopped;
+            auto stoppedFuture = stopped.getFuture();
+
+            m_fiberManager.addTaskRemote(
+                [ this, stopped = std::move(stopped) ]() mutable {
+                    m_context->communicator()->stop();
+                    stopped.setValue();
+                });
+
+            stoppedFuture.get();
+        }
+    }
+
+    ~FsLogicProxy()
+    {
+        stop();
+
+        ReleaseGIL guard;
+        m_eventBase.terminateLoopSoon();
+        m_thread.join();
+    }
 
     void failHelper()
     {
@@ -178,6 +216,20 @@ public:
 
         m_fsLogic.setattr(
             uuid, statbuf, FUSE_SET_ATTR_ATIME | FUSE_SET_ATTR_MTIME);
+    }
+
+    int opendir(std::string uuid)
+    {
+        ReleaseGIL guard;
+
+        return m_fsLogic.opendir(uuid);
+    }
+
+    void releasedir(std::string uuid, int fuseHandleId)
+    {
+        ReleaseGIL guard;
+
+        m_fsLogic.releasedir(uuid, fuseHandleId);
     }
 
     std::vector<std::string> readdir(
@@ -279,6 +331,18 @@ public:
         m_fsLogic.removexattr(uuid, name);
     }
 
+    int metadataCacheSize()
+    {
+        ReleaseGIL guard;
+        return m_fsLogic.metadataCache().size();
+    }
+
+    bool metadataCacheContains(std::string uuid)
+    {
+        ReleaseGIL guard;
+        return m_fsLogic.metadataCache().contains(uuid);
+    }
+
     void expect_call_sh_open(std::string uuid, int times)
     {
         m_helpersCache->m_helper->expect_call_sh_open(uuid, times);
@@ -295,13 +359,35 @@ public:
     }
 
 private:
+    folly::fibers::FiberManager::Options makeFiberManagerOpts()
+    {
+        folly::fibers::FiberManager::Options opts;
+        opts.stackSize = FIBER_STACK_SIZE;
+        return opts;
+    }
+
+    std::function<void(folly::Function<void()>)> makeRunInFiber()
+    {
+        return [this](folly::Function<void()> fun) mutable {
+            m_fiberManager.addTaskRemote(std::move(fun));
+        };
+    }
+
+    folly::EventBase m_eventBase;
+    folly::fibers::FiberManager &m_fiberManager{
+        folly::fibers::getFiberManager(m_eventBase, makeFiberManagerOpts())};
+
+    std::thread m_thread;
+    std::atomic_flag m_stopped = ATOMIC_FLAG_INIT;
+
     HelpersCacheProxy *m_helpersCache;
     fslogic::FsLogic m_fsLogic;
     std::shared_ptr<Context> m_context;
 };
 
 namespace {
-boost::shared_ptr<FsLogicProxy> create(std::string ip, int port)
+boost::shared_ptr<FsLogicProxy> create(std::string ip, int port,
+    unsigned int metadataCacheSize, unsigned int dropDirectoryCacheAfter)
 {
     FLAGS_minloglevel = 1;
 
@@ -319,7 +405,8 @@ boost::shared_ptr<FsLogicProxy> create(std::string ip, int port)
     communicator->setScheduler(context->scheduler());
     communicator->connect();
 
-    return boost::make_shared<FsLogicProxy>(context);
+    return boost::make_shared<FsLogicProxy>(
+        context, metadataCacheSize, dropDirectoryCacheAfter);
 }
 
 int regularMode() { return S_IFREG; }
@@ -360,6 +447,7 @@ BOOST_PYTHON_MODULE(fslogic)
     class_<FsLogicProxy, boost::noncopyable>("FsLogicProxy", no_init)
         .def("__init__", make_constructor(create))
         .def("failHelper", &FsLogicProxy::failHelper)
+        .def("stop", &FsLogicProxy::stop)
         .def("getattr", &FsLogicProxy::getattr)
         .def("mkdir", &FsLogicProxy::mkdir)
         .def("unlink", &FsLogicProxy::unlink)
@@ -368,6 +456,8 @@ BOOST_PYTHON_MODULE(fslogic)
         .def("chmod", &FsLogicProxy::chmod)
         .def("utime", &FsLogicProxy::utime)
         .def("utime_buf", &FsLogicProxy::utime_buf)
+        .def("opendir", &FsLogicProxy::opendir)
+        .def("releasedir", &FsLogicProxy::releasedir)
         .def("readdir", &FsLogicProxy::readdir)
         .def("mknod", &FsLogicProxy::mknod)
         .def("open", &FsLogicProxy::open)
@@ -379,6 +469,8 @@ BOOST_PYTHON_MODULE(fslogic)
         .def("getxattr", &FsLogicProxy::getxattr)
         .def("setxattr", &FsLogicProxy::setxattr)
         .def("removexattr", &FsLogicProxy::removexattr)
+        .def("metadata_cache_size", &FsLogicProxy::metadataCacheSize)
+        .def("metadata_cache_contains", &FsLogicProxy::metadataCacheContains)
         .def("expect_call_sh_open", &FsLogicProxy::expect_call_sh_open)
         .def("expect_call_sh_release", &FsLogicProxy::expect_call_sh_release)
         .def("verify_and_clear_expectations",

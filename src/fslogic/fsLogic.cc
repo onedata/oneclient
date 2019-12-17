@@ -50,7 +50,6 @@
 #include "monitoring/monitoring.h"
 #include "util/cdmi.h"
 #include "util/xattrHelper.h"
-//#include "webDAVHelper.h"
 
 #include <boost/icl/interval_set.hpp>
 #include <folly/Demangle.h>
@@ -116,10 +115,11 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     std::unique_ptr<cache::HelpersCache> helpersCache,
     unsigned int metadataCacheSize, bool readEventsDisabled,
     bool forceFullblockRead, const std::chrono::seconds providerTimeout,
+    const std::chrono::seconds directoryCacheDropAfter,
     std::function<void(folly::Function<void()>)> runInFiber)
     : m_context{context}
     , m_metadataCache{*m_context->communicator(), metadataCacheSize,
-          providerTimeout}
+          providerTimeout, directoryCacheDropAfter}
     , m_helpersCache{std::move(helpersCache)}
     , m_readdirCache{std::make_shared<cache::ReaddirCache>(
           m_metadataCache, m_context, configuration->rootUuid(), runInFiber)}
@@ -166,8 +166,12 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
                 this->disableSpaces(events.back()->spaces());
             });
         }});
+
     disableSpaces(configuration->disabledSpaces());
 
+    //
+    // Registration of force proxy IO cache callbacks
+    //
     m_forceProxyIOCache.onAdd([this](const folly::fbstring &uuid) {
         m_fsSubscriptions.subscribeFilePermChanged(uuid);
     });
@@ -176,43 +180,62 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
         m_fsSubscriptions.unsubscribeFilePermChanged(uuid);
     });
 
+    //
+    // Registration of medatacache events callbacks
+    //
+    // Called when file attributes are added to the metadata cache
     m_metadataCache.onAdd([this](const folly::fbstring &uuid) {
         m_fsSubscriptions.subscribeFileAttrChanged(uuid);
         m_fsSubscriptions.subscribeFileRemoved(uuid);
         m_fsSubscriptions.subscribeFileRenamed(uuid);
     });
 
+    // Called when file is opened
     m_metadataCache.onOpen([this](const folly::fbstring &uuid) {
         m_fsSubscriptions.subscribeFileAttrChanged(uuid);
         m_fsSubscriptions.subscribeFileLocationChanged(uuid);
+        m_fsSubscriptions.subscribeFileRemoved(uuid);
+        m_fsSubscriptions.subscribeFileRenamed(uuid);
     });
 
+    // Called when file is closed
     m_metadataCache.onRelease([this](const folly::fbstring &uuid) {
         m_fsSubscriptions.unsubscribeFileLocationChanged(uuid);
     });
 
-    m_metadataCache.onPrune([this](const folly::fbstring &uuid) {
+    // Called when file attributes are dropped from metadata cache
+    m_metadataCache.onDropFile([this](const folly::fbstring &uuid) {
         m_fsSubscriptions.unsubscribeFileAttrChanged(uuid);
         m_fsSubscriptions.unsubscribeFileLocationChanged(uuid);
         m_fsSubscriptions.unsubscribeFileRemoved(uuid);
         m_fsSubscriptions.unsubscribeFileRenamed(uuid);
     });
 
+    // Called when directory attributes are dropped from metadata cache
+    m_metadataCache.onDropDirectory([this](const folly::fbstring &uuid) {
+        m_fsSubscriptions.unsubscribeFileAttrChanged(uuid);
+        m_fsSubscriptions.unsubscribeFileRemoved(uuid);
+        m_fsSubscriptions.unsubscribeFileRenamed(uuid);
+    });
+
+    // Called when file is renamed
     m_metadataCache.onRename(
         [this](const folly::fbstring &oldUuid, const folly::fbstring &newUuid) {
-            m_fsSubscriptions.unsubscribeFileAttrChanged(oldUuid);
-            m_fsSubscriptions.unsubscribeFileRemoved(oldUuid);
-            m_fsSubscriptions.unsubscribeFileRenamed(oldUuid);
-            m_fsSubscriptions.subscribeFileAttrChanged(newUuid);
-            m_fsSubscriptions.subscribeFileRemoved(newUuid);
-            m_fsSubscriptions.subscribeFileRenamed(newUuid);
+            if (oldUuid != newUuid) {
+                m_fsSubscriptions.unsubscribeFileAttrChanged(oldUuid);
+                m_fsSubscriptions.unsubscribeFileRemoved(oldUuid);
+                m_fsSubscriptions.unsubscribeFileRenamed(oldUuid);
+                m_fsSubscriptions.subscribeFileAttrChanged(newUuid);
+                m_fsSubscriptions.subscribeFileRemoved(newUuid);
+                m_fsSubscriptions.subscribeFileRenamed(newUuid);
 
-            if (m_fsSubscriptions.unsubscribeFileLocationChanged(oldUuid))
-                m_fsSubscriptions.subscribeFileLocationChanged(newUuid);
-
+                if (m_fsSubscriptions.unsubscribeFileLocationChanged(oldUuid))
+                    m_fsSubscriptions.subscribeFileLocationChanged(newUuid);
+            }
             m_onRename(oldUuid, newUuid);
         });
 
+    // Called when file is removed
     m_metadataCache.onMarkDeleted(
         [this](const folly::fbstring &uuid) { m_onMarkDeleted(uuid); });
 
@@ -227,9 +250,42 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
             configuration->rootUuid(), 0,
             context->options()->getMountpoint().string());
     }
+
+    m_runInFiber([this, directoryCacheDropAfter]() {
+        pruneExpiredDirectories(directoryCacheDropAfter);
+    });
 }
 
-FsLogic::~FsLogic() { m_context->communicator()->stop(); }
+FsLogic::~FsLogic()
+{
+    m_stopped = true;
+    m_directoryCachePruneBaton.post();
+    m_context->communicator()->stop();
+}
+
+struct statvfs FsLogic::statfs(const folly::fbstring &uuid)
+{
+    LOG_FCALL() << LOG_FARG(uuid);
+
+    constexpr auto kMaxNameLength = 255;
+    constexpr auto kBlockSize = 4096;
+    constexpr auto kFreeInodes = 10000000;
+
+    auto emulatedFreeSpace = m_context->options()->getEmulateAvailableSpace();
+
+    struct statvfs statinfo = {};
+
+    if (emulatedFreeSpace > 0ULL) {
+        statinfo.f_bsize = kBlockSize;
+        statinfo.f_frsize = statinfo.f_bsize;
+        statinfo.f_blocks = statinfo.f_bfree = statinfo.f_bavail =
+            emulatedFreeSpace / statinfo.f_frsize;
+        statinfo.f_files = statinfo.f_ffree = kFreeInodes;
+    }
+    statinfo.f_namemax = kMaxNameLength;
+
+    return statinfo;
+}
 
 FileAttrPtr FsLogic::lookup(
     const folly::fbstring &uuid, const folly::fbstring &name)
@@ -260,6 +316,32 @@ FileAttrPtr FsLogic::getattr(const folly::fbstring &uuid)
     IOTRACE_GUARD(IOTraceGetAttr, IOTraceLogger::OpType::GETATTR, uuid, 0)
 
     return m_metadataCache.getAttr(uuid);
+}
+
+std::uint64_t FsLogic::opendir(const folly::fbstring &uuid)
+{
+    LOG_FCALL() << LOG_FARG(uuid);
+
+    // Check that directory exists
+    auto attr = m_metadataCache.getAttr(uuid);
+
+    if (attr->type() != FileAttr::FileType::directory)
+        throw std::system_error(
+            std::make_error_code(std::errc::no_such_file_or_directory));
+
+    const auto fuseFileHandleId = m_nextFuseHandleId++;
+
+    m_metadataCache.opendir(uuid);
+
+    return fuseFileHandleId;
+}
+
+void FsLogic::releasedir(
+    const folly::fbstring &uuid, const std::uint64_t /*fileHandleId*/)
+{
+    LOG_FCALL() << LOG_FARG(uuid);
+
+    m_metadataCache.releasedir(uuid);
 }
 
 folly::fbvector<folly::fbstring> FsLogic::readdir(
@@ -867,8 +949,6 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
             LOG_DBG(2) << "Key or token to storage " << fileBlock.storageId()
                        << " expired. Refreshing helper parameters...";
 
-            // auto helperHandle = fuseFileHandle->getHelperHandle(
-            // uuid, spaceId, fileBlock.storageId(), fileBlock.fileId());
             folly::fibers::await(
                 [&](folly::fibers::Promise<folly::Unit> promise) {
                     promise.setWith([
@@ -1008,8 +1088,6 @@ FileAttrPtr FsLogic::mknod(const folly::fbstring &parentUuid,
     auto sharedAttr = std::make_shared<FileAttr>(std::move(attr));
     m_metadataCache.putAttr(sharedAttr);
 
-    m_readdirCache->invalidate(parentUuid);
-
     IOTRACE_END(IOTraceMknod, IOTraceLogger::OpType::MKNOD, parentUuid, 0, name,
         sharedAttr->uuid(), mode)
 
@@ -1058,8 +1136,6 @@ std::pair<FileAttrPtr, std::uint64_t> FsLogic::create(
     LOG_DBG(2) << "Created file " << name << " in " << parentUuid
                << " with uuid " << uuid;
 
-    m_readdirCache->invalidate(parentUuid);
-
     if (m_tagOnCreate && !fuseFileHandle->isOnCreateTagSet()) {
         std::string tagNameJsonEncoded;
         std::string tagValueJsonEncoded;
@@ -1093,17 +1169,26 @@ void FsLogic::unlink(
 
     // TODO: directly order provider to delete {parentUuid, name}
     auto attr = m_metadataCache.getAttr(parentUuid, name);
-    communicate(messages::fuse::DeleteFile{attr->uuid().toStdString()},
-        m_providerTimeout);
+    try {
+        communicate(messages::fuse::DeleteFile{attr->uuid().toStdString()},
+            m_providerTimeout);
+    }
+    catch (std::system_error &e) {
+        LOG_DBG(1) << e.what();
+        if (e.code().value() == ENOENT) {
+            LOG_DBG(1) << "File or directory " << name << " in parent "
+                       << parentUuid << " doesn't exist";
+            m_metadataCache.markDeleted(attr->uuid());
+        }
+        throw e;
+    }
 
     m_metadataCache.markDeleted(attr->uuid());
-
-    m_readdirCache->invalidate(parentUuid);
 
     IOTRACE_END(IOTraceUnlink, IOTraceLogger::OpType::UNLINK, parentUuid, 0,
         name, attr->uuid())
 
-    LOG_DBG(2) << "Deleted file " << name << " in " << parentUuid
+    LOG_DBG(2) << "Deleted file or directory " << name << " in " << parentUuid
                << " with uuid " << attr->uuid();
 }
 
@@ -1490,6 +1575,25 @@ bool FsLogic::isSpaceDisabled(const folly::fbstring &spaceId)
 void FsLogic::disableSpaces(const std::vector<std::string> &spaces)
 {
     m_disabledSpaces = {spaces.begin(), spaces.end()};
+}
+
+void FsLogic::pruneExpiredDirectories(const std::chrono::seconds delay)
+{
+    // When user sets this option to 0, directories should never expire
+    if (delay.count() == 0)
+        return;
+
+    while (true) {
+        m_directoryCachePruneBaton.reset();
+        m_directoryCachePruneBaton.timed_wait(delay);
+
+        if (m_stopped)
+            break;
+
+        LOG_DBG(2) << "Running scheduled pruning of expired entries from "
+                      "directory cache...";
+        m_metadataCache.pruneExpiredDirectories();
+    }
 }
 
 void FsLogic::fiberRetryDelay(int retriesLeft)

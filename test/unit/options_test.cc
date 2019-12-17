@@ -132,6 +132,8 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
         options::DEFAULT_METADATA_CACHE_SIZE, options.getMetadataCacheSize());
     EXPECT_EQ(options::DEFAULT_READDIR_PREFETCH_SIZE,
         options.getReaddirPrefetchSize());
+    EXPECT_EQ(options::DEFAULT_DIR_CACHE_DROP_AFTER,
+        options.getDirectoryCacheDropAfter().count());
     EXPECT_EQ(1.0, options.getLinearReadPrefetchThreshold());
     EXPECT_EQ(1.0, options.getRandomReadPrefetchThreshold());
     EXPECT_EQ(options::DEFAULT_PREFETCH_CLUSTER_WINDOW_SIZE,
@@ -142,6 +144,7 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(options::DEFAULT_PREFETCH_CLUSTER_BLOCK_THRESHOLD,
         options.getRandomReadPrefetchClusterBlockThreshold());
     EXPECT_EQ(0.0, options.getRandomReadPrefetchClusterWindowGrowFactor());
+    EXPECT_EQ(0, options.getEmulateAvailableSpace());
     EXPECT_FALSE(options.getProviderHost());
     EXPECT_FALSE(options.getAccessToken());
 }
@@ -416,6 +419,14 @@ TEST_F(OptionsTest, parseCommandLineShouldSetReaddirPrefetchSize)
     EXPECT_EQ(10000, options.getReaddirPrefetchSize());
 }
 
+TEST_F(OptionsTest, parseCommandLineShouldSetDirCacheDropAfter)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--dir-cache-drop-after", "60", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(60, options.getDirectoryCacheDropAfter().count());
+}
+
 TEST_F(OptionsTest, parseCommandLineShouldSetTagOnCreate)
 {
     cmdArgs.insert(
@@ -515,6 +526,14 @@ TEST_F(OptionsTest, parseCommandLineShouldSetRandomReadClusterWindowGrowFactor)
         {"--rndrd-prefetch-cluster-window-grow-factor", "1.2", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ(1.2, options.getRandomReadPrefetchClusterWindowGrowFactor());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetEmulateAvailableSpace)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"--emulate-available-space", "1125899906842624", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(1125899906842624ULL, options.getEmulateAvailableSpace());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetPrefetchMode)

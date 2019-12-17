@@ -46,6 +46,9 @@ std::int64_t Manager::subscribe(
                 << LOG_FARG(subscription.toString());
 
     StreamAcc streamAcc;
+    // Add subscription to the Streams hash map
+    // If the subscription for specified stream key already exists,
+    // increase stream use counter
     if (m_streams.insert(streamAcc, subscription.streamKey())) {
         LOG_DBG(2) << "Creating stream '" << subscription.streamKey()
                    << "' for subscription " << subscription.toString();

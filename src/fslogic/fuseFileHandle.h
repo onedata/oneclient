@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "cache/lruMetadataCache.h"
+#include "cache/openFileMetadataCache.h"
 #include "communication/communicator.h"
 #include "helpers/storageHelper.h"
 
@@ -48,7 +48,8 @@ public:
      * @param providerTimeout Timeout for provider connections.
      */
     FuseFileHandle(const int flags, folly::fbstring handleId,
-        std::shared_ptr<cache::LRUMetadataCache::OpenFileToken> openFileToken,
+        std::shared_ptr<cache::OpenFileMetadataCache::OpenFileToken>
+            openFileToken,
         cache::HelpersCache &helpersCache,
         cache::ForceProxyIOCache &forceProxyIOCache,
         std::chrono::seconds providerTimeout,
@@ -133,7 +134,8 @@ private:
 
     const int m_flags;
     folly::fbstring m_handleId;
-    std::shared_ptr<cache::LRUMetadataCache::OpenFileToken> m_openFileToken;
+    std::shared_ptr<cache::OpenFileMetadataCache::OpenFileToken>
+        m_openFileToken;
     cache::HelpersCache &m_helpersCache;
     cache::ForceProxyIOCache &m_forceProxyIOCache;
     std::unordered_map<std::tuple<folly::fbstring, folly::fbstring, bool>,

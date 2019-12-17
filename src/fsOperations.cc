@@ -142,6 +142,31 @@ void wrap_getattr(
         req, ino);
 }
 
+void wrap_opendir(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
+{
+    LOG_FCALL() << LOG_FARG(req) << LOG_FARG(ino);
+
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.opendir");
+    wrap(&fslogic::Composite::opendir,
+        [ req, timer = std::move(timer), fi = *fi ](
+            const std::uint64_t fh) mutable {
+            fi.fh = fh;
+            fuse_reply_open(req, &fi);
+        },
+        req, ino);
+}
+
+void wrap_releasedir(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
+{
+    LOG_FCALL() << LOG_FARG(req) << LOG_FARG(ino);
+
+    auto timer =
+        ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.releasedir");
+    wrap(&fslogic::Composite::releasedir,
+        [ req, timer = std::move(timer) ]() { fuse_reply_err(req, 0); }, req,
+        ino, fi->fh);
+}
+
 void wrap_readdir(fuse_req_t req, fuse_ino_t ino, size_t maxSize, off_t off,
     struct fuse_file_info * /*fi*/)
 {
@@ -411,30 +436,7 @@ void wrap_statfs(fuse_req_t req, fuse_ino_t ino)
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.statfs");
     wrap(&fslogic::Composite::statfs,
         [ req, timer = std::move(timer) ](const struct statvfs &statinfo) {
-            struct statvfs new_statinfo {
-                statinfo
-            };
-            constexpr auto kMaxNameLength = 255;
-#if defined(__APPLE__)
-            /**
-             * Simulate large free space to enable file pasting in Finder
-             */
-            constexpr auto kOSXBlockSize = 4096;
-            constexpr auto kOSXFreeSpace = 1000ULL * 1024 * 1024 * 1024;
-            constexpr auto kOSXFreeInodes = 10000000;
-
-            new_statinfo.f_bsize = kOSXBlockSize;
-            new_statinfo.f_frsize = new_statinfo.f_bsize;
-            new_statinfo.f_blocks = new_statinfo.f_bfree =
-                new_statinfo.f_bavail = kOSXFreeSpace / new_statinfo.f_frsize;
-            new_statinfo.f_files = new_statinfo.f_ffree = kOSXFreeInodes;
-            new_statinfo.f_namemax = kMaxNameLength;
-
-            fuse_reply_statfs(req, &new_statinfo);
-#else
-            new_statinfo.f_namemax = kMaxNameLength;
-            fuse_reply_statfs(req, &new_statinfo);
-#endif
+            fuse_reply_statfs(req, &statinfo);
         },
         req, ino);
 }
@@ -712,6 +714,8 @@ struct fuse_lowlevel_ops fuseOperations()
     operations.open = wrap_open;
     operations.read = wrap_read;
     operations.readdir = wrap_readdir;
+    operations.opendir = wrap_opendir;
+    operations.releasedir = wrap_releasedir;
     operations.release = wrap_release;
     operations.rename = wrap_rename;
     operations.rmdir = wrap_unlink;

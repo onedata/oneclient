@@ -457,6 +457,17 @@ Options::Options()
         .withDescription("Specify the size of requests made during readdir "
                          "prefetch (in number of dir entries).");
 
+    add<unsigned int>()
+        ->withLongName("dir-cache-drop-after")
+        .withConfigName("dir_cache_drop_after")
+        .withValueName("<seconds>")
+        .withDefaultValue(DEFAULT_DIR_CACHE_DROP_AFTER,
+            std::to_string(DEFAULT_DIR_CACHE_DROP_AFTER))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Specify (in seconds) how long should directories be "
+                         "cached since last activity. When 0 is provided, "
+                         "the cache never expires.");
+
     add<std::string>()
         ->withEnvName("tag_on_create")
         .withLongName("tag-on-create")
@@ -486,6 +497,17 @@ Options::Options()
             "Allows to override selected helper parameters for specific "
             "storage, e.g. "
             "'d40f2f63433da7c845886f6fe970048b:mountPoint:/mnt/nfs'");
+
+    add<uint64_t>()
+        ->withLongName("emulate-available-space")
+        .withConfigName("emulate_available_space")
+        .withValueName("<bytes>")
+        .withDefaultValue(DEFAULT_EMULATE_AVAILABLE_SPACE,
+            std::to_string(DEFAULT_EMULATE_AVAILABLE_SPACE))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription(
+            "When set to non-zero value, emulates available space reported by "
+            "stat system call to specified number of bytes.");
 
     add<bool>()
         ->asSwitch()
@@ -973,6 +995,13 @@ unsigned int Options::getReaddirPrefetchSize() const
         .get_value_or(DEFAULT_READDIR_PREFETCH_SIZE);
 }
 
+std::chrono::seconds Options::getDirectoryCacheDropAfter() const
+{
+    return std::chrono::seconds{
+        get<unsigned int>({"dir-cache-drop-after", "dir_cache_drop_after"})
+            .get_value_or(DEFAULT_DIR_CACHE_DROP_AFTER)};
+}
+
 boost::optional<std::pair<std::string, std::string>>
 Options::getOnModifyTag() const
 {
@@ -1010,6 +1039,12 @@ Options::getHelperOverrideParams(const folly::fbstring &storageId) const
         return overrideParams.at(storageId);
 
     return {};
+}
+
+uint64_t Options::getEmulateAvailableSpace() const
+{
+    return get<uint64_t>({"emulate-available-space", "emulate_available_space"})
+        .get_value_or(DEFAULT_EMULATE_AVAILABLE_SPACE);
 }
 
 bool Options::isMonitoringEnabled() const

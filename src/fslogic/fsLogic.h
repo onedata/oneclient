@@ -13,7 +13,7 @@
 #include "attrs.h"
 #include "cache/forceProxyIOCache.h"
 #include "cache/helpersCache.h"
-#include "cache/lruMetadataCache.h"
+#include "cache/openFileMetadataCache.h"
 #include "cache/readdirCache.h"
 #include "events/events.h"
 #include "fsSubscriptions.h"
@@ -83,9 +83,16 @@ public:
         std::unique_ptr<cache::HelpersCache> helpersCache,
         unsigned int metadataCacheSize, bool readEventsDisabled,
         bool forceFullblockRead, const std::chrono::seconds providerTimeout,
+        const std::chrono::seconds directoryCacheDropAfter,
         std::function<void(folly::Function<void()>)> runInFiber);
 
     ~FsLogic();
+
+    /**
+     * FUSE @c lookup callback.
+     * @see https://libfuse.github.io/doxygen/structfuse__lowlevel__ops.html
+     */
+    struct statvfs statfs(const folly::fbstring &uuid);
 
     /**
      * FUSE @c lookup callback.
@@ -99,6 +106,19 @@ public:
      * @see https://libfuse.github.io/doxygen/structfuse__lowlevel__ops.html
      */
     FileAttrPtr getattr(const folly::fbstring &uuid);
+
+    /**
+     * FUSE @c opendir callback.
+     * @see https://libfuse.github.io/doxygen/structfuse__lowlevel__ops.html
+     */
+    std::uint64_t opendir(const folly::fbstring &uuid);
+
+    /**
+     * FUSE @c releasedir callback.
+     * @see https://libfuse.github.io/doxygen/structfuse__lowlevel__ops.html
+     */
+    void releasedir(
+        const folly::fbstring &uuid, const std::uint64_t fileHandleId);
 
     /**
      * FUSE @c readdir callback.
@@ -256,6 +276,8 @@ public:
     std::map<folly::fbstring, folly::fbvector<std::pair<off_t, off_t>>>
     getFileLocalBlocks(const folly::fbstring &uuid);
 
+    cache::OpenFileMetadataCache &metadataCache() { return m_metadataCache; }
+
 private:
     template <typename SrvMsg = messages::fuse::FuseResponse, typename CliMsg>
     SrvMsg communicate(CliMsg &&msg, const std::chrono::seconds timeout);
@@ -292,13 +314,22 @@ private:
     /**
      * Suspends current fiber for a random timed delay depending
      * on current retry number.
+     *
      * @param retriesLeft Current number of retries left
      */
     void fiberRetryDelay(int retriesLeft);
 
+    /**
+     * Removes contents of expired directories from cache.
+     *
+     * @param delay Time in seconds after which contents of inactive directories
+     *              are purged from the metadata cache.
+     */
+    void pruneExpiredDirectories(const std::chrono::seconds delay);
+
     std::shared_ptr<Context> m_context;
     events::Manager m_eventManager{m_context};
-    cache::LRUMetadataCache m_metadataCache;
+    cache::OpenFileMetadataCache m_metadataCache;
     cache::ForceProxyIOCache m_forceProxyIOCache;
     std::unique_ptr<cache::HelpersCache> m_helpersCache;
     std::shared_ptr<cache::ReaddirCache> m_readdirCache;
@@ -342,6 +373,9 @@ private:
     std::random_device m_clusterPrefetchRD{};
     std::mt19937 m_clusterPrefetchRandomGenerator{m_clusterPrefetchRD()};
     std::uniform_int_distribution<> m_clusterPrefetchDistribution;
+
+    folly::fibers::Baton m_directoryCachePruneBaton;
+    bool m_stopped{};
 };
 } // namespace fslogic
 } // namespace client

@@ -316,11 +316,12 @@ public:
         std::shared_ptr<messages::Configuration> configuration,
         std::unique_ptr<cache::HelpersCache> helpersCache,
         unsigned int metadataCacheSize, bool readEventsDisabled,
-        bool forceFullblockRead, const std::chrono::seconds providerTimeout)
+        bool forceFullblockRead, const std::chrono::seconds providerTimeout,
+        const std::chrono::seconds dropDirectoryCacheAfter)
         : m_fsLogic{std::make_unique<FiberFsLogic>(std::move(context),
               std::move(configuration), std::move(helpersCache),
               metadataCacheSize, readEventsDisabled, forceFullblockRead,
-              providerTimeout, makeRunInFiber())}
+              providerTimeout, dropDirectoryCacheAfter, makeRunInFiber())}
         , m_rootUuid{std::move(rootUuid)}
         , m_sessionId{std::move(sessionId)}
     {
@@ -346,6 +347,29 @@ public:
             .addTaskRemoteFuture([ this, uuid = uuidFromPath(path) ]() mutable {
                 return attrToStat(m_fsLogic->getattr(uuid));
             })
+            .get();
+    }
+
+    int opendir(std::string path)
+    {
+        ReleaseGIL guard;
+
+        return m_fiberManager
+            .addTaskRemoteFuture([ this, uuid = uuidFromPath(path) ]() mutable {
+                return m_fsLogic->opendir(uuid);
+            })
+            .get();
+    }
+
+    void releasedir(std::string path, int handleId)
+    {
+        ReleaseGIL guard;
+
+        m_fiberManager
+            .addTaskRemoteFuture(
+                [ this, uuid = uuidFromPath(path), handleId ]() mutable {
+                    m_fsLogic->releasedir(uuid, handleId);
+                })
             .get();
     }
 
@@ -660,7 +684,8 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(std::string host, std::string token,
     std::vector<std::string> space = {}, std::vector<std::string> space_id = {},
     bool insecure = false, bool force_proxy_io = false,
     bool force_direct_io = false, bool no_buffer = false, int port = 443,
-    bool io_trace_log = false, int provider_timeout = 120)
+    bool io_trace_log = false, int provider_timeout = 2 * 60,
+    int drop_directory_cache_after = 5 * 60)
 {
     FLAGS_minloglevel = 1;
 
@@ -730,7 +755,8 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(std::string host, std::string token,
     return boost::make_shared<OnedataFS>(sessionId, rootUuid.toStdString(),
         std::move(context), std::move(configuration), std::move(helpersCache),
         options->getMetadataCacheSize(), options->areFileReadEventsDisabled(),
-        options->isFullblockReadEnabled(), options->getProviderTimeout());
+        options->isFullblockReadEnabled(), options->getProviderTimeout(),
+        options->getDirectoryCacheDropAfter());
 }
 
 int regularMode() { return S_IFREG; }
@@ -851,6 +877,8 @@ BOOST_PYTHON_MODULE(onedatafs)
         .def("open", &OnedataFS::open,
             open_overload(
                 (bp::arg("path"), bp::arg("flags") = O_RDWR | O_CREAT)))
+        .def("opendir", &OnedataFS::opendir)
+        .def("releasedir", &OnedataFS::releasedir)
         .def("readdir", &OnedataFS::readdir,
             readdir_overload((bp::arg("path"), bp::arg("maxSize") = 9999,
                 bp::arg("off") = 0)))

@@ -51,10 +51,17 @@ static constexpr auto DEFAULT_PREFETCH_TARGET_LATENCY =
     std::chrono::nanoseconds{1000}; // NOLINT
 static constexpr auto DEFAULT_PREFETCH_CLUSTER_WINDOW_SIZE = 20971520;
 static constexpr auto DEFAULT_PREFETCH_CLUSTER_BLOCK_THRESHOLD = 5;
-static constexpr auto DEFAULT_METADATA_CACHE_SIZE = 20'000;
+static constexpr auto DEFAULT_METADATA_CACHE_SIZE = 5'000'000;
 static constexpr auto DEFAULT_READDIR_PREFETCH_SIZE = 2500;
+static constexpr auto DEFAULT_DIR_CACHE_DROP_AFTER = 5 * 60;
 static constexpr auto DEFAULT_PROVIDER_TIMEOUT = 2 * 60;
 static constexpr auto DEFAULT_MONITORING_PERIOD_SECONDS = 30;
+#if defined(__APPLE__)
+static constexpr auto DEFAULT_EMULATE_AVAILABLE_SPACE =
+    1024 * 1024 * 1024 * 1024ULL;
+#else
+static constexpr auto DEFAULT_EMULATE_AVAILABLE_SPACE = 0ULL;
+#endif
 }
 
 class Option;
@@ -333,6 +340,16 @@ public:
     unsigned int getReaddirPrefetchSize() const;
 
     /*
+     * @return Get size of emulated available space.
+     */
+    uint64_t getEmulateAvailableSpace() const;
+
+    /*
+     * @return Duration after which directory cache entries are dropped.
+     */
+    std::chrono::seconds getDirectoryCacheDropAfter() const;
+
+    /*
      * @return Get xattr on-modify tag.
      */
     boost::optional<std::pair<std::string, std::string>> getOnModifyTag() const;
@@ -518,7 +535,6 @@ Options::get<std::pair<std::string, std::string>>(
     }
     return {};
 }
-
 } // namespace options
 } // namespace client
 } // namespace one

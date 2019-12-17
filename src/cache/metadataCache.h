@@ -40,6 +40,8 @@ namespace cache {
 
 class ReaddirCache;
 
+namespace bmi = boost::multi_index;
+
 /**
  * @c MetadataCache is responsible for retrieving and caching file attributes
  * and locations.
@@ -51,16 +53,37 @@ public:
 
     /**
      * Sets a pointer to an instance of @c ReaddirCache.
+     *
      * @param readdirCache Shared pointer to an instance of @c ReaddirCache.
      */
     void setReaddirCache(std::shared_ptr<ReaddirCache> readdirCache);
 
     /**
+     * Invalidates (i.e. removes from cache) direct children of directory with
+     * specified uuid.
+     *
+     * @param uuid UUID of the parent whose direct children will be removed from
+     * the cache
+     */
+    void invalidateChildren(const folly::fbstring &uuid);
+
+    /**
+     * Read directory entries from cache or if the directory contents are
+     * currently cached by metadata cache.
+     *
+     * @param uuid Directory id.
+     * @param off Directory entry offset.
+     * @param chunkSize Maximum number of directory entries to be returned.
+     * @returns Directory entries in the requested range.
+     */
+    folly::fbvector<folly::fbstring> readdir(
+        const folly::fbstring &uuid, off_t off, std::size_t chunkSize);
+    /**
      * Retrieves file attributes by uuid.
      * @param uuid Uuid of the file.
      * @returns Attributes of the file.
      */
-    FileAttrPtr getAttr(const folly::fbstring &uuid);
+    std::shared_ptr<FileAttr> getAttr(const folly::fbstring &uuid);
 
     /**
      * Retrieves file attributes by parent's uuid and file name.
@@ -74,39 +97,9 @@ public:
     /**
      * Inserts an externally fetched file attributes into the cache.
      * @param attr The file attributes to put in the cache.
+     * @returns True, if the attribute was not in the cache
      */
-    void putAttr(std::shared_ptr<FileAttr> attr);
-
-    /**
-     * Adds a specific block to a cached file locations. File location must be
-     * present in the cache.
-     * @param uuid Uuid of the file.
-     * @param range The range of the added block.
-     * @param fileBlock The block.
-     */
-    void addBlock(const folly::fbstring &uuid,
-        const boost::icl::discrete_interval<off_t> range,
-        messages::fuse::FileBlock fileBlock);
-
-    /**
-     * Retrieves a block from file locations that contains a specific
-     * offset.
-     * @param uuid Uuid of the file.
-     * @param offset Offset to search for.
-     * @returns Pair of range and block denoting the found block.
-     */
-    folly::Optional<std::pair<boost::icl::discrete_interval<off_t>,
-        messages::fuse::FileBlock>>
-    getBlock(const folly::fbstring &uuid, const off_t offset);
-
-    /**
-     * Retrieves a default block from file locations.
-     * If the file has no cached attributes, they are first fetched from the
-     * server.
-     * @param uuid Uuid of the file.
-     * @returns File block.
-     */
-    messages::fuse::FileBlock getDefaultBlock(const folly::fbstring &uuid);
+    bool putAttr(std::shared_ptr<FileAttr> attr);
 
     /**
      * Inserts an externally fetched file location into the cache.
@@ -125,13 +118,6 @@ public:
      */
     std::shared_ptr<FileLocation> getLocation(
         const folly::fbstring &uuid, bool forceUpdate = false);
-
-    /**
-     * Retrieves space Id by uuid.
-     * @param uuid Uuid of the file.
-     * @returns Id of space this file belongs to.
-     */
-    const std::string &getSpaceId(const folly::fbstring &uuid);
 
     /**
      * Ensures that file attributes and location is present in the cache by
@@ -175,7 +161,7 @@ public:
      * @returns true if attributes have been updated, false if they were not
      * cached.
      */
-    bool updateAttr(const FileAttr &newAttr);
+    bool updateAttr(std::shared_ptr<FileAttr> newAttr);
 
     /**
      * Updates file location, if cached.
@@ -211,7 +197,17 @@ public:
      * @returns true if file has been renamed, false if it was not cached.
      */
     bool rename(folly::fbstring uuid, folly::fbstring newParentUuid,
-        folly::fbstring newName, folly::fbstring newUuid);
+        folly::fbstring newName, folly::fbstring newUuid,
+        bool renewSubscriptions);
+
+    /**
+     * Sets a callback that will be called after a file is added to the cache.
+     * @param cb The callback that takes uuid as parameter.
+     */
+    void onAdd(std::function<void(const folly::fbstring &)> cb)
+    {
+        m_onAdd = std::move(cb);
+    }
 
     /**
      * Sets a callback that will be called after a file is marked as deleted.
@@ -233,9 +229,21 @@ public:
         m_onRename = std::move(cb);
     }
 
-    folly::fbstring uuidToSpaceId(const folly::fbstring &uuid) const;
+    /**
+     * Returns the current size of the metadata cache size
+     */
+    std::size_t size() const { return m_cache.size(); }
 
-private:
+    /**
+     * Returns true if the cache currently contains an entry with the specified
+     * uuid. If not, the entry is not fetched from the server.
+     *
+     * @param uuid UUID of the entry to be found in the cache
+     * @returns True, if the cache currently contains entry with specifed uuid
+     */
+    bool contains(const folly::fbstring &uuid) const;
+
+protected:
     struct Metadata {
         Metadata(std::shared_ptr<FileAttr>);
         std::shared_ptr<FileAttr> attr;
@@ -245,7 +253,11 @@ private:
 
     struct ByUuid {
     };
+
     struct ByParent {
+    };
+
+    struct ByParentName {
     };
 
     struct NameExtractor {
@@ -263,15 +275,25 @@ private:
         result_type operator()(const Metadata &m) const;
     };
 
-    using Map = boost::multi_index::multi_index_container<Metadata,
-        boost::multi_index::indexed_by<
-            boost::multi_index::hashed_unique<boost::multi_index::tag<ByUuid>,
-                UuidExtractor, std::hash<folly::fbstring>>,
-            boost::multi_index::hashed_unique<boost::multi_index::tag<ByParent>,
-                boost::multi_index::composite_key<Metadata, ParentUuidExtractor,
-                    NameExtractor>,
-                boost::multi_index::composite_key_hash<
-                    std::hash<folly::fbstring>, std::hash<folly::fbstring>>>>>;
+private:
+    using UuidIndexHash = std::hash<folly::fbstring>;
+    using UuidIndex =
+        bmi::hashed_unique<bmi::tag<ByUuid>, UuidExtractor, UuidIndexHash>;
+
+    using ParentIndexHash = std::hash<folly::fbstring>;
+    using ParentIndex = bmi::hashed_non_unique<bmi::tag<ByParent>,
+        ParentUuidExtractor, ParentIndexHash>;
+
+    using ParentNameIndexHash =
+        bmi::composite_key_hash<std::hash<folly::fbstring>,
+            std::hash<folly::fbstring>>;
+
+    using ParentNameIndex = bmi::hashed_unique<bmi::tag<ByParentName>,
+        bmi::composite_key<Metadata, ParentUuidExtractor, NameExtractor>,
+        ParentNameIndexHash>;
+
+    using Map = bmi::multi_index_container<Metadata,
+        bmi::indexed_by<UuidIndex, ParentIndex, ParentNameIndex>>;
 
     Map::iterator getAttrIt(const folly::fbstring &uuid);
 
@@ -287,8 +309,17 @@ private:
 
     communication::Communicator &m_communicator;
 
+protected:
     Map m_cache;
 
+private:
+    // This set holds UUID's of all files or directories removed in the
+    // oneclient session. This is necessary to ensure that delayed
+    // FileAttrChanged events about deleted files are not treated as
+    // notifications about new files
+    std::set<folly::fbstring> m_deletedUuids;
+
+    std::function<void(const folly::fbstring &)> m_onAdd = [](auto) {};
     std::function<void(const folly::fbstring &)> m_onMarkDeleted = [](auto) {};
     std::function<void(const folly::fbstring &, const folly::fbstring &)>
         m_onRename = [](auto, auto) {};

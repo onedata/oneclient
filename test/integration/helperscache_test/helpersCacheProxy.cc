@@ -88,11 +88,7 @@ public:
     {
     }
 
-    ~HelpersCacheProxy()
-    {
-        ReleaseGIL guard;
-        m_context->communicator()->stop();
-    }
+    ~HelpersCacheProxy() { stop(); }
 
     void mknod(std::string fileUuid, std::string spaceId, std::string storageId,
         bool forceProxyIO)
@@ -154,9 +150,18 @@ public:
         m_helpersCache->refreshHelperParameters(storageId, spaceId);
     }
 
+    void stop()
+    {
+        if (!m_stopped.test_and_set()) {
+            ReleaseGIL guard;
+            m_context->communicator()->stop();
+        }
+    }
+
 private:
     std::shared_ptr<HelpersCache> m_helpersCache;
     std::shared_ptr<Context> m_context;
+    std::atomic_flag m_stopped = ATOMIC_FLAG_INIT;
 };
 
 namespace {
@@ -219,6 +224,7 @@ BOOST_PYTHON_MODULE(helperscache)
             &HelpersCacheProxy::refreshHelperParameters)
         .def("open", &HelpersCacheProxy::open)
         .def("mknod", &HelpersCacheProxy::mknod)
+        .def("stop", &HelpersCacheProxy::stop)
         .def("is_directio_forced", &HelpersCacheProxy::isDirectIOForced)
         .def("is_proxyio_forced", &HelpersCacheProxy::isProxyIOForced);
 }
