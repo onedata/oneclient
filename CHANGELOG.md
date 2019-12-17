@@ -4,6 +4,18 @@
 CHANGELOG
 ---------
 
+### 19.02.1
+
+* VFS-5826 Increased events test connections
+* VFS-5826 Added opendir and releasedir to OnedataFS
+* VFS-5826 Increased default metadata cache size
+* VFS-5826 Added support for opendir and releasedir
+* VFS-5826 Added persistent directory cache
+* VFS-5826 Added directory subscription cancelling
+* VFS-5844 Refactored metadatacache to limit file subscriptions
+* VFS-5965 Added option to emulate large available space
+
+
 ### 19.02.0-rc2
 
 * VFS-5742 Disabled http_proxy for normal operation

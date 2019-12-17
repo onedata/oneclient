@@ -27,30 +27,38 @@ from proto import messages_pb2, fuse_messages_pb2, event_messages_pb2, \
     common_messages_pb2, stream_messages_pb2
 
 
-@pytest.fixture
+@pytest.yield_fixture
 def endpoint(appmock_client):
-    return appmock_client.tcp_endpoint(443)
+    app = appmock_client.tcp_endpoint(443)
+    yield app
+    appmock_client.reset_tcp_history()
 
 
-@pytest.fixture
+@pytest.yield_fixture
 def hc(endpoint):
-    return helperscache.HelpersCacheProxy(
+    cache = helperscache.HelpersCacheProxy(
             endpoint.ip, endpoint.port,
             '--no-buffer --provider-timeout=2 mountpoint')
+    yield cache
+    cache.stop()
 
 
-@pytest.fixture
+@pytest.yield_fixture
 def hc_directio(endpoint):
-    return helperscache.HelpersCacheProxy(
+    cache = helperscache.HelpersCacheProxy(
             endpoint.ip, endpoint.port,
             '--no-buffer --provider-timeout=2 --force-direct-io mountpoint')
+    yield cache
+    cache.stop()
 
 
-@pytest.fixture
+@pytest.yield_fixture
 def hc_proxyio(endpoint):
-    return helperscache.HelpersCacheProxy(
+    cache = helperscache.HelpersCacheProxy(
             endpoint.ip, endpoint.port,
             '--no-buffer --provider-timeout=2 --force-proxy-io mountpoint')
+    yield cache
+    cache.stop()
 
 
 @pytest.fixture
