@@ -153,6 +153,7 @@ public:
     void stop()
     {
         if (!m_stopped.test_and_set()) {
+            ReleaseGIL guard;
             m_context->communicator()->stop();
         }
     }
@@ -223,6 +224,7 @@ BOOST_PYTHON_MODULE(helperscache)
             &HelpersCacheProxy::refreshHelperParameters)
         .def("open", &HelpersCacheProxy::open)
         .def("mknod", &HelpersCacheProxy::mknod)
+        .def("stop", &HelpersCacheProxy::stop)
         .def("is_directio_forced", &HelpersCacheProxy::isDirectIOForced)
         .def("is_proxyio_forced", &HelpersCacheProxy::isProxyIOForced);
 }
