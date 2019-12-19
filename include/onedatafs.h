@@ -22,6 +22,7 @@
 #include "fuseOperations.h"
 #include "helpers/init.h"
 #include "helpers/logging.h"
+#include "logging.h"
 #include "messages/configuration.h"
 #include "messages/getConfiguration.h"
 #include "messages/handshakeResponse.h"
@@ -318,17 +319,18 @@ public:
         unsigned int metadataCacheSize, bool readEventsDisabled,
         bool forceFullblockRead, const std::chrono::seconds providerTimeout,
         const std::chrono::seconds dropDirectoryCacheAfter)
-        : m_fsLogic{std::make_unique<FiberFsLogic>(std::move(context),
-              std::move(configuration), std::move(helpersCache),
-              metadataCacheSize, readEventsDisabled, forceFullblockRead,
-              providerTimeout, dropDirectoryCacheAfter, makeRunInFiber())}
-        , m_rootUuid{std::move(rootUuid)}
+        : m_rootUuid{std::move(rootUuid)}
         , m_sessionId{std::move(sessionId)}
     {
         m_thread = std::thread{[this] {
             folly::setThreadName("InFiber");
             m_eventBase.loopForever();
         }};
+
+        m_fsLogic = std::make_unique<FiberFsLogic>(std::move(context),
+            std::move(configuration), std::move(helpersCache),
+            metadataCacheSize, readEventsDisabled, forceFullblockRead,
+            providerTimeout, dropDirectoryCacheAfter, makeRunInFiber());
     }
 
     ~OnedataFS() { close(); }
@@ -620,7 +622,10 @@ public:
     void close()
     {
         m_fsLogic.reset();
-        stopFiberThread();
+
+        if (!m_stopped.test_and_set()) {
+            stopFiberThread();
+        }
     }
 
 private:
@@ -677,15 +682,28 @@ private:
         folly::fibers::getFiberManager(m_eventBase, makeFiberManagerOpts())};
 
     std::thread m_thread;
+    std::atomic_flag m_stopped = ATOMIC_FLAG_INIT;
 };
 
 namespace {
-boost::shared_ptr<OnedataFS> makeOnedataFS(std::string host, std::string token,
-    std::vector<std::string> space = {}, std::vector<std::string> space_id = {},
-    bool insecure = false, bool force_proxy_io = false,
-    bool force_direct_io = false, bool no_buffer = false, int port = 443,
-    bool io_trace_log = false, int provider_timeout = 2 * 60,
-    int drop_directory_cache_after = 5 * 60)
+boost::shared_ptr<OnedataFS> makeOnedataFS(
+    // clang-format off
+    std::string host,
+    std::string token,
+    std::vector<std::string> space = {},
+    std::vector<std::string> space_id = {},
+    bool insecure = false,
+    bool force_proxy_io = false,
+    bool force_direct_io = false,
+    bool no_buffer = false,
+    int port = 443,
+    bool io_trace_log = false,
+    int provider_timeout = 2 * 60,
+    int metadata_cache_size = 5 * 1'000'000,
+    int drop_directory_cache_after = 5 * 60,
+    int log_level = 0,
+    std::string cli_args = {})
+// clang-format on
 {
     FLAGS_minloglevel = 1;
 
@@ -728,6 +746,26 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(std::string host, std::string token,
     cmdArgs.push_back("--provider-timeout");
     cmdArgs.push_back(strdup(std::to_string(provider_timeout).c_str()));
 
+    cmdArgs.push_back("--metadata-cache-size");
+    cmdArgs.push_back(strdup(std::to_string(metadata_cache_size).c_str()));
+
+    cmdArgs.push_back("--dir-cache-drop-after");
+    cmdArgs.push_back(
+        strdup(std::to_string(drop_directory_cache_after).c_str()));
+
+    if (log_level >= 0) {
+        cmdArgs.push_back("--verbose-log-level");
+        cmdArgs.push_back(strdup(std::to_string(log_level).c_str()));
+    }
+
+    if (!cli_args.empty()) {
+        std::vector<std::string> args;
+        boost::split(args, cli_args, boost::is_any_of(" \t"));
+        for (const auto &arg : args) {
+            cmdArgs.push_back(strdup(arg.c_str()));
+        }
+    }
+
     // This path is not used but required by the options parser
     cmdArgs.push_back("/tmp/none");
 
@@ -736,12 +774,22 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(std::string host, std::string token,
     options->parse(cmdArgs.size(), cmdArgs.data());
     context->setOptions(options);
 
+    ReleaseGIL guard;
+
+    if (log_level >= 0) {
+        one::client::logging::startLogging("onedatafs", options);
+    }
+
     context->setScheduler(
         std::make_shared<Scheduler>(options->getSchedulerThreadCount()));
 
     auto authManager = getAuthManager(context);
     auto sessionId = generateSessionId();
+
     auto configuration = getConfiguration(sessionId, authManager, context);
+
+    if (!configuration)
+        throw std::runtime_error("Authentication to Oneprovider failed...");
 
     auto communicator = getCommunicator(sessionId, authManager, context);
     context->setCommunicator(communicator);
@@ -752,11 +800,13 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(std::string host, std::string token,
 
     const auto &rootUuid = configuration->rootUuid();
 
-    return boost::make_shared<OnedataFS>(sessionId, rootUuid.toStdString(),
-        std::move(context), std::move(configuration), std::move(helpersCache),
-        options->getMetadataCacheSize(), options->areFileReadEventsDisabled(),
-        options->isFullblockReadEnabled(), options->getProviderTimeout(),
-        options->getDirectoryCacheDropAfter());
+    auto onedatafs = boost::make_shared<OnedataFS>(sessionId,
+        rootUuid.toStdString(), std::move(context), std::move(configuration),
+        std::move(helpersCache), options->getMetadataCacheSize(),
+        options->areFileReadEventsDisabled(), options->isFullblockReadEnabled(),
+        options->getProviderTimeout(), options->getDirectoryCacheDropAfter());
+
+    return onedatafs;
 }
 
 int regularMode() { return S_IFREG; }
@@ -840,7 +890,6 @@ BOOST_PYTHON_MODULE(onedatafs)
         .def("__enter__", &OnedataFileHandle::enter)
         .def("__exit__", &OnedataFileHandle::exit)
         .def("read", &OnedataFileHandle::read)
-        .def("write", &OnedataFileHandle::write)
         .def("flush", &OnedataFileHandle::flush)
         .def("fsync", &OnedataFileHandle::fsync)
         .def("close", &OnedataFileHandle::close);
@@ -853,15 +902,23 @@ BOOST_PYTHON_MODULE(onedatafs)
     class_<OnedataFS, boost::noncopyable>("OnedataFS", no_init)
         .def("__init__",
             make_constructor(makeOnedataFS, bp::default_call_policies(),
-                (bp::arg("host"), bp::arg("token"),
-                    bp::arg("space") = std::vector<std::string>{},
-                    bp::arg("space_id") = std::vector<std::string>{},
-                    bp::arg("insecure") = false,
-                    bp::arg("force_proxy_io") = false,
-                    bp::arg("force_direct_io") = false,
-                    bp::arg("no_buffer") = false, bp::arg("port") = 443,
-                    bp::arg("io_trace_log") = false,
-                    bp::arg("provider_timeout") = 30)))
+                // clang-format off
+                (bp::arg("host"),
+                 bp::arg("token"),
+                 bp::arg("space") = std::vector<std::string>{},
+                 bp::arg("space_id") = std::vector<std::string>{},
+                 bp::arg("insecure") = false,
+                 bp::arg("force_proxy_io") = false,
+                 bp::arg("force_direct_io") = false,
+                 bp::arg("no_buffer") = false,
+                 bp::arg("port") = 443,
+                 bp::arg("io_trace_log") = false,
+                 bp::arg("provider_timeout") = 2 * 60,
+                 bp::arg("metadata_cache_size") = 5 * 1'000'000,
+                 bp::arg("drop_dir_cache_after") = 5 * 60,
+                 bp::arg("log_level") = 0,
+                 bp::arg("cli_args") = std::string{})))
+        // clang-format on
         .def("version", &OnedataFS::version)
         .def("session_id", &OnedataFS::sessionId)
         .def("stat", &OnedataFS::stat)
@@ -891,6 +948,7 @@ BOOST_PYTHON_MODULE(onedatafs)
                     bp::arg("create") = false, bp::arg("replace") = false)))
         .def("removexattr", &OnedataFS::removexattr)
         .def("location_map", &OnedataFS::locationMap)
+        .def("root_uuid", &OnedataFS::rootUuid)
         .def("close", &OnedataFS::close);
 
     def("regularMode", &regularMode);

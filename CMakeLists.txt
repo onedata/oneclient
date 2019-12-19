@@ -363,6 +363,9 @@ if(WITH_ONEDATAFS)
     set_target_properties(onedatafs.py2 PROPERTIES LINK_FLAGS ${PYTHON2_LDFLAGS})
     set_target_properties(onedatafs.py2 PROPERTIES VERSION ${GIT_VERSION}
       SOVERSION ${GIT_VERSION})
+    add_custom_target(link_onedatafs_test ALL COMMAND ${CMAKE_COMMAND} -E create_symlink
+                      ${CMAKE_CURRENT_BINARY_DIR}/onedatafs_py2.so
+                      ${CMAKE_CURRENT_BINARY_DIR}/test/integration/onedatafs_test/onedatafs.so)
   endif(PYTHON2_FOUND)
 
   if(PYTHON3_FOUND)
