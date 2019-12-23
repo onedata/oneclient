@@ -49,7 +49,9 @@ namespace bmi = boost::multi_index;
 class MetadataCache {
 public:
     MetadataCache(communication::Communicator &communicator,
-        const std::chrono::seconds providerTimeout);
+        const std::chrono::seconds providerTimeout, folly::fbstring rootUuid,
+        const std::vector<std::string> &spaceNames,
+        const std::vector<std::string> &spaceIds);
 
     /**
      * Sets a pointer to an instance of @c ReaddirCache.
@@ -244,6 +246,11 @@ public:
     bool contains(const folly::fbstring &uuid) const;
 
 protected:
+    /**
+     * Checks if a space with a given name is whitelisted.
+     */
+    bool isSpaceWhitelisted(const FileAttr &space);
+
     struct Metadata {
         Metadata(std::shared_ptr<FileAttr>);
         std::shared_ptr<FileAttr> attr;
@@ -327,6 +334,10 @@ private:
     std::shared_ptr<ReaddirCache> m_readdirCache;
 
     const std::chrono::seconds m_providerTimeout;
+
+    const folly::fbstring m_rootUuid;
+    std::unordered_set<folly::fbstring> m_whitelistedSpaceNames;
+    std::unordered_set<folly::fbstring> m_whitelistedSpaceIds;
 };
 
 } // namespace cache

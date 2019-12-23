@@ -69,7 +69,10 @@ public:
     OpenFileMetadataCache(communication::Communicator &communicator,
         const std::size_t targetSize,
         const std::chrono::seconds providerTimeout,
-        const std::chrono::seconds directoryCacheDropAfter);
+        const std::chrono::seconds directoryCacheDropAfter,
+        const folly::fbstring &rootUuid,
+        const std::vector<std::string> &spaceNames,
+        const std::vector<std::string> &spaceIds);
 
     /**
      * Sets a pointer to an instance of @c ReaddirCache.
