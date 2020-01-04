@@ -53,7 +53,7 @@ if not test_dirs:
     test_dirs = [base_test_dir]
 
 command = '''
-import os, subprocess, sys, stat
+import os, subprocess, sys, stat, shutil
 
 if {shed_privileges}:
     os.environ['HOME'] = '/tmp'
@@ -70,6 +70,10 @@ pytest.main({args} + ['{test_dirs}'])" """]
 else:
     command = ['py.test'] + {args} + ['{test_dirs}']
 
+if(not os.path.exists('{script_dir}/{release}/test/integration/onedatafs_test/onedatafs.so')):
+    shutil.copyfile('{script_dir}/{release}/onedatafs_py2.so',
+                    '{script_dir}/{release}/test/integration/onedatafs_test/onedatafs.so')
+
 ret = subprocess.call(command)
 sys.exit(ret)
 '''
@@ -79,7 +83,9 @@ command = command.format(
     gid=os.getegid(),
     test_dirs="', '".join(test_dirs),
     shed_privileges=(platform.system() == 'Linux'),
-    gdb=args.gdb)
+    gdb=args.gdb,
+    script_dir=script_dir,
+    release=args.release)
 
 ret = docker.run(tty=True,
                  rm=True,

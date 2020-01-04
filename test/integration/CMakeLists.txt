@@ -69,7 +69,4 @@ foreach(TEST_DIR ${TEST_DIRS})
 
         add_dependencies(${TEST_NAME} pythonProto)
     endif()
-    #if(TEST_NAME STREQUAL "onedatafs")
-    #    file(COPY ${CMAKE_CURRENT_BINARY_DIR}/onedatafs_py2.so DESTINATION ${TEST_DIR})
-    #endif()
 endforeach()
