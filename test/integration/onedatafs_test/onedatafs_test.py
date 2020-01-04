@@ -62,7 +62,7 @@ def prepare_configuration_response(root_uuid):
 
     return response
 
-
+@pytest.mark.skip()
 def test_onedatafs_should_connect_to_provider(endpoint, uuid, token):
     handshake_response = prepare_handshake_response(1)
 
@@ -75,7 +75,7 @@ def test_onedatafs_should_connect_to_provider(endpoint, uuid, token):
     with reply(endpoint, [handshake_response,
                           response_ok, # Match to stream_reset
                           configuration_response,
-                          handshake_response], True) as queue:
+                          handshake_response, response_ok], True) as queue:
         odfs = onedatafs.OnedataFS(
             endpoint.ip,
             token,

@@ -37,6 +37,7 @@
 #include <boost/make_shared.hpp>
 #include <boost/python.hpp>
 #include <boost/python/suite/indexing/vector_indexing_suite.hpp>
+#include <folly/io/async/EventBaseThread.h>
 #include <fuse.h>
 
 #include <memory>
@@ -321,19 +322,37 @@ public:
         const std::chrono::seconds dropDirectoryCacheAfter)
         : m_rootUuid{std::move(rootUuid)}
         , m_sessionId{std::move(sessionId)}
+        , m_context{std::move(context)}
+        , m_eventBaseThread{true, nullptr, "OnedataFS"}
     {
-        m_thread = std::thread{[this] {
-            folly::setThreadName("InFiber");
-            m_eventBase.loopForever();
-        }};
-
-        m_fsLogic = std::make_unique<FiberFsLogic>(std::move(context),
+        m_fsLogic = std::make_unique<FiberFsLogic>(m_context,
             std::move(configuration), std::move(helpersCache),
             metadataCacheSize, readEventsDisabled, forceFullblockRead,
             providerTimeout, dropDirectoryCacheAfter, makeRunInFiber());
     }
 
     ~OnedataFS() { close(); }
+
+    void close()
+    {
+        if (!m_stopped.test_and_set()) {
+            ReleaseGIL guard;
+
+            folly::Promise<folly::Unit> stopped;
+            auto stoppedFuture = stopped.getFuture();
+
+            // Stop communicator first and wait until the sockets
+            // shut down
+            m_fiberManager.addTaskRemote(
+                [ this, stopped = std::move(stopped) ]() mutable {
+                    m_context->communicator()->stop();
+                    stopped.setValue();
+                });
+            stoppedFuture.get();
+
+            m_eventBaseThread.stop();
+        }
+    }
 
     std::string version() const { return ONECLIENT_VERSION; }
 
@@ -619,28 +638,12 @@ public:
             .get();
     }
 
-    void close()
-    {
-        m_fsLogic.reset();
-
-        if (!m_stopped.test_and_set()) {
-            stopFiberThread();
-        }
-    }
-
 private:
     std::function<void(folly::Function<void()>)> makeRunInFiber()
     {
         return [this](folly::Function<void()> fun) mutable {
             m_fiberManager.addTaskRemote(std::move(fun));
         };
-    }
-
-    void stopFiberThread()
-    {
-        ReleaseGIL guard;
-        m_eventBase.terminateLoopSoon();
-        m_thread.join();
     }
 
     std::pair<std::string, std::string> splitToParentName(
@@ -676,12 +679,12 @@ private:
     std::shared_ptr<FiberFsLogic> m_fsLogic;
     std::string m_rootUuid;
     std::string m_sessionId;
-    folly::EventBase m_eventBase;
+    std::shared_ptr<Context> m_context;
+    folly::EventBaseThread m_eventBaseThread;
 
-    folly::fibers::FiberManager &m_fiberManager{
-        folly::fibers::getFiberManager(m_eventBase, makeFiberManagerOpts())};
+    folly::fibers::FiberManager &m_fiberManager{folly::fibers::getFiberManager(
+        *m_eventBaseThread.getEventBase(), makeFiberManagerOpts())};
 
-    std::thread m_thread;
     std::atomic_flag m_stopped = ATOMIC_FLAG_INIT;
 };
 
@@ -706,6 +709,7 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(
 // clang-format on
 {
     FLAGS_minloglevel = 1;
+    FLAGS_v = 20;
 
     helpers::init();
 
