@@ -88,6 +88,8 @@ private:
 using FiberFsLogic = fslogic::FsLogic;
 
 namespace {
+std::once_flag __googleLoggingInitOnceFlag;
+
 inline constexpr folly::fibers::FiberManager::Options makeFiberManagerOpts()
 {
     folly::fibers::FiberManager::Options opts;
@@ -781,7 +783,8 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(
     ReleaseGIL guard;
 
     if (log_level >= 0) {
-        one::client::logging::startLogging("onedatafs", options);
+        std::call_once(__googleLoggingInitOnceFlag,
+            [&] { one::client::logging::startLogging("onedatafs", options); });
     }
 
     context->setScheduler(
