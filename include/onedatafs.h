@@ -37,7 +37,6 @@
 #include <boost/make_shared.hpp>
 #include <boost/python.hpp>
 #include <boost/python/suite/indexing/vector_indexing_suite.hpp>
-#include <folly/io/async/EventBaseThread.h>
 #include <fuse.h>
 
 #include <memory>
@@ -325,12 +324,16 @@ public:
         : m_rootUuid{std::move(rootUuid)}
         , m_sessionId{std::move(sessionId)}
         , m_context{std::move(context)}
-        , m_eventBaseThread{true, nullptr, "OnedataFS"}
     {
         m_fsLogic = std::make_unique<FiberFsLogic>(m_context,
             std::move(configuration), std::move(helpersCache),
             metadataCacheSize, readEventsDisabled, forceFullblockRead,
             providerTimeout, dropDirectoryCacheAfter, makeRunInFiber());
+
+        m_thread = std::thread{[this] {
+            folly::setThreadName("OnedataFS");
+            m_eventBase.loopForever();
+        }};
     }
 
     ~OnedataFS() { close(); }
@@ -339,21 +342,15 @@ public:
     {
         if (!m_stopped.test_and_set()) {
             ReleaseGIL guard;
-
-            folly::Promise<folly::Unit> stopped;
-            auto stoppedFuture = stopped.getFuture();
-
-            // Stop communicator first and wait until the sockets
-            // shut down
-            m_fiberManager.addTaskRemote(
-                [ this, stopped = std::move(stopped) ]() mutable {
-                    m_context->communicator()->stop();
-                    stopped.setValue();
-                });
-            stoppedFuture.get();
-
-            m_eventBaseThread.stop();
+            m_eventBase.runInEventBaseThread([this]() {
+                // Make sure that FsLogic destructor is called before EventBase
+                // destructor, in order to stop FsLogic background tasks
+                m_fsLogic.reset();
+                m_eventBase.terminateLoopSoon();
+            });
         }
+
+        m_thread.join();
     }
 
     std::string version() const { return ONECLIENT_VERSION; }
@@ -682,10 +679,11 @@ private:
     std::string m_rootUuid;
     std::string m_sessionId;
     std::shared_ptr<Context> m_context;
-    folly::EventBaseThread m_eventBaseThread;
+    folly::EventBase m_eventBase;
 
-    folly::fibers::FiberManager &m_fiberManager{folly::fibers::getFiberManager(
-        *m_eventBaseThread.getEventBase(), makeFiberManagerOpts())};
+    folly::fibers::FiberManager &m_fiberManager{
+        folly::fibers::getFiberManager(m_eventBase, makeFiberManagerOpts())};
+    std::thread m_thread;
 
     std::atomic_flag m_stopped = ATOMIC_FLAG_INIT;
 };

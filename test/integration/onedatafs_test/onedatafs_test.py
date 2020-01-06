@@ -62,7 +62,31 @@ def prepare_configuration_response(root_uuid):
 
     return response
 
-@pytest.mark.skip()
+
+def prepare_attr_response(uuid, filetype, size=None, parent_uuid=None, name='filename'):
+    repl = fuse_messages_pb2.FileAttr()
+    repl.uuid = uuid
+    if parent_uuid:
+        repl.parent_uuid = parent_uuid
+    repl.name = name
+    repl.mode = random.randint(0, 1023)
+    repl.uid = random.randint(0, 20000)
+    repl.gid = random.randint(0, 20000)
+    repl.mtime = int(time.time()) - random.randint(0, 1000000)
+    repl.atime = repl.mtime - random.randint(0, 1000000)
+    repl.ctime = repl.atime - random.randint(0, 1000000)
+    repl.type = filetype
+    repl.size = size if size else random.randint(0, 1000000000)
+    repl.owner_id = ''
+    repl.provider_id = ''
+
+    server_response = messages_pb2.ServerMessage()
+    server_response.fuse_response.file_attr.CopyFrom(repl)
+    server_response.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    return server_response
+
+
 def test_onedatafs_should_connect_to_provider(endpoint, uuid, token):
     handshake_response = prepare_handshake_response(1)
 
@@ -71,23 +95,28 @@ def test_onedatafs_should_connect_to_provider(endpoint, uuid, token):
 
     configuration_response = prepare_configuration_response(uuid)
 
-    odfs = None
+    stat_response = prepare_attr_response(uuid, fuse_messages_pb2.REG, 1000, None, 'file.txt')
+
     with reply(endpoint, [handshake_response,
                           response_ok, # Match to stream_reset
                           configuration_response,
-                          handshake_response, response_ok], True) as queue:
+                          handshake_response,
+                          response_ok,
+                          response_ok,
+                          stat_response], True) as queue:
         odfs = onedatafs.OnedataFS(
             endpoint.ip,
             token,
             port=endpoint.port,
             insecure=True,
-            log_level=-1,
+            log_level=20,
             provider_timeout=5,
-            cli_args="--communicator-pool-size 1")
+            cli_args="--communicator-pool-size 1 --communicator-thread-count 1 --storage-helper-thread-count 1")
 
-    assert uuid == odfs.root_uuid()
+        attr = odfs.stat('file.txt')
 
-    odfs.close()
+        assert attr.size == 1000
+        assert uuid == odfs.root_uuid()
 
 
 def test_onedatafs_should_raise_exception_on_bad_token(endpoint, uuid, token):
@@ -98,7 +127,6 @@ def test_onedatafs_should_raise_exception_on_bad_token(endpoint, uuid, token):
 
     configuration_response = prepare_configuration_response(uuid)
 
-    odfs = None
     with pytest.raises(RuntimeError) as excinfo:
         with reply(endpoint, [handshake_response,
                             response_ok, # Match to stream_reset
