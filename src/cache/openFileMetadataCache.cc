@@ -27,8 +27,11 @@ OpenFileMetadataCache::OpenFileToken::~OpenFileToken()
 OpenFileMetadataCache::OpenFileMetadataCache(
     communication::Communicator &communicator, const std::size_t targetSize,
     const std::chrono::seconds providerTimeout,
-    const std::chrono::seconds directoryCacheDropAfter)
-    : MetadataCache{communicator, providerTimeout}
+    const std::chrono::seconds directoryCacheDropAfter,
+    const folly::fbstring &rootUuid, const std::vector<std::string> &spaceNames,
+    const std::vector<std::string> &spaceIds)
+    : MetadataCache{communicator, providerTimeout, rootUuid, spaceNames,
+          spaceIds}
     , m_targetSize{targetSize}
     , m_directoryCacheDropAfter{directoryCacheDropAfter}
 {

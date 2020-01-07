@@ -34,7 +34,7 @@ struct FsSubscriptionsTest : public ::testing::Test {
     std::shared_ptr<Context> context = testContext();
     MockManager mockManager{context};
     OpenFileMetadataCache metadataCache{
-        *context->communicator(), 10000, 60s, 60s};
+        *context->communicator(), 10000, 60s, 60s, "", {}, {}};
     ForceProxyIOCache forceProxyIOCache;
     FsSubscriptions fsSubscriptions{
         mockManager, metadataCache, forceProxyIOCache, [](auto) {}};
