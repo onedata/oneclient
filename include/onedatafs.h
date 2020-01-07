@@ -890,6 +890,7 @@ BOOST_PYTHON_MODULE(onedatafs)
         .def("__enter__", &OnedataFileHandle::enter)
         .def("__exit__", &OnedataFileHandle::exit)
         .def("read", &OnedataFileHandle::read)
+        .def("write", &OnedataFileHandle::write)
         .def("flush", &OnedataFileHandle::flush)
         .def("fsync", &OnedataFileHandle::fsync)
         .def("close", &OnedataFileHandle::close);

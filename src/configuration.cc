@@ -46,7 +46,7 @@ std::shared_ptr<communication::Communicator> handshake(
     };
 
     auto testCommunicatorTuple =
-        authManager->createCommunicator(1, 2, sessionId, ONECLIENT_VERSION,
+        authManager->createCommunicator(1, 1, sessionId, ONECLIENT_VERSION,
             ONECLIENT_COMPATIBLE_ONEPROVIDER_VERSIONS, handshakeHandler);
     auto testCommunicator =
         std::get<std::shared_ptr<communication::Communicator>>(
