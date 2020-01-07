@@ -700,10 +700,9 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(
     bool force_direct_io = false,
     bool no_buffer = false,
     int port = 443,
-    bool io_trace_log = false,
     int provider_timeout = 2 * 60,
     int metadata_cache_size = 5 * 1'000'000,
-    int drop_directory_cache_after = 5 * 60,
+    int drop_dir_cache_after = 5 * 60,
     int log_level = 0,
     std::string cli_args = {})
 // clang-format on
@@ -744,9 +743,6 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(
     if (no_buffer)
         cmdArgs.push_back("--no-buffer");
 
-    if (io_trace_log)
-        cmdArgs.push_back("--io-trace-log");
-
     cmdArgs.push_back("--provider-timeout");
     cmdArgs.push_back(strdup(std::to_string(provider_timeout).c_str()));
 
@@ -754,8 +750,7 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(
     cmdArgs.push_back(strdup(std::to_string(metadata_cache_size).c_str()));
 
     cmdArgs.push_back("--dir-cache-drop-after");
-    cmdArgs.push_back(
-        strdup(std::to_string(drop_directory_cache_after).c_str()));
+    cmdArgs.push_back(strdup(std::to_string(drop_dir_cache_after).c_str()));
 
     if (log_level >= 0) {
         cmdArgs.push_back("--verbose-log-level");
@@ -917,7 +912,6 @@ BOOST_PYTHON_MODULE(onedatafs)
                  bp::arg("force_direct_io") = false,
                  bp::arg("no_buffer") = false,
                  bp::arg("port") = 443,
-                 bp::arg("io_trace_log") = false,
                  bp::arg("provider_timeout") = 2 * 60,
                  bp::arg("metadata_cache_size") = 5 * 1'000'000,
                  bp::arg("drop_dir_cache_after") = 5 * 60,

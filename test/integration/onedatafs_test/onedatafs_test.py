@@ -107,10 +107,17 @@ def test_onedatafs_should_connect_to_provider(endpoint, uuid, token):
         odfs = onedatafs.OnedataFS(
             endpoint.ip,
             token,
-            port=endpoint.port,
+            space=[],
+            space_id=[],
             insecure=True,
-            log_level=20,
+            force_proxy_io=True,
+            force_direct_io=False,
+            no_buffer=False,
+            port=endpoint.port,
             provider_timeout=5,
+            metadata_cache_size=1000,
+            drop_dir_cache_after=30,
+            log_level=0,
             cli_args="--communicator-pool-size 1 --communicator-thread-count 1 --storage-helper-thread-count 1")
 
         attr = odfs.stat('file.txt')
