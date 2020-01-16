@@ -310,7 +310,6 @@ void OpenFileMetadataCache::pruneExpiredDirectories()
 
             // Invalidate all attributes from the directory
             MetadataCache::invalidateChildren(uuid);
-            MetadataCache::erase(uuid);
         }
         else
             break;

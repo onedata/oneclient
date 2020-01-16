@@ -1411,7 +1411,92 @@ def test_metadatacache_should_drop_expired_directories(appmock_client, endpoint,
     # Wait past directory cache expiry which is 3 seconds
     time.sleep(5)
 
-    assert fl_dircache.metadata_cache_size() == 0
+    assert fl_dircache.metadata_cache_size() == 1
+
+
+def test_metadatacache_should_drop_expired_directories_and_keep_parent_entries(appmock_client, endpoint, fl_dircache):
+    getattr_response = prepare_attr_response('parentUuid', fuse_messages_pb2.DIR)
+
+    #
+    # Prepare readdir response with 3 directories and 3 files in each directory
+    #
+    repl1 = prepare_file_children_attr_response('parentUuid', "parents-", 3)
+    repl1.is_last = True
+
+    parent_uuid_0 = repl1.child_attrs[0].uuid
+    repl1.child_attrs[0].type = fuse_messages_pb2.DIR
+    parent_uuid_1 = repl1.child_attrs[1].uuid
+    repl1.child_attrs[1].type = fuse_messages_pb2.DIR
+    parent_uuid_2 = repl1.child_attrs[2].uuid
+    repl1.child_attrs[2].type = fuse_messages_pb2.DIR
+
+    response1 = messages_pb2.ServerMessage()
+    response1.fuse_response.file_children_attrs.CopyFrom(repl1)
+    response1.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    repl2 = prepare_file_children_attr_response(parent_uuid_0, "children-", 3)
+    repl2.is_last = True
+
+    child_uuid_0 = repl2.child_attrs[0].uuid
+    child_uuid_1 = repl2.child_attrs[1].uuid
+    child_uuid_2 = repl2.child_attrs[2].uuid
+
+    response2 = messages_pb2.ServerMessage()
+    response2.fuse_response.file_children_attrs.CopyFrom(repl2)
+    response2.fuse_response.status.code = common_messages_pb2.Status.ok
+
+
+    #
+    # First list the top directory
+    #
+    children = []
+    offset = 0
+    chunk_size = 50
+    with reply(endpoint, [getattr_response,
+                          response1]) as queue:
+        d = fl_dircache.opendir('parentUuid')
+        children_chunk = fl_dircache.readdir('parentUuid', chunk_size, offset)
+        _ = queue.get()
+        fl_dircache.releasedir('parentUuid', d)
+        children.extend(children_chunk)
+
+    assert children.sort() == ['.', '..', 'parents-0', 'parents-1', 'parents-2'].sort()
+
+    #
+    # Now list parent-0 directory
+    #
+    children = []
+    offset = 0
+    chunk_size = 50
+    with reply(endpoint, [response2]) as queue:
+        d = fl_dircache.opendir(parent_uuid_0)
+        children_chunk = fl_dircache.readdir(parent_uuid_0, chunk_size, offset)
+        _ = queue.get()
+        fl_dircache.releasedir(parent_uuid_0, d)
+        children.extend(children_chunk)
+
+    assert fl_dircache.metadata_cache_contains(child_uuid_0)
+    assert fl_dircache.metadata_cache_contains(child_uuid_1)
+    assert fl_dircache.metadata_cache_contains(child_uuid_2)
+
+    # Wait so that the contents of 'parents-0' are invalidated but keep
+    # the top directory active
+    time.sleep(2)
+    attr = fl_dircache.getattr(parent_uuid_1)
+
+    time.sleep(2)
+    attr = fl_dircache.getattr(parent_uuid_1)
+
+    time.sleep(2)
+    attr = fl_dircache.getattr(parent_uuid_1)
+
+    assert not fl_dircache.metadata_cache_contains(child_uuid_0)
+    assert not fl_dircache.metadata_cache_contains(child_uuid_1)
+    assert not fl_dircache.metadata_cache_contains(child_uuid_2)
+
+    assert fl_dircache.metadata_cache_contains(parent_uuid_2)
+    assert fl_dircache.metadata_cache_contains(parent_uuid_1)
+    assert fl_dircache.metadata_cache_contains(parent_uuid_0)
 
 
 def test_metadatacache_should_prune_when_size_exceeded(appmock_client, endpoint, fl_dircache):
