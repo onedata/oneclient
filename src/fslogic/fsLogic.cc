@@ -1578,6 +1578,7 @@ void FsLogic::pruneExpiredDirectories(const std::chrono::seconds delay)
 
         LOG_DBG(2) << "Running scheduled pruning of expired entries from "
                       "directory cache...";
+
         m_metadataCache.pruneExpiredDirectories();
     }
 }
