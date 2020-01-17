@@ -119,10 +119,12 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     std::function<void(folly::Function<void()>)> runInFiber)
     : m_context{context}
     , m_metadataCache{*m_context->communicator(), metadataCacheSize,
-          providerTimeout, directoryCacheDropAfter}
+          providerTimeout, directoryCacheDropAfter, configuration->rootUuid(),
+          m_context->options()->getSpaceNames(),
+          m_context->options()->getSpaceIds()}
     , m_helpersCache{std::move(helpersCache)}
     , m_readdirCache{std::make_shared<cache::ReaddirCache>(
-          m_metadataCache, m_context, configuration->rootUuid(), runInFiber)}
+          m_metadataCache, m_context, runInFiber)}
     , m_readEventsDisabled{readEventsDisabled}
     , m_forceFullblockRead{forceFullblockRead}
     , m_fsSubscriptions{m_eventManager, m_metadataCache, m_forceProxyIOCache,
@@ -291,10 +293,6 @@ FileAttrPtr FsLogic::lookup(
     const folly::fbstring &uuid, const folly::fbstring &name)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(name);
-
-    if (uuid == m_rootUuid && !m_readdirCache->isSpaceWhitelisted(name))
-        throw std::system_error(
-            std::make_error_code(std::errc::no_such_file_or_directory));
 
     IOTRACE_START()
 
@@ -1311,10 +1309,6 @@ folly::fbstring FsLogic::getxattr(
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(name);
 
-    if (uuid == m_rootUuid && !m_readdirCache->isSpaceWhitelisted(name))
-        throw std::system_error(
-            std::make_error_code(std::errc::no_such_file_or_directory));
-
     IOTRACE_GUARD(
         IOTraceGetXAttr, IOTraceLogger::OpType::GETXATTR, uuid, 0, name)
 
@@ -1405,10 +1399,6 @@ void FsLogic::setxattr(const folly::fbstring &uuid, const folly::fbstring &name,
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(name) << LOG_FARG(value)
                 << LOG_FARG(create) << LOG_FARG(replace);
 
-    if (uuid == m_rootUuid && !m_readdirCache->isSpaceWhitelisted(name))
-        throw std::system_error(
-            std::make_error_code(std::errc::no_such_file_or_directory));
-
     IOTRACE_GUARD(IOTraceSetXAttr, IOTraceLogger::OpType::SETXATTR, uuid, 0,
         name, value, create, replace)
 
@@ -1424,10 +1414,6 @@ void FsLogic::removexattr(
     const folly::fbstring &uuid, const folly::fbstring &name)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(name);
-
-    if (uuid == m_rootUuid && !m_readdirCache->isSpaceWhitelisted(name))
-        throw std::system_error(
-            std::make_error_code(std::errc::no_such_file_or_directory));
 
     IOTRACE_GUARD(
         IOTraceRemoveXAttr, IOTraceLogger::OpType::REMOVEXATTR, uuid, 0, name)
@@ -1592,6 +1578,7 @@ void FsLogic::pruneExpiredDirectories(const std::chrono::seconds delay)
 
         LOG_DBG(2) << "Running scheduled pruning of expired entries from "
                       "directory cache...";
+
         m_metadataCache.pruneExpiredDirectories();
     }
 }

@@ -21,6 +21,7 @@
 #include "monitoring/monitoring.h"
 #include "scheduler.h"
 #include "util/base64.h"
+#include "util/uuid.h"
 
 #include <folly/FBVector.h>
 #include <folly/Range.h>
@@ -34,10 +35,19 @@ namespace client {
 namespace cache {
 
 MetadataCache::MetadataCache(communication::Communicator &communicator,
-    const std::chrono::seconds providerTimeout)
+    const std::chrono::seconds providerTimeout, folly::fbstring rootUuid,
+    const std::vector<std::string> &spaceNames,
+    const std::vector<std::string> &spaceIds)
     : m_communicator{communicator}
     , m_providerTimeout{providerTimeout}
+    , m_rootUuid{std::move(rootUuid)}
 {
+    for (const auto &name : spaceNames) {
+        m_whitelistedSpaceNames.emplace(name);
+    }
+    for (const auto &id : spaceIds) {
+        m_whitelistedSpaceIds.emplace(id);
+    }
 }
 
 void MetadataCache::setReaddirCache(std::shared_ptr<ReaddirCache> readdirCache)
@@ -49,6 +59,28 @@ bool MetadataCache::contains(const folly::fbstring &uuid) const
 {
     auto &index = bmi::get<ByUuid>(m_cache);
     return index.find(uuid) != index.end();
+}
+
+bool MetadataCache::isSpaceWhitelisted(const FileAttr &space)
+{
+    LOG_FCALL() << LOG_FARG(space.name());
+
+    if (m_whitelistedSpaceNames.empty() && m_whitelistedSpaceIds.empty())
+        return true;
+
+    folly::fbstring spaceId = util::uuid::uuidToSpaceId(space.uuid());
+
+    bool spaceIsWhitelistedByName =
+        m_whitelistedSpaceNames.find(space.name()) !=
+        m_whitelistedSpaceNames.end();
+
+    bool spaceIsWhitelistedById =
+        m_whitelistedSpaceIds.find(spaceId) != m_whitelistedSpaceIds.end();
+
+    LOG_DBG(2) << "Space " << space.name() << "(" << spaceId << ") is "
+               << spaceIsWhitelistedByName << ":" << spaceIsWhitelistedById;
+
+    return spaceIsWhitelistedByName || spaceIsWhitelistedById;
 }
 
 void MetadataCache::invalidateChildren(const folly::fbstring &uuid)
@@ -80,17 +112,40 @@ folly::fbvector<folly::fbstring> MetadataCache::readdir(
     auto &index = bmi::get<ByParent>(m_cache);
     auto irange = boost::make_iterator_range(index.equal_range(uuid));
 
-    // Advance the iterator to off safely
-    off_t offCount{0};
-    auto it = irange.begin();
-    for (; (offCount < off - 2) && (it != irange.end()); it++, offCount++) {
-    }
-    if (offCount < off - 2)
-        return result;
+    if (uuid != m_rootUuid) {
+        // Advance the iterator to off safely
+        off_t offCount{0};
+        auto it = irange.begin();
+        for (; (offCount < off - 2) && (it != irange.end()); it++, offCount++) {
+        }
+        if (offCount < off - 2)
+            return result;
 
-    for (size_t count = (off > 0) ? 0 : 2;
-         (it != irange.end()) && (count < chunkSize); it++, count++) {
-        result.emplace_back(it->attr->name());
+        for (size_t count = (off > 0) ? 0 : 2;
+             (it != irange.end()) && (count < chunkSize); it++, count++) {
+            result.emplace_back(it->attr->name());
+        }
+    }
+    else {
+        // Handle space whitelisting
+        folly::fbvector<folly::fbstring> whitelistedSpaces;
+        for (const auto &m : irange)
+            if (isSpaceWhitelisted(*m.attr))
+                whitelistedSpaces.emplace_back(m.attr->name());
+
+        off_t offCount{0};
+        auto it = whitelistedSpaces.begin();
+        for (; (offCount < off - 2) && (it != whitelistedSpaces.end());
+             it++, offCount++) {
+        }
+        if (offCount < off - 2)
+            return result;
+
+        for (size_t count = (off > 0) ? 0 : 2;
+             (it != whitelistedSpaces.end()) && (count < chunkSize);
+             it++, count++) {
+            result.emplace_back(*it);
+        }
     }
 
     return result;
@@ -118,6 +173,10 @@ FileAttrPtr MetadataCache::getAttr(
                 << "Metadata for file " << parentUuid << "/" << name
                 << " exists, but size is undefined, fetch the attribute again";
         }
+        else if (parentUuid == m_rootUuid && !isSpaceWhitelisted(*it->attr)) {
+            throw std::system_error(
+                std::make_error_code(std::errc::no_such_file_or_directory));
+        }
         else {
             return it->attr;
         }
@@ -127,6 +186,11 @@ FileAttrPtr MetadataCache::getAttr(
                << parentUuid << " not found in cache - retrieving from server";
 
     auto fetchedIt = fetchAttr(messages::fuse::GetChildAttr{parentUuid, name});
+
+    if (parentUuid == m_rootUuid && !isSpaceWhitelisted(*fetchedIt->attr)) {
+        throw std::system_error(
+            std::make_error_code(std::errc::no_such_file_or_directory));
+    }
 
     LOG_DBG(2) << "Got metadata attr for file " << name << " in directory "
                << parentUuid << " from server";

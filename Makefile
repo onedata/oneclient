@@ -149,6 +149,8 @@ package/$(PKG_ID).tar.gz:
 	cd helpers; git archive --format=tar --prefix=$(PKG_ID)/helpers/ $(helpers_sha) | (cd ../package && tar -xf -); cd ..
 	$(eval clproto_sha=$(shell git submodule status --recursive | grep "helpers/clproto" | awk '{print $$1;}'))
 	cd helpers/clproto; git archive --format=tar --prefix=$(PKG_ID)/helpers/clproto/ $(clproto_sha) | (cd ../../package && tar -xf -); cd ../..
+	$(eval bamboos_sha=$(shell git submodule status --recursive | grep "helpers/bamboos" | awk '{print $$1;}'))
+	cd helpers/bamboos; git archive --format=tar --prefix=$(PKG_ID)/helpers/bamboos/ $(bamboos_sha) | (cd ../../package && tar -xf -); cd ../..
 	find package/$(PKG_ID) -depth -name ".git" -exec rm -rf {} \;
 	echo "set(GIT_VERSION ${PKG_REVISION})" > package/$(PKG_ID)/version.txt
 	tar -C package -czf package/$(PKG_ID).tar.gz $(PKG_ID)
@@ -166,6 +168,24 @@ conda/oneclient: package/$(PKG_ID).tar.gz
 	source /opt/conda/bin/activate base && \
 		PKG_VERSION=$(PKG_VERSION) CONDA_BLD_PATH=$$PWD/package/conda-bld \
 		conda build --user onedata-devel --token "${CONDA_TOKEN}" --skip-existing \
+		${CONDA_BUILD_OPTIONS} package/conda/oneclient
+
+.PHONY: conda/oneclient_centos6
+conda/oneclient_centos6: SHELL:=/bin/bash
+conda/oneclient_centos6: package/$(PKG_ID).tar.gz
+	cp /tmp/.condarc $$HOME/.condarc
+	cat $$HOME/.condarc
+	mkdir -p package/conda
+	mkdir -p package/conda-bld
+	cp -R conda/oneclient package/conda/
+	sed -i "s|<<PKG_VERSION>>|$(PKG_VERSION)|g" package/conda/oneclient/meta.yaml
+	sed -i "s|<<PKG_SOURCE>>|../../$(PKG_ID).tar.gz|g" package/conda/oneclient/meta.yaml
+	sed -i 's|libfuse .*$$|libfuse =2.8.3|g' package/conda/oneclient/meta.yaml
+	sed -i 's|protobuf.*$$|protobuf =3.8.0|g' package/conda/oneclient/meta.yaml
+	sed -i '/run:/ { :l; n; s/^.*libfuse.*$$//; tx; bl; :x; N; s/\n//; bl }' package/conda/oneclient/meta.yaml
+	source /opt/conda/bin/activate base && \
+		PKG_VERSION=$(PKG_VERSION) CONDA_BLD_PATH=$$PWD/package/conda-bld \
+		conda build --user onedata-centos6-devel --token "${CONDA_TOKEN}" --skip-existing \
 		${CONDA_BUILD_OPTIONS} package/conda/oneclient
 
 .PHONY: conda/onedatafs
