@@ -41,11 +41,9 @@ public:
      *
      * @param metadataCache Reference to the metadata cache.
      * @param context Pointer to @c Context to access options and scheduler.
-     * @param rootUuid The uuid of the mountpoint root. Used to know when
-     *                 we are requesting the list of spaces.
      */
     ReaddirCache(OpenFileMetadataCache &metadataCache,
-        std::weak_ptr<Context> context, folly::fbstring rootUuid,
+        std::weak_ptr<Context> context,
         std::function<void(folly::Function<void()>)> runInFiber);
 
     /**
@@ -68,11 +66,6 @@ public:
      * Returns true if cache doesn't contain any elements.
      */
     bool empty();
-
-    /**
-     * Checks if a space with a given name is whitelisted.
-     */
-    bool isSpaceWhitelisted(const folly::fbstring &spaceName);
 
 private:
     /**
@@ -129,10 +122,6 @@ private:
      * the directory entries from the provider.
      */
     const std::size_t m_prefetchSize;
-
-    const folly::fbstring m_rootUuid;
-    std::unordered_set<folly::fbstring> m_whitelistedSpaceNames;
-    std::unordered_set<folly::fbstring> m_whitelistedSpaceIds;
 
     /**
      * Executor enabling to schedule tasks on fslogic fiber

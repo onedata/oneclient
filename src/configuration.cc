@@ -107,8 +107,9 @@ std::shared_ptr<messages::Configuration> getConfiguration(
             std::move(configuration));
     }
     catch (const std::exception &e) {
+        std::cerr << "Handshake connection error: " << e.what() << std::endl;
         std::cerr << "Connection refused - aborting..." << std::endl;
-        exit(EXIT_FAILURE);
+        return {};
     }
 }
 

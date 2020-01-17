@@ -11,7 +11,6 @@
 #include "communication/communicator.h"
 #include "helpers/logging.h"
 #include "options/options.h"
-#include "util/uuid.h"
 
 #include "messages/fuse/fileChildrenAttrs.h"
 #include "messages/fuse/getFileChildren.h"
@@ -29,22 +28,14 @@ namespace client {
 namespace cache {
 
 ReaddirCache::ReaddirCache(OpenFileMetadataCache &metadataCache,
-    std::weak_ptr<Context> context, folly::fbstring rootUuid,
+    std::weak_ptr<Context> context,
     std::function<void(folly::Function<void()>)> runInFiber)
     : m_metadataCache(metadataCache)
     , m_context{std::move(context)}
     , m_providerTimeout(m_context.lock()->options()->getProviderTimeout())
     , m_prefetchSize(m_context.lock()->options()->getReaddirPrefetchSize())
-    , m_rootUuid{std::move(rootUuid)}
     , m_runInFiber{std::move(runInFiber)}
 {
-    for (const auto &name : m_context.lock()->options()->getSpaceNames()) {
-        m_whitelistedSpaceNames.emplace(name);
-    }
-
-    for (const auto &id : m_context.lock()->options()->getSpaceIds()) {
-        m_whitelistedSpaceIds.emplace(id);
-    }
 }
 
 void ReaddirCache::fetch(const folly::fbstring &uuid)
@@ -97,11 +88,6 @@ void ReaddirCache::fetch(const folly::fbstring &uuid)
                     ]() mutable {
                         for (const auto it :
                             folly::enumerate(msg.childrenAttrs())) {
-                            if (uuid == m_rootUuid &&
-                                !isSpaceWhitelisted(it->name())) {
-                                continue;
-                            }
-
                             m_metadataCache.updateAttr(
                                 std::make_shared<FileAttr>(*it));
                         }
@@ -169,28 +155,6 @@ folly::fbvector<folly::fbstring> ReaddirCache::readdir(
     assert(m_metadataCache.isDirectorySynced(uuid));
 
     return m_metadataCache.readdir(uuid, off, chunkSize);
-}
-
-bool ReaddirCache::isSpaceWhitelisted(const folly::fbstring &spaceName)
-{
-    if (m_whitelistedSpaceNames.empty() && m_whitelistedSpaceIds.empty())
-        return true;
-
-    folly::fbstring spaceId;
-    auto spaceAttrs = m_metadataCache.getAttr(m_rootUuid, spaceName);
-    if (spaceAttrs)
-        spaceId = util::uuid::uuidToSpaceId(spaceAttrs->uuid());
-
-    bool spaceIsWhitelistedByName = m_whitelistedSpaceNames.find(spaceName) !=
-        m_whitelistedSpaceNames.end();
-
-    bool spaceIsWhitelistedById =
-        m_whitelistedSpaceIds.find(spaceId) != m_whitelistedSpaceIds.end();
-
-    LOG_DBG(2) << "Space " << spaceName << "(" << spaceId << ") is "
-               << spaceIsWhitelistedByName << ":" << spaceIsWhitelistedById;
-
-    return spaceIsWhitelistedByName || spaceIsWhitelistedById;
 }
 
 void ReaddirCache::purge(const folly::fbstring &uuid)
