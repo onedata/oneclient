@@ -541,7 +541,14 @@ bool MetadataCache::rename(folly::fbstring uuid, folly::fbstring newParentUuid,
         // The attributes for the old renamed file have not been cached yet
         // just add the new attr to the cache if the parent directory of
         // the newUuid is being cached
-        fetchAttr(messages::fuse::GetFileAttr{newUuid});
+        try {
+            fetchAttr(messages::fuse::GetFileAttr{newUuid});
+        }
+        catch (const std::system_error &e) {
+            LOG_DBG(1) << "Rename event received for removed file - ignoring: "
+                       << e.what();
+            return false;
+        }
     }
     else {
         index.modify(it, [&](Metadata &m) {
