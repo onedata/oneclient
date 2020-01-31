@@ -422,7 +422,22 @@ void FsLogic::release(
 
     std::exception_ptr releaseException;
     try {
+        LOG_DBG(2) << "Releasing local file handles for " << uuid;
+
         communication::wait(releaseExceptionFuture, m_providerTimeout);
+
+        LOG_DBG(2) << "Sending file release message for " << uuid;
+
+        communicate(messages::fuse::Release{uuid.toStdString(),
+                        fuseFileHandle->providerHandleId()->toStdString()},
+            m_providerTimeout);
+    }
+    catch (const std::system_error &e) {
+        if (e.code().value() == ENOENT)
+            LOG_DBG(1) << "File release request ignore as the file " << uuid
+                       << " is already deleted";
+        else
+            releaseException = std::current_exception();
     }
     catch (const std::exception &e) {
         LOG(WARNING) << "File release failed: " << e.what();
@@ -432,12 +447,6 @@ void FsLogic::release(
         LOG(WARNING) << "File release failed: unknown error";
         releaseException = std::current_exception();
     }
-
-    LOG_DBG(2) << "Sending file release message for " << uuid;
-
-    communicate(messages::fuse::Release{uuid.toStdString(),
-                    fuseFileHandle->providerHandleId()->toStdString()},
-        m_providerTimeout);
 
     m_fuseFileHandles.erase(fileHandleId);
 
