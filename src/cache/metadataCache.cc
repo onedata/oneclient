@@ -61,6 +61,11 @@ bool MetadataCache::contains(const folly::fbstring &uuid) const
     return index.find(uuid) != index.end();
 }
 
+bool MetadataCache::isDeleted(const folly::fbstring &uuid) const
+{
+    return m_deletedUuids.find(uuid) != m_deletedUuids.end();
+}
+
 bool MetadataCache::isSpaceWhitelisted(const FileAttr &space)
 {
     LOG_FCALL() << LOG_FARG(space.name());
@@ -369,6 +374,14 @@ std::shared_ptr<FileLocation> MetadataCache::getLocationPtr(
     return res;
 }
 
+std::shared_ptr<FileLocation> MetadataCache::getLocation(
+    std::shared_ptr<FileAttr> attr)
+{
+    LOG_FCALL() << LOG_FARG(attr->uuid());
+
+    return fetchFileLocation(attr->uuid());
+}
+
 std::shared_ptr<FileLocation> MetadataCache::fetchFileLocation(
     const folly::fbstring &uuid)
 {
@@ -383,9 +396,9 @@ std::shared_ptr<FileLocation> MetadataCache::fetchFileLocation(
 
     auto &index = bmi::get<ByUuid>(m_cache);
     auto it = index.find(uuid);
-    assert(it != index.end());
 
-    m_cache.modify(it, [&](Metadata &m) { m.location = sharedLocation; });
+    if (it != index.end())
+        m_cache.modify(it, [&](Metadata &m) { m.location = sharedLocation; });
 
     return sharedLocation;
 }

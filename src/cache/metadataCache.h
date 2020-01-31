@@ -245,6 +245,14 @@ public:
      */
     bool contains(const folly::fbstring &uuid) const;
 
+    /**
+     * Checks if the uuid points to a deleted file.
+     *
+     * @param uuid UUID of the entry to be found in the cache
+     * @returns True, if the file has been deleted already
+     */
+    bool isDeleted(const folly::fbstring &uuid) const;
+
 protected:
     /**
      * Checks if a space with a given name is whitelisted.
@@ -318,6 +326,8 @@ private:
 
 protected:
     Map m_cache;
+
+    std::shared_ptr<FileLocation> getLocation(std::shared_ptr<FileAttr> attr);
 
 private:
     // This set holds UUID's of all files or directories removed in the

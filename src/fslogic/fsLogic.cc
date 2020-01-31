@@ -694,6 +694,16 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
                 retriesLeft - 1, std::move(ioTraceEntry));
         }
 
+        if ((e.code().value() == ENOENT) && (retriesLeft > 0) &&
+            !m_forceProxyIOCache.contains(uuid)) {
+            // The file might have been moved on the storage - get the latest
+            // file location
+            fiberRetryDelay(retriesLeft);
+            m_metadataCache.getLocation(uuid, true);
+            return read(uuid, fileHandleId, offset, size, checksum,
+                retriesLeft - 1, std::move(ioTraceEntry));
+        }
+
         if ((e.code().value() == EAGAIN) && (retriesLeft > 0)) {
             fiberRetryDelay(retriesLeft);
             return read(uuid, fileHandleId, offset, size, checksum,
@@ -976,6 +986,16 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
                 retriesLeft - 1, std::move(ioTraceEntry));
         }
 
+        if ((e.code().value() == ENOENT) && (retriesLeft > 0) &&
+            !m_forceProxyIOCache.contains(uuid)) {
+            // The file might have been moved on the storage - get the latest
+            // file location
+            fiberRetryDelay(retriesLeft);
+            m_metadataCache.getLocation(uuid, true);
+            return write(uuid, fuseFileHandleId, offset, std::move(buf),
+                retriesLeft - 1, std::move(ioTraceEntry));
+        }
+
         if ((e.code().value() == EAGAIN) && (retriesLeft > 0)) {
             fiberRetryDelay(retriesLeft);
             return write(uuid, fuseFileHandleId, offset, std::move(buf),
@@ -983,13 +1003,13 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
         }
 
         if ((e.code().value() != EPERM) && (e.code().value() != EACCES)) {
-            LOG(ERROR) << "Reading from " << uuid
+            LOG(ERROR) << "Writing to " << uuid
                        << " failed with error code: " << e.what();
             throw;
         }
 
         if (m_forceProxyIOCache.contains(uuid)) {
-            LOG(ERROR) << "Reading from " << uuid
+            LOG(ERROR) << "Writing to " << uuid
                        << " failed since proxy mode is forced for this file";
             throw;
         }
