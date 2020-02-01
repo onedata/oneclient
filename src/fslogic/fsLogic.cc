@@ -422,7 +422,22 @@ void FsLogic::release(
 
     std::exception_ptr releaseException;
     try {
+        LOG_DBG(2) << "Releasing local file handles for " << uuid;
+
         communication::wait(releaseExceptionFuture, m_providerTimeout);
+
+        LOG_DBG(2) << "Sending file release message for " << uuid;
+
+        communicate(messages::fuse::Release{uuid.toStdString(),
+                        fuseFileHandle->providerHandleId()->toStdString()},
+            m_providerTimeout);
+    }
+    catch (const std::system_error &e) {
+        if (e.code().value() == ENOENT)
+            LOG_DBG(1) << "File release request ignore as the file " << uuid
+                       << " is already deleted";
+        else
+            releaseException = std::current_exception();
     }
     catch (const std::exception &e) {
         LOG(WARNING) << "File release failed: " << e.what();
@@ -432,12 +447,6 @@ void FsLogic::release(
         LOG(WARNING) << "File release failed: unknown error";
         releaseException = std::current_exception();
     }
-
-    LOG_DBG(2) << "Sending file release message for " << uuid;
-
-    communicate(messages::fuse::Release{uuid.toStdString(),
-                    fuseFileHandle->providerHandleId()->toStdString()},
-        m_providerTimeout);
 
     m_fuseFileHandles.erase(fileHandleId);
 
@@ -681,6 +690,16 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
                     });
                 });
 
+            return read(uuid, fileHandleId, offset, size, checksum,
+                retriesLeft - 1, std::move(ioTraceEntry));
+        }
+
+        if ((e.code().value() == ENOENT) && (retriesLeft > 0) &&
+            !m_forceProxyIOCache.contains(uuid)) {
+            // The file might have been moved on the storage - get the latest
+            // file location
+            fiberRetryDelay(retriesLeft);
+            m_metadataCache.getLocation(uuid, true);
             return read(uuid, fileHandleId, offset, size, checksum,
                 retriesLeft - 1, std::move(ioTraceEntry));
         }
@@ -967,6 +986,16 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
                 retriesLeft - 1, std::move(ioTraceEntry));
         }
 
+        if ((e.code().value() == ENOENT) && (retriesLeft > 0) &&
+            !m_forceProxyIOCache.contains(uuid)) {
+            // The file might have been moved on the storage - get the latest
+            // file location
+            fiberRetryDelay(retriesLeft);
+            m_metadataCache.getLocation(uuid, true);
+            return write(uuid, fuseFileHandleId, offset, std::move(buf),
+                retriesLeft - 1, std::move(ioTraceEntry));
+        }
+
         if ((e.code().value() == EAGAIN) && (retriesLeft > 0)) {
             fiberRetryDelay(retriesLeft);
             return write(uuid, fuseFileHandleId, offset, std::move(buf),
@@ -974,13 +1003,13 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
         }
 
         if ((e.code().value() != EPERM) && (e.code().value() != EACCES)) {
-            LOG(ERROR) << "Reading from " << uuid
+            LOG(ERROR) << "Writing to " << uuid
                        << " failed with error code: " << e.what();
             throw;
         }
 
         if (m_forceProxyIOCache.contains(uuid)) {
-            LOG(ERROR) << "Reading from " << uuid
+            LOG(ERROR) << "Writing to " << uuid
                        << " failed since proxy mode is forced for this file";
             throw;
         }
