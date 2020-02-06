@@ -442,10 +442,21 @@ void OpenFileMetadataCache::putLocation(std::unique_ptr<FileLocation> location)
 
     auto uuid = location->uuid();
 
-    MetadataCache::putLocation(std::move(location));
+    try {
+        MetadataCache::putLocation(std::move(location));
 
-    if (m_lruFileData.find(uuid) != m_lruFileData.end())
-        m_lruFileData.at(uuid).location = MetadataCache::getLocation(uuid);
+        if (m_lruFileData.find(uuid) != m_lruFileData.end())
+            m_lruFileData.at(uuid).location = MetadataCache::getLocation(uuid);
+    }
+    catch (std::system_error &e) {
+        if (e.code().value() == ENOENT) {
+            LOG(WARNING) << "Cannot update location map - file '" << uuid
+                         << "' alread deleted";
+            return;
+        }
+
+        throw;
+    }
 }
 
 std::shared_ptr<FileLocation> OpenFileMetadataCache::getLocation(
@@ -483,10 +494,18 @@ bool OpenFileMetadataCache::updateLocation(const FileLocation &newLocation)
 
     std::shared_ptr<FileLocation> location;
 
-    if (m_lruFileData.find(uuid) != m_lruFileData.end())
+    if (m_lruFileData.find(uuid) != m_lruFileData.end()) {
         location = m_lruFileData.at(newLocation.uuid()).location;
-    else
-        location = MetadataCache::getLocation(newLocation.uuid());
+    }
+    else {
+        try {
+            location = MetadataCache::getLocation(newLocation.uuid());
+        }
+        catch (std::system_error &e) {
+            if (e.code().value() != ENOENT)
+                throw;
+        }
+    }
 
     if (!location)
         return false;
@@ -504,16 +523,25 @@ bool OpenFileMetadataCache::updateLocation(const FileLocation &newLocation)
 bool OpenFileMetadataCache::updateLocation(
     const off_t start, const off_t end, const FileLocation &locationUpdate)
 {
-    LOG_FCALL();
+    LOG_FCALL() << LOG_FARG(start) << LOG_FARG(end)
+                << LOG_FARG(locationUpdate.uuid());
 
     auto const &uuid = locationUpdate.uuid();
 
     std::shared_ptr<FileLocation> location;
 
-    if (m_lruFileData.find(uuid) != m_lruFileData.end())
+    if (m_lruFileData.find(uuid) != m_lruFileData.end()) {
         location = m_lruFileData.at(locationUpdate.uuid()).location;
-    else
-        location = MetadataCache::getLocation(locationUpdate.uuid());
+    }
+    else {
+        try {
+            location = MetadataCache::getLocation(locationUpdate.uuid());
+        }
+        catch (std::system_error &e) {
+            if (e.code().value() != ENOENT)
+                throw;
+        }
+    }
 
     if (!location)
         return false;
@@ -560,7 +588,14 @@ void OpenFileMetadataCache::addBlock(const folly::fbstring &uuid,
             m.attr->size(newSize);
         });
 
-        location = MetadataCache::getLocation(uuid);
+        try {
+            location = MetadataCache::getLocation(uuid);
+        }
+        catch (std::system_error &e) {
+            if (e.code().value() == ENOENT) {
+                return;
+            }
+        }
     }
 
     assert(location);
@@ -584,8 +619,15 @@ OpenFileMetadataCache::getBlock(const folly::fbstring &uuid, const off_t offset)
     }
     else {
         // Get the attribute from the general cache
-        attr = MetadataCache::getAttr(uuid);
-        location = MetadataCache::getLocation(uuid);
+        try {
+            attr = MetadataCache::getAttr(uuid);
+            location = MetadataCache::getLocation(uuid);
+        }
+        catch (std::system_error &e) {
+            if (e.code().value() == ENOENT) {
+                return {};
+            }
+        }
     }
 
     assert(location);
@@ -614,8 +656,15 @@ messages::fuse::FileBlock OpenFileMetadataCache::getDefaultBlock(
     }
     else {
         // Get the attribute from the general cache
-        attr = MetadataCache::getAttr(uuid);
-        location = MetadataCache::getLocation(uuid);
+        try {
+            attr = MetadataCache::getAttr(uuid);
+            location = MetadataCache::getLocation(uuid);
+        }
+        catch (std::system_error &e) {
+            if (e.code().value() == ENOENT) {
+                return {};
+            }
+        }
     }
 
     assert(location);
@@ -645,8 +694,15 @@ const std::string &OpenFileMetadataCache::getSpaceId(
 
 bool OpenFileMetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr)
 {
-    if (MetadataCache::updateAttr(newAttr))
-        return true;
+    try {
+        if (MetadataCache::updateAttr(newAttr))
+            return true;
+    }
+    catch (std::system_error &e) {
+        if (e.code().value() == ENOENT) {
+            return false;
+        }
+    }
 
     // Check if the uuid points to an opened file
     if (m_lruFileData.find(newAttr->uuid()) != m_lruFileData.end()) {
