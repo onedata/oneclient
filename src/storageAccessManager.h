@@ -65,6 +65,18 @@ public:
         std::shared_ptr<helpers::StorageHelper> helper,
         const messages::fuse::StorageTestFile &testFile);
 
+    /**
+     * Returns true if overrideParams contains 'mountPoint' parameter
+     * and it is a subdirectory of an existing mountpoint on the host.
+     *
+     * @param storageId ID of the storage for which the helper is being created.
+     * @param overrideParams The dictionary of override params for the helper.
+     * @return True if mountPoint exists and is valid.
+     */
+    bool checkPosixMountpointOverride(const folly::fbstring &storageId,
+        const std::unordered_map<folly::fbstring, folly::fbstring>
+            &overrideParams);
+
 private:
     bool verifyStorageTestFile(const folly::fbstring &storageId,
         std::shared_ptr<helpers::StorageHelper> helper,
