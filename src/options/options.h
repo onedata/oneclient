@@ -49,6 +49,7 @@ static constexpr auto DEFAULT_PREFETCH_EVALUATE_FREQUENCY = 50;
 static constexpr double DEFAULT_PREFETCH_POWER_BASE = 1.3;
 static constexpr auto DEFAULT_PREFETCH_TARGET_LATENCY =
     std::chrono::nanoseconds{1000}; // NOLINT
+static constexpr auto DEFAULT_MIN_BLOCK_PREFETCH_SIZE = 1024 * 1024u;
 static constexpr auto DEFAULT_PREFETCH_CLUSTER_WINDOW_SIZE = 20971520;
 static constexpr auto DEFAULT_PREFETCH_CLUSTER_BLOCK_THRESHOLD = 5;
 static constexpr auto DEFAULT_METADATA_CACHE_SIZE = 5'000'000;
@@ -280,6 +281,14 @@ public:
      * output data blocks.
      */
     std::chrono::seconds getWriteBufferFlushDelay() const;
+
+    /*
+     * @return The minimum prefetch block size. If a read for a block smaller
+     * than this is requested, and the data is not available locally and needs
+     * to be fetched from remote provider, the client will request to fetch this
+     * amount anyway.
+     */
+    unsigned int getMinimumBlockPrefetchSize() const;
 
     /*
      * @return The linear read prefetch threshold trigger in (0.0-1.0]

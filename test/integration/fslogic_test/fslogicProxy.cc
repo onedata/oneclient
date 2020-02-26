@@ -83,8 +83,12 @@ public:
     folly::Future<HelperPtr> get(const folly::fbstring &,
         const folly::fbstring &, const folly::fbstring &, const bool) override
     {
+        m_helper->m_real.setNeedsDataConsistencyCheck(
+            m_needsDataConsistencyCheck);
         return folly::makeFuture<HelperPtr>(m_helper);
     }
+
+    bool m_needsDataConsistencyCheck{false};
 };
 
 constexpr auto FSLOGIC_PROXY_RETRY_COUNT = 2;
@@ -103,6 +107,7 @@ public:
               makeRunInFiber() /*[](auto f) { f(); }*/}
         , m_context{context}
     {
+        m_fsLogic.setMaxRetryCount(FSLOGIC_PROXY_RETRY_COUNT);
         m_thread = std::thread{[this] {
             folly::setThreadName("InFiber");
             m_eventBase.loopForever();
@@ -358,6 +363,11 @@ public:
         return m_helpersCache->m_helper->verify_and_clear_expectations();
     }
 
+    void setNeedsDataConsistencyCheck(bool needsDataConsistencyCheck)
+    {
+        m_helpersCache->m_needsDataConsistencyCheck = needsDataConsistencyCheck;
+    }
+
 private:
     folly::fibers::FiberManager::Options makeFiberManagerOpts()
     {
@@ -471,6 +481,8 @@ BOOST_PYTHON_MODULE(fslogic)
         .def("removexattr", &FsLogicProxy::removexattr)
         .def("metadata_cache_size", &FsLogicProxy::metadataCacheSize)
         .def("metadata_cache_contains", &FsLogicProxy::metadataCacheContains)
+        .def("set_needs_data_consistency_check",
+            &FsLogicProxy::setNeedsDataConsistencyCheck)
         .def("expect_call_sh_open", &FsLogicProxy::expect_call_sh_open)
         .def("expect_call_sh_release", &FsLogicProxy::expect_call_sh_release)
         .def("verify_and_clear_expectations",

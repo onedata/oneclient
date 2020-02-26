@@ -338,6 +338,15 @@ Options::Options()
         .withDescription("Specify idle period in seconds before flush of "
                          "in-memory cache for output data blocks.");
 
+    add<unsigned int>()
+        ->withLongName("min-block-prefetch-size")
+        .withConfigName("min_block_prefetch_size")
+        .withValueName("<bytes>")
+        .withDefaultValue(DEFAULT_MIN_BLOCK_PREFETCH_SIZE,
+            std::to_string(DEFAULT_MIN_BLOCK_PREFETCH_SIZE))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Specify the minimum prefetch block size.");
+
     add<double>()
         ->withLongName("seqrd-prefetch-threshold")
         .withConfigName("seqrd_prefetch_threshold")
@@ -921,6 +930,13 @@ std::chrono::seconds Options::getWriteBufferFlushDelay() const
         get<unsigned int>(
             {"write-buffer-flush-delay", "write_buffer_flush_delay"})
             .get_value_or(DEFAULT_WRITE_BUFFER_FLUSH_DELAY)};
+}
+
+unsigned int Options::getMinimumBlockPrefetchSize() const
+{
+    return get<unsigned int>(
+        {"min-block-prefetch-size", "min_block_prefetch_size"})
+        .get_value_or(DEFAULT_MIN_BLOCK_PREFETCH_SIZE);
 }
 
 double Options::getLinearReadPrefetchThreshold() const
