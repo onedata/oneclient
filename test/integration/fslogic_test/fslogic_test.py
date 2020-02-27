@@ -1907,6 +1907,7 @@ def test_read_should_not_retry_request_synchronization_too_many_times(appmock_cl
     responses.append(prepare_sync_eagain_response(uuid, '', [(2, 8)]))
     responses.append(prepare_sync_eagain_response(uuid, '', [(2, 8)]))
     responses.append(prepare_sync_eagain_response(uuid, '', [(2, 8)]))
+    responses.append(prepare_sync_eagain_response(uuid, '', [(2, 8)]))
 
     appmock_client.reset_tcp_history()
     with pytest.raises(RuntimeError) as excinfo:
