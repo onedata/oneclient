@@ -102,6 +102,17 @@ def prepare_sync_response(uuid, data, blocks):
     return server_response
 
 
+def prepare_sync_and_checksum_response(uuid, data, blocks, checksum):
+    location = prepare_location(uuid, blocks)
+
+    server_response = messages_pb2.ServerMessage()
+    server_response.fuse_response.sync_response.checksum = checksum
+    server_response.fuse_response.sync_response.file_location_changed.file_location.CopyFrom(location)
+    server_response.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    return server_response
+
+
 def prepare_partial_sync_response(uuid, data, blocks, start, end):
     location = prepare_location(uuid, blocks)
 
@@ -124,13 +135,38 @@ def prepare_sync_eagain_response(uuid, data, blocks):
     return server_response
 
 
-def prepare_sync_request(offset, size):
+def prepare_sync_ecanceled_response(uuid, data, blocks):
+    location = prepare_location(uuid, blocks)
+
+    server_response = messages_pb2.ServerMessage()
+    server_response.fuse_response.file_location.CopyFrom(location)
+    server_response.fuse_response.status.code = common_messages_pb2.Status.ecanceled
+
+    return server_response
+
+
+def prepare_sync_request(uuid, offset, size):
+    block = common_messages_pb2.FileBlock()
+    block.offset = offset
+    block.size = size
+
+    req = fuse_messages_pb2.SynchronizeBlock()
+    req.uuid = uuid
+    req.block.CopyFrom(block)
+
+    client_request = messages_pb2.ClientMessage()
+    client_request.fuse_request.synchronize_block.CopyFrom(req)
+
+    return client_request
+
+
+def prepare_sync_and_fetch_checksum_request(uuid, offset, size):
     block = common_messages_pb2.FileBlock()
     block.offset = offset
     block.size = size
 
     req = fuse_messages_pb2.SynchronizeBlockAndComputeChecksum()
-    req.uuid = 'uuid1'
+    req.uuid = uuid
     req.block.CopyFrom(block)
 
     client_request = messages_pb2.ClientMessage()
@@ -1588,6 +1624,7 @@ def test_mknod_should_pass_location_errors(appmock_client, endpoint, fl, parentU
 
     assert 'Operation not permitted' in str(excinfo.value)
 
+
 def test_mknod_should_throw_on_unsupported_file_type(endpoint, fl, parentUuid, parentStat):
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.eperm
@@ -1616,6 +1653,7 @@ def test_mknod_should_throw_on_unsupported_file_type(endpoint, fl, parentUuid, p
         fl.mknod(parentUuid, 'childName', 0664 | S_IFIFO)
 
     assert 'Operation not supported' in str(excinfo.value)
+
 
 def test_read_should_read(appmock_client, endpoint, fl, uuid):
     fh = do_open(endpoint, fl, uuid, blocks=[(0, 10)])
@@ -1752,7 +1790,7 @@ def test_readdir_big_directory(appmock_client, endpoint, fl, uuid, stat):
 
 
 def test_write_should_save_blocks(appmock_client, endpoint, fl, uuid):
-    fh = do_open(endpoint, fl, uuid, size=0)
+    fh = do_open(endpoint, fl, uuid, size=5)
     assert 5 == fl.write(uuid, fh, 0, 5)
     assert 5 == len(fl.read(uuid, fh, 0, 10))
 
@@ -1779,19 +1817,44 @@ def test_read_should_request_synchronization(appmock_client, endpoint, fl, uuid)
     assert file_request.HasField('synchronize_block')
     block = common_messages_pb2.FileBlock()
     block.offset = 2
-    block.size = 5
+    block.size = 8
     sync = file_request.synchronize_block
     assert sync.block == block
     assert sync.priority == SYNCHRONIZE_BLOCK_PRIORITY_IMMEDIATE
     assert file_request.context_guid == uuid
 
 
+def test_read_should_fetch_location_on_invalid_checksum(appmock_client, endpoint, fl, uuid):
+    fh = do_open(endpoint, fl, uuid, size=10, blocks=[])
+    fl.set_needs_data_consistency_check(True)
+
+    blocks = [(2, 5)]
+    responses = []
+    # Because the first read is smaller the then minimum default sync range (1MB)
+    # client will request a sync from the offset specified (2) to the end of the file
+    # as the file is smaller than 1MB
+    responses.append(prepare_sync_response(uuid, '', [(2, 10-2)]))
+    responses.append(prepare_sync_and_checksum_response(uuid, '', blocks, 'badchecksum'))
+    responses.append(prepare_location_response(uuid, blocks))
+    responses.append(prepare_location_response(uuid, blocks))
+
+    appmock_client.reset_tcp_history()
+    with pytest.raises(RuntimeError) as excinfo:
+        with reply(endpoint, responses) as queue:
+            fl.read(uuid, fh, 2, 5)
+            client_message = queue.get()
+
+    fl.set_needs_data_consistency_check(False)
+
+    assert "Input/output error" in str(excinfo.value)
+
+
 def test_read_should_retry_request_synchronization(appmock_client, endpoint, fl, uuid):
     fh = do_open(endpoint, fl, uuid, size=10, blocks=[(4, 6)])
 
     responses = []
-    responses.append(prepare_sync_eagain_response(uuid, '', [(0, 10)]))
-    responses.append(prepare_sync_response(uuid, '', [(0, 10)]))
+    responses.append(prepare_sync_eagain_response(uuid, '', [(2, 8)]))
+    responses.append(prepare_sync_response(uuid, '', [(2, 8)]))
 
     appmock_client.reset_tcp_history()
     with reply(endpoint, responses) as queue:
@@ -1804,7 +1867,33 @@ def test_read_should_retry_request_synchronization(appmock_client, endpoint, fl,
     assert file_request.HasField('synchronize_block')
     block = common_messages_pb2.FileBlock()
     block.offset = 2
-    block.size = 5
+    block.size = 8
+    sync = file_request.synchronize_block
+    assert sync.block == block
+    assert sync.priority == SYNCHRONIZE_BLOCK_PRIORITY_IMMEDIATE
+    assert file_request.context_guid == uuid
+
+
+def test_read_should_retry_canceled_synchronization_request(appmock_client, endpoint, fl, uuid):
+    fh = do_open(endpoint, fl, uuid, size=10, blocks=[(4, 6)])
+
+    responses = []
+    responses.append(prepare_sync_ecanceled_response(uuid, '', [(2, 8)]))
+    responses.append(prepare_sync_ecanceled_response(uuid, '', [(2, 8)]))
+    responses.append(prepare_sync_response(uuid, '', [(2, 8)]))
+
+    appmock_client.reset_tcp_history()
+    with reply(endpoint, responses) as queue:
+        fl.read(uuid, fh, 2, 5)
+        client_message = queue.get()
+
+    assert client_message.HasField('fuse_request')
+    assert client_message.fuse_request.HasField('file_request')
+    file_request = client_message.fuse_request.file_request
+    assert file_request.HasField('synchronize_block')
+    block = common_messages_pb2.FileBlock()
+    block.offset = 2
+    block.size = 8
     sync = file_request.synchronize_block
     assert sync.block == block
     assert sync.priority == SYNCHRONIZE_BLOCK_PRIORITY_IMMEDIATE
@@ -1815,9 +1904,10 @@ def test_read_should_not_retry_request_synchronization_too_many_times(appmock_cl
     fh = do_open(endpoint, fl, uuid, size=10, blocks=[(4, 6)])
 
     responses = []
-    responses.append(prepare_sync_eagain_response(uuid, '', [(0, 10)]))
-    responses.append(prepare_sync_eagain_response(uuid, '', [(0, 10)]))
-    responses.append(prepare_sync_eagain_response(uuid, '', [(0, 10)]))
+    responses.append(prepare_sync_eagain_response(uuid, '', [(2, 8)]))
+    responses.append(prepare_sync_eagain_response(uuid, '', [(2, 8)]))
+    responses.append(prepare_sync_eagain_response(uuid, '', [(2, 8)]))
+    responses.append(prepare_sync_eagain_response(uuid, '', [(2, 8)]))
 
     appmock_client.reset_tcp_history()
     with pytest.raises(RuntimeError) as excinfo:

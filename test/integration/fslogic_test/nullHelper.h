@@ -11,6 +11,7 @@
 
 #include "helpers/storageHelper.h"
 
+#include <folly/Optional.h>
 #include <gmock/gmock.h>
 
 using ::testing::Invoke;
@@ -74,8 +75,19 @@ public:
 
     const one::helpers::Timeout &timeout() override { return m_timeout; }
 
+    bool needsDataConsistencyCheck() override
+    {
+        return m_needsDataConsistencyCheck;
+    }
+
+    void setNeedsDataConsistencyCheck(bool needsDataConsistencyCheck)
+    {
+        m_needsDataConsistencyCheck = needsDataConsistencyCheck;
+    }
+
     std::error_code m_ec;
     one::helpers::Timeout m_timeout{60};
+    bool m_needsDataConsistencyCheck{false};
 };
 
 struct NullHelperHandleMock : public NullHelperHandle {
@@ -88,12 +100,18 @@ struct NullHelperHandleMock : public NullHelperHandle {
     }
 
     MOCK_METHOD0(release, folly::Future<folly::Unit>());
+
     NullHelperHandle m_real;
 };
 
 class NullHelper : public one::helpers::StorageHelper {
 public:
     folly::fbstring name() const override { return "nullhelper"; }
+
+    void setNeedsDataConsistencyCheck(bool needsDataConsistencyCheck)
+    {
+        m_needsDataConsistencyCheck = needsDataConsistencyCheck;
+    }
 
     folly::Future<struct stat> getattr(const folly::fbstring &) override
     {
@@ -234,6 +252,9 @@ public:
         m_handles.insert(std::make_pair(
             fileId, std::make_shared<NullHelperHandleMock>(m_ec)));
 
+        m_handles[fileId]->setNeedsDataConsistencyCheck(
+            m_needsDataConsistencyCheck);
+
         return folly::makeFuture(
             static_cast<one::helpers::FileHandlePtr>(m_handles[fileId]));
     }
@@ -244,6 +265,7 @@ public:
     one::helpers::Timeout m_timeout{60};
     std::unordered_map<folly::fbstring, std::shared_ptr<NullHelperHandleMock>>
         m_handles;
+    bool m_needsDataConsistencyCheck{false};
 };
 
 struct NullHelperMock : public NullHelper {
