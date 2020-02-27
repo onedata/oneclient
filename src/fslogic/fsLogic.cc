@@ -103,7 +103,7 @@ inline helpers::Flag getOpenFlag(const helpers::FlagsSet &flagsSet)
 }
 
 constexpr auto XATTR_FILE_BLOCKS_MAP_LENGTH = 50;
-constexpr auto LINEAR_PREFETCH_THRESHOLD_MATCH_RATION = 0.9;
+constexpr auto LINEAR_PREFETCH_THRESHOLD_MATCH_RATIO = 0.9;
 
 inline static folly::fbstring ONE_XATTR(std::string name)
 {
@@ -667,7 +667,8 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
             }
 
             LOG(ERROR) << "Failed to read " << size << " bytes at offset "
-                       << offset << " from file " << uuid
+                       << offset << " from file " << uuid << " after "
+                       << m_maxRetryCount " retries"
                        << " - invalid checksum";
 
             throw std::system_error(std::make_error_code(std::errc::io_error));
@@ -683,13 +684,13 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
                    << " at offset " << offset;
 
         // In case we have read less bytes that requested by user and
-        if ((static_cast<int>(bytesRead) < boost::icl::length(wantedRange)) &&
-            (retriesLeft >= 0)) {
+        if ((static_cast<int>(bytesRead) == 0) && (retriesLeft >= 0)) {
             LOG(INFO) << "Read only " << bytesRead
                       << " from storage instead of requested "
                       << boost::icl::length(wantedRange)
                       << " - retrying, retries left: " << retriesLeft;
 
+            fiberRetryDelay(retriesLeft);
             m_metadataCache.getLocation(uuid, true);
             return read(uuid, fileHandleId, offset, size, checksum,
                 retriesLeft - 1, std::move(ioTraceEntry));
@@ -743,7 +744,7 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
         }
 
         if (((e.code().value() == EAGAIN) || (e.code().value() == ECANCELED)) &&
-            (retriesLeft > 0)) {
+            (retriesLeft >= 0)) {
             LOG_DBG(1) << "Retrying read due to error: " << e.code().value();
             fiberRetryDelay(retriesLeft);
             return read(uuid, fileHandleId, offset, size, checksum,
@@ -772,10 +773,10 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
         m_forceProxyIOCache.add(uuid);
 
         LOG_DBG(1) << "Rereading requested block for " << uuid
-                   << " via proxy fallback";
+                   << " via proxy fallback, restarting retry counter";
 
-        return read(uuid, fileHandleId, offset, size, checksum,
-            FSLOGIC_RETRY_COUNT, std::move(ioTraceEntry));
+        return read(uuid, fileHandleId, offset, size, checksum, m_maxRetryCount,
+            std::move(ioTraceEntry));
     }
 }
 
@@ -900,7 +901,7 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
         fileLocation->blocksLengthInRange(0,
             static_cast<std::size_t>(
                 std::floor(fileSize * m_linearReadPrefetchThreshold))) >
-            LINEAR_PREFETCH_THRESHOLD_MATCH_RATION *
+            LINEAR_PREFETCH_THRESHOLD_MATCH_RATIO *
                 std::floor(fileSize * m_linearReadPrefetchThreshold)) {
         worthPrefetching = true;
         prefetchRange =
@@ -915,6 +916,9 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
     else if (!clusterPrefetchRequested) {
         prefetchRange = boost::icl::left_subtract(
             wantToPrefetchRange & possibleRange, availableRange);
+
+        LOG_DBG(2) << "Evaluating linear prefetch range: " << prefetchRange;
+        LOG_DBG(2) << "Last prefetch was: " << fuseFileHandle->lastPrefetch();
 
         if (boost::icl::size(prefetchRange) > 0) {
             worthPrefetching = boost::icl::size(prefetchRange &
@@ -1613,7 +1617,7 @@ bool FsLogic::dataCorrupted(const folly::fbstring &uuid,
                 computedHash.begin(), computedHash.end());
             std::vector<char> serverVec(
                 serverChecksum.begin(), serverChecksum.end());
-            LOG(ERROR) << "Checksum mismatch for file " << uuid
+            LOG_DBG(1) << "Checksum mismatch for file " << uuid
                        << ", expected hash '" << LOG_ERL_BIN(serverVec)
                        << "' - read '" << LOG_ERL_BIN(computedVec);
             return true;
@@ -1691,8 +1695,8 @@ void FsLogic::fiberRetryDelay(int retriesLeft)
     auto delay = std::chrono::milliseconds(delayRange.first +
         (std::rand() % (delayRange.second - delayRange.first + 1))); // NOLINT
 
-    LOG(ERROR) << "Retrying FsLogic operation after " << delay.count()
-               << "ms. Retries left: " << retriesLeft;
+    LOG(INFO) << "Retrying FsLogic operation after " << delay.count()
+              << "ms. Retries left: " << retriesLeft;
 
     folly::fibers::Baton baton;
     baton.timed_wait(delay);

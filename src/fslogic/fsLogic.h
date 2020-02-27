@@ -52,7 +52,7 @@ class Context;
 namespace fslogic {
 
 const std::array<std::pair<int, int>, 6> FSLOGIC_RETRY_DELAYS{
-    {{1, 5}, {5, 10}, {10, 30}, {100, 500}, {1000, 5'000}, {10'000, 30'000}}};
+    {{1, 5}, {5, 10}, {10, 30}, {100, 500}, {500, 10'000}, {10'000, 30'000}}};
 constexpr int FSLOGIC_RETRY_COUNT = FSLOGIC_RETRY_DELAYS.size();
 
 constexpr auto SYNCHRONIZE_BLOCK_PRIORITY_IMMEDIATE = 32;
