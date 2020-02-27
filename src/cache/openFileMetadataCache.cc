@@ -473,7 +473,7 @@ std::shared_ptr<FileLocation> OpenFileMetadataCache::getLocation(
 
         // If the file is deleted, request the file location without updating
         // the underlying metadata cache
-        if (MetadataCache::isDeleted(uuid)) {
+        if (MetadataCache::isDeleted(uuid) || forceUpdate) {
             m_lruFileData.find(uuid)->second.location =
                 MetadataCache::getLocation(
                     m_lruFileData.find(uuid)->second.attr);
