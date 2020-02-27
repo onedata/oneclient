@@ -668,7 +668,7 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
 
             LOG(ERROR) << "Failed to read " << size << " bytes at offset "
                        << offset << " from file " << uuid << " after "
-                       << m_maxRetryCount " retries"
+                       << m_maxRetryCount << " retries"
                        << " - invalid checksum";
 
             throw std::system_error(std::make_error_code(std::errc::io_error));

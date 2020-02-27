@@ -178,7 +178,7 @@ StorageAccessManager::verifyStorageTestFile(const folly::fbstring &storageId,
                 m_options.isIOBuffered());
 
             if (verifyStorageTestFile(storageId, helper, testFile)) {
-                LOG(INFO) << "Storage " << storageId
+                LOG(INFO) << "POSIX storage " << storageId
                           << " successfuly located under " << mountPoint;
                 return helper;
             }
@@ -192,8 +192,11 @@ StorageAccessManager::verifyStorageTestFile(const folly::fbstring &storageId,
         auto helper = m_helperFactory.getStorageHelper(helperParams.name(),
             helperParams.args(), m_options.isIOBuffered(), overrideParams);
 
-        if (verifyStorageTestFile(storageId, helper, testFile))
+        if (verifyStorageTestFile(storageId, helper, testFile)) {
+            LOG(INFO) << helperParams.name() << " storage " << storageId
+                      << " successfuly detected";
             return helper;
+        }
     }
 
     return {};
@@ -229,6 +232,9 @@ bool StorageAccessManager::verifyStorageTestFile(
                          << testFile.fileContent();
             return false;
         }
+
+        LOG(INFO) << "Storage test file for storage " << storageId
+                  << " verified successfuly";
 
         return true;
     }
