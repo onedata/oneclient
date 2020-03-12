@@ -216,6 +216,11 @@ HelpersCache::HelperPtr HelpersCache::performAutoIOStorageDetection(
     const folly::fbstring &fileUuid, const folly::fbstring &spaceId,
     const folly::fbstring &storageId, bool forceProxyIO)
 {
+    LOG(INFO)
+        << "Performing automatic storage access type detection for storage "
+        << storageId << " for file " << fileUuid
+        << " with forced proxy io mode: " << forceProxyIO;
+
     bool accessUnset;
     auto accessTypeKey = std::make_pair(storageId, AccessType::PROXY);
 
@@ -227,20 +232,46 @@ HelpersCache::HelperPtr HelpersCache::performAutoIOStorageDetection(
             m_accessType.emplace(accessTypeKey);
     }
 
-    LOG_DBG(2)
-        << "Performing automatic storage access type detection for storage "
-        << storageId << " for file " << fileUuid
-        << " with forced proxy io mode: " << forceProxyIO;
-
     if (!forceProxyIO) {
         if (accessUnset) {
+            std::unordered_map<folly::fbstring, folly::fbstring> overrideParams;
+            if (m_helperParamOverrides.find(storageId) !=
+                m_helperParamOverrides.end())
+                overrideParams = m_helperParamOverrides.at(storageId);
+
+            auto params = communication::wait(
+                m_communicator.communicate<messages::fuse::HelperParams>(
+                    messages::fuse::GetHelperParams{storageId.toStdString(),
+                        spaceId.toStdString(),
+                        messages::fuse::GetHelperParams::HelperMode::
+                            directMode}),
+                m_providerTimeout);
+
+            if (params.name() == helpers::POSIX_HELPER_NAME &&
+                overrideParams.find("mountPoint") != overrideParams.end()) {
+
+                m_storageAccessManager.checkPosixMountpointOverride(
+                    storageId, overrideParams);
+
+                {
+                    std::lock_guard<std::mutex> guard(m_accessTypeMutex);
+                    auto at = m_accessType.emplace(
+                        std::make_pair(storageId, AccessType::DIRECT));
+                    if (!at.second)
+                        at.first->second = AccessType::DIRECT;
+                }
+
+                return m_helperFactory.getStorageHelper(params.name(),
+                    params.args(), m_options.isIOBuffered(), overrideParams);
+            }
+
             // First try to quickly detect direct io (in 1 attempt), if not
             // available, return proxy and schedule full storage detection
             auto helper =
                 requestStorageTestFileCreation(fileUuid, storageId, 1);
             if (helper) {
-                LOG_DBG(2) << "Direct access to storage " << storageId
-                           << " determined on first attempt - returning";
+                LOG(INFO) << "Direct access to " << params.name() << " storage "
+                          << storageId << " determined on first attempt";
                 return helper;
             }
 
@@ -248,11 +279,14 @@ HelpersCache::HelperPtr HelpersCache::performAutoIOStorageDetection(
                        << " wasn't determined on first attempt - "
                           "scheduling retry and returning proxy helper as "
                           "fallback";
-            m_scheduler.post([this, fileUuid, storageId] {
+            m_scheduler.post([
+                this, fileUuid, storageId, storageType = params.name()
+            ] {
                 auto directIOHelper =
                     requestStorageTestFileCreation(fileUuid, storageId);
                 if (directIOHelper) {
-                    LOG_DBG(2) << "Found direct access to storage " << storageId
+                    LOG_DBG(2) << "Found direct access to " << storageType
+                               << " storage " << storageId
                                << " using automatic storage detection";
                     {
                         std::lock_guard<std::mutex> guard(m_cacheMutex);
@@ -262,14 +296,17 @@ HelpersCache::HelperPtr HelpersCache::performAutoIOStorageDetection(
 
                     {
                         std::lock_guard<std::mutex> guard(m_accessTypeMutex);
-                        m_accessType.emplace(
+                        auto at = m_accessType.emplace(
                             std::make_pair(storageId, AccessType::DIRECT));
+                        if (!at.second)
+                            at.first->second = AccessType::DIRECT;
                     }
                 }
                 else {
-                    LOG_DBG(2) << "Direct access to storage " << storageId
-                               << " couldn't be established - leaving "
-                                  "proxy access";
+                    LOG(INFO) << "Direct access to " << storageType
+                              << " storage " << storageId
+                              << " couldn't be established - leaving "
+                                 "proxy access";
                 }
             });
             return performAutoIOStorageDetection(
@@ -310,6 +347,11 @@ HelpersCache::HelperPtr HelpersCache::performForcedDirectIOStorageDetection(
     }
 
     try {
+        std::unordered_map<folly::fbstring, folly::fbstring> overrideParams;
+        if (m_helperParamOverrides.find(storageId) !=
+            m_helperParamOverrides.end())
+            overrideParams = m_helperParamOverrides.at(storageId);
+
         auto params = communication::wait(
             m_communicator.communicate<messages::fuse::HelperParams>(
                 messages::fuse::GetHelperParams{storageId.toStdString(),
@@ -324,10 +366,12 @@ HelpersCache::HelperPtr HelpersCache::performForcedDirectIOStorageDetection(
             throw std::errc::operation_not_supported; // NOLINT
         }
 
-        if (params.name() == helpers::POSIX_HELPER_NAME) {
-            LOG_DBG(1) << "Direct IO requested to Posix storage - "
-                          "attempting storage mountpoint detection in local "
-                          "filesystem";
+        if (params.name() == helpers::POSIX_HELPER_NAME &&
+            overrideParams.find("mountPoint") == overrideParams.end()) {
+            LOG(INFO) << "Direct IO requested to Posix storage " << storageId
+                      << " - "
+                         "attempting storage mountpoint detection in local "
+                         "filesystem";
 
             return requestStorageTestFileCreation(fileUuid, storageId);
         }
@@ -335,10 +379,8 @@ HelpersCache::HelperPtr HelpersCache::performForcedDirectIOStorageDetection(
         LOG_DBG(1) << "Got storage helper params for file " << fileUuid
                    << " on " << params.name() << " storage " << storageId;
 
-        std::unordered_map<folly::fbstring, folly::fbstring> overrideParams;
-        if (m_helperParamOverrides.find(storageId) !=
-            m_helperParamOverrides.end())
-            overrideParams = m_helperParamOverrides.at(storageId);
+        m_storageAccessManager.checkPosixMountpointOverride(
+            storageId, overrideParams);
 
         return m_helperFactory.getStorageHelper(params.name(), params.args(),
             m_options.isIOBuffered(), overrideParams);

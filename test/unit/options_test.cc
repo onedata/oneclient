@@ -128,6 +128,8 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
         options.getWriteBufferMaxSize());
     EXPECT_EQ(options::DEFAULT_WRITE_BUFFER_FLUSH_DELAY,
         options.getWriteBufferFlushDelay().count());
+    EXPECT_EQ(options::DEFAULT_MIN_BLOCK_PREFETCH_SIZE,
+        options.getMinimumBlockPrefetchSize());
     EXPECT_EQ(
         options::DEFAULT_METADATA_CACHE_SIZE, options.getMetadataCacheSize());
     EXPECT_EQ(options::DEFAULT_READDIR_PREFETCH_SIZE,
@@ -401,6 +403,14 @@ TEST_F(OptionsTest, parseCommandLineShouldSetWriteBufferFlushDelay)
         cmdArgs.end(), {"--write-buffer-flush-delay", "10", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ(10, options.getWriteBufferFlushDelay().count());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetMinPrefetchSize)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--min-block-prefetch-size", "1024", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(1024, options.getMinimumBlockPrefetchSize());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetMetadataCacheSize)

@@ -51,9 +51,9 @@ class Context;
 
 namespace fslogic {
 
-constexpr auto FSLOGIC_RETRY_COUNT = 4;
-const std::array<std::pair<int, int>, FSLOGIC_RETRY_COUNT> FSLOGIC_RETRY_DELAYS{
-    {{100, 1000}, {1000, 5000}, {5000, 10'000}, {10'000, 30'000}}};
+const std::array<std::pair<int, int>, 6> FSLOGIC_RETRY_DELAYS{
+    {{1, 5}, {5, 10}, {10, 30}, {100, 500}, {500, 10'000}, {10'000, 30'000}}};
+constexpr int FSLOGIC_RETRY_COUNT = FSLOGIC_RETRY_DELAYS.size();
 
 constexpr auto SYNCHRONIZE_BLOCK_PRIORITY_IMMEDIATE = 32;
 constexpr auto SYNCHRONIZE_BLOCK_PRIORITY_LINEAR_PREFETCH = 96;
@@ -67,6 +67,8 @@ constexpr auto SYNCHRONIZE_BLOCK_PRIORITY_CLUSTER_PREFETCH = 160;
  */
 class FsLogic {
 public:
+    constexpr static int MAX_RETRY_COUNT = FSLOGIC_RETRY_COUNT;
+
     using BlocksMap =
         std::map<folly::fbstring, folly::fbvector<std::pair<off_t, off_t>>>;
     /**
@@ -278,6 +280,11 @@ public:
 
     cache::OpenFileMetadataCache &metadataCache() { return m_metadataCache; }
 
+    void setMaxRetryCount(int retryCount)
+    {
+        m_maxRetryCount = std::min(retryCount, FsLogic::MAX_RETRY_COUNT);
+    }
+
 private:
     template <typename SrvMsg = messages::fuse::FuseResponse, typename CliMsg>
     SrvMsg communicate(CliMsg &&msg, const std::chrono::seconds timeout);
@@ -355,6 +362,7 @@ private:
     std::function<void(folly::Function<void()>)> m_runInFiber;
 
     const bool m_prefetchModeAsync;
+    const unsigned int m_minPrefetchBlockSize;
     const double m_linearReadPrefetchThreshold;
     const double m_randomReadPrefetchThreshold;
     const unsigned int m_randomReadPrefetchBlockThreshold;
@@ -376,6 +384,7 @@ private:
 
     folly::fibers::Baton m_directoryCachePruneBaton;
     bool m_stopped{};
+    int m_maxRetryCount{FsLogic::MAX_RETRY_COUNT};
 };
 } // namespace fslogic
 } // namespace client

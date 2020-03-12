@@ -112,6 +112,41 @@ StorageAccessManager::StorageAccessManager(
 {
 }
 
+bool StorageAccessManager::checkPosixMountpointOverride(
+    const folly::fbstring &storageId,
+    const std::unordered_map<folly::fbstring, folly::fbstring> &overrideParams)
+{
+    // Check, if the user has provided a mountPoint override for this
+    // storage, in which case just return a POSIX helper without storage
+    // detection
+    if (overrideParams.find("mountPoint") != overrideParams.cend()) {
+        // Check if the specified mountPoint is one of the system
+        // mountpoints
+        const auto &mountPointOverride =
+            overrideParams.find("mountPoint")->second;
+        auto mountPoints = getMountPoints();
+        bool mountPointOverrideExists = false;
+
+        for (const auto &mountPoint : mountPoints) {
+            if (mountPointOverride.rfind(mountPoint.string(), 0) == 0) {
+                mountPointOverrideExists = true;
+                break;
+            }
+        }
+
+        if (!mountPointOverrideExists)
+            LOG(WARNING)
+                << "Manually specified mountPoint " << mountPointOverride
+                << " for storage " << storageId
+                << " is not one of mounts available in the system. Please "
+                << "make sure it is correct...";
+
+        return mountPointOverrideExists;
+    }
+
+    return false;
+}
+
 std::shared_ptr<helpers::StorageHelper>
 StorageAccessManager::verifyStorageTestFile(const folly::fbstring &storageId,
     const messages::fuse::StorageTestFile &testFile)
@@ -122,25 +157,20 @@ StorageAccessManager::verifyStorageTestFile(const folly::fbstring &storageId,
     if (helperParams.name() == helpers::POSIX_HELPER_NAME) {
         std::vector<boost::filesystem::path> mountPoints;
 
-        // Check, if the user has provided a mountPoint override for this
-        // storage, otherwise list all local mountpoints
-        if (overrideParams.find("mountPoint") != overrideParams.cend()) {
-            mountPoints.emplace_back(
-                overrideParams.at("mountPoint").toStdString());
-        }
         // Check if the mount point is provided during integration tests
-        else if (helperParams.args().find("testMountPoint") !=
+        if (helperParams.args().find("testMountPoint") !=
             helperParams.args().cend()) {
             mountPoints.emplace_back(
                 helperParams.args().at("testMountPoint").toStdString());
         }
         else {
+            // List all mountpoints in the system for automatic detection
             mountPoints = getMountPoints();
         }
 
         for (const auto &mountPoint : mountPoints) {
-            LOG_DBG(1) << "Verifying storage " << storageId
-                       << " test file under mountpoint " << mountPoint;
+            LOG(INFO) << "Verifying POSIX storage " << storageId
+                      << " test file under mountpoint " << mountPoint;
 
             auto helper = m_helperFactory.getStorageHelper(
                 helpers::POSIX_HELPER_NAME,
@@ -148,8 +178,8 @@ StorageAccessManager::verifyStorageTestFile(const folly::fbstring &storageId,
                 m_options.isIOBuffered());
 
             if (verifyStorageTestFile(storageId, helper, testFile)) {
-                LOG_DBG(1) << "Storage " << storageId
-                           << " successfuly located under " << mountPoint;
+                LOG(INFO) << "POSIX storage " << storageId
+                          << " successfuly located under " << mountPoint;
                 return helper;
             }
         }
@@ -162,8 +192,11 @@ StorageAccessManager::verifyStorageTestFile(const folly::fbstring &storageId,
         auto helper = m_helperFactory.getStorageHelper(helperParams.name(),
             helperParams.args(), m_options.isIOBuffered(), overrideParams);
 
-        if (verifyStorageTestFile(storageId, helper, testFile))
+        if (verifyStorageTestFile(storageId, helper, testFile)) {
+            LOG(INFO) << helperParams.name() << " storage " << storageId
+                      << " successfuly detected";
             return helper;
+        }
     }
 
     return {};
@@ -199,6 +232,9 @@ bool StorageAccessManager::verifyStorageTestFile(
                          << testFile.fileContent();
             return false;
         }
+
+        LOG(INFO) << "Storage test file for storage " << storageId
+                  << " verified successfuly";
 
         return true;
     }

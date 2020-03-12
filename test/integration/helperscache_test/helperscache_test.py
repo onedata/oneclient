@@ -197,6 +197,9 @@ def test_automatic_posix_helper_detection_should_work(endpoint, hc, storage_id,
             prepare_posix_create_storage_test_file(file_uuid, storage_id,
                     space_id, file_content, mount_point)
 
+    posix_helper_params = \
+            prepare_posix_helper_params_response(storage_id, mount_point)
+
     # Write random content to file
     with open(os.path.join(mount_point, file_uuid), 'wb') as test_file:
         test_file.write(file_content)
@@ -208,10 +211,12 @@ def test_automatic_posix_helper_detection_should_work(endpoint, hc, storage_id,
     create_storage_file_request = None
     verify_storage_file_request = None
 
-    with reply(endpoint, [create_storage_file_response,
+    with reply(endpoint, [posix_helper_params,
+                          create_storage_file_response,
                           verify_storage_test_file_response]) as queue:
         res = hc.get(file_uuid, space_id, storage_id, False)
         assert res
+        posix_helper_params_request = queue.get()
         create_storage_file_request = queue.get()
         verify_storage_file_request = queue.get()
 
@@ -333,6 +338,9 @@ def test_automatic_posix_helper_detection_should_fallback_to_proxy(endpoint,
     mount_point = tempfile.mkdtemp(suffix='helperscache')
     mount_point_invalid = tempfile.mkdtemp(suffix='helperscache')
 
+    posix_helper_params = \
+            prepare_posix_helper_params_response(storage_id, mount_point)
+
     create_storage_file_response = \
         prepare_posix_create_storage_test_file(file_uuid, storage_id,
             space_id, file_content, mount_point_invalid)
@@ -350,10 +358,12 @@ def test_automatic_posix_helper_detection_should_fallback_to_proxy(endpoint,
     create_storage_file_request = None
     proxy_helper_params_request = None
 
-    with reply(endpoint, [create_storage_file_response,
+    with reply(endpoint, [posix_helper_params,
+                          create_storage_file_response,
                           proxy_helper_params_response,
                           create_storage_file_response]) as queue:
         res = hc.get(file_uuid, space_id, storage_id, False)
+        posix_helper_params_request = queue.get()
         create_storage_file_request = queue.get()
         proxy_helper_params_request = queue.get()
         create_storage_file_request = queue.get()
