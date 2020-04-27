@@ -4,6 +4,12 @@
 CHANGELOG
 ---------
 
+### 20.02.0-beta3
+
+
+*  Empty commit to differentiate between 20.02.0 beta1 and beta2 tags
+
+
 ### 19.02.1
 
 * VFS-5826 Increased events test connections
