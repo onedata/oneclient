@@ -424,6 +424,7 @@ private:
     const std::size_t m_targetSize;
     const std::chrono::seconds m_directoryCacheDropAfter;
 
+    std::mutex m_lruMutex;
     std::list<folly::fbstring> m_lruFileList;
     std::unordered_map<folly::fbstring, OpenFileData> m_lruFileData;
     std::list<folly::fbstring> m_lruDirectoryList;

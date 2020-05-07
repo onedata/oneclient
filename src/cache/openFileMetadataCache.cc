@@ -51,6 +51,8 @@ void OpenFileMetadataCache::setReaddirCache(
 
 bool OpenFileMetadataCache::isDirectorySynced(const folly::fbstring &uuid)
 {
+    std::lock_guard<std::mutex> __lock(m_lruMutex);
+
     auto it = m_lruDirectoryData.find(uuid);
     if (it == m_lruDirectoryData.end())
         return false;
@@ -60,6 +62,8 @@ bool OpenFileMetadataCache::isDirectorySynced(const folly::fbstring &uuid)
 
 void OpenFileMetadataCache::setDirectorySynced(const folly::fbstring &uuid)
 {
+    std::lock_guard<std::mutex> __lock(m_lruMutex);
+
     noteDirectoryActivity(uuid);
     auto it = m_lruDirectoryData.find(uuid);
 
@@ -75,6 +79,8 @@ void OpenFileMetadataCache::opendir(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
+    std::lock_guard<std::mutex> __lock(m_lruMutex);
+
     noteDirectoryActivity(uuid);
     auto it = m_lruDirectoryData.find(uuid);
 
@@ -86,6 +92,8 @@ void OpenFileMetadataCache::opendir(const folly::fbstring &uuid)
 void OpenFileMetadataCache::releasedir(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
+
+    m_lruMutex.lock();
 
     auto res = m_lruDirectoryData.emplace(uuid, OpenFileData{});
 
@@ -101,6 +109,8 @@ void OpenFileMetadataCache::releasedir(const folly::fbstring &uuid)
         m_lruDirectoryData.erase(uuid);
     }
 
+    m_lruMutex.unlock();
+
     prune();
 }
 
@@ -108,6 +118,8 @@ folly::fbvector<folly::fbstring> OpenFileMetadataCache::readdir(
     const folly::fbstring &uuid, off_t off, std::size_t chunkSize)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(off) << LOG_FARG(chunkSize);
+
+    std::lock_guard<std::mutex> __lock(m_lruMutex);
 
     noteDirectoryActivity(uuid);
 
@@ -140,6 +152,8 @@ std::shared_ptr<OpenFileMetadataCache::OpenFileToken>
 OpenFileMetadataCache::open(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
+
+    std::lock_guard<std::mutex> __lock(m_lruMutex);
 
     try {
         FileAttrPtr attr;
@@ -176,6 +190,8 @@ OpenFileMetadataCache::open(const folly::fbstring &uuid,
     MetadataCache::updateAttr(attr);
     MetadataCache::putLocation(std::move(location));
 
+    std::lock_guard<std::mutex> __lock(m_lruMutex);
+
     pinFile(uuid);
 
     if (attr->parentUuid() && !attr->parentUuid().value().empty())
@@ -187,6 +203,8 @@ OpenFileMetadataCache::open(const folly::fbstring &uuid,
 void OpenFileMetadataCache::releaseFile(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
+
+    std::lock_guard<std::mutex> __lock(m_lruMutex);
 
     auto it = m_lruFileData.find(uuid);
     if (it == m_lruFileData.end())
@@ -209,6 +227,8 @@ void OpenFileMetadataCache::releaseFile(const folly::fbstring &uuid)
 FileAttrPtr OpenFileMetadataCache::getAttr(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
+
+    std::lock_guard<std::mutex> __lock(m_lruMutex);
 
     std::shared_ptr<FileAttr> attr;
 
@@ -242,8 +262,11 @@ FileAttrPtr OpenFileMetadataCache::getAttr(
 
     auto attr = MetadataCache::getAttr(parentUuid, name);
 
-    if (attr->parentUuid() && !attr->parentUuid()->empty())
+    if (attr->parentUuid() && !attr->parentUuid()->empty()) {
+        std::lock_guard<std::mutex> __lock(m_lruMutex);
+
         noteDirectoryActivity(*attr->parentUuid());
+    }
 
     return attr;
 }
@@ -282,6 +305,8 @@ void OpenFileMetadataCache::noteDirectoryActivity(const folly::fbstring &uuid)
 void OpenFileMetadataCache::pruneExpiredDirectories()
 {
     LOG_FCALL();
+
+    std::lock_guard<std::mutex> __lock(m_lruMutex);
 
     // Invalidate all directories and their direct children which are
     // expired and do not contain any opened files
@@ -337,6 +362,8 @@ bool OpenFileMetadataCache::rename(folly::fbstring uuid,
 
     assert(!newName.empty());
 
+    std::unique_lock<std::mutex> __lock(m_lruMutex);
+
     if (m_lruDirectoryData.find(newParentUuid) != m_lruDirectoryData.end())
         noteDirectoryActivity(newParentUuid);
 
@@ -354,6 +381,7 @@ bool OpenFileMetadataCache::rename(folly::fbstring uuid,
     if (uuid != newUuid && m_lruFileData.find(uuid) == m_lruFileData.end() &&
         m_lruDirectoryData.find(newParentUuid) == m_lruDirectoryData.end()) {
         try {
+            __lock.unlock();
             MetadataCache::markDeleted(uuid);
             MetadataCache::getAttr(newUuid);
         }
@@ -370,6 +398,8 @@ bool OpenFileMetadataCache::rename(folly::fbstring uuid,
         (std::find(m_lruFileList.begin(), m_lruFileList.end(), uuid) !=
             m_lruFileList.end());
 
+    __lock.unlock();
+
     return MetadataCache::rename(
         uuid, newParentUuid, newName, newUuid, renewSubscriptions);
 }
@@ -381,6 +411,8 @@ void OpenFileMetadataCache::truncate(
 
     FileAttrPtr attr;
 
+    std::unique_lock<std::mutex> __lock(m_lruMutex);
+
     if (m_lruFileData.find(uuid) != m_lruFileData.end())
         attr = m_lruFileData.at(uuid).attr;
     else if (m_lruDirectoryData.find(uuid) != m_lruDirectoryData.end())
@@ -390,6 +422,8 @@ void OpenFileMetadataCache::truncate(
 
     if (attr->parentUuid() && !attr->parentUuid()->empty())
         noteDirectoryActivity(*attr->parentUuid());
+
+    __lock.unlock();
 
     MetadataCache::truncate(uuid, newSize);
 }
@@ -401,6 +435,8 @@ void OpenFileMetadataCache::updateTimes(
 
     FileAttrPtr attr;
 
+    std::unique_lock<std::mutex> __lock(m_lruMutex);
+
     if (m_lruFileData.find(uuid) != m_lruFileData.end())
         attr = m_lruFileData.at(uuid).attr;
     else if (m_lruDirectoryData.find(uuid) != m_lruDirectoryData.end())
@@ -410,6 +446,8 @@ void OpenFileMetadataCache::updateTimes(
 
     if (attr->parentUuid() && !attr->parentUuid()->empty())
         noteDirectoryActivity(*attr->parentUuid());
+
+    __lock.unlock();
 
     MetadataCache::updateTimes(uuid, updateTimes);
 }
@@ -421,6 +459,8 @@ void OpenFileMetadataCache::changeMode(
 
     FileAttrPtr attr;
 
+    std::unique_lock<std::mutex> __lock(m_lruMutex);
+
     if (m_lruFileData.find(uuid) != m_lruFileData.end())
         attr = m_lruFileData.at(uuid).attr;
     else if (m_lruDirectoryData.find(uuid) != m_lruDirectoryData.end())
@@ -430,6 +470,8 @@ void OpenFileMetadataCache::changeMode(
 
     if (attr->parentUuid() && !attr->parentUuid()->empty())
         noteDirectoryActivity(*attr->parentUuid());
+
+    __lock.unlock();
 
     MetadataCache::changeMode(uuid, newMode);
 }
@@ -445,6 +487,7 @@ void OpenFileMetadataCache::putLocation(std::unique_ptr<FileLocation> location)
     try {
         MetadataCache::putLocation(std::move(location));
 
+        std::lock_guard<std::mutex> __lock(m_lruMutex);
         if (m_lruFileData.find(uuid) != m_lruFileData.end())
             m_lruFileData.at(uuid).location = MetadataCache::getLocation(uuid);
     }
@@ -464,21 +507,25 @@ std::shared_ptr<FileLocation> OpenFileMetadataCache::getLocation(
 {
     LOG_FCALL();
 
-    // Check if the file is opened
-    if ((m_lruFileData.find(uuid) != m_lruFileData.end())) {
-        // If this request doesn't require updating the location,
-        // just return the cached version
-        if (!forceUpdate)
-            return m_lruFileData.at(uuid).location;
+    {
+        std::lock_guard<std::mutex> __lock(m_lruMutex);
 
-        // If the file is deleted, or this is a forced update (e.g. after read
-        // error) request the file location from the server
-        if (MetadataCache::isDeleted(uuid) || forceUpdate) {
-            m_lruFileData.find(uuid)->second.location =
-                MetadataCache::getLocation(
-                    m_lruFileData.find(uuid)->second.attr);
+        // Check if the file is opened
+        if ((m_lruFileData.find(uuid) != m_lruFileData.end())) {
+            // If this request doesn't require updating the location,
+            // just return the cached version
+            if (!forceUpdate)
+                return m_lruFileData.at(uuid).location;
 
-            return m_lruFileData.find(uuid)->second.location;
+            // If the file is deleted, or this is a forced update (e.g. after
+            // read error) request the file location from the server
+            if (MetadataCache::isDeleted(uuid) || forceUpdate) {
+                m_lruFileData.find(uuid)->second.location =
+                    MetadataCache::getLocation(
+                        m_lruFileData.find(uuid)->second.attr);
+
+                return m_lruFileData.find(uuid)->second.location;
+            }
         }
     }
 
@@ -494,6 +541,8 @@ bool OpenFileMetadataCache::updateLocation(const FileLocation &newLocation)
     auto const &uuid = newLocation.uuid();
 
     std::shared_ptr<FileLocation> location;
+
+    std::lock_guard<std::mutex> __lock(m_lruMutex);
 
     if (m_lruFileData.find(uuid) != m_lruFileData.end()) {
         location = m_lruFileData.at(newLocation.uuid()).location;
@@ -531,6 +580,8 @@ bool OpenFileMetadataCache::updateLocation(
 
     std::shared_ptr<FileLocation> location;
 
+    std::lock_guard<std::mutex> __lock(m_lruMutex);
+
     if (m_lruFileData.find(uuid) != m_lruFileData.end()) {
         location = m_lruFileData.at(locationUpdate.uuid()).location;
     }
@@ -566,6 +617,8 @@ void OpenFileMetadataCache::addBlock(const folly::fbstring &uuid,
 
     std::shared_ptr<FileLocation> location;
 
+    std::lock_guard<std::mutex> __lock(m_lruMutex);
+
     if (m_lruFileData.find(uuid) != m_lruFileData.end() &&
         m_lruFileData[uuid].deleted) {
         // If file is opened and deleted, update only the temporarily cached
@@ -577,18 +630,9 @@ void OpenFileMetadataCache::addBlock(const folly::fbstring &uuid,
     }
     else {
         // Update the attribute in the general cache
-        std::shared_ptr<FileAttr> attr;
+        MetadataCache::updateSizeFromRange(uuid, range);
 
-        auto it = bmi::get<ByUuid>(m_cache).find(uuid);
-        m_cache.modify(it, [&](Metadata &m) {
-            auto newSize =
-                std::max<off_t>(boost::icl::last(range) + 1, *m.attr->size());
-
-            LOG_DBG(2) << "Updating file size for " << uuid << " to "
-                       << newSize;
-            m.attr->size(newSize);
-        });
-
+        // Ensure location is updated
         try {
             location = MetadataCache::getLocation(uuid);
         }
@@ -612,6 +656,8 @@ OpenFileMetadataCache::getBlock(const folly::fbstring &uuid, const off_t offset)
 
     FileAttrPtr attr;
     std::shared_ptr<FileLocation> location;
+
+    std::lock_guard<std::mutex> __lock(m_lruMutex);
 
     if (m_lruFileData.find(uuid) != m_lruFileData.end()) {
         // Check if the uuid points to an opened file
@@ -650,6 +696,8 @@ messages::fuse::FileBlock OpenFileMetadataCache::getDefaultBlock(
     std::shared_ptr<FileAttr> attr;
     std::shared_ptr<FileLocation> location;
 
+    std::lock_guard<std::mutex> __lock(m_lruMutex);
+
     if (m_lruFileData.find(uuid) != m_lruFileData.end()) {
         // Check if the uuid points to an opened file
         attr = m_lruFileData.at(uuid).attr;
@@ -679,6 +727,8 @@ const std::string &OpenFileMetadataCache::getSpaceId(
 {
     std::shared_ptr<FileLocation> location;
 
+    std::lock_guard<std::mutex> __lock(m_lruMutex);
+
     if (m_lruFileData.find(uuid) != m_lruFileData.end()) {
         // Check if the uuid points to an opened file
         location = m_lruFileData.at(uuid).location;
@@ -704,6 +754,8 @@ bool OpenFileMetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr)
             return false;
         }
     }
+
+    std::lock_guard<std::mutex> __lock(m_lruMutex);
 
     // Check if the uuid points to an opened file
     if (m_lruFileData.find(newAttr->uuid()) != m_lruFileData.end()) {
@@ -743,6 +795,8 @@ void OpenFileMetadataCache::handleMarkDeleted(const folly::fbstring &uuid)
 
     assert(!uuid.empty());
 
+    std::unique_lock<std::mutex> __lock(m_lruMutex);
+
     // Try to treat the uuid as directory
     auto itd = m_lruDirectoryData.find(uuid);
     if (itd != m_lruDirectoryData.end()) {
@@ -769,6 +823,8 @@ void OpenFileMetadataCache::handleMarkDeleted(const folly::fbstring &uuid)
         itf->second.deleted = true;
     }
 
+    __lock.unlock();
+
     m_onMarkDeleted(uuid);
 }
 
@@ -780,6 +836,9 @@ void OpenFileMetadataCache::handleRename(
     assert(!newUuid.empty());
 
     auto attr = getAttr(newUuid);
+
+    std::unique_lock<std::mutex> __lock(m_lruMutex);
+
     if (attr->type() == FileAttr::FileType::directory) {
         // Handle rename of a cached directory
         auto it = m_lruDirectoryData.find(oldUuid);
@@ -844,6 +903,8 @@ void OpenFileMetadataCache::handleRename(
                 m_lruFileList.erase(*lruData.lruIt);
         }
     }
+
+    __lock.unlock();
 
     m_onRename(oldUuid, newUuid);
 }

@@ -24,6 +24,7 @@
 
 #include <chrono>
 #include <memory>
+#include <mutex>
 #include <vector>
 
 namespace one {
@@ -110,6 +111,14 @@ public:
      * @param location The location to put in the cache.
      */
     void putLocation(std::unique_ptr<FileLocation> location);
+
+    /**
+     * Updates file size based on new range.
+     * @param uuid UUID of the file.
+     * @param range New file range.
+     */
+    void updateSizeFromRange(const folly::fbstring &uuid,
+        const boost::icl::discrete_interval<off_t> range);
 
     /**
      * Returns a pointer to fetched or cached file location.
@@ -259,6 +268,8 @@ protected:
      */
     bool isSpaceWhitelisted(const FileAttr &space);
 
+    std::shared_ptr<FileLocation> getLocation(std::shared_ptr<FileAttr> attr);
+
     struct Metadata {
         Metadata(std::shared_ptr<FileAttr>);
         std::shared_ptr<FileAttr> attr;
@@ -324,12 +335,9 @@ private:
 
     communication::Communicator &m_communicator;
 
-protected:
     Map m_cache;
+    mutable std::mutex m_cacheMutex;
 
-    std::shared_ptr<FileLocation> getLocation(std::shared_ptr<FileAttr> attr);
-
-private:
     // This set holds UUID's of all files or directories removed in the
     // oneclient session. This is necessary to ensure that delayed
     // FileAttrChanged events about deleted files are not treated as
