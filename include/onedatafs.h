@@ -73,16 +73,31 @@ struct Xattr {
     std::string value;
 };
 
+#if PY_MAJOR_VERSION >= 3
+class ReleaseGIL {
+public:
+    ReleaseGIL() { m_gilState = PyGILState_Ensure(); }
+
+    ~ReleaseGIL() { PyGILState_Release(m_gilState); }
+
+private:
+    PyGILState_STATE m_gilState;
+};
+#else
 class ReleaseGIL {
 public:
     ReleaseGIL()
-        : threadState{PyEval_SaveThread(), PyEval_RestoreThread}
+        : m_threadState{PyEval_SaveThread(), PyEval_RestoreThread}
     {
     }
 
+    ~ReleaseGIL() = default;
+
 private:
-    std::unique_ptr<PyThreadState, decltype(&PyEval_RestoreThread)> threadState;
+    std::unique_ptr<PyThreadState, decltype(&PyEval_RestoreThread)>
+        m_threadState;
 };
+#endif
 
 using FiberFsLogic = fslogic::FsLogic;
 
@@ -235,8 +250,14 @@ public:
                        .get();
 
 #if PY_MAJOR_VERSION >= 3
-        return boost::python::object(boost::python::handle<>(
-            PyBytes_FromStringAndSize(res.c_str(), res.size())));
+        if (res.size()) {
+            return boost::python::object(boost::python::handle<>(
+                PyBytes_FromStringAndSize(res.c_str(), res.size())));
+        }
+        else {
+            return boost::python::object(
+                boost::python::handle<>(PyBytes_FromStringAndSize(NULL, 0)));
+        }
 #else
         return res;
 #endif
@@ -363,11 +384,13 @@ public:
     {
         ReleaseGIL guard;
 
-        return m_fiberManager
-            .addTaskRemoteFuture([ this, uuid = uuidFromPath(path) ]() mutable {
-                return attrToStat(m_fsLogic->getattr(uuid));
-            })
-            .get();
+        auto res = m_fiberManager
+                       .addTaskRemoteFuture(
+                           [ this, uuid = uuidFromPath(path) ]() mutable {
+                               return attrToStat(m_fsLogic->getattr(uuid));
+                           })
+                       .get();
+        return res;
     }
 
     int opendir(std::string path)
@@ -435,7 +458,6 @@ public:
         std::string path, const int flags = O_RDWR | O_CREAT)
     {
         ReleaseGIL guard;
-
         return m_fiberManager
             // First check if the file exists
             .addTaskRemoteFuture(
@@ -573,8 +595,14 @@ public:
                 .get();
 
 #if PY_MAJOR_VERSION >= 3
-        return boost::python::object(boost::python::handle<>(
-            PyBytes_FromStringAndSize(res.c_str(), res.size())));
+        if (res.size()) {
+            return boost::python::object(boost::python::handle<>(
+                PyBytes_FromStringAndSize(res.c_str(), res.size())));
+        }
+        else {
+            return boost::python::object(
+                boost::python::handle<>(PyBytes_FromStringAndSize(NULL, 0)));
+        }
 #else
         return res;
 #endif
@@ -708,7 +736,7 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(
 // clang-format on
 {
     FLAGS_minloglevel = 1;
-    FLAGS_v = 20;
+    FLAGS_v = 2;
 
     helpers::init();
 
@@ -862,6 +890,7 @@ BOOST_PYTHON_MODULE(onedatafs)
 {
     namespace bp = boost::python;
 
+    Py_Initialize();
     PyEval_InitThreads();
     register_exception_translator<std::errc>(&translate);
 
@@ -886,7 +915,8 @@ BOOST_PYTHON_MODULE(onedatafs)
     class_<std::vector<std::string>>("vector").def(
         vector_indexing_suite<std::vector<std::string>>());
 
-    class_<OnedataFileHandle, boost::noncopyable>("OnedataFileHandle", no_init)
+    class_<OnedataFileHandle, boost::shared_ptr<OnedataFileHandle>,
+        boost::noncopyable>("OnedataFileHandle", no_init)
         .def("__enter__", &OnedataFileHandle::enter)
         .def("__exit__", &OnedataFileHandle::exit)
         .def("read", &OnedataFileHandle::read)
