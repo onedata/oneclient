@@ -269,10 +269,6 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
 
 FsLogic::~FsLogic()
 {
-    // Close any remaining files
-    m_runInFiber([this]() { m_fuseFileHandles.clear(); });
-
-    // Stop
     m_stopped = true;
     m_directoryCachePruneBaton.post();
     m_context->communicator()->stop();
