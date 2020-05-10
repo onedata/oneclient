@@ -57,7 +57,7 @@ void MetadataCache::setReaddirCache(std::shared_ptr<ReaddirCache> readdirCache)
 
 bool MetadataCache::contains(const folly::fbstring &uuid) const
 {
-    std::lock_guard<std::mutex> __lock(m_cacheMutex);
+    assertInFiber();
 
     auto &index = bmi::get<ByUuid>(m_cache);
     return index.find(uuid) != index.end();
@@ -65,12 +65,16 @@ bool MetadataCache::contains(const folly::fbstring &uuid) const
 
 bool MetadataCache::isDeleted(const folly::fbstring &uuid) const
 {
+    assertInFiber();
+
     return m_deletedUuids.find(uuid) != m_deletedUuids.end();
 }
 
 bool MetadataCache::isSpaceWhitelisted(const FileAttr &space)
 {
     LOG_FCALL() << LOG_FARG(space.name());
+
+    assertInFiber();
 
     if (m_whitelistedSpaceNames.empty() && m_whitelistedSpaceIds.empty())
         return true;
@@ -94,11 +98,11 @@ void MetadataCache::invalidateChildren(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
+    assertInFiber();
+
     assert(!uuid.empty());
 
     LOG_DBG(2) << "Invalidating children of directory: " << uuid;
-
-    std::lock_guard<std::mutex> __lock(m_cacheMutex);
 
     auto &index = bmi::get<ByParent>(m_cache);
     auto irange = boost::make_iterator_range(index.equal_range(uuid));
@@ -110,6 +114,8 @@ folly::fbvector<folly::fbstring> MetadataCache::readdir(
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(off) << LOG_FARG(chunkSize);
 
+    assertInFiber();
+
     assert(!uuid.empty());
 
     folly::fbvector<folly::fbstring> result;
@@ -117,8 +123,6 @@ folly::fbvector<folly::fbstring> MetadataCache::readdir(
         result.emplace_back(".");
         result.emplace_back("..");
     }
-
-    std::lock_guard<std::mutex> __lock(m_cacheMutex);
 
     auto &index = bmi::get<ByParent>(m_cache);
     auto irange = boost::make_iterator_range(index.equal_range(uuid));
@@ -164,7 +168,7 @@ folly::fbvector<folly::fbstring> MetadataCache::readdir(
 
 std::shared_ptr<FileAttr> MetadataCache::getAttr(const folly::fbstring &uuid)
 {
-    std::lock_guard<std::mutex> __lock(m_cacheMutex);
+    assertInFiber();
 
     return getAttrIt(uuid)->attr;
 }
@@ -172,38 +176,34 @@ std::shared_ptr<FileAttr> MetadataCache::getAttr(const folly::fbstring &uuid)
 FileAttrPtr MetadataCache::getAttr(
     const folly::fbstring &parentUuid, const folly::fbstring &name)
 {
+
     LOG_FCALL() << LOG_FARG(parentUuid) << LOG_FARG(name);
 
-    {
-        std::lock_guard<std::mutex> __lock(m_cacheMutex);
+    assertInFiber();
 
-        auto &index = bmi::get<ByParentName>(m_cache);
-        auto it = index.find(std::make_tuple(parentUuid, name));
-        if (it != index.end() && !it->deleted) {
-            LOG_DBG(2) << "Found metadata attr for file " << name
-                       << " in directory " << parentUuid;
+    auto &index = bmi::get<ByParentName>(m_cache);
+    auto it = index.find(std::make_tuple(parentUuid, name));
+    if (it != index.end() && !it->deleted) {
+        LOG_DBG(2) << "Found metadata attr for file " << name
+                   << " in directory " << parentUuid;
 
-            if (it->attr->type() == FileAttr::FileType::regular &&
-                !it->attr->size()) {
-                LOG_DBG(2) << "Metadata for file " << parentUuid << "/" << name
-                           << " exists, but size is undefined, fetch the "
-                              "attribute again";
-            }
-            else if (parentUuid == m_rootUuid &&
-                !isSpaceWhitelisted(*it->attr)) {
-                throw std::system_error(
-                    std::make_error_code(std::errc::no_such_file_or_directory));
-            }
-            else {
-                return it->attr;
-            }
+        if (it->attr->type() == FileAttr::FileType::regular &&
+            !it->attr->size()) {
+            LOG_DBG(2) << "Metadata for file " << parentUuid << "/" << name
+                       << " exists, but size is undefined, fetch the "
+                          "attribute again";
+        }
+        else if (parentUuid == m_rootUuid && !isSpaceWhitelisted(*it->attr)) {
+            throw std::system_error(
+                std::make_error_code(std::errc::no_such_file_or_directory));
+        }
+        else {
+            return it->attr;
         }
     }
 
     LOG_DBG(2) << "Metadata attr for file " << name << " in directory "
                << parentUuid << " not found in cache - retrieving from server";
-
-    std::lock_guard<std::mutex> __lock(m_cacheMutex);
 
     auto fetchedIt = fetchAttr(messages::fuse::GetChildAttr{parentUuid, name});
 
@@ -222,6 +222,8 @@ bool MetadataCache::putAttr(std::shared_ptr<FileAttr> attr)
 {
     LOG_FCALL() << LOG_FARG(attr->toString());
 
+    assertInFiber();
+
     assert(attr->parentUuid());
 
     auto const &uuid = attr->uuid();
@@ -233,8 +235,6 @@ bool MetadataCache::putAttr(std::shared_ptr<FileAttr> attr)
     }
 
     try {
-        std::lock_guard<std::mutex> __lock(m_cacheMutex);
-
         if (attr->type() == FileAttr::FileType::regular &&
             !(attr->size().hasValue())) {
             LOG(WARNING)
@@ -285,6 +285,8 @@ bool MetadataCache::putAttr(std::shared_ptr<FileAttr> attr)
 MetadataCache::Map::iterator MetadataCache::getAttrIt(
     const folly::fbstring &uuid)
 {
+    assertInFiber();
+
     if (m_deletedUuids.find(uuid) != m_deletedUuids.end())
         throw std::system_error(
             std::make_error_code(std::errc::no_such_file_or_directory));
@@ -321,6 +323,8 @@ template <typename ReqMsg>
 MetadataCache::Map::iterator MetadataCache::fetchAttr(ReqMsg &&msg)
 {
     LOG_FCALL();
+
+    assertInFiber();
 
     auto attr = communication::wait(
         m_communicator.communicate<FileAttr>(std::forward<ReqMsg>(msg)),
@@ -370,7 +374,7 @@ std::shared_ptr<FileLocation> MetadataCache::getLocation(
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
-    std::lock_guard<std::mutex> __lock(m_cacheMutex);
+    assertInFiber();
 
     return getLocationPtr(getAttrIt(uuid), forceUpdate);
 }
@@ -379,6 +383,8 @@ std::shared_ptr<FileLocation> MetadataCache::getLocationPtr(
     const Map::iterator &it, bool forceUpdate)
 {
     LOG_FCALL();
+
+    assertInFiber();
 
     if (!forceUpdate && it->location) {
         LOG_DBG(2) << "Found file location in metadata cache for "
@@ -402,6 +408,8 @@ std::shared_ptr<FileLocation> MetadataCache::getLocation(
 {
     LOG_FCALL() << LOG_FARG(attr->uuid());
 
+    assertInFiber();
+
     return fetchFileLocation(attr->uuid());
 }
 
@@ -409,6 +417,8 @@ std::shared_ptr<FileLocation> MetadataCache::fetchFileLocation(
     const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
+
+    assertInFiber();
 
     auto location = communication::wait(
         m_communicator.communicate<FileLocation>(
@@ -430,7 +440,7 @@ void MetadataCache::ensureAttrAndLocationCached(folly::fbstring uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
-    std::lock_guard<std::mutex> __lock(m_cacheMutex);
+    assertInFiber();
 
     auto it = getAttrIt(uuid);
 
@@ -440,8 +450,7 @@ void MetadataCache::ensureAttrAndLocationCached(folly::fbstring uuid)
 void MetadataCache::erase(folly::fbstring uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
-
-    std::lock_guard<std::mutex> __lock(m_cacheMutex);
+    assertInFiber();
 
     auto &index = bmi::get<ByUuid>(m_cache);
     index.erase(uuid);
@@ -453,7 +462,7 @@ void MetadataCache::truncate(folly::fbstring uuid, const std::size_t newSize)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(newSize);
 
-    std::lock_guard<std::mutex> __lock(m_cacheMutex);
+    assertInFiber();
 
     auto &index = bmi::get<ByUuid>(m_cache);
     auto it = index.find(uuid);
@@ -476,7 +485,7 @@ void MetadataCache::updateTimes(
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(updateTimes.toString());
 
-    std::lock_guard<std::mutex> __lock(m_cacheMutex);
+    assertInFiber();
 
     auto &index = bmi::get<ByUuid>(m_cache);
     auto it = index.find(uuid);
@@ -512,7 +521,7 @@ void MetadataCache::changeMode(folly::fbstring uuid, const mode_t newMode)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARGO(newMode);
 
-    std::lock_guard<std::mutex> __lock(m_cacheMutex);
+    assertInFiber();
 
     auto &index = bmi::get<ByUuid>(m_cache);
     auto it = index.find(uuid);
@@ -529,7 +538,7 @@ void MetadataCache::putLocation(std::unique_ptr<FileLocation> location)
 {
     LOG_FCALL() << LOG_FARG(location->toString());
 
-    std::lock_guard<std::mutex> __lock(m_cacheMutex);
+    assertInFiber();
 
     auto it = getAttrIt(location->uuid());
     m_cache.modify(
@@ -540,9 +549,9 @@ bool MetadataCache::markDeleted(folly::fbstring uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
-    m_deletedUuids.insert(uuid);
+    assertInFiber();
 
-    std::lock_guard<std::mutex> __lock(m_cacheMutex);
+    m_deletedUuids.insert(uuid);
 
     auto &index = bmi::get<ByUuid>(m_cache);
     auto it = index.find(uuid);
@@ -561,6 +570,8 @@ void MetadataCache::markDeletedIt(const Map::iterator &it)
 {
     LOG_FCALL() << LOG_FARG(it->attr->uuid());
 
+    assertInFiber();
+
     auto uuid = it->attr->uuid();
 
     auto &index = bmi::get<ByUuid>(m_cache);
@@ -577,7 +588,7 @@ bool MetadataCache::rename(folly::fbstring uuid, folly::fbstring newParentUuid,
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(newParentUuid)
                 << LOG_FARG(newName) << LOG_FARG(newUuid);
 
-    std::lock_guard<std::mutex> __lock(m_cacheMutex);
+    assertInFiber();
 
     auto &targetIndex = bmi::get<ByParentName>(m_cache);
     auto targetIt = targetIndex.find(std::make_tuple(newParentUuid, newName));
@@ -633,8 +644,9 @@ bool MetadataCache::rename(folly::fbstring uuid, folly::fbstring newParentUuid,
 void MetadataCache::updateSizeFromRange(const folly::fbstring &uuid,
     const boost::icl::discrete_interval<off_t> range)
 {
+    LOG_FCALL() << LOG_FARG(uuid);
 
-    std::lock_guard<std::mutex> __lock(m_cacheMutex);
+    assertInFiber();
 
     auto it = bmi::get<ByUuid>(m_cache).find(uuid);
     m_cache.modify(it, [&](Metadata &m) {
@@ -651,6 +663,8 @@ bool MetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr)
 {
     LOG_FCALL() << LOG_FARG(newAttr->toString());
 
+    assertInFiber();
+
     auto uuid = newAttr->uuid();
 
     if (m_deletedUuids.find(uuid) != m_deletedUuids.end()) {
@@ -659,14 +673,11 @@ bool MetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr)
         return false;
     }
 
-    std::unique_lock<std::mutex> __lock(m_cacheMutex);
-
     auto &index = bmi::get<ByUuid>(m_cache);
     auto it = index.find(uuid);
     if (it == index.end()) {
         LOG_DBG(2) << "Attribute for " << newAttr->name() << " (" << uuid
                    << ")  not found in cache - adding";
-        __lock.unlock();
         return putAttr(newAttr);
     }
 

@@ -42,78 +42,71 @@ void ReaddirCache::fetch(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
+    assertInFiber();
+
     // This private method is only called from a lock_guard block, which makes
     // sure before that uuid is no longer member of m_cache, so that we don't
     // have to check again here
     auto p = std::make_shared<folly::SharedPromise<folly::Unit>>();
     m_cache.emplace(uuid, p);
 
-    m_context.lock()->scheduler()->post([
-        this, uuid = uuid, p = std::move(p)
-    ] {
-        std::size_t chunkIndex = 0;
-        std::size_t fetchedSize = 0;
-        auto isLast = false;
+    std::size_t chunkIndex = 0;
+    std::size_t fetchedSize = 0;
+    auto isLast = false;
 
-        // Start with empty index token, and then if server returns
-        // index token pass to next request.
-        folly::Optional<folly::fbstring> indexToken;
+    // Start with empty index token, and then if server returns
+    // index token pass to next request.
+    folly::Optional<folly::fbstring> indexToken;
 
-        folly::fbvector<folly::Future<folly::Unit>> futs;
+    folly::fbvector<folly::Future<folly::Unit>> futs;
 
-        do {
-            LOG_DBG(1) << "Requesting directory entries for directory " << uuid
-                       << " starting at offset " << chunkIndex;
+    do {
+        LOG_DBG(1) << "Requesting directory entries for directory " << uuid
+                   << " starting at offset " << chunkIndex;
 
-            auto ew = folly::try_and_catch<std::exception>(
-                [this, p, &isLast, uuid, &chunkIndex, &fetchedSize, &futs,
-                    &indexToken]() {
-                    auto msg =
-                        communicate<one::messages::fuse::FileChildrenAttrs>(
-                            one::messages::fuse::GetFileChildrenAttrs{uuid,
-                                static_cast<off_t>(chunkIndex), m_prefetchSize,
-                                indexToken},
-                            m_providerTimeout);
+        auto ew = folly::try_and_catch<std::exception>([this, p, &isLast, uuid,
+                                                           &chunkIndex,
+                                                           &fetchedSize, &futs,
+                                                           &indexToken]() {
+            auto msg = communicate<one::messages::fuse::FileChildrenAttrs>(
+                one::messages::fuse::GetFileChildrenAttrs{uuid,
+                    static_cast<off_t>(chunkIndex), m_prefetchSize, indexToken},
+                m_providerTimeout);
 
-                    fetchedSize = msg.childrenAttrs().size();
-                    indexToken.assign(msg.indexToken());
-                    isLast = msg.isLast() && *msg.isLast();
-                    chunkIndex += fetchedSize;
+            fetchedSize = msg.childrenAttrs().size();
+            indexToken.assign(msg.indexToken());
+            isLast = msg.isLast() && *msg.isLast();
+            chunkIndex += fetchedSize;
 
-                    folly::Promise<folly::Unit> partialPromise;
-                    futs.emplace_back(partialPromise.getFuture());
-                    m_runInFiber([
-                        this, msg = std::move(msg),
-                        partialPromise = std::move(partialPromise), uuid
-                    ]() mutable {
-                        for (const auto it :
-                            folly::enumerate(msg.childrenAttrs())) {
-                            m_metadataCache.updateAttr(
-                                std::make_shared<FileAttr>(*it));
-                        }
-                        partialPromise.setValue();
-                    });
-                });
+            folly::Promise<folly::Unit> partialPromise;
+            futs.emplace_back(partialPromise.getFuture());
+            m_runInFiber([
+                this, msg = std::move(msg),
+                partialPromise = std::move(partialPromise), uuid
+            ]() mutable {
+                for (const auto it : folly::enumerate(msg.childrenAttrs())) {
+                    m_metadataCache.updateAttr(std::make_shared<FileAttr>(*it));
+                }
+                partialPromise.setValue();
+            });
+        });
 
-            if (bool(ew)) {
-                p->setException(ew);
-                return folly::Unit();
-            }
+        if (bool(ew)) {
+            p->setException(ew);
+            return;
+        }
 
-        } while (!isLast && fetchedSize > 0);
+    } while (!isLast && fetchedSize > 0);
 
-        folly::collectAll(futs)
-            .then([this, p, uuid](
-                      const std::vector<folly::Try<folly::Unit>> & /*unused*/) {
-                // Wait until all directory entries are added to the
-                // metadata cache
-                m_metadataCache.setDirectorySynced(uuid);
-                p->setValue();
-            })
-            .get();
-
-        return folly::Unit();
-    });
+    folly::collectAll(futs)
+        .then([this, p, uuid](
+                  const std::vector<folly::Try<folly::Unit>> & /*unused*/) {
+            // Wait until all directory entries are added to the
+            // metadata cache
+            m_metadataCache.setDirectorySynced(uuid);
+            p->setValue();
+        })
+        .get();
 }
 
 folly::fbvector<folly::fbstring> ReaddirCache::readdir(
@@ -121,27 +114,26 @@ folly::fbvector<folly::fbstring> ReaddirCache::readdir(
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(off) << LOG_FARG(chunkSize);
 
+    assertInFiber();
+
     // Check if the uuid is already in the cache, if not start fetch
     // asynchronously and add a shared promise to the cache so if any
     // other request for this uuid comes in the meantime it gets queued
     // on that promise
     // In case of error, the promise contains an exception which can
     // be propagated upwards
-    {
-        std::lock_guard<std::mutex> lock(m_cacheMutex);
 
-        // Check if the directory is already in the metadata cache, if yes,
-        // just return the result
-        if (m_metadataCache.isDirectorySynced(uuid)) {
-            m_cache.erase(uuid);
-            return m_metadataCache.readdir(uuid, off, chunkSize);
-        }
+    // Check if the directory is already in the metadata cache, if yes,
+    // just return the result
+    if (m_metadataCache.isDirectorySynced(uuid)) {
+        m_cache.erase(uuid);
+        return m_metadataCache.readdir(uuid, off, chunkSize);
+    }
 
-        auto uuidIt = m_cache.find(uuid);
+    auto uuidIt = m_cache.find(uuid);
 
-        if (uuidIt == m_cache.end()) {
-            fetch(uuid);
-        }
+    if (uuidIt == m_cache.end()) {
+        fetch(uuid);
     }
 
     auto dirEntriesFuture = (*m_cache.find(uuid)).second;
@@ -161,13 +153,16 @@ void ReaddirCache::purge(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
-    std::lock_guard<std::mutex> lock(m_cacheMutex);
+    assertInFiber();
+
     m_cache.erase(uuid);
 }
 
 bool ReaddirCache::empty()
 {
     LOG_FCALL();
+
+    assertInFiber();
 
     return m_cache.empty();
 }

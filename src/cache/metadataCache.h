@@ -11,6 +11,7 @@
 
 #include "attrs.h"
 #include "communication/communicator.h"
+#include "fslogic/fiberBound.h"
 #include "helpers/storageHelper.h"
 #include "messages/fuse/fileBlock.h"
 
@@ -47,7 +48,7 @@ namespace bmi = boost::multi_index;
  * @c MetadataCache is responsible for retrieving and caching file attributes
  * and locations.
  */
-class MetadataCache {
+class MetadataCache : public FiberBound {
 public:
     MetadataCache(communication::Communicator &communicator,
         const std::chrono::seconds providerTimeout, folly::fbstring rootUuid,
