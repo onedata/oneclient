@@ -50,63 +50,74 @@ void ReaddirCache::fetch(const folly::fbstring &uuid)
     auto p = std::make_shared<folly::SharedPromise<folly::Unit>>();
     m_cache.emplace(uuid, p);
 
-    std::size_t chunkIndex = 0;
-    std::size_t fetchedSize = 0;
-    auto isLast = false;
+    m_context.lock()->scheduler()->post([
+        this, uuid = uuid, p = std::move(p)
+    ] {
+        std::size_t chunkIndex = 0;
+        std::size_t fetchedSize = 0;
+        auto isLast = false;
 
-    // Start with empty index token, and then if server returns
-    // index token pass to next request.
-    folly::Optional<folly::fbstring> indexToken;
+        // Start with empty index token, and then if server returns
+        // index token pass to next request.
+        folly::Optional<folly::fbstring> indexToken;
 
-    folly::fbvector<folly::Future<folly::Unit>> futs;
+        folly::fbvector<folly::Future<folly::Unit>> futs;
 
-    do {
-        LOG_DBG(1) << "Requesting directory entries for directory " << uuid
-                   << " starting at offset " << chunkIndex;
+        do {
+            LOG_DBG(1) << "Requesting directory entries for directory " << uuid
+                       << " starting at offset " << chunkIndex;
 
-        auto ew = folly::try_and_catch<std::exception>([this, p, &isLast, uuid,
-                                                           &chunkIndex,
-                                                           &fetchedSize, &futs,
-                                                           &indexToken]() {
-            auto msg = communicate<one::messages::fuse::FileChildrenAttrs>(
-                one::messages::fuse::GetFileChildrenAttrs{uuid,
-                    static_cast<off_t>(chunkIndex), m_prefetchSize, indexToken},
-                m_providerTimeout);
+            auto ew = folly::try_and_catch<std::exception>(
+                [this, p, &isLast, uuid, &chunkIndex, &fetchedSize, &futs,
+                    &indexToken]() {
+                    auto msg =
+                        communicate<one::messages::fuse::FileChildrenAttrs>(
+                            one::messages::fuse::GetFileChildrenAttrs{uuid,
+                                static_cast<off_t>(chunkIndex), m_prefetchSize,
+                                indexToken},
+                            m_providerTimeout);
 
-            fetchedSize = msg.childrenAttrs().size();
-            indexToken.assign(msg.indexToken());
-            isLast = msg.isLast() && *msg.isLast();
-            chunkIndex += fetchedSize;
+                    fetchedSize = msg.childrenAttrs().size();
+                    indexToken.assign(msg.indexToken());
+                    isLast = msg.isLast() && *msg.isLast();
+                    chunkIndex += fetchedSize;
 
-            folly::Promise<folly::Unit> partialPromise;
-            futs.emplace_back(partialPromise.getFuture());
-            m_runInFiber([
-                this, msg = std::move(msg),
-                partialPromise = std::move(partialPromise), uuid
-            ]() mutable {
-                for (const auto it : folly::enumerate(msg.childrenAttrs())) {
-                    m_metadataCache.updateAttr(std::make_shared<FileAttr>(*it));
-                }
-                partialPromise.setValue();
-            });
-        });
+                    folly::Promise<folly::Unit> partialPromise;
+                    futs.emplace_back(partialPromise.getFuture());
+                    m_runInFiber([
+                        this, msg = std::move(msg),
+                        partialPromise = std::move(partialPromise), uuid
+                    ]() mutable {
+                        for (const auto it :
+                            folly::enumerate(msg.childrenAttrs())) {
+                            m_metadataCache.updateAttr(
+                                std::make_shared<FileAttr>(*it));
+                        }
+                        partialPromise.setValue();
+                    });
+                });
 
-        if (bool(ew)) {
-            p->setException(ew);
-            return;
-        }
+            if (bool(ew)) {
+                p->setException(ew);
+                return folly::Unit();
+            }
 
-    } while (!isLast && fetchedSize > 0);
+        } while (!isLast && fetchedSize > 0);
 
-    folly::collectAll(futs)
-        .then([this, p, uuid](
-                  const std::vector<folly::Try<folly::Unit>> & /*unused*/) {
-            // Wait until all directory entries are added to the
-            // metadata cache
-            m_metadataCache.setDirectorySynced(uuid);
-            p->setValue();
-        })
-        .get();
+        folly::collectAll(futs)
+            .then([this, p, uuid](
+                      const std::vector<folly::Try<folly::Unit>> & /*unused*/) {
+                // Wait until all directory entries are added to the
+                // metadata cache
+                m_runInFiber([this, p, uuid]() {
+                    m_metadataCache.setDirectorySynced(uuid);
+                    p->setValue();
+                });
+            })
+            .get();
+
+        return folly::Unit();
+    });
 }
 
 folly::fbvector<folly::fbstring> ReaddirCache::readdir(

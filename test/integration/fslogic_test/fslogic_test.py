@@ -1353,6 +1353,7 @@ def test_metadatacache_should_ignore_changes_on_deleted_directories(appmock_clie
 
     assert 'No such file or directory' in str(excinfo.value)
 
+
 def test_metadatacache_should_keep_open_file_metadata(appmock_client, endpoint, fl):
     parent = 'parentUuid'
     name = 'a.txt'
@@ -1695,6 +1696,7 @@ def test_read_should_read_zero_on_eof(appmock_client, endpoint, fl, uuid):
 
     do_release(endpoint, fl, uuid, fh)
 
+
 def test_read_should_pass_helper_errors(appmock_client, endpoint, fl, uuid):
     fh = do_open(endpoint, fl, uuid, size=10, blocks=[(0, 10)])
 
@@ -1705,6 +1707,7 @@ def test_read_should_pass_helper_errors(appmock_client, endpoint, fl, uuid):
     assert 'Owner died' in str(excinfo.value)
 
     do_release(endpoint, fl, uuid, fh)
+
 
 def test_write_should_write(appmock_client, endpoint, fl, uuid):
     fh = do_open(endpoint, fl, uuid, size=10, blocks=[(0, 10)])
@@ -1830,6 +1833,7 @@ def test_write_should_save_blocks(appmock_client, endpoint, fl, uuid):
 
     do_release(endpoint, fl, uuid, fh)
 
+
 def test_read_should_read_partial_content(appmock_client, endpoint, fl, uuid):
     fh = do_open(endpoint, fl, uuid, size=10, blocks=[(4, 6)])
     data = fl.read(uuid, fh, 6, 4)
@@ -1837,6 +1841,7 @@ def test_read_should_read_partial_content(appmock_client, endpoint, fl, uuid):
     assert len(data) == 4
 
     do_release(endpoint, fl, uuid, fh)
+
 
 def test_read_should_request_synchronization(appmock_client, endpoint, fl, uuid):
     fh = do_open(endpoint, fl, uuid, size=10, blocks=[(4, 6)])
@@ -1860,6 +1865,7 @@ def test_read_should_request_synchronization(appmock_client, endpoint, fl, uuid)
     assert file_request.context_guid == uuid
 
     do_release(endpoint, fl, uuid, fh)
+
 
 def test_read_should_fetch_location_on_invalid_checksum(appmock_client, endpoint, fl, uuid):
     fh = do_open(endpoint, fl, uuid, size=10, blocks=[])
@@ -1887,6 +1893,7 @@ def test_read_should_fetch_location_on_invalid_checksum(appmock_client, endpoint
 
     do_release(endpoint, fl, uuid, fh)
 
+
 def test_read_should_retry_request_synchronization(appmock_client, endpoint, fl, uuid):
     fh = do_open(endpoint, fl, uuid, size=10, blocks=[(4, 6)])
 
@@ -1912,6 +1919,7 @@ def test_read_should_retry_request_synchronization(appmock_client, endpoint, fl,
     assert file_request.context_guid == uuid
 
     do_release(endpoint, fl, uuid, fh)
+
 
 def test_read_should_retry_canceled_synchronization_request(appmock_client, endpoint, fl, uuid):
     fh = do_open(endpoint, fl, uuid, size=10, blocks=[(4, 6)])
@@ -1940,6 +1948,7 @@ def test_read_should_retry_canceled_synchronization_request(appmock_client, endp
 
     do_release(endpoint, fl, uuid, fh)
 
+
 def test_read_should_not_retry_request_synchronization_too_many_times(appmock_client, endpoint, fl, uuid):
     fh = do_open(endpoint, fl, uuid, size=10, blocks=[(4, 6)])
 
@@ -1959,6 +1968,7 @@ def test_read_should_not_retry_request_synchronization_too_many_times(appmock_cl
 
     do_release(endpoint, fl, uuid, fh)
 
+
 def test_read_should_continue_reading_after_synchronization(appmock_client,
                                                             endpoint, fl, uuid):
     fh = do_open(endpoint, fl, uuid, size=10, blocks=[(4, 6)])
@@ -1970,6 +1980,7 @@ def test_read_should_continue_reading_after_synchronization(appmock_client,
 
     do_release(endpoint, fl, uuid, fh)
 
+
 def test_read_should_continue_reading_after_synchronization_partial(appmock_client,
                                                             endpoint, fl, uuid):
     fh = do_open(endpoint, fl, uuid, size=10, blocks=[(4, 6)])
@@ -1980,6 +1991,7 @@ def test_read_should_continue_reading_after_synchronization_partial(appmock_clie
         assert 5 == len(fl.read(uuid, fh, 2, 5))
 
     do_release(endpoint, fl, uuid, fh)
+
 
 def test_read_should_should_open_file_block_once(appmock_client, endpoint, fl, uuid):
     fh = do_open(endpoint, fl, uuid, size=10, blocks=[
@@ -2000,6 +2012,7 @@ def test_read_should_should_open_file_block_once(appmock_client, endpoint, fl, u
     assert fl.verify_and_clear_expectations()
 
     do_release(endpoint, fl, uuid, fh)
+
 
 def test_release_should_release_open_file_blocks(appmock_client, endpoint, fl, uuid):
     fh = do_open(endpoint, fl, uuid, size=10, blocks=[
@@ -2029,6 +2042,7 @@ def test_release_should_pass_helper_errors(appmock_client, endpoint, fl, uuid):
     do_release(endpoint, fl, uuid, fh)
 
     assert 'Owner died' in str(excinfo.value)
+
 
 def test_release_should_send_release_message(appmock_client, endpoint, fl, uuid):
     fh = do_open(endpoint, fl, uuid, size=0)

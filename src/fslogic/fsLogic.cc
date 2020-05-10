@@ -160,9 +160,10 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     m_nextFuseHandleId = 0;
 
     m_runInFiber([this]() {
-        setFiberThreadId(std::this_thread::get_id());
-        m_metadataCache.setFiberThreadId(std::this_thread::get_id());
-        m_readdirCache->setFiberThreadId(std::this_thread::get_id());
+        auto tid = std::this_thread::get_id();
+        setFiberThreadId(tid);
+        m_metadataCache.setFiberThreadId(tid);
+        m_readdirCache->setFiberThreadId(tid);
     });
 
     m_eventManager.subscribe(*configuration);

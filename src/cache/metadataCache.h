@@ -25,7 +25,6 @@
 
 #include <chrono>
 #include <memory>
-#include <mutex>
 #include <vector>
 
 namespace one {
@@ -337,7 +336,6 @@ private:
     communication::Communicator &m_communicator;
 
     Map m_cache;
-    mutable std::mutex m_cacheMutex;
 
     // This set holds UUID's of all files or directories removed in the
     // oneclient session. This is necessary to ensure that delayed

@@ -290,22 +290,20 @@ MetadataCache::Map::iterator MetadataCache::getAttrIt(
     if (m_deletedUuids.find(uuid) != m_deletedUuids.end())
         throw std::system_error(
             std::make_error_code(std::errc::no_such_file_or_directory));
-    {
-        auto &index = bmi::get<ByUuid>(m_cache);
-        auto it = index.find(uuid);
-        if (it != index.end()) {
-            LOG_DBG(2) << "Metadata attr for file " << uuid
-                       << " found in cache";
 
-            if (it->attr->type() == FileAttr::FileType::regular &&
-                !it->attr->size()) {
-                LOG_DBG(2) << "Metadata for file " << uuid
-                           << " exists, but size is undefined, fetch the "
-                              "attribute again";
-            }
-            else {
-                return it;
-            }
+    auto &index = bmi::get<ByUuid>(m_cache);
+    auto it = index.find(uuid);
+    if (it != index.end()) {
+        LOG_DBG(2) << "Metadata attr for file " << uuid << " found in cache";
+
+        if (it->attr->type() == FileAttr::FileType::regular &&
+            !it->attr->size()) {
+            LOG_DBG(2) << "Metadata for file " << uuid
+                       << " exists, but size is undefined, fetch the "
+                          "attribute again";
+        }
+        else {
+            return it;
         }
     }
 
