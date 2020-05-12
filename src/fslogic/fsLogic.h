@@ -17,6 +17,7 @@
 #include "cache/readdirCache.h"
 #include "events/events.h"
 #include "fsSubscriptions.h"
+#include "fslogic/fiberBound.h"
 #include "ioTraceLogger.h"
 
 #include <asio/buffer.hpp>
@@ -65,7 +66,7 @@ constexpr auto SYNCHRONIZE_BLOCK_PRIORITY_CLUSTER_PREFETCH = 160;
  * filesystem. Technically FsLogic is an singleton created on program start and
  * registered in FUSE daemon.
  */
-class FsLogic {
+class FsLogic : public FiberBound {
 public:
     constexpr static int MAX_RETRY_COUNT = FSLOGIC_RETRY_COUNT;
 

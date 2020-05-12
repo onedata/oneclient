@@ -9,6 +9,24 @@ CHANGELOG
 
 *  Empty commit to differentiate between 20.02.0 beta1 and beta2 tags
 
+### 19.02.2
+
+* VFS-6191 Added provider timeout parameter to communicator
+* VFS-6191 Added useful tools to oneclient docker
+* VFS-6130 Extended storage detection logging
+* VFS-6130 Fixed read retries after transfer errors
+* VFS-6130 Ensure update of file location of opened files when forced
+* VFS-6130 Added minimum transfer request size command line option
+* VFS-6127 Skip posix storage detection for manually specified mountpoints
+* VFS-6101 Handle location update for removed files
+* VFS-6089 Handle removed files which have not been opened yet for directio
+* VFS-6089 Handle properly release of deleted files
+* VFS-6089 Handle properly rename of removed file
+* VFS-6042 Fixed directory cache invalidation
+* VFS-6012 Fixed OnedataFS handling operation mapping
+* VFS-6012 Removed io_trace_log from OnedataFs arguments
+* VFS-6013 Fixed space whitelisting
+
 
 ### 19.02.1
 
