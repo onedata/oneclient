@@ -151,7 +151,10 @@ public:
     {
         ReleaseGIL guard;
 
-        auto attr = m_fsLogic.getattr(uuid);
+        auto attr = m_fiberManager
+                        .addTaskRemoteFuture(
+                            [this, uuid]() { return m_fsLogic.getattr(uuid); })
+                        .get();
 
         auto statbuf = one::client::fslogic::detail::toStatbuf(attr, 123);
         Stat stat;
@@ -170,13 +173,21 @@ public:
     void mkdir(std::string parentUuid, std::string name, int mode)
     {
         ReleaseGIL guard;
-        m_fsLogic.mkdir(parentUuid, name, mode);
+        m_fiberManager
+            .addTaskRemoteFuture([this, parentUuid, name, mode]() {
+                m_fsLogic.mkdir(parentUuid, name, mode);
+            })
+            .get();
     }
 
     void unlink(std::string parentUuid, std::string name)
     {
         ReleaseGIL guard;
-        m_fsLogic.unlink(parentUuid, name);
+        m_fiberManager
+            .addTaskRemoteFuture([this, parentUuid, name]() {
+                m_fsLogic.unlink(parentUuid, name);
+            })
+            .get();
     }
 
     void rmdir(std::string parentUuid, std::string name)
@@ -188,16 +199,25 @@ public:
         std::string newParentUuid, std::string newName)
     {
         ReleaseGIL guard;
-        return m_fsLogic.rename(parentUuid, name, newParentUuid, newName);
+        m_fiberManager
+            .addTaskRemoteFuture(
+                [this, parentUuid, name, newParentUuid, newName]() {
+                    m_fsLogic.rename(parentUuid, name, newParentUuid, newName);
+                })
+            .get();
     }
 
     void chmod(std::string uuid, int mode)
     {
         ReleaseGIL guard;
 
-        struct stat statbuf = {};
-        statbuf.st_mode = mode;
-        m_fsLogic.setattr(uuid, statbuf, FUSE_SET_ATTR_MODE);
+        m_fiberManager
+            .addTaskRemoteFuture([this, uuid, mode]() {
+                struct stat statbuf = {};
+                statbuf.st_mode = mode;
+                m_fsLogic.setattr(uuid, statbuf, FUSE_SET_ATTR_MODE);
+            })
+            .get();
     }
 
     void utime(std::string uuid)
@@ -205,9 +225,14 @@ public:
         ReleaseGIL guard;
 
 #if defined(FUSE_SET_ATTR_ATIME_NOW) && defined(FUSE_SET_ATTR_MTIME_NOW)
-        struct stat statbuf = {};
-        m_fsLogic.setattr(
-            uuid, statbuf, FUSE_SET_ATTR_ATIME_NOW | FUSE_SET_ATTR_MTIME_NOW);
+
+        m_fiberManager
+            .addTaskRemoteFuture([this, uuid]() {
+                struct stat statbuf = {};
+                m_fsLogic.setattr(uuid, statbuf,
+                    FUSE_SET_ATTR_ATIME_NOW | FUSE_SET_ATTR_MTIME_NOW);
+            })
+            .get();
 #endif
     }
 
@@ -215,26 +240,36 @@ public:
     {
         ReleaseGIL guard;
 
-        struct stat statbuf = {};
-        statbuf.st_atime = ubuf.actime;
-        statbuf.st_mtime = ubuf.modtime;
+        m_fiberManager
+            .addTaskRemoteFuture([this, uuid, ubuf]() {
+                struct stat statbuf = {};
+                statbuf.st_atime = ubuf.actime;
+                statbuf.st_mtime = ubuf.modtime;
 
-        m_fsLogic.setattr(
-            uuid, statbuf, FUSE_SET_ATTR_ATIME | FUSE_SET_ATTR_MTIME);
+                m_fsLogic.setattr(
+                    uuid, statbuf, FUSE_SET_ATTR_ATIME | FUSE_SET_ATTR_MTIME);
+            })
+            .get();
     }
 
     int opendir(std::string uuid)
     {
         ReleaseGIL guard;
 
-        return m_fsLogic.opendir(uuid);
+        return m_fiberManager
+            .addTaskRemoteFuture(
+                [this, uuid]() { return m_fsLogic.opendir(uuid); })
+            .get();
     }
 
     void releasedir(std::string uuid, int fuseHandleId)
     {
         ReleaseGIL guard;
-
-        m_fsLogic.releasedir(uuid, fuseHandleId);
+        m_fiberManager
+            .addTaskRemoteFuture([this, uuid, fuseHandleId]() {
+                m_fsLogic.releasedir(uuid, fuseHandleId);
+            })
+            .get();
     }
 
     std::vector<std::string> readdir(
@@ -242,98 +277,140 @@ public:
     {
         ReleaseGIL guard;
 
-        std::vector<std::string> children;
-        for (auto &name : m_fsLogic.readdir(uuid, chunkSize, offset))
-            children.emplace_back(name.toStdString());
+        return m_fiberManager
+            .addTaskRemoteFuture([this, uuid, chunkSize, offset]() {
+                std::vector<std::string> children;
+                for (auto &name : m_fsLogic.readdir(uuid, chunkSize, offset))
+                    children.emplace_back(name.toStdString());
 
-        return children;
+                return children;
+            })
+            .get();
     }
 
     void mknod(std::string parentUuid, std::string name, int mode)
     {
         ReleaseGIL guard;
-        m_fsLogic.mknod(parentUuid, name, mode);
+        m_fiberManager
+            .addTaskRemoteFuture([this, parentUuid, name, mode]() {
+                m_fsLogic.mknod(parentUuid, name, mode);
+            })
+            .get();
     }
 
     int open(std::string uuid, int flags)
     {
         ReleaseGIL guard;
-        return m_fsLogic.open(uuid, flags);
+        return m_fiberManager
+            .addTaskRemoteFuture(
+                [this, uuid, flags]() { return m_fsLogic.open(uuid, flags); })
+            .get();
     }
 
     std::string read(std::string uuid, int fileHandleId, int offset, int size)
     {
         ReleaseGIL guard;
-        auto buf = m_fsLogic.read(
-            uuid, fileHandleId, offset, size, {}, FSLOGIC_PROXY_RETRY_COUNT);
+        return m_fiberManager
+            .addTaskRemoteFuture([this, uuid, fileHandleId, offset, size]() {
+                auto buf = m_fsLogic.read(uuid, fileHandleId, offset, size, {},
+                    FSLOGIC_PROXY_RETRY_COUNT);
 
-        std::string data;
-        buf.appendToString(data);
+                std::string data;
+                buf.appendToString(data);
 
-        return data;
+                return data;
+            })
+            .get();
     }
 
     int write(std::string uuid, int fuseHandleId, int offset, int size)
     {
         ReleaseGIL guard;
 
-        auto buf = folly::IOBuf::create(size);
-        buf->append(size);
+        return m_fiberManager
+            .addTaskRemoteFuture([this, uuid, fuseHandleId, offset, size]() {
+                auto buf = folly::IOBuf::create(size);
+                buf->append(size);
 
-        return m_fsLogic.write(uuid, fuseHandleId, offset, std::move(buf),
-            FSLOGIC_PROXY_RETRY_COUNT);
+                return m_fsLogic.write(uuid, fuseHandleId, offset,
+                    std::move(buf), FSLOGIC_PROXY_RETRY_COUNT);
+            })
+            .get();
     }
 
     void release(std::string uuid, int fuseHandleId)
     {
         ReleaseGIL guard;
-        m_fsLogic.release(uuid, fuseHandleId);
+        m_fiberManager
+            .addTaskRemoteFuture([this, uuid, fuseHandleId]() {
+                m_fsLogic.release(uuid, fuseHandleId);
+            })
+            .get();
     }
 
     void truncate(std::string uuid, int size)
     {
         ReleaseGIL guard;
 
-        struct stat statbuf = {};
-        statbuf.st_size = size;
-        m_fsLogic.setattr(uuid, statbuf, FUSE_SET_ATTR_SIZE);
+        m_fiberManager
+            .addTaskRemoteFuture([this, uuid, size]() {
+                struct stat statbuf = {};
+                statbuf.st_size = size;
+                m_fsLogic.setattr(uuid, statbuf, FUSE_SET_ATTR_SIZE);
+            })
+            .get();
     }
 
     std::vector<std::string> listxattr(std::string uuid)
     {
         ReleaseGIL guard;
 
-        std::vector<std::string> xattrs;
-        for (auto &xattrName : m_fsLogic.listxattr(uuid))
-            xattrs.emplace_back(xattrName.toStdString());
+        return m_fiberManager
+            .addTaskRemoteFuture([this, uuid]() {
+                std::vector<std::string> xattrs;
+                for (auto &xattrName : m_fsLogic.listxattr(uuid))
+                    xattrs.emplace_back(xattrName.toStdString());
 
-        return xattrs;
+                return xattrs;
+            })
+            .get();
     }
 
     Xattr getxattr(std::string uuid, std::string name)
     {
         ReleaseGIL guard;
 
-        auto xattrValue = m_fsLogic.getxattr(uuid, name);
+        return m_fiberManager
+            .addTaskRemoteFuture([this, uuid, name]() {
+                auto xattrValue = m_fsLogic.getxattr(uuid, name);
 
-        Xattr xattr;
-        xattr.name = name;
-        xattr.value = xattrValue.toStdString();
+                Xattr xattr;
+                xattr.name = name;
+                xattr.value = xattrValue.toStdString();
 
-        return xattr;
+                return xattr;
+            })
+            .get();
     }
 
     void setxattr(std::string uuid, std::string name, std::string value,
         bool create, bool replace)
     {
         ReleaseGIL guard;
-        m_fsLogic.setxattr(uuid, name, value, create, replace);
+        m_fiberManager
+            .addTaskRemoteFuture([this, uuid, name, value, create, replace]() {
+                m_fsLogic.setxattr(uuid, name, value, create, replace);
+            })
+            .get();
     }
 
     void removexattr(std::string uuid, std::string name)
     {
         ReleaseGIL guard;
-        m_fsLogic.removexattr(uuid, name);
+        m_fiberManager
+            .addTaskRemoteFuture(
+                [this, uuid, name]() { m_fsLogic.removexattr(uuid, name); })
+            .get();
     }
 
     int metadataCacheSize()
@@ -345,7 +422,11 @@ public:
     bool metadataCacheContains(std::string uuid)
     {
         ReleaseGIL guard;
-        return m_fsLogic.metadataCache().contains(uuid);
+        return m_fiberManager
+            .addTaskRemoteFuture([this, uuid]() {
+                return m_fsLogic.metadataCache().contains(uuid);
+            })
+            .get();
     }
 
     void expect_call_sh_open(std::string uuid, int times)

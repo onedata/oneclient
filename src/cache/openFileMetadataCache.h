@@ -30,7 +30,7 @@ class ReaddirCache;
  * @c OpenFileMetadataCache is responsible for ensuring that open files and
  * directories entries are cached in the @c MetadataCache .
  */
-class OpenFileMetadataCache : private MetadataCache {
+class OpenFileMetadataCache : public MetadataCache {
 public:
     /**
      * @c OpenFileToken is a RAII wrapper for an open file.
@@ -327,11 +327,6 @@ public:
      * cached.
      */
     bool updateAttr(std::shared_ptr<FileAttr> newAttr);
-
-    using MetadataCache::contains;
-    using MetadataCache::markDeleted;
-    using MetadataCache::putAttr;
-    using MetadataCache::size;
 
 private:
     /**

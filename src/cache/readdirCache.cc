@@ -42,6 +42,8 @@ void ReaddirCache::fetch(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
+    assertInFiber();
+
     // This private method is only called from a lock_guard block, which makes
     // sure before that uuid is no longer member of m_cache, so that we don't
     // have to check again here
@@ -107,8 +109,10 @@ void ReaddirCache::fetch(const folly::fbstring &uuid)
                       const std::vector<folly::Try<folly::Unit>> & /*unused*/) {
                 // Wait until all directory entries are added to the
                 // metadata cache
-                m_metadataCache.setDirectorySynced(uuid);
-                p->setValue();
+                m_runInFiber([this, p, uuid]() {
+                    m_metadataCache.setDirectorySynced(uuid);
+                    p->setValue();
+                });
             })
             .get();
 
@@ -121,27 +125,26 @@ folly::fbvector<folly::fbstring> ReaddirCache::readdir(
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(off) << LOG_FARG(chunkSize);
 
+    assertInFiber();
+
     // Check if the uuid is already in the cache, if not start fetch
     // asynchronously and add a shared promise to the cache so if any
     // other request for this uuid comes in the meantime it gets queued
     // on that promise
     // In case of error, the promise contains an exception which can
     // be propagated upwards
-    {
-        std::lock_guard<std::mutex> lock(m_cacheMutex);
 
-        // Check if the directory is already in the metadata cache, if yes,
-        // just return the result
-        if (m_metadataCache.isDirectorySynced(uuid)) {
-            m_cache.erase(uuid);
-            return m_metadataCache.readdir(uuid, off, chunkSize);
-        }
+    // Check if the directory is already in the metadata cache, if yes,
+    // just return the result
+    if (m_metadataCache.isDirectorySynced(uuid)) {
+        m_cache.erase(uuid);
+        return m_metadataCache.readdir(uuid, off, chunkSize);
+    }
 
-        auto uuidIt = m_cache.find(uuid);
+    auto uuidIt = m_cache.find(uuid);
 
-        if (uuidIt == m_cache.end()) {
-            fetch(uuid);
-        }
+    if (uuidIt == m_cache.end()) {
+        fetch(uuid);
     }
 
     auto dirEntriesFuture = (*m_cache.find(uuid)).second;
@@ -161,13 +164,16 @@ void ReaddirCache::purge(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
-    std::lock_guard<std::mutex> lock(m_cacheMutex);
+    assertInFiber();
+
     m_cache.erase(uuid);
 }
 
 bool ReaddirCache::empty()
 {
     LOG_FCALL();
+
+    assertInFiber();
 
     return m_cache.empty();
 }

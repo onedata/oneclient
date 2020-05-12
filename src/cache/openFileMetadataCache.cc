@@ -20,7 +20,6 @@ OpenFileMetadataCache::OpenFileToken::OpenFileToken(
 
 OpenFileMetadataCache::OpenFileToken::~OpenFileToken()
 {
-    // OpenFileTokens are only created for files, never directories
     m_cache.releaseFile(m_attr->uuid());
 }
 
@@ -51,6 +50,8 @@ void OpenFileMetadataCache::setReaddirCache(
 
 bool OpenFileMetadataCache::isDirectorySynced(const folly::fbstring &uuid)
 {
+    assertInFiber();
+
     auto it = m_lruDirectoryData.find(uuid);
     if (it == m_lruDirectoryData.end())
         return false;
@@ -60,6 +61,8 @@ bool OpenFileMetadataCache::isDirectorySynced(const folly::fbstring &uuid)
 
 void OpenFileMetadataCache::setDirectorySynced(const folly::fbstring &uuid)
 {
+    assertInFiber();
+
     noteDirectoryActivity(uuid);
     auto it = m_lruDirectoryData.find(uuid);
 
@@ -75,6 +78,8 @@ void OpenFileMetadataCache::opendir(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
+    assertInFiber();
+
     noteDirectoryActivity(uuid);
     auto it = m_lruDirectoryData.find(uuid);
 
@@ -86,6 +91,8 @@ void OpenFileMetadataCache::opendir(const folly::fbstring &uuid)
 void OpenFileMetadataCache::releasedir(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
+
+    assertInFiber();
 
     auto res = m_lruDirectoryData.emplace(uuid, OpenFileData{});
 
@@ -109,6 +116,8 @@ folly::fbvector<folly::fbstring> OpenFileMetadataCache::readdir(
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(off) << LOG_FARG(chunkSize);
 
+    assertInFiber();
+
     noteDirectoryActivity(uuid);
 
     return MetadataCache::readdir(uuid, off, chunkSize);
@@ -117,6 +126,8 @@ folly::fbvector<folly::fbstring> OpenFileMetadataCache::readdir(
 void OpenFileMetadataCache::pinFile(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
+
+    assertInFiber();
 
     auto res = m_lruFileData.emplace(uuid, OpenFileData{});
 
@@ -141,6 +152,8 @@ OpenFileMetadataCache::open(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
+    assertInFiber();
+
     try {
         FileAttrPtr attr;
 
@@ -154,6 +167,7 @@ OpenFileMetadataCache::open(const folly::fbstring &uuid)
         MetadataCache::ensureAttrAndLocationCached(uuid);
 
         pinFile(uuid);
+
         if (attr->parentUuid() && !attr->parentUuid().value().empty())
             noteDirectoryActivity(*attr->parentUuid());
 
@@ -173,6 +187,8 @@ OpenFileMetadataCache::open(const folly::fbstring &uuid,
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
+    assertInFiber();
+
     MetadataCache::updateAttr(attr);
     MetadataCache::putLocation(std::move(location));
 
@@ -187,6 +203,8 @@ OpenFileMetadataCache::open(const folly::fbstring &uuid,
 void OpenFileMetadataCache::releaseFile(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
+
+    assertInFiber();
 
     auto it = m_lruFileData.find(uuid);
     if (it == m_lruFileData.end())
@@ -209,6 +227,8 @@ void OpenFileMetadataCache::releaseFile(const folly::fbstring &uuid)
 FileAttrPtr OpenFileMetadataCache::getAttr(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
+
+    assertInFiber();
 
     std::shared_ptr<FileAttr> attr;
 
@@ -240,10 +260,13 @@ FileAttrPtr OpenFileMetadataCache::getAttr(
 {
     LOG_FCALL() << LOG_FARG(parentUuid) << LOG_FARG(name);
 
+    assertInFiber();
+
     auto attr = MetadataCache::getAttr(parentUuid, name);
 
-    if (attr->parentUuid() && !attr->parentUuid()->empty())
+    if (attr->parentUuid() && !attr->parentUuid()->empty()) {
         noteDirectoryActivity(*attr->parentUuid());
+    }
 
     return attr;
 }
@@ -252,12 +275,16 @@ void OpenFileMetadataCache::putAttr(std::shared_ptr<FileAttr> attr)
 {
     LOG_FCALL();
 
+    assertInFiber();
+
     MetadataCache::putAttr(attr);
 }
 
 void OpenFileMetadataCache::noteDirectoryActivity(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
+
+    assertInFiber();
 
     assert(!uuid.empty());
 
@@ -282,6 +309,8 @@ void OpenFileMetadataCache::noteDirectoryActivity(const folly::fbstring &uuid)
 void OpenFileMetadataCache::pruneExpiredDirectories()
 {
     LOG_FCALL();
+
+    assertInFiber();
 
     // Invalidate all directories and their direct children which are
     // expired and do not contain any opened files
@@ -320,6 +349,8 @@ void OpenFileMetadataCache::prune()
 {
     LOG_FCALL();
 
+    assertInFiber();
+
     LOG_DBG(2) << "MetadataCache size is: " << MetadataCache::size()
                << " Maximum size is: " << m_targetSize;
 
@@ -334,6 +365,8 @@ bool OpenFileMetadataCache::rename(folly::fbstring uuid,
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(newParentUuid)
                 << LOG_FARG(newName) << LOG_FARG(newUuid);
+
+    assertInFiber();
 
     assert(!newName.empty());
 
@@ -379,6 +412,8 @@ void OpenFileMetadataCache::truncate(
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(newSize);
 
+    assertInFiber();
+
     FileAttrPtr attr;
 
     if (m_lruFileData.find(uuid) != m_lruFileData.end())
@@ -398,6 +433,8 @@ void OpenFileMetadataCache::updateTimes(
     folly::fbstring uuid, const messages::fuse::UpdateTimes &updateTimes)
 {
     LOG_FCALL() << LOG_FARG(uuid);
+
+    assertInFiber();
 
     FileAttrPtr attr;
 
@@ -419,6 +456,8 @@ void OpenFileMetadataCache::changeMode(
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(newMode);
 
+    assertInFiber();
+
     FileAttrPtr attr;
 
     if (m_lruFileData.find(uuid) != m_lruFileData.end())
@@ -438,6 +477,7 @@ void OpenFileMetadataCache::putLocation(std::unique_ptr<FileLocation> location)
 {
     LOG_FCALL();
 
+    assertInFiber();
     assert(location);
 
     auto uuid = location->uuid();
@@ -464,6 +504,8 @@ std::shared_ptr<FileLocation> OpenFileMetadataCache::getLocation(
 {
     LOG_FCALL();
 
+    assertInFiber();
+
     // Check if the file is opened
     if ((m_lruFileData.find(uuid) != m_lruFileData.end())) {
         // If this request doesn't require updating the location,
@@ -471,8 +513,8 @@ std::shared_ptr<FileLocation> OpenFileMetadataCache::getLocation(
         if (!forceUpdate)
             return m_lruFileData.at(uuid).location;
 
-        // If the file is deleted, or this is a forced update (e.g. after read
-        // error) request the file location from the server
+        // If the file is deleted, or this is a forced update (e.g. after
+        // read error) request the file location from the server
         if (MetadataCache::isDeleted(uuid) || forceUpdate) {
             m_lruFileData.find(uuid)->second.location =
                 MetadataCache::getLocation(
@@ -490,6 +532,8 @@ std::shared_ptr<FileLocation> OpenFileMetadataCache::getLocation(
 bool OpenFileMetadataCache::updateLocation(const FileLocation &newLocation)
 {
     LOG_FCALL();
+
+    assertInFiber();
 
     auto const &uuid = newLocation.uuid();
 
@@ -526,6 +570,8 @@ bool OpenFileMetadataCache::updateLocation(
 {
     LOG_FCALL() << LOG_FARG(start) << LOG_FARG(end)
                 << LOG_FARG(locationUpdate.uuid());
+
+    assertInFiber();
 
     auto const &uuid = locationUpdate.uuid();
 
@@ -564,6 +610,8 @@ void OpenFileMetadataCache::addBlock(const folly::fbstring &uuid,
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
+    assertInFiber();
+
     std::shared_ptr<FileLocation> location;
 
     if (m_lruFileData.find(uuid) != m_lruFileData.end() &&
@@ -577,18 +625,9 @@ void OpenFileMetadataCache::addBlock(const folly::fbstring &uuid,
     }
     else {
         // Update the attribute in the general cache
-        std::shared_ptr<FileAttr> attr;
+        MetadataCache::updateSizeFromRange(uuid, range);
 
-        auto it = bmi::get<ByUuid>(m_cache).find(uuid);
-        m_cache.modify(it, [&](Metadata &m) {
-            auto newSize =
-                std::max<off_t>(boost::icl::last(range) + 1, *m.attr->size());
-
-            LOG_DBG(2) << "Updating file size for " << uuid << " to "
-                       << newSize;
-            m.attr->size(newSize);
-        });
-
+        // Ensure location is updated
         try {
             location = MetadataCache::getLocation(uuid);
         }
@@ -609,6 +648,7 @@ folly::Optional<
     std::pair<boost::icl::discrete_interval<off_t>, messages::fuse::FileBlock>>
 OpenFileMetadataCache::getBlock(const folly::fbstring &uuid, const off_t offset)
 {
+    assertInFiber();
 
     FileAttrPtr attr;
     std::shared_ptr<FileLocation> location;
@@ -647,6 +687,8 @@ OpenFileMetadataCache::getBlock(const folly::fbstring &uuid, const off_t offset)
 messages::fuse::FileBlock OpenFileMetadataCache::getDefaultBlock(
     const folly::fbstring &uuid)
 {
+    assertInFiber();
+
     std::shared_ptr<FileAttr> attr;
     std::shared_ptr<FileLocation> location;
 
@@ -677,6 +719,8 @@ messages::fuse::FileBlock OpenFileMetadataCache::getDefaultBlock(
 const std::string &OpenFileMetadataCache::getSpaceId(
     const folly::fbstring &uuid)
 {
+    assertInFiber();
+
     std::shared_ptr<FileLocation> location;
 
     if (m_lruFileData.find(uuid) != m_lruFileData.end()) {
@@ -695,6 +739,8 @@ const std::string &OpenFileMetadataCache::getSpaceId(
 
 bool OpenFileMetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr)
 {
+    assertInFiber();
+
     try {
         if (MetadataCache::updateAttr(newAttr))
             return true;
@@ -741,6 +787,7 @@ void OpenFileMetadataCache::handleMarkDeleted(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
+    assertInFiber();
     assert(!uuid.empty());
 
     // Try to treat the uuid as directory
@@ -777,9 +824,11 @@ void OpenFileMetadataCache::handleRename(
 {
     LOG_FCALL() << LOG_FARG(oldUuid) << LOG_FARG(newUuid);
 
+    assertInFiber();
     assert(!newUuid.empty());
 
     auto attr = getAttr(newUuid);
+
     if (attr->type() == FileAttr::FileType::directory) {
         // Handle rename of a cached directory
         auto it = m_lruDirectoryData.find(oldUuid);
