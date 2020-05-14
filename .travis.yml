@@ -128,13 +128,13 @@ script:
     make submodules &&
     mkdir -p release &&
     cd release &&
-    export PKG_REVISION=`git describe --tags --always  --abbrev=7` &&
+    export PKG_REVISION=$(git describe --tags --always --abbrev=7) &&
     export PKG_COMMIT=`git rev-parse --verify HEAD` &&
-    export HELPERS_COMMIT=`git -C helpers rev-parse --verify HEAD` &&
+    export HELPERS_COMMIT=$(git -C helpers rev-parse --verify HEAD) &&
     cmake -GNinja -DCMAKE_BUILD_TYPE=Release
-	              -DGIT_VERSION=${PKG_REVISION}
-	              -DGIT_COMMIT=${PKG_COMMIT}
-	              -DGIT_HELPERS_COMMIT=${HELPERS_COMMIT}
+	              -DGIT_VERSION="$PKG_REVISION"
+	              -DGIT_COMMIT="$PKG_COMMIT"
+	              -DGIT_HELPERS_COMMIT="$HELPERS_COMMIT"
 	              -DCODE_COVERAGE=OFF
 	              -DWITH_CEPH=ON
 	              -DWITH_SWIFT=ON
