@@ -16,8 +16,6 @@ addons:
     update: true
     sources:
       - sourceline: 'ppa:onedata/build-deps-1802'
-      - sourceline: 'deb http://packages.couchbase.com/ubuntu bionic bionic/main'
-        key_url: 'http://packages.couchbase.com/ubuntu/couchbase.key'
     packages:
       - autoconf
       - aws-sdk-cpp-s3
@@ -56,8 +54,6 @@ addons:
       - libboost-thread1.65.1
       - libbotan1.10
       - libbotan1.10-dev
-      - libcouchbase-dev
-      - libcouchbase2-libevent
       - libcurl4
       - libcurl4-openssl-dev
       - libdouble-conversion1
@@ -117,19 +113,14 @@ addons:
       - unzip
       - uuid
       - uuid-dev
-      - vim
       - wangle-dev
-
-before_script:
-  - git config --global url."https://github.com/onedata".insteadOf "ssh://git@git.onedata.org:7999/vfs"
 
 script:
   - >
-    make submodules &&
     mkdir -p release &&
     cd release &&
     export PKG_REVISION=$(git describe --tags --always --abbrev=7) &&
-    export PKG_COMMIT=`git rev-parse --verify HEAD` &&
+    export PKG_COMMIT=$(git rev-parse --verify HEAD) &&
     export HELPERS_COMMIT=$(git -C helpers rev-parse --verify HEAD) &&
     cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DGIT_VERSION="$PKG_REVISION" -DGIT_COMMIT="$PKG_COMMIT" -DGIT_HELPERS_COMMIT="$HELPERS_COMMIT" -DCODE_COVERAGE=OFF -DWITH_CEPH=ON -DWITH_SWIFT=ON -DWITH_S3=ON -DWITH_GLUSTERFS=ON -DWITH_WEBDAV=ON -DWITH_ONEDATAFS=ON .. &&
     cd .. &&
