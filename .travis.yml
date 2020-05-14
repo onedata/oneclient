@@ -125,6 +125,10 @@ before_script:
 
 script:
   - >
+    make submodules
+    mkdir -p release
     cmake --build release --target oneclient
+    cmake --build release --target onebench
+    cmake --build release --target onedatafs.py3
 
 after_script: set +e
