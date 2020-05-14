@@ -1,61 +1,141 @@
 branches:
   only:
     - develop
-    - develop-osx
+    - enable-travis-bionic-build
 
 language: cpp
 
-matrix:
-  include:
-    - os: osx
-      osx_image: xcode8.3
-      compiler: clang
-      env: >
-        ONEDATA_GIT_URL="https://github.com/onedata"
-        OSX_CODENAME=sierra
-        PKG_CONFIG_PATH="/usr/local/opt/openssl/lib/pkgconfig:/usr/local/lib/pkgconfig:/usr/local/opt/nss/lib/pkgconfig"
-
 cache:
   directories:
-    - $HOME/Library/Caches/Homebrew
-    - $HOME/.ccache
+    - /var/cache/ccache
 
-before_install:
-  - brew update
-  - brew install ccache
-  - PATH=/usr/local/opt/ccache/libexec:$PATH
-  - brew install gnu-sed --with-default-names && brew link --force gnu-sed
-  - brew upgrade python
-  - brew outdated boost || brew upgrade boost
-  - brew install boost-python
-  - brew install libtool
-  - brew install libsodium && brew link --force libsodium
-  - brew install ninja && brew link --force ninja
-  - brew outdated poco || brew upgrade poco
-  - brew outdated libevent || brew upgrade libevent
-  - brew outdated openssl || brew upgrade openssl
-  - brew install nspr && brew unlink nspr && brew link --force nspr
-  - brew install nss && brew unlink nss && brew link --force nss
-  - brew install tbb && brew unlink tbb && brew link --force tbb
-  - brew install glog && brew unlink glog && brew link glog
-  - brew install protobuf
-  - brew install protobuf-c
-  - brew install erlang
-  - brew install aws-sdk-cpp
-  - brew tap onedata/onedata
-  - brew install onedata/onedata/folly
-  - brew install libiberty
-  - brew install swift-cpp-sdk
-  - brew install glusterfs-api
-  - brew install Caskroom/cask/osxfuse
+dist: bionic
+
+addons:
+  apt:
+    update: true
+    sources:
+      - sourceline: 'ppa:onedata/build-deps-1802'
+      - sourceline: 'deb http://packages.couchbase.com/ubuntu bionic bionic/main'
+        key_url: 'http://packages.couchbase.com/ubuntu/couchbase.key'
+    packages:
+      - autoconf
+      - aws-sdk-cpp-s3
+      - bash-completion
+      - bc
+      - build-essential
+      - ccache
+      - cmake
+      - curl
+      - debhelper
+      - devscripts
+      - doxygen
+      - folly
+      - folly-dev
+      - fuse
+      - g++
+      - gdb
+      - git
+      - glusterfs-common
+      - glusterfs-dbg
+      - golang-go
+      - iputils-ping
+      - jekyll
+      - lcov
+      - libacl1
+      - libacl1-dev
+      - libboost-all-dev
+      - libboost-context1.65.1
+      - libboost-filesystem1.65.1
+      - libboost-iostreams1.65.1
+      - libboost-log1.65.1
+      - libboost-program-options1.65.1
+      - libboost-python1.65.1
+      - libboost-random1.65.1
+      - libboost-system1.65.1
+      - libboost-thread1.65.1
+      - libbotan1.10
+      - libbotan1.10-dev
+      - libcouchbase-dev
+      - libcouchbase2-libevent
+      - libcurl4
+      - libcurl4-openssl-dev
+      - libdouble-conversion1
+      - libfuse-dev
+      - libgflags-dev
+      - libgflags2.2
+      - libgoogle-glog-dev
+      - libgoogle-glog0v5
+      - libgoogle-perftools-dev
+      - libgoogle-perftools4
+      - libiberty-dev
+      - libjemalloc-dev
+      - libjemalloc1
+      - libltdl-dev
+      - libnspr4
+      - libnspr4-dev
+      - libnss3
+      - libnss3-dev
+      - libpoco-dev
+      - libpocofoundation50
+      - libpoconetssl50
+      - libpocoutil50
+      - libpocoxml50
+      - libprotobuf-dev
+      - libprotobuf10
+      - librados-dev
+      - librados2
+      - libradosstriper-dev
+      - libradosstriper1
+      - libsodium-dev
+      - libsodium23
+      - libstdc++-7-dev
+      - libtbb-dev
+      - libtbb2
+      - libunwind-dev
+      - libunwind8
+      - locales
+      - nano
+      - nfs-common
+      - ninja-build
+      - nodejs
+      - openssl
+      - pkg-config
+      - protobuf-compiler
+      - proxygen-dev
+      - python
+      - python-dev
+      - python-pip
+      - python-protobuf
+      - python-rados
+      - python-sphinx
+      - python-xattr
+      - python2.7-dev
+      - python3
+      - python3-dev
+      - swift-sdk-cpp
+      - unzip
+      - uuid
+      - uuid-dev
+      - vim
+      - wangle-dev
+
+before_script:
+  - git config --global url."https://github.com/onedata".insteadOf "ssh://git@git.onedata.org:7999/vfs"
 
 script:
   - >
-    make release WITH_CEPH=OFF
-                 WITH_S3=ON
-                 WITH_SWIFT=ON
-                 WITH_GLUSTERFS=ON
-                 OPENSSL_ROOT_DIR=/usr/local/opt/openssl
-                 OPENSSL_LIBRARIES=/usr/local/opt/openssl/lib
+    make submodules &&
+    mkdir -p release &&
+    cd release &&
+    export PKG_REVISION=$(git describe --tags --always --abbrev=7) &&
+    export PKG_COMMIT=`git rev-parse --verify HEAD` &&
+    export HELPERS_COMMIT=$(git -C helpers rev-parse --verify HEAD) &&
+    cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DGIT_VERSION="$PKG_REVISION" -DGIT_COMMIT="$PKG_COMMIT" -DGIT_HELPERS_COMMIT="$HELPERS_COMMIT" -DCODE_COVERAGE=OFF -DWITH_CEPH=ON -DWITH_SWIFT=ON -DWITH_S3=ON -DWITH_GLUSTERFS=ON -DWITH_WEBDAV=ON -DWITH_ONEDATAFS=ON .. &&
+    cd .. &&
+    cmake --build release --target oneclient &&
+    cmake --build release --target onebench &&
+    cmake --build release --target onedatafs.py2 &&
+    cmake --build release --target onedatafs.py3
 
 after_script: set +e
