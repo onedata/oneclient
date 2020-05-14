@@ -135,6 +135,7 @@ script:
     cd .. &&
     cmake --build release --target oneclient &&
     cmake --build release --target onebench &&
+    cmake --build release --target onedatafs.py2 &&
     cmake --build release --target onedatafs.py3
 
 after_script: set +e
