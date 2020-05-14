@@ -127,6 +127,7 @@ script:
   - >
     make submodules &&
     mkdir -p release &&
+    cmake . &&
     cmake --build release --target oneclient &&
     cmake --build release --target onebench &&
     cmake --build release --target onedatafs.py3
