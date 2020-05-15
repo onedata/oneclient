@@ -8,7 +8,10 @@ language: cpp
 services:
   - docker
 
-cache: ccache
+cache:
+  - ccache: true
+  - directories:
+      - /var/cache/rebar3
 
 dist: bionic
 
@@ -146,4 +149,5 @@ script:
 after_script: set +e
 
 after_success:
-  - coveralls-lcov oneclient_integration_combined.info
+  - echo "Submitting integration test coverage report from $TRAVIS_BUILD_DIR"
+  - coveralls-lcov $TRAVIS_BUILD_DIR/oneclient_integration_combined.info

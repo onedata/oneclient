@@ -141,8 +141,8 @@ docs:
 #
 .PHONY: coverage
 coverage_cunit coverage:
-	lcov --directory `pwd`/debug --capture --output-file `pwd`/oneclient.info
-	lcov --remove `pwd`/oneclient.info 'test/*' '/usr/*' 'asio/*' '**/messages/*' \
+	lcov --quiet --directory `pwd`/debug --capture --output-file `pwd`/oneclient.info
+	lcov --quiet --remove `pwd`/oneclient.info 'test/*' '/usr/*' 'asio/*' '**/messages/*' \
 	                                   'relwithdebinfo/*' 'debug/*' 'release/*' \
 	                                   '**/helpers/*' 'deps/*' \
 	     --output-file `pwd`/oneclient_cunit.info.cleaned
@@ -152,8 +152,8 @@ coverage_cunit coverage:
 
 .PHONY: coverage/%
 coverage/%:
-	lcov --directory `pwd`/debug --capture --output-file `pwd`/oneclient.info
-	lcov --remove `pwd`/oneclient.info 'test/*' '/usr/*' 'asio/*' '**/messages/*' \
+	lcov --quiet --directory `pwd`/debug --capture --output-file `pwd`/oneclient.info
+	lcov --quiet --remove `pwd`/oneclient.info 'test/*' '/usr/*' 'asio/*' '**/messages/*' \
 	                                   'relwithdebinfo/*' 'debug/*' 'release/*' \
 	                                   '**/helpers/*' 'deps/*' \
 	     --output-file `pwd`/oneclient_integration_$*.info.cleaned
@@ -163,9 +163,9 @@ coverage/%:
 
 .PHONY: coverage_integration
 coverage_integration:
-	lcov -a `pwd`/oneclient_integration_events_test.info.cleaned \
-		 -a `pwd`/oneclient_integration_fslogic_test.info.cleaned \
-		 -o `pwd`/oneclient_integration_combined.info
+	lcov --quiet -a `pwd`/oneclient_integration_events_test.info.cleaned \
+		         -a `pwd`/oneclient_integration_fslogic_test.info.cleaned \
+		         -o `pwd`/oneclient_integration_combined.info
 	genhtml -o `pwd`/coverage/integration/combined `pwd`/oneclient_integration_combined.info
 	@echo "Coverage written to `pwd`/coverage/integration/combined/index.html"
 
