@@ -11,7 +11,7 @@ services:
 cache:
   - ccache: true
   - directories:
-      - /var/cache/rebar3
+      - '~/.cache/rebar3'
 
 dist: bionic
 
@@ -144,10 +144,7 @@ script:
     make coverage/events_test &&
     py.test --verbose debug/test/integration/fslogic_test &&
     make coverage/fslogic_test &&
-    make coverage/integration
+    make coverage/integration &&
+    coveralls-lcov ./oneclient_integration_combined.info
 
 after_script: set +e
-
-after_success:
-  - echo "Submitting integration test coverage report from $TRAVIS_BUILD_DIR"
-  - coveralls-lcov $TRAVIS_BUILD_DIR/oneclient_integration_combined.info
