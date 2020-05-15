@@ -124,6 +124,7 @@ before_script:
   - gem install coveralls-lcov
   - pip install six==1.12.0 dnspython Flask Flask-SQLAlchemy pytest==2.9.1 pytest-bdd==2.18.0 requests==2.5.1 boto boto3 rpyc==4.0.2 PyYAML xattr
   - curl -L https://github.com/erlang/rebar3/releases/download/3.11.1/rebar3 -o /usr/local/bin/rebar3 && chmod +x /usr/local/bin/rebar3
+  - git config --global url."https://github.com/onedata".insteadOf "ssh://git@git.onedata.org:7999/vfs"
 
 script:
   - >
@@ -134,7 +135,7 @@ script:
     cd debug &&
     cmake -GNinja -DCMAKE_BUILD_TYPE=Debug -DGIT_VERSION="$PKG_REVISION" -DGIT_COMMIT="$PKG_COMMIT" -DGIT_HELPERS_COMMIT="$HELPERS_COMMIT" -DCODE_COVERAGE=ON -DWITH_CEPH=ON -DWITH_SWIFT=ON -DWITH_S3=ON -DWITH_GLUSTERFS=ON -DWITH_WEBDAV=ON -DWITH_ONEDATAFS=ON .. &&
     cd .. &&
-    cmake --build debug --target &&
+    cmake --build debug &&
     cmake --build debug --target test &&
     ./ct_run.py --release debug --suite events_test --verbose &&
     make coverage/events_test &&
