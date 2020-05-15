@@ -128,12 +128,13 @@ before_script:
 script:
   - >
     mkdir -p debug &&
-    cd debug &&
     export PKG_REVISION=$(git describe --tags --always --abbrev=7) &&
     export PKG_COMMIT=$(git rev-parse --verify HEAD) &&
     export HELPERS_COMMIT=$(git -C helpers rev-parse --verify HEAD) &&
+    cd debug &&
     cmake -GNinja -DCMAKE_BUILD_TYPE=Debug -DGIT_VERSION="$PKG_REVISION" -DGIT_COMMIT="$PKG_COMMIT" -DGIT_HELPERS_COMMIT="$HELPERS_COMMIT" -DCODE_COVERAGE=ON -DWITH_CEPH=ON -DWITH_SWIFT=ON -DWITH_S3=ON -DWITH_GLUSTERFS=ON -DWITH_WEBDAV=ON -DWITH_ONEDATAFS=ON .. &&
     cd .. &&
+    cmake --build debug --target &&
     cmake --build debug --target test &&
     ./ct_run.py --release debug --suite events_test --verbose &&
     make coverage/events_test &&
