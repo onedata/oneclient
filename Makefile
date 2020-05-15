@@ -104,7 +104,9 @@ debug: debug/oneclient debug/onebench debug/onedatafs-py2 debug/onedatafs-py3
 
 .PHONY: test
 test: debug
-	git config --global url."https://github.com/onedata".insteadOf "ssh://git@git.onedata.org:7999/vfs"
+ifdef ONEDATA_GIT_URL
+	git config --global url."${ONEDATA_GIT_URL}".insteadOf "ssh://git@git.onedata.org:7999/vfs"
+endif
 	cmake --build debug
 	cmake --build debug --target test
 
