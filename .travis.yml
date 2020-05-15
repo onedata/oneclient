@@ -141,8 +141,6 @@ script:
     make coverage/events_test &&
     py.test --verbose debug/test/integration/fslogic_test &&
     make coverage/fslogic_test &&
-    py.test --verbose debug/test/integration/helperscache_test &&
-    make coverage/helperscache_test &&
     make coverage/integration
 
 after_script: set +e

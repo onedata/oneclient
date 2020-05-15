@@ -165,7 +165,6 @@ coverage/%:
 coverage_integration:
 	lcov -a `pwd`/oneclient_integration_events_test.info.cleaned \
 		 -a `pwd`/oneclient_integration_fslogic_test.info.cleaned \
-		 -a `pwd`/oneclient_integration_helperscache_test.info.cleaned \
 		 -o `pwd`/oneclient_integration_combined.info
 	genhtml -o `pwd`/coverage/integration/combined `pwd`/oneclient_integration_combined.info
 	@echo "Coverage written to `pwd`/coverage/integration/combined/index.html"
