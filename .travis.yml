@@ -128,6 +128,8 @@ before_script:
 
 script:
   - >
+    cp -rf /usr/local/bin/rebar3 helpers/appmock/bamboos/rebar3 &&
+    cp -rf /usr/local/bin/rebar3 helpers/bamboos/rebar3 &&
     mkdir -p debug &&
     export PKG_REVISION=$(git describe --tags --always --abbrev=7) &&
     export PKG_COMMIT=$(git rev-parse --verify HEAD) &&
