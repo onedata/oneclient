@@ -144,7 +144,7 @@ script:
     make coverage/events_test &&
     py.test --verbose debug/test/integration/fslogic_test &&
     make coverage/fslogic_test &&
-    make coverage/integration &&
+    make coverage_integration &&
     coveralls-lcov ./oneclient_integration_combined.info
 
 after_script: set +e
