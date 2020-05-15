@@ -137,11 +137,11 @@ script:
     cd .. &&
     cmake --build debug &&
     cmake --build debug --target test &&
-    ./ct_run.py --release debug --suite events_test --verbose &&
+    pytest --verbose debug/test/integration/events_test &&
     make coverage/events_test &&
-    ./ct_run.py --release debug --suite fslogic_test --verbose &&
+    pytest --verbose debug/test/integration/fslogic_test &&
     make coverage/fslogic_test &&
-    ./ct_run.py --release debug --suite helperscache_test --verbose &&
+    pytest --verbose debug/test/integration/helperscache_test &&
     make coverage/helperscache_test &&
     make coverage/integration
 
