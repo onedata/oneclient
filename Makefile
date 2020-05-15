@@ -30,6 +30,8 @@ WITH_GLUSTERFS    ?= ON
 WITH_WEBDAV       ?= ON
 # Build with onedatafs Python library
 WITH_ONEDATAFS    ?= ON
+# Build with code coverage
+WITH_COVERAGE     ?= ON
 
 # Oneclient FPM packaging variables
 PATCHELF_DOCKER_IMAGE   ?= docker.onedata.org/patchelf:0.9
@@ -102,6 +104,7 @@ debug: debug/oneclient debug/onebench debug/onedatafs-py2 debug/onedatafs-py3
 
 .PHONY: test
 test: debug
+	git config --global url."https://github.com/onedata".insteadOf "ssh://git@git.onedata.org:7999/vfs"
 	cmake --build debug
 	cmake --build debug --target test
 
@@ -118,15 +121,52 @@ install: release
 docs:
 	@doxygen Doxyfile
 
+#
+# Coverage tests are collected from 2 types of tests:
+# - Unit tests
+# - Integration tests
+#
+# Unit test coverage results are managed by CMake and are collected
+# in ./coverage/cunit/ subdirectory and should be generated after
+# running cunit target.
+#
+# Integration tests coverage results have to be collected after
+# each integration test (e.g. fslogic_test) and are stored in
+# ./coverage/integration/TEST_NAME.
+# A combined report containing the sum of coverage from individual
+# integration tests can be generated using coverage_integration target
+# and the result will be stored in ./coverage/integration/combined
+#
 .PHONY: coverage
-coverage:
+coverage_cunit coverage:
 	lcov --directory `pwd`/debug --capture --output-file `pwd`/oneclient.info
 	lcov --remove `pwd`/oneclient.info 'test/*' '/usr/*' 'asio/*' '**/messages/*' \
 	                                   'relwithdebinfo/*' 'debug/*' 'release/*' \
 	                                   '**/helpers/*' 'deps/*' \
-	     --output-file `pwd`/oneclient.info.cleaned
-	genhtml -o `pwd`/coverage `pwd`/oneclient.info.cleaned
-	@echo "Coverage written to `pwd`/coverage/index.html"
+	     --output-file `pwd`/oneclient_cunit.info.cleaned
+	find `pwd`/debug/ -name "*.gcda" -type f -delete
+	genhtml -o `pwd`/coverage/cunit `pwd`/oneclient_cunit.info.cleaned
+	@echo "Coverage written to `pwd`/coverage/cunit/index.html"
+
+.PHONY: coverage/%
+coverage/%:
+	lcov --directory `pwd`/debug --capture --output-file `pwd`/oneclient.info
+	lcov --remove `pwd`/oneclient.info 'test/*' '/usr/*' 'asio/*' '**/messages/*' \
+	                                   'relwithdebinfo/*' 'debug/*' 'release/*' \
+	                                   '**/helpers/*' 'deps/*' \
+	     --output-file `pwd`/oneclient_integration_$*.info.cleaned
+	find `pwd`/debug/ -name "*.gcda" -type f -delete
+	genhtml -o `pwd`/coverage/integration/$* `pwd`/oneclient_integration_$*.info.cleaned
+	@echo "Coverage written to `pwd`/coverage/integration/$*/index.html"
+
+.PHONY: coverage_integration
+coverage_integration:
+	lcov -a `pwd`/oneclient_integration_events_test.info.cleaned \
+		 -a `pwd`/oneclient_integration_fslogic_test.info.cleaned \
+		 -a `pwd`/oneclient_integration_helperscache_test.info.cleaned \
+		 -o `pwd`/oneclient_integration_combined.info
+	genhtml -o `pwd`/coverage/integration/combined `pwd`/oneclient_integration_combined.info
+	@echo "Coverage written to `pwd`/coverage/integration/combined/index.html"
 
 .PHONY: check_distribution
 check_distribution:
