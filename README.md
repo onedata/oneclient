@@ -1,6 +1,7 @@
 # oneclient
 
 [![Build Status](https://api.travis-ci.org/onedata/oneclient.svg?branch=develop)](https://travis-ci.org/onedata/oneclient)
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fonedata%2Foneclient.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fonedata%2Foneclient?ref=badge_shield)
 
 *oneclient* is a command line [Onedata](onedata.org) client. It provides a POSIX interface to user's files in *Onedata* system.
 
@@ -376,3 +377,7 @@ nfs://<CONTAINER_IP_ADDR>/mnt/oneclient
 smb://<CONTAINER_IP_ADDR>/onedata
 ```
 
+
+
+## License
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fonedata%2Foneclient.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fonedata%2Foneclient?ref=badge_large)
