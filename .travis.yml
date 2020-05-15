@@ -13,7 +13,7 @@ cache: ccache
 dist: bionic
 
 env:
-  - ONEDATA_GIT_URL="https://github.com/onedata"
+  - ONEDATA_GIT_URL="https://github.com/onedata" REBAR_PROFILE="bamboo"
 
 addons:
   apt:
@@ -128,8 +128,6 @@ before_script:
 
 script:
   - >
-    cp -rf /usr/local/bin/rebar3 helpers/appmock/bamboos/rebar3 &&
-    cp -rf /usr/local/bin/rebar3 helpers/bamboos/rebar3 &&
     mkdir -p debug &&
     export PKG_REVISION=$(git describe --tags --always --abbrev=7) &&
     export PKG_COMMIT=$(git rev-parse --verify HEAD) &&
