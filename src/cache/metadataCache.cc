@@ -445,6 +445,21 @@ void MetadataCache::ensureAttrAndLocationCached(folly::fbstring uuid)
     getLocationPtr(it);
 }
 
+void MetadataCache::releaseFile(const folly::fbstring &uuid)
+{
+    LOG_FCALL() << LOG_FARG(uuid);
+
+    assertInFiber();
+
+    auto &index = bmi::get<ByUuid>(m_cache);
+    auto it = index.find(uuid);
+    if (it == index.end())
+        return;
+
+    // Clear the file location attached to this cached attribute
+    m_cache.modify(it, [&](Metadata &m) { m.location = {}; });
+}
+
 void MetadataCache::erase(folly::fbstring uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
