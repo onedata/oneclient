@@ -247,6 +247,15 @@ HelpersCache::HelperPtr HelpersCache::performAutoIOStorageDetection(
                             directMode}),
                 m_providerTimeout);
 
+            if (params.name() == helpers::PROXY_HELPER_NAME) {
+                LOG(INFO) << "Storage " << storageId
+                          << " not accessible for direct access from this "
+                             "Oneprovider - switching to proxy mode.";
+
+                return m_helperFactory.getStorageHelper(params.name(),
+                    params.args(), m_options.isIOBuffered(), overrideParams);
+            }
+
             if (params.name() == helpers::POSIX_HELPER_NAME &&
                 overrideParams.find("mountPoint") != overrideParams.end()) {
 
