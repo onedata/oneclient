@@ -27,7 +27,9 @@
 #include "messages/fuse/fileOpened.h"
 #include "messages/fuse/fileRenamed.h"
 #include "messages/fuse/fileRenamedEntry.h"
+#include "messages/fuse/fsStats.h"
 #include "messages/fuse/fsync.h"
+#include "messages/fuse/getFSStats.h"
 #include "messages/fuse/getFileChildren.h"
 #include "messages/fuse/getFileChildrenAttrs.h"
 #include "messages/fuse/getHelperParams.h"
@@ -287,6 +289,23 @@ struct statvfs FsLogic::statfs(const folly::fbstring &uuid)
         statinfo.f_blocks = statinfo.f_bfree = statinfo.f_bavail =
             emulatedFreeSpace / statinfo.f_frsize;
         statinfo.f_files = statinfo.f_ffree = kFreeInodes;
+    }
+    else {
+        messages::fuse::GetFSStats msg{uuid.toStdString()};
+        auto fsStats = communicate<messages::fuse::FSStats>(
+            std::move(msg), m_providerTimeout);
+
+        // block size
+        statinfo.f_bsize = kBlockSize;
+        // fragment size
+        statinfo.f_frsize = statinfo.f_bsize;
+        // size of fs in f_frsize units
+        statinfo.f_blocks = fsStats.getTotalSize() / statinfo.f_frsize;
+        // free blocks for privileged and unprivileged users
+        statinfo.f_bfree = statinfo.f_bavail =
+            fsStats.getTotalFreeSize() / statinfo.f_frsize;
+        // free inodes for privileged and unprivileged users
+        statinfo.f_ffree = statinfo.f_favail = kFreeInodes;
     }
     statinfo.f_namemax = kMaxNameLength;
 
