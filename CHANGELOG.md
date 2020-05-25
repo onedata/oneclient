@@ -4,6 +4,11 @@
 CHANGELOG
 ---------
 
+### 19.02.3
+
+* VFS-6356 Fixed file location cache after release
+* VFS-6359 Fixed handling of remote proxyio requests
+
 ### 19.02.2
 
 * VFS-6191 Added provider timeout parameter to communicator
