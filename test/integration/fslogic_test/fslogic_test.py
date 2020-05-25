@@ -11,6 +11,7 @@ import sys
 from threading import Thread
 from multiprocessing import Pool
 import time
+import math
 import pytest
 from stat import *
 
@@ -410,7 +411,7 @@ def get_stream_id_from_location_subscription(subscription_message_data):
 
 def test_statfs_should_get_storage_size(appmock_client, endpoint, fl, uuid):
     block_size = 4096
-    response = prepare_fsstat_response(uuid, "space_1", 4, 1000*block_size, 20*block_size)
+    response = prepare_fsstat_response(uuid, "space_1", 1, 1000*block_size, int(20.3*block_size))
 
     with reply(endpoint, [response]) as queue:
         statfs = fl.statfs(uuid)
@@ -418,8 +419,8 @@ def test_statfs_should_get_storage_size(appmock_client, endpoint, fl, uuid):
 
     assert statfs.bsize == block_size
     assert statfs.frsize == block_size
-    assert statfs.blocks == 4*1000
-    assert statfs.bavail == 4*(1000-20)
+    assert statfs.blocks == 1000
+    assert statfs.bavail == 1000-21
 
 
 def test_statfs_should_report_empty_free_space_on_overoccupied_storage(appmock_client, endpoint, fl, uuid):

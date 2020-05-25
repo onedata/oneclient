@@ -291,20 +291,39 @@ struct statvfs FsLogic::statfs(const folly::fbstring &uuid)
         statinfo.f_files = statinfo.f_ffree = kFreeInodes;
     }
     else {
-        messages::fuse::GetFSStats msg{uuid.toStdString()};
-        auto fsStats = communicate<messages::fuse::FSStats>(
-            std::move(msg), m_providerTimeout);
+        size_t totalSize = 0;
+        size_t totalFreeSize = 0;
+        if (uuid != m_rootUuid) {
+            // Handle statfs for a specific space or a file inside a space
+            messages::fuse::GetFSStats msg{uuid.toStdString()};
+            auto fsStats = communicate<messages::fuse::FSStats>(
+                std::move(msg), m_providerTimeout);
+            totalSize = fsStats.getTotalSize();
+            totalFreeSize = fsStats.getTotalFreeSize();
+        }
+        else {
+            // Handle statfs for entire mountpoint by summing storage size
+            // on all accessible spaces
+            constexpr auto kMaxStatFSSpaceCount = 1024;
+            auto spaces = readdir(uuid, kMaxStatFSSpaceCount, 0);
+            for (const auto &space : spaces) {
+                auto spaceAttrs = lookup(uuid, space);
+                messages::fuse::GetFSStats msg{
+                    spaceAttrs->uuid().toStdString()};
+                auto fsStats = communicate<messages::fuse::FSStats>(
+                    std::move(msg), m_providerTimeout);
+                totalSize += fsStats.getTotalSize();
+                totalFreeSize += fsStats.getTotalFreeSize();
+            }
+        }
 
-        // block size
-        statinfo.f_bsize = kBlockSize;
-        // fragment size
-        statinfo.f_frsize = statinfo.f_bsize;
+        // block and fragment size
+        statinfo.f_frsize = statinfo.f_bsize = kBlockSize;
         // size of fs in f_frsize units
-        statinfo.f_blocks =
-            std::ceil(fsStats.getTotalSize() / statinfo.f_frsize);
+        statinfo.f_blocks = std::ceil(totalSize / statinfo.f_frsize);
         // free blocks for privileged and unprivileged users
         statinfo.f_bfree = statinfo.f_bavail =
-            std::ceil(fsStats.getTotalFreeSize() / statinfo.f_frsize);
+            std::ceil(totalFreeSize / statinfo.f_frsize);
         // free inodes for privileged and unprivileged users
         statinfo.f_ffree = statinfo.f_favail = kFreeInodes;
     }
