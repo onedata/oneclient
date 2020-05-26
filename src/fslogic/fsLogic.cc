@@ -307,24 +307,38 @@ struct statvfs FsLogic::statfs(const folly::fbstring &uuid)
             constexpr auto kMaxStatFSSpaceCount = 1024;
             auto spaces = readdir(uuid, kMaxStatFSSpaceCount, 0);
             for (const auto &space : spaces) {
-                auto spaceAttrs = lookup(uuid, space);
-                messages::fuse::GetFSStats msg{
-                    spaceAttrs->uuid().toStdString()};
-                auto fsStats = communicate<messages::fuse::FSStats>(
-                    std::move(msg), m_providerTimeout);
-                totalSize += fsStats.getTotalSize();
-                totalFreeSize += fsStats.getTotalFreeSize();
+                if (space == "." || space == "..")
+                    continue;
+
+                try {
+                    auto spaceAttrs = lookup(uuid, space);
+
+                    messages::fuse::GetFSStats msg{
+                        spaceAttrs->uuid().toStdString()};
+                    auto fsStats = communicate<messages::fuse::FSStats>(
+                        std::move(msg), m_providerTimeout);
+
+                    totalSize += fsStats.getTotalSize();
+                    totalFreeSize += fsStats.getTotalFreeSize();
+                }
+                catch (const std::system_error &e) {
+                    if (e.code().value() == ENOENT)
+                        continue;
+
+                    throw e;
+                }
             }
         }
 
         // block and fragment size
         statinfo.f_frsize = statinfo.f_bsize = kBlockSize;
         // size of fs in f_frsize units
-        statinfo.f_blocks =
-            std::ceil(static_cast<double>(totalSize) / statinfo.f_frsize);
+        statinfo.f_blocks = std::ceil(static_cast<double>(totalSize) /
+            static_cast<double>(statinfo.f_frsize));
         // free blocks for privileged and unprivileged users
         statinfo.f_bfree = statinfo.f_bavail =
-            std::ceil(static_cast<double>(totalFreeSize) / statinfo.f_frsize);
+            std::ceil(static_cast<double>(totalFreeSize) /
+                static_cast<double>(statinfo.f_frsize));
         // free inodes for privileged and unprivileged users
         statinfo.f_ffree = statinfo.f_favail = kFreeInodes;
     }
