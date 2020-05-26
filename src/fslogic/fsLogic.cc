@@ -320,10 +320,11 @@ struct statvfs FsLogic::statfs(const folly::fbstring &uuid)
         // block and fragment size
         statinfo.f_frsize = statinfo.f_bsize = kBlockSize;
         // size of fs in f_frsize units
-        statinfo.f_blocks = std::ceil(totalSize / statinfo.f_frsize);
+        statinfo.f_blocks =
+            std::ceil(static_cast<double>(totalSize) / statinfo.f_frsize);
         // free blocks for privileged and unprivileged users
         statinfo.f_bfree = statinfo.f_bavail =
-            std::ceil(totalFreeSize / statinfo.f_frsize);
+            std::ceil(static_cast<double>(totalFreeSize) / statinfo.f_frsize);
         // free inodes for privileged and unprivileged users
         statinfo.f_ffree = statinfo.f_favail = kFreeInodes;
     }

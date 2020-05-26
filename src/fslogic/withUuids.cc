@@ -28,7 +28,10 @@ struct stat toStatbuf(const FileAttrPtr &attr, const fuse_ino_t ino)
     statbuf.st_size = attr->size() ? *attr->size() : 0;
     statbuf.st_nlink = 1;
     statbuf.st_blksize = kBlockSize;
-    statbuf.st_blocks = std::ceil(statbuf.st_size / statbuf.st_blksize);
+    // The block count must be returned in 512B blocks, i.e. an eigth
+    // of the 4K block size
+    statbuf.st_blocks =
+        std::ceil(static_cast<double>(statbuf.st_size) / (kBlockSize / 8));
     statbuf.st_ino = ino;
 
     switch (attr->type()) {
