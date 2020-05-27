@@ -411,7 +411,7 @@ def get_stream_id_from_location_subscription(subscription_message_data):
 
 def test_statfs_should_get_storage_size(appmock_client, endpoint, fl, uuid):
     block_size = 4096
-    response = prepare_fsstat_response(uuid, "space_1", 1, 1000*block_size, int(20.3*block_size))
+    response = prepare_fsstat_response(uuid, "space_1", 1, 1000*block_size, 21*block_size)
 
     with reply(endpoint, [response]) as queue:
         statfs = fl.statfs(uuid)
