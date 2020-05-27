@@ -27,7 +27,9 @@
 #include "messages/fuse/fileOpened.h"
 #include "messages/fuse/fileRenamed.h"
 #include "messages/fuse/fileRenamedEntry.h"
+#include "messages/fuse/fsStats.h"
 #include "messages/fuse/fsync.h"
+#include "messages/fuse/getFSStats.h"
 #include "messages/fuse/getFileChildren.h"
 #include "messages/fuse/getFileChildrenAttrs.h"
 #include "messages/fuse/getHelperParams.h"
@@ -287,6 +289,58 @@ struct statvfs FsLogic::statfs(const folly::fbstring &uuid)
         statinfo.f_blocks = statinfo.f_bfree = statinfo.f_bavail =
             emulatedFreeSpace / statinfo.f_frsize;
         statinfo.f_files = statinfo.f_ffree = kFreeInodes;
+    }
+    else {
+        size_t totalSize = 0;
+        size_t totalFreeSize = 0;
+        if (uuid != m_rootUuid) {
+            // Handle statfs for a specific space or a file inside a space
+            messages::fuse::GetFSStats msg{uuid.toStdString()};
+            auto fsStats = communicate<messages::fuse::FSStats>(
+                std::move(msg), m_providerTimeout);
+            totalSize = fsStats.getTotalSize();
+            totalFreeSize = fsStats.getTotalFreeSize();
+        }
+        else {
+            // Handle statfs for entire mountpoint by summing storage size
+            // on all accessible spaces
+            constexpr auto kMaxStatFSSpaceCount = 1024;
+            auto spaces = readdir(uuid, kMaxStatFSSpaceCount, 0);
+            for (const auto &space : spaces) {
+                if (space == "." || space == "..")
+                    continue;
+
+                try {
+                    auto spaceAttrs = lookup(uuid, space);
+
+                    messages::fuse::GetFSStats msg{
+                        spaceAttrs->uuid().toStdString()};
+                    auto fsStats = communicate<messages::fuse::FSStats>(
+                        std::move(msg), m_providerTimeout);
+
+                    totalSize += fsStats.getTotalSize();
+                    totalFreeSize += fsStats.getTotalFreeSize();
+                }
+                catch (const std::system_error &e) {
+                    if (e.code().value() == ENOENT)
+                        continue;
+
+                    throw e;
+                }
+            }
+        }
+
+        // block and fragment size
+        statinfo.f_frsize = statinfo.f_bsize = kBlockSize;
+        // size of fs in f_frsize units
+        statinfo.f_blocks = std::ceil(static_cast<double>(totalSize) /
+            static_cast<double>(statinfo.f_frsize));
+        // free blocks for privileged and unprivileged users
+        statinfo.f_bfree = statinfo.f_bavail =
+            std::ceil(static_cast<double>(totalFreeSize) /
+                static_cast<double>(statinfo.f_frsize));
+        // free inodes for privileged and unprivileged users
+        statinfo.f_ffree = statinfo.f_favail = kFreeInodes;
     }
     statinfo.f_namemax = kMaxNameLength;
 

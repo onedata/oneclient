@@ -11,6 +11,7 @@ import sys
 from threading import Thread
 from multiprocessing import Pool
 import time
+import math
 import pytest
 from stat import *
 
@@ -221,6 +222,24 @@ def prepare_attr_response_mode(uuid, filetype, mode, parent_uuid=None):
 
     return server_response
 
+def prepare_fsstat_response(uuid, space_id, storage_count=1, size=1024*1024, occupied=1024):
+    repl = fuse_messages_pb2.FSStats()
+    repl.space_id = space_id
+    storages = []
+    for i in range(0, storage_count):
+        storage = fuse_messages_pb2.StorageStats()
+        storage.storage_id = "storage_"+str(i)
+        storage.size = size
+        storage.occupied = occupied
+        storages.append(storage)
+
+    repl.storage_stats.extend(storages)
+    server_response = messages_pb2.ServerMessage()
+    server_response.fuse_response.fs_stats.CopyFrom(repl)
+    server_response.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    return server_response
+
 def prepare_helper_response():
     repl = fuse_messages_pb2.HelperParams()
     repl.helper_name = 'null'
@@ -388,6 +407,34 @@ def get_stream_id_from_location_subscription(subscription_message_data):
     location_subsc = messages_pb2.ClientMessage()
     location_subsc.ParseFromString(subscription_message_data)
     return location_subsc.message_stream.stream_id
+
+
+def test_statfs_should_get_storage_size(appmock_client, endpoint, fl, uuid):
+    block_size = 4096
+    response = prepare_fsstat_response(uuid, "space_1", 1, 1000*block_size, 21*block_size)
+
+    with reply(endpoint, [response]) as queue:
+        statfs = fl.statfs(uuid)
+        queue.get()
+
+    assert statfs.bsize == block_size
+    assert statfs.frsize == block_size
+    assert statfs.blocks == 1000
+    assert statfs.bavail == 1000-21
+
+
+def test_statfs_should_report_empty_free_space_on_overoccupied_storage(appmock_client, endpoint, fl, uuid):
+    block_size = 4096
+    response = prepare_fsstat_response(uuid, "space_1", 2, 10*block_size, 20*block_size)
+
+    with reply(endpoint, [response]) as queue:
+        statfs = fl.statfs(uuid)
+        queue.get()
+
+    assert statfs.bsize == block_size
+    assert statfs.frsize == block_size
+    assert statfs.blocks == 2*10
+    assert statfs.bavail == 0
 
 
 def test_getattrs_should_get_attrs(appmock_client, endpoint, fl, uuid, parentUuid):

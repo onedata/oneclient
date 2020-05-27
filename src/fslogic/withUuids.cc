@@ -17,6 +17,9 @@ struct stat toStatbuf(const FileAttrPtr &attr, const fuse_ino_t ino)
 {
     struct stat statbuf = {0};
 
+    constexpr size_t kBlockSize = 4096;
+    constexpr size_t kStatBlockSize = 512;
+
     statbuf.st_atime = std::chrono::system_clock::to_time_t(attr->atime());
     statbuf.st_mtime = std::chrono::system_clock::to_time_t(attr->mtime());
     statbuf.st_ctime = std::chrono::system_clock::to_time_t(attr->ctime());
@@ -25,7 +28,11 @@ struct stat toStatbuf(const FileAttrPtr &attr, const fuse_ino_t ino)
     statbuf.st_mode = attr->mode();
     statbuf.st_size = attr->size() ? *attr->size() : 0;
     statbuf.st_nlink = 1;
-    statbuf.st_blocks = 0;
+    statbuf.st_blksize = kBlockSize;
+    // The block count must be returned in 512B blocks, i.e. an eigth
+    // of the 4K block size
+    statbuf.st_blocks = std::ceil(static_cast<double>(statbuf.st_size) /
+        static_cast<double>(kStatBlockSize));
     statbuf.st_ino = ino;
 
     switch (attr->type()) {
