@@ -9,6 +9,12 @@ CHANGELOG
 
 *  Empty commit to differentiate between 20.02.0 beta1 and beta2 tags
 
+### 19.02.3
+
+* VFS-6356 Fixed file location cache after release
+* VFS-6359 Fixed handling of remote proxyio requests
+
+
 ### 19.02.2
 
 * VFS-6191 Added provider timeout parameter to communicator

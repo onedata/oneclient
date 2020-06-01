@@ -212,6 +212,14 @@ public:
         bool renewSubscriptions);
 
     /**
+     * Perform any necessary action on the metadata after the file has been
+     * released.
+     *
+     * @param uuid The uuid of the opened file.
+     */
+    void releaseFile(const folly::fbstring &uuid);
+
+    /**
      * Sets a callback that will be called after a file is added to the cache.
      * @param cb The callback that takes uuid as parameter.
      */

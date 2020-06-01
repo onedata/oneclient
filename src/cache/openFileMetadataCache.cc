@@ -222,6 +222,8 @@ void OpenFileMetadataCache::releaseFile(const folly::fbstring &uuid)
         m_lruFileList.erase(it->second.lruIt.value());
 
     m_lruFileData.erase(it);
+
+    MetadataCache::releaseFile(uuid);
 }
 
 FileAttrPtr OpenFileMetadataCache::getAttr(const folly::fbstring &uuid)
