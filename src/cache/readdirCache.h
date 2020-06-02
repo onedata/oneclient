@@ -12,6 +12,7 @@
 
 #include "cache/openFileMetadataCache.h"
 #include "context.h"
+#include "fslogic/fiberBound.h"
 
 #include <folly/FBString.h>
 #include <folly/FBVector.h>
@@ -34,7 +35,8 @@ using namespace std::literals;
  * from Oneprovider in much larger chunks than is allowed by the Fuse
  * page limit, and then retreived by Fuse from this cache in smaller chunks.
  */
-class ReaddirCache : public std::enable_shared_from_this<ReaddirCache> {
+class ReaddirCache : public FiberBound,
+                     public std::enable_shared_from_this<ReaddirCache> {
 public:
     /**
      * Constructor.
@@ -96,7 +98,6 @@ private:
     std::unordered_map<folly::fbstring,
         std::shared_ptr<folly::SharedPromise<folly::Unit>>>
         m_cache;
-    std::mutex m_cacheMutex;
 
     /**
      * Reference to metadata cache.

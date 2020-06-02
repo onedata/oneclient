@@ -161,6 +161,13 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
 {
     m_nextFuseHandleId = 0;
 
+    m_runInFiber([this]() {
+        auto tid = std::this_thread::get_id();
+        setFiberThreadId(tid);
+        m_metadataCache.setFiberThreadId(tid);
+        m_readdirCache->setFiberThreadId(tid);
+    });
+
     m_eventManager.subscribe(*configuration);
 
     m_metadataCache.setReaddirCache(m_readdirCache);
@@ -275,6 +282,8 @@ struct statvfs FsLogic::statfs(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
+    assertInFiber();
+
     constexpr auto kMaxNameLength = 255;
     constexpr auto kBlockSize = 4096;
     constexpr auto kFreeInodes = 10000000;
@@ -354,6 +363,8 @@ FileAttrPtr FsLogic::lookup(
 
     IOTRACE_START()
 
+    assertInFiber();
+
     auto attr = m_metadataCache.getAttr(uuid, name);
 
     auto type = attr->type() == FileAttr::FileType::directory ? "d" : "f";
@@ -371,12 +382,16 @@ FileAttrPtr FsLogic::getattr(const folly::fbstring &uuid)
 
     IOTRACE_GUARD(IOTraceGetAttr, IOTraceLogger::OpType::GETATTR, uuid, 0)
 
+    assertInFiber();
+
     return m_metadataCache.getAttr(uuid);
 }
 
 std::uint64_t FsLogic::opendir(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
+
+    assertInFiber();
 
     // Check that directory exists
     auto attr = m_metadataCache.getAttr(uuid);
@@ -397,6 +412,8 @@ void FsLogic::releasedir(
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
+    assertInFiber();
+
     m_metadataCache.releasedir(uuid);
 }
 
@@ -406,6 +423,8 @@ folly::fbvector<folly::fbstring> FsLogic::readdir(
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(maxSize) << LOG_FARG(off);
 
     IOTRACE_START()
+
+    assertInFiber();
 
     auto entries = m_readdirCache->readdir(uuid, off, maxSize);
 
@@ -420,6 +439,8 @@ std::uint64_t FsLogic::open(const folly::fbstring &uuid, const int flags)
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARGH(flags);
 
     IOTRACE_START()
+
+    assertInFiber();
 
     auto openFileToken = m_metadataCache.open(uuid);
 
@@ -456,6 +477,8 @@ void FsLogic::release(
 
     IOTRACE_GUARD(
         IOTraceRelease, IOTraceLogger::OpType::RELEASE, uuid, fileHandleId)
+
+    assertInFiber();
 
     if (m_fuseFileHandles.find(fileHandleId) == m_fuseFileHandles.cend()) {
         LOG_DBG(1) << "Fuse file handle " << fileHandleId
@@ -520,6 +543,8 @@ void FsLogic::flush(
     IOTRACE_GUARD(
         IOTraceFlush, IOTraceLogger::OpType::FLUSH, uuid, fileHandleId)
 
+    assertInFiber();
+
     auto fuseFileHandle = m_fuseFileHandles.at(fileHandleId);
 
     LOG_DBG(2) << "Sending file flush message for " << uuid;
@@ -536,6 +561,8 @@ void FsLogic::fsync(const folly::fbstring &uuid,
 
     IOTRACE_GUARD(IOTraceFsync, IOTraceLogger::OpType::FSYNC, uuid,
         fileHandleId, dataOnly)
+
+    assertInFiber();
 
     m_eventManager.flush();
 
@@ -559,6 +586,8 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(fileHandleId) << LOG_FARG(offset)
                 << LOG_FARG(size);
+
+    assertInFiber();
 
     if (m_ioTraceLoggerEnabled && !ioTraceEntry) {
         ioTraceEntry = std::make_unique<IOTraceRead>();
@@ -841,6 +870,8 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
     const boost::icl::discrete_interval<off_t> possibleRange,
     const boost::icl::discrete_interval<off_t> availableRange)
 {
+    assertInFiber();
+
     size_t prefetchSize = 0;
     auto prefetchType = IOTraceLogger::PrefetchType::NONE;
 
@@ -1033,6 +1064,8 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(fuseFileHandleId)
                 << LOG_FARG(offset) << LOG_FARG(buf->length());
 
+    assertInFiber();
+
     if (buf->empty()) {
         LOG_DBG(2) << "Write called with empty buffer - skipping";
         return 0;
@@ -1186,6 +1219,8 @@ FileAttrPtr FsLogic::mkdir(const folly::fbstring &parentUuid,
 
     IOTRACE_START()
 
+    assertInFiber();
+
     // TODO: CreateDir should probably also return attrs
     communicate(messages::fuse::CreateDir{parentUuid.toStdString(),
                     name.toStdString(), mode},
@@ -1208,6 +1243,8 @@ FileAttrPtr FsLogic::mknod(const folly::fbstring &parentUuid,
     LOG_FCALL() << LOG_FARG(parentUuid) << LOG_FARG(name) << LOG_FARG(mode);
 
     IOTRACE_START()
+
+    assertInFiber();
 
     if (S_ISDIR(mode) || S_ISCHR(mode) || S_ISBLK(mode) || S_ISFIFO(mode) ||
         S_ISLNK(mode) || S_ISSOCK(mode)) {
@@ -1241,6 +1278,8 @@ std::pair<FileAttrPtr, std::uint64_t> FsLogic::create(
                 << LOG_FARG(flags);
 
     IOTRACE_START()
+
+    assertInFiber();
 
     if (S_ISDIR(mode) || S_ISCHR(mode) || S_ISBLK(mode) || S_ISFIFO(mode) ||
         S_ISLNK(mode) || S_ISSOCK(mode)) {
@@ -1306,6 +1345,8 @@ void FsLogic::unlink(
 
     IOTRACE_START()
 
+    assertInFiber();
+
     // TODO: directly order provider to delete {parentUuid, name}
     auto attr = m_metadataCache.getAttr(parentUuid, name);
     try {
@@ -1339,6 +1380,8 @@ void FsLogic::rename(const folly::fbstring &parentUuid,
                 << LOG_FARG(newParentUuid) << LOG_FARG(newName);
 
     IOTRACE_START()
+
+    assertInFiber();
 
     // TODO: directly order provider to rename {parentUuid, name}
     auto attr = m_metadataCache.getAttr(parentUuid, name);
@@ -1375,6 +1418,8 @@ FileAttrPtr FsLogic::setattr(
 
     IOTRACE_GUARD(IOTraceSetAttr, IOTraceLogger::OpType::SETATTR, uuid, 0,
         toSet, attr.st_mode, attr.st_size, attr.st_atime, attr.st_mtime)
+
+    assertInFiber();
 
     // TODO: this operation can be optimized with a single message to the
     // provider
@@ -1452,6 +1497,8 @@ folly::fbstring FsLogic::getxattr(
 
     IOTRACE_GUARD(
         IOTraceGetXAttr, IOTraceLogger::OpType::GETXATTR, uuid, 0, name)
+
+    assertInFiber();
 
     folly::fbstring result;
 
@@ -1543,6 +1590,8 @@ void FsLogic::setxattr(const folly::fbstring &uuid, const folly::fbstring &name,
     IOTRACE_GUARD(IOTraceSetXAttr, IOTraceLogger::OpType::SETXATTR, uuid, 0,
         name, value, create, replace)
 
+    assertInFiber();
+
     messages::fuse::SetXAttr setXAttrRequest{
         uuid, name, value, create, replace};
     communicate<messages::fuse::FuseResponse>(
@@ -1559,6 +1608,8 @@ void FsLogic::removexattr(
     IOTRACE_GUARD(
         IOTraceRemoveXAttr, IOTraceLogger::OpType::REMOVEXATTR, uuid, 0, name)
 
+    assertInFiber();
+
     messages::fuse::RemoveXAttr removeXAttrRequest{uuid, name};
     communicate<messages::fuse::FuseResponse>(
         removeXAttrRequest, m_providerTimeout);
@@ -1571,6 +1622,8 @@ folly::fbvector<folly::fbstring> FsLogic::listxattr(const folly::fbstring &uuid)
     LOG_FCALL() << LOG_FARG(uuid);
 
     IOTRACE_GUARD(IOTraceListXAttr, IOTraceLogger::OpType::LISTXATTR, uuid, 0)
+
+    assertInFiber();
 
     namespace omf = one::messages::fuse;
 
