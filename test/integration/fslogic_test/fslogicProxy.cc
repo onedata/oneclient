@@ -151,7 +151,11 @@ public:
     {
         ReleaseGIL guard;
 
-        return m_fsLogic.statfs(uuid);
+        return m_fiberManager
+            .addTaskRemoteFuture([this, uuid]() {
+                return m_fsLogic.statfs(uuid);
+            })
+            .get();
     }
 
     Stat getattr(std::string uuid)
