@@ -152,9 +152,8 @@ public:
         ReleaseGIL guard;
 
         return m_fiberManager
-            .addTaskRemoteFuture([this, uuid]() {
-                return m_fsLogic.statfs(uuid);
-            })
+            .addTaskRemoteFuture(
+                [this, uuid]() { return m_fsLogic.statfs(uuid); })
             .get();
     }
 
