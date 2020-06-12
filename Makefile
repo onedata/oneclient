@@ -167,8 +167,9 @@ conda/oneclient: package/$(PKG_ID).tar.gz
 	sed -i "s|<<PKG_SOURCE>>|../../$(PKG_ID).tar.gz|g" package/conda/oneclient/meta.yaml
 	source /opt/conda/bin/activate base && \
 		PKG_VERSION=$(PKG_VERSION) CONDA_BLD_PATH=$$PWD/package/conda-bld \
-		conda build --user onedata-devel --token "${CONDA_TOKEN}" --skip-existing \
+		conda build --user onedata-devel --token "${CONDA_TOKEN}" \
 		${CONDA_BUILD_OPTIONS} package/conda/oneclient
+	echo "onedata-devel/oneclient/$(PKG_VERSION)/download/linux-64/oneclient-$(PKG_VERSION)-0.tar.bz2" >> conda-pkg-list.txt
 
 .PHONY: conda/oneclient_centos6
 conda/oneclient_centos6: SHELL:=/bin/bash
@@ -185,8 +186,9 @@ conda/oneclient_centos6: package/$(PKG_ID).tar.gz
 	sed -i '/run:/ { :l; n; s/^.*libfuse.*$$//; tx; bl; :x; N; s/\n//; bl }' package/conda/oneclient/meta.yaml
 	source /opt/conda/bin/activate base && \
 		PKG_VERSION=$(PKG_VERSION) CONDA_BLD_PATH=$$PWD/package/conda-bld \
-		conda build --user onedata-centos6-devel --token "${CONDA_TOKEN}" --skip-existing \
+		conda build --user onedata-centos6-devel --token "${CONDA_TOKEN}" \
 		${CONDA_BUILD_OPTIONS} package/conda/oneclient
+	echo "onedata-centos6-devel/oneclient/$(PKG_VERSION)/download/linux-64/oneclient-$(PKG_VERSION)_0.tar.bz2" >> conda-pkg-list.txt
 
 .PHONY: conda/onedatafs
 conda/onedatafs: SHELL:=/bin/bash
@@ -200,8 +202,11 @@ conda/onedatafs: package/$(PKG_ID).tar.gz
 	sed -i "s|<<PKG_SOURCE>>|../../$(PKG_ID).tar.gz|g" package/conda/onedatafs/meta.yaml
 	source /opt/conda/bin/activate base && \
 		PKG_VERSION=$(PKG_VERSION) CONDA_BLD_PATH=$$PWD/package/conda-bld \
-		conda build --user onedata-devel --token "${CONDA_TOKEN}" --skip-existing \
+		conda build --user onedata-devel --token "${CONDA_TOKEN}" \
 		${CONDA_BUILD_OPTIONS} package/conda/onedatafs
+	echo "onedata-devel/onedatafs/$(PKG_VERSION)/download/linux-64/onedatafs-$(PKG_VERSION)-py27.tar.bz2" >> conda-pkg-list.txt
+	echo "onedata-devel/onedatafs/$(PKG_VERSION)/download/linux-64/onedatafs-$(PKG_VERSION)-py36.tar.bz2" >> conda-pkg-list.txt
+	echo "onedata-devel/onedatafs/$(PKG_VERSION)/download/linux-64/onedatafs-$(PKG_VERSION)-py37.tar.bz2" >> conda-pkg-list.txt
 
 .PHONY: deb
 deb: check_distribution package/$(PKG_ID).tar.gz
