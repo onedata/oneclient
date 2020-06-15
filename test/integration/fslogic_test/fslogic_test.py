@@ -388,6 +388,17 @@ def do_open(endpoint, fl, uuid, size=None, blocks=[], handle_id='handle_id'):
         return handle
 
 
+def do_open_cached(endpoint, fl, uuid, size=None, blocks=[], handle_id='handle_id'):
+    location_response = prepare_location_response(uuid, blocks)
+    open_response = prepare_open_response(handle_id)
+
+    with reply(endpoint, [location_response,
+                          open_response]):
+        handle = fl.open(uuid, 0)
+        assert handle >= 0
+        return handle
+
+
 def do_release(endpoint, fl, uuid, fh):
     fsync_response = messages_pb2.ServerMessage()
     fsync_response.fuse_response.status.code = common_messages_pb2.Status.ok
@@ -1729,6 +1740,21 @@ def test_mknod_should_throw_on_unsupported_file_type(endpoint, fl, parentUuid, p
 
 def test_read_should_read(appmock_client, endpoint, fl, uuid):
     fh = do_open(endpoint, fl, uuid, blocks=[(0, 10)])
+
+    assert 5 == len(fl.read(uuid, fh, 0, 5))
+
+    do_release(endpoint, fl, uuid, fh)
+
+
+def test_read_should_fetch_file_location_after_closing_file(appmock_client, endpoint, fl, uuid):
+    blocks = [(0,10)]
+    fh = do_open(endpoint, fl, uuid, blocks=blocks)
+
+    assert 5 == len(fl.read(uuid, fh, 0, 5))
+
+    do_release(endpoint, fl, uuid, fh)
+
+    fh = do_open_cached(endpoint, fl, uuid, blocks=blocks)
 
     assert 5 == len(fl.read(uuid, fh, 0, 5))
 
