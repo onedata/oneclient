@@ -70,14 +70,6 @@ public:
         return m_args;
     }
 
-    /**
-     * @return Direct io extended mode.
-     */
-    folly::Optional<bool> extendedDirectIO() const
-    {
-        return m_extendedDirectIO;
-    }
-
     std::string toString() const override;
 
 private:
@@ -85,7 +77,6 @@ private:
 
     folly::fbstring m_name;
     std::unordered_map<folly::fbstring, folly::fbstring> m_args;
-    folly::Optional<bool> m_extendedDirectIO;
 };
 
 } // namespace fuse
