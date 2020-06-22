@@ -115,6 +115,10 @@ set(ASIO_INCLUDE_DIRS ${HELPERS_DIR}/deps/asio/asio/include)
 # Setup cppmetrics
 set(CPPMETRICS_INCLUDE_DIRS ${HELPERS_DIR}/deps/cppmetrics)
 
+# Setup spdlog
+add_definitions(-DFMT_HEADER_ONLY=1)
+set(SPDLOG_INCLUDE_DIRS ${HELPERS_DIR}/deps/spdlog)
+
 # Utility libs
 find_library(LTDL_LIBRARY NAMES ltdl)
 find_library(ZLIB_LIBRARY NAMES z)

@@ -43,6 +43,11 @@ void startLogging(
                   << "'. Aborting..." << std::endl;
     }
 
+    if (options->getCustomLogLevels()) {
+        one::helpers::startCustomLoggers(
+            options->getLogDirPath().string(), *options->getCustomLogLevels());
+    }
+
     FLAGS_log_dir = options->getLogDirPath().c_str();
     FLAGS_stop_logging_if_full_disk = true;
     FLAGS_logtostderr = false;

@@ -621,7 +621,8 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
         return folly::IOBufQueue{folly::IOBufQueue::cacheChainLength()};
     }
 
-    LOG_DBG(2) << "Reading from file " << uuid << " from range " << wantedRange;
+    LOG_DBG(2) << "FsLogic reading from file " << uuid << " in range "
+               << wantedRange;
 
     // Even if several "touching" blocks with different helpers are
     // available to read right now, for simplicity we'll only read a single
@@ -715,9 +716,18 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
         LOG_DBG(2) << "Reading " << availableSize << " bytes from " << uuid
                    << " at offset " << offset;
 
+        using one::logging::csv::log;
+        using one::logging::csv::read_write_perf;
+        using one::logging::log_timer;
+
+        log_timer<> timer;
+
         auto readBuffer = communication::wait(
             helperHandle->read(offset, availableSize, continuousSize),
             helperHandle->timeout());
+
+        log<read_write_perf>(
+            fileBlock.fileId(), "FsLogic", "read", offset, size, timer.stop());
 
         if (helperHandle->needsDataConsistencyCheck() && checksum &&
             dataCorrupted(uuid, readBuffer, *checksum, wantedAvailableRange,
@@ -1094,6 +1104,10 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
 
     auto fileBlock = m_metadataCache.getDefaultBlock(uuid);
 
+    using one::logging::csv::log;
+    using one::logging::csv::read_write_perf;
+    using one::logging::log_timer;
+
     size_t bytesWritten = 0;
     try {
         auto helperHandle = fuseFileHandle->getHelperHandle(
@@ -1102,9 +1116,14 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
         folly::IOBufQueue bufq{folly::IOBufQueue::cacheChainLength()};
         bufq.append(buf->clone());
 
+        log_timer<> timer;
+
         bytesWritten =
             communication::wait(helperHandle->write(offset, std::move(bufq)),
                 helperHandle->timeout());
+
+        log<read_write_perf>(fileBlock.fileId(), "FsLogic", "write", offset,
+            buf->length(), timer.stop());
     }
     catch (const std::system_error &e) {
         if ((e.code().value() == EKEYEXPIRED) && (retriesLeft >= 0)) {

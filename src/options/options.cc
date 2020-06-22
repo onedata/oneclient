@@ -148,6 +148,13 @@ Options::Options()
         .withGroup(OptionGroup::ADVANCED)
         .withDescription("Enable detailed IO trace log (experimental).");
 
+    add<std::string>()
+        ->withLongName("custom-log-levels")
+        .withConfigName("custom_log_levels")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Allows to customize custom loggers. E.g. "
+                         "logger1=off,logger2=info,logger3=debug");
+
     add<bool>()
         ->asSwitch()
         .withLongName("force-proxy-io")
@@ -806,6 +813,11 @@ boost::filesystem::path Options::getLogDirPath() const
 bool Options::isIOTraceLoggerEnabled() const
 {
     return get<bool>({"io-trace-log", "io_trace_log"}).get_value_or(false);
+}
+
+boost::optional<std::string> Options::getCustomLogLevels() const
+{
+    return get<std::string>({"custom-log-levels", "custom_log_levels"});
 }
 
 bool Options::isProxyIOForced() const

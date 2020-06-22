@@ -182,6 +182,11 @@ public:
     bool isIOTraceLoggerEnabled() const;
 
     /*
+     * @return Return custom log levels in spdlog format.
+     */
+    boost::optional<std::string> getCustomLogLevels() const;
+
+    /*
      * @return true if 'force-proxy-io' option has been provided, otherwise
      * false.
      */
