@@ -148,12 +148,14 @@ Options::Options()
         .withGroup(OptionGroup::ADVANCED)
         .withDescription("Enable detailed IO trace log (experimental).");
 
-    add<std::string>()
-        ->withLongName("custom-log-levels")
-        .withConfigName("custom_log_levels")
+    add<bool>()
+        ->asSwitch()
+        .withLongName("log-read-write-perf")
+        .withConfigName("log_read_write_perf")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
         .withGroup(OptionGroup::ADVANCED)
-        .withDescription("Allows to customize custom loggers. E.g. "
-                         "logger1=off,logger2=info,logger3=debug");
+        .withDescription("Enable read write performance logger.");
 
     add<bool>()
         ->asSwitch()
@@ -815,9 +817,10 @@ bool Options::isIOTraceLoggerEnabled() const
     return get<bool>({"io-trace-log", "io_trace_log"}).get_value_or(false);
 }
 
-boost::optional<std::string> Options::getCustomLogLevels() const
+bool Options::isReadWritePerfEnabled() const
 {
-    return get<std::string>({"custom-log-levels", "custom_log_levels"});
+    return get<bool>({"log-read-write-perf", "log_read_write_perf"})
+        .get_value_or(false);
 }
 
 bool Options::isProxyIOForced() const

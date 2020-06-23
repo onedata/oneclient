@@ -43,9 +43,9 @@ void startLogging(
                   << "'. Aborting..." << std::endl;
     }
 
-    if (options->getCustomLogLevels()) {
-        one::helpers::startCustomLoggers(
-            options->getLogDirPath().string(), *options->getCustomLogLevels());
+    if (options->isReadWritePerfEnabled()) {
+        one::helpers::startReadWritePerfLogger(
+            options->getLogDirPath().string());
     }
 
     FLAGS_log_dir = options->getLogDirPath().c_str();
@@ -91,6 +91,8 @@ void startLogging(
             LOG(INFO) << "Graphite namespace prefix: "
                       << options->getMonitoringGraphiteNamespacePrefix().get();
     }
+    LOG(INFO) << "Read/write perf log enabled: "
+              << options->isReadWritePerfEnabled();
     LOG(INFO) << "Mountpoint: " << options->getMountpoint();
 
     google::FlushLogFiles(google::GLOG_INFO);

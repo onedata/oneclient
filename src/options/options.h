@@ -182,9 +182,9 @@ public:
     bool isIOTraceLoggerEnabled() const;
 
     /*
-     * @return Return custom log levels in spdlog format.
+     * @return True if read write perf is enabled.
      */
-    boost::optional<std::string> getCustomLogLevels() const;
+    bool isReadWritePerfEnabled() const;
 
     /*
      * @return true if 'force-proxy-io' option has been provided, otherwise

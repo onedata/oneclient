@@ -816,7 +816,7 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(
 
     ReleaseGIL guard;
 
-    if (log_level >= 0) {
+    if (log_level >= 0 || options->isReadWritePerfEnabled()) {
         std::call_once(__googleLoggingInitOnceFlag,
             [&] { one::client::logging::startLogging("onedatafs", options); });
     }
