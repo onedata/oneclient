@@ -192,6 +192,29 @@ StorageAccessManager::verifyStorageTestFile(const folly::fbstring &storageId,
         auto helper = m_helperFactory.getStorageHelper(helperParams.name(),
             helperParams.args(), m_options.isIOBuffered(), overrideParams);
 
+        bool skipStorageDetection = false;
+
+        if (helperParams.args().find("skipStorageDetection") !=
+                helperParams.args().cend() &&
+            helperParams.args().at("skipStorageDetection") == "true")
+            skipStorageDetection = true;
+
+        // Command line override has higher priority than server settings
+        if (overrideParams.find("skipStorageDetection") !=
+            overrideParams.cend()) {
+            if (overrideParams.at("skipStorageDetection") == "true")
+                skipStorageDetection = true;
+            else if (overrideParams.at("skipStorageDetection") == "false")
+                skipStorageDetection = false;
+            else
+                LOG(WARNING) << "Invalid value "
+                             << overrideParams.at("skipStorageDetection")
+                             << " provided for skipStorageDetection";
+        }
+
+        if (skipStorageDetection)
+            return helper;
+
         if (verifyStorageTestFile(storageId, helper, testFile)) {
             LOG(INFO) << helperParams.name() << " storage " << storageId
                       << " successfuly detected";
