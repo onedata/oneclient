@@ -149,6 +149,7 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(0, options.getEmulateAvailableSpace());
     EXPECT_FALSE(options.getProviderHost());
     EXPECT_FALSE(options.getAccessToken());
+    EXPECT_FALSE(options.isReadWritePerfEnabled());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetHelpWhenNoArguments)
@@ -257,6 +258,13 @@ TEST_F(OptionsTest, parseCommandLineShouldEnableIOTraceLog)
     cmdArgs.insert(cmdArgs.end(), {"--io-trace-log", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ(true, options.isIOTraceLoggerEnabled());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldGetCustomLogLevels)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--log-read-write-perf", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(options.isReadWritePerfEnabled(), true);
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetForceProxyIO)
