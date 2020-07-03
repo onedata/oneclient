@@ -123,7 +123,7 @@ public:
             auto stoppedFuture = stopped.getFuture();
 
             m_fiberManager.addTaskRemote(
-                [ this, stopped = std::move(stopped) ]() mutable {
+                [this, stopped = std::move(stopped)]() mutable {
                     m_context->communicator()->stop();
                     stopped.setValue();
                 });

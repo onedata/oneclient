@@ -476,4 +476,4 @@ clang-tidy:
 
 .PHONY: clang-format
 clang-format:
-	docker run --rm -v $(CURDIR):/root/sources onedata/clang-format-check:1.1
+	docker run --rm -v $(CURDIR):/root/sources onedata/clang-format-check:1.2

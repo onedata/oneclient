@@ -55,7 +55,7 @@ void FsSubscriptions::handleFileAttrChanged(
         "comp.oneclient.mod.events.submod.received.file_attr_changed");
 
     m_runInFiber(
-        [ this, events = std::move(events) ] {
+        [this, events = std::move(events)] {
             for (auto &event : events) {
                 auto attr = std::make_shared<FileAttr>(event->fileAttr());
 
@@ -107,7 +107,7 @@ void FsSubscriptions::handleFileLocationChanged(
 {
     ONE_METRIC_COUNTER_INC(
         "comp.oneclient.mod.events.submod.received.file_location_changed");
-    m_runInFiber([ this, events = std::move(events) ] {
+    m_runInFiber([this, events = std::move(events)] {
         for (auto &event : events) {
             bool updateSucceeded = false;
 
@@ -165,7 +165,7 @@ void FsSubscriptions::handlePermissionChanged(
 {
     ONE_METRIC_COUNTER_INC(
         "comp.oneclient.mod.events.submod.received.file_permission_changed");
-    m_runInFiber([ this, events = std::move(events) ] {
+    m_runInFiber([this, events = std::move(events)] {
         for (auto &event : events) {
             m_forceProxyIOCache.remove(event->fileUuid());
         }
@@ -202,7 +202,7 @@ void FsSubscriptions::handleFileRemoved(
 {
     ONE_METRIC_COUNTER_INC(
         "comp.oneclient.mod.events.submod.received.file_removed");
-    m_runInFiber([ this, events = std::move(events) ] {
+    m_runInFiber([this, events = std::move(events)] {
         for (auto &event : events) {
             auto &uuid = event->fileUuid();
             if (m_metadataCache.markDeleted(uuid))
@@ -247,7 +247,7 @@ void FsSubscriptions::handleFileRenamed(
 
     ONE_METRIC_COUNTER_INC(
         "comp.oneclient.mod.events.submod.received.file_renamed");
-    m_runInFiber([ this, events = std::move(events) ] {
+    m_runInFiber([this, events = std::move(events)] {
         for (auto &event : events) {
             auto &entry = event->topEntry();
             if (m_metadataCache.rename(entry.oldUuid(), entry.newParentUuid(),

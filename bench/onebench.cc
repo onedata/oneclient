@@ -20,8 +20,8 @@
 #include <iostream>
 #include <set>
 
-static const std::set<folly::fbstring> storages{
-    "posix", "s3", "ceph", "cephrados", "webdav", "glusterfs", "swift", "xrootd", "null"};
+static const std::set<folly::fbstring> storages{"posix", "s3", "ceph",
+    "cephrados", "webdav", "glusterfs", "swift", "xrootd", "null"};
 
 static const std::set<folly::fbstring> tests{"rndwr"};
 
@@ -81,12 +81,12 @@ DEFINE_int64(webdav_maximum_upload_size, 0,
 DEFINE_int32(webdav_connection_pool_size, 10,
     "Specify WebDAV connection pool size for each helper instance");
 
-DEFINE_string(
-    xrootd_url, "", "Specify the XRootD url, e.g.: 'xrootd://192.168.1.2//data/'");
-DEFINE_string(
-    xrootd_credentials_type, "none", "Specify the XRootD credentials type: [none, pwd]");
-DEFINE_string(
-    xrootd_credentials, "", "Specify the XRootD credentials, e.g.: 'admin:password'");
+DEFINE_string(xrootd_url, "",
+    "Specify the XRootD url, e.g.: 'xrootd://192.168.1.2//data/'");
+DEFINE_string(xrootd_credentials_type, "none",
+    "Specify the XRootD credentials type: [none, pwd]");
+DEFINE_string(xrootd_credentials, "",
+    "Specify the XRootD credentials, e.g.: 'admin:password'");
 
 DEFINE_string(posix_mount_point, "/tmp", "Specify mountpoint for test files");
 DEFINE_string(

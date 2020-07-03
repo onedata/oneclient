@@ -38,7 +38,7 @@ void AsyncStream::process(EventPtr<> event)
 {
     LOG_FCALL();
 
-    asio::post(m_ioService, [ this, event = std::move(event) ]() mutable {
+    asio::post(m_ioService, [this, event = std::move(event)]() mutable {
         m_stream->process(std::move(event));
     });
 }
