@@ -21,13 +21,13 @@
 #include <set>
 
 static const std::set<folly::fbstring> storages{
-    "posix", "s3", "ceph", "cephrados", "webdav", "glusterfs", "swift", "null"};
+    "posix", "s3", "ceph", "cephrados", "webdav", "glusterfs", "swift", "xrootd", "null"};
 
 static const std::set<folly::fbstring> tests{"rndwr"};
 
 DEFINE_string(storage, "",
     "Specify storage type: posix, s3, ceph, cephrados, webdav, glusterfs, "
-    "swift, null");
+    "swift, xrootd, null");
 
 DEFINE_string(test, "", "Specify test type: rndwr");
 
@@ -81,6 +81,13 @@ DEFINE_int64(webdav_maximum_upload_size, 0,
 DEFINE_int32(webdav_connection_pool_size, 10,
     "Specify WebDAV connection pool size for each helper instance");
 
+DEFINE_string(
+    xrootd_url, "", "Specify the XRootD url, e.g.: 'xrootd://192.168.1.2//data/'");
+DEFINE_string(
+    xrootd_credentials_type, "none", "Specify the XRootD credentials type: [none, pwd]");
+DEFINE_string(
+    xrootd_credentials, "", "Specify the XRootD credentials, e.g.: 'admin:password'");
+
 DEFINE_string(posix_mount_point, "/tmp", "Specify mountpoint for test files");
 DEFINE_string(
     posix_uid, std::to_string(getuid()), "Specify user UID for created files");
@@ -126,6 +133,11 @@ one::helpers::Params makeHelperParams()
             std::to_string(FLAGS_webdav_maximum_upload_size);
         params["connectionPoolSize"] =
             std::to_string(FLAGS_webdav_connection_pool_size);
+    }
+    else if (FLAGS_storage == "xrootd") {
+        params["url"] = FLAGS_xrootd_url;
+        params["credentialsType"] = FLAGS_xrootd_credentials_type;
+        params["credentials"] = FLAGS_xrootd_credentials;
     }
     else if (FLAGS_storage == "posix") {
         params["mountPoint"] = FLAGS_posix_mount_point;

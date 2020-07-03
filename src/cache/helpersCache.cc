@@ -54,6 +54,9 @@ HelpersCache::HelpersCache(communication::Communicator &communicator,
 #if WITH_WEBDAV
         m_helpersIOExecutor,
 #endif
+#if WITH_XROOTD
+        m_helpersIOExecutor,
+#endif
         m_helpersIoService, m_communicator,
         options.getBufferSchedulerThreadCount(),
         helpers::buffering::BufferLimits

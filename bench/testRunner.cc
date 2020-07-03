@@ -16,6 +16,7 @@
 #include "testWorkerRndRd.h"
 #include "testWorkerRndWr.h"
 #include "webDAVHelper.h"
+#include "xrootdHelper.h"
 
 #include <folly/Function.h>
 
@@ -72,6 +73,10 @@ void TestRunner::initialize()
     else if (m_config.storageType == "webdav") {
         helperFactory =
             std::make_shared<one::helpers::WebDAVHelperFactory>(m_ioExecutor);
+    }
+    else if (m_config.storageType == "xrootd") {
+        helperFactory =
+            std::make_shared<one::helpers::XRootDHelperFactory>(m_ioExecutor);
     }
     else if (m_config.storageType == "null") {
         helperFactory =
