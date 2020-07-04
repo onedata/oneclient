@@ -62,6 +62,9 @@ BuildRequires: nspr-devel
 BuildRequires: nss-devel
 BuildRequires: openssl >= 1.0.0
 BuildRequires: openssl-devel >= 1.0.0
+BuildRequires: xrootd-private-devel
+BuildRequires: xrootd-client-devel
+BuildRequires: xrootd-devel
 BuildRequires: python-devel
 BuildRequires: python36-devel
 BuildRequires: subversion
