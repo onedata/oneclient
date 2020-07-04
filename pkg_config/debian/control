@@ -35,6 +35,7 @@ Build-Depends:
     libpocoxml50,
     libxrootd-client-dev,
     libxrootd-server-dev,
+    libxrootd-private-dev,
     openssl (>= 1.1.0),
     pkg-config,
     protobuf-compiler (>= 3.4.1),
