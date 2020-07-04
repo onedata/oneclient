@@ -33,6 +33,8 @@ Build-Depends:
     libpoconetssl50,
     libpocoutil50,
     libpocoxml50,
+    libxrootd-client-dev,
+    libxrootd-server-dev,
     openssl (>= 1.1.0),
     pkg-config,
     protobuf-compiler (>= 3.4.1),
@@ -48,21 +50,21 @@ Homepage: https://onedata.org
 
 Package: oneclient-base
 Architecture: amd64
-Depends: glusterfs-common (>= 3.12.1), ${shlibs:Depends}, ${misc:Depends}, fuse
+Depends: glusterfs-common (>= 3.12.1), libxrootd-client-dev, ${shlibs:Depends}, ${misc:Depends}, fuse
 Description: FUSE client for onedata system.
  Oneclient is a software based on FUSE (Filesystem in Userspace) that allows
  mounting onedata filesystem on Linux systems.
 
 Package: python-onedatafs
 Architecture: amd64
-Depends: python, libboost-python1.58.0, ${shlibs:Depends}, ${misc:Depends}
+Depends: python, libboost-python1.58.0, libxrootd-client-dev, ${shlibs:Depends}, ${misc:Depends}
 Description: FUSE client for onedata system.
  oneclient is a software based on FUSE (Filesystem in Userspace) that allows
  mounting onedata filesystem on Linux systems.
 
 Package: python3-onedatafs
 Architecture: amd64
-Depends: python3, libboost-python1.58.0, ${shlibs:Depends}, ${misc:Depends}
+Depends: python3, libboost-python1.58.0, libxrootd-client-dev, ${shlibs:Depends}, ${misc:Depends}
 Description: FUSE client for onedata system.
  oneclient is a software based on FUSE (Filesystem in Userspace) that allows
  mounting onedata filesystem on Linux systems.
