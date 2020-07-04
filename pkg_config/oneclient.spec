@@ -17,6 +17,9 @@ Source0:	oneclient-base-%{version}.orig.tar.gz
 
 Requires: epel-release
 Requires: fuse
+Requires: xrootd-libs
+Requires: xrootd-client-libs
+Requires: xrootd-server-libs
 Requires: scl-utils
 Requires: %scl_require_package %{scl} tbb >= 2018.5~
 BuildRequires: %scl_require_package %{scl} aws-sdk-cpp-s3 >= 1.4.35
@@ -119,7 +122,7 @@ cmake3 . -DLIB_INSTALL_DIR=lib64 \
          -DWANGLE_INCLUDE_DIR=/opt/onedata/%{scl}/root/usr/include \
          -DBOOST_ROOT=/opt/onedata/%{scl}/root/usr \
          -DProtobuf_INCLUDE_DIR=/opt/onedata/%{scl}/root/usr/include \
-         -DWITH_CEPH=ON -DWITH_GLUSTERFS=ON -DWITH_SWIFT=ON -DWITH_WEBDAV=ON \
+         -DWITH_CEPH=ON -DWITH_GLUSTERFS=ON -DWITH_SWIFT=ON -DWITH_WEBDAV=ON -DWITH_XROOTD=ON \
          -DCMAKE_BUILD_TYPE=Release -DBUILD_INTEGRATION_TESTS=OFF -DBUILD_SHARED_LIBS=ON \
          -DSTATIC_LIBSTDCPP=ON -DSTATIC_BOOST=OFF -DSTATIC_PROTOBUF=ON
 make %{_smp_mflags} oneclient
