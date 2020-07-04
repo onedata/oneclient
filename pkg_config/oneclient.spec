@@ -81,6 +81,9 @@ allows mounting onedata filesystem on Linux systems.
 Summary: Python 2 OnedataFS library.
 Requires: python
 Requires: scl-utils
+Requires: xrootd-libs
+Requires: xrootd-client-libs
+Requires: xrootd-server-libs
 Requires: %scl_require_package %{scl} tbb >= 2018.5~
 Requires: %scl_require_package %{scl} boost-python
 
@@ -92,6 +95,9 @@ Python 2 OnedataFS library.
 Summary: Python 3 OnedataFS library.
 Requires: python36
 Requires: scl-utils
+Requires: xrootd-libs
+Requires: xrootd-client-libs
+Requires: xrootd-server-libs
 Requires: %scl_require_package %{scl} tbb >= 2018.5~
 Requires: %scl_require_package %{scl} boost-python3
 
