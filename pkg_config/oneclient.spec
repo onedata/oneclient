@@ -18,7 +18,7 @@ Source0:	oneclient-base-%{version}.orig.tar.gz
 
 Requires: epel-release
 Requires: fuse
-Requires: xrootd-libs >= %{xrootd_version>
+Requires: xrootd-libs >= %{xrootd_version}
 Requires: xrootd-client-libs >= %{xrootd_version}
 Requires: xrootd-server-libs >= %{xrootd_version}
 Requires: scl-utils
