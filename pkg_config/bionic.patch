@@ -41,16 +41,16 @@ index e0a18a3a..fec8b543 100644
  
  Package: python-onedatafs
  Architecture: amd64
--Depends: python, libboost-python1.58.0, libxrootd-client-dev, ${shlibs:Depends}, ${misc:Depends}
-+Depends: python, libboost-python1.65.1, libxrootd-client-dev, ${shlibs:Depends}, ${misc:Depends}
+-Depends: python, libboost-python1.58.0, libxrootd-client-dev, xrootd-plugins, ${shlibs:Depends}, ${misc:Depends}
++Depends: python, libboost-python1.65.1, libxrootd-client-dev, xrootd-plugins, ${shlibs:Depends}, ${misc:Depends}
  Description: FUSE client for onedata system.
   oneclient is a software based on FUSE (Filesystem in Userspace) that allows
   mounting onedata filesystem on Linux systems.
  
  Package: python3-onedatafs
  Architecture: amd64
--Depends: python3, libboost-python1.58.0, libxrootd-client-dev, ${shlibs:Depends}, ${misc:Depends}
-+Depends: python3, libboost-python1.65.1, libxrootd-client-dev, ${shlibs:Depends}, ${misc:Depends}
+-Depends: python3, libboost-python1.58.0, libxrootd-client-dev, xrootd-plugins, ${shlibs:Depends}, ${misc:Depends}
++Depends: python3, libboost-python1.65.1, libxrootd-client-dev, xrootd-plugins, ${shlibs:Depends}, ${misc:Depends}
  Description: FUSE client for onedata system.
   oneclient is a software based on FUSE (Filesystem in Userspace) that allows
   mounting onedata filesystem on Linux systems.
