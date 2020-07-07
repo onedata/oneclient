@@ -54,6 +54,9 @@ HelpersCache::HelpersCache(communication::Communicator &communicator,
 #if WITH_WEBDAV
         m_helpersIOExecutor,
 #endif
+#if WITH_XROOTD
+        m_helpersIOExecutor,
+#endif
         m_helpersIoService, m_communicator,
         options.getBufferSchedulerThreadCount(),
         helpers::buffering::BufferLimits
@@ -172,7 +175,7 @@ folly::Future<HelpersCache::HelperPtr> HelpersCache::get(
             m_cache.emplace(std::make_tuple(storageId, false), p);
 
             m_scheduler.post(
-                [ this, &fileUuid, &spaceId, &storageId, p = std::move(p) ] {
+                [this, &fileUuid, &spaceId, &storageId, p = std::move(p)] {
                     p->setWith([=] {
                         return performForcedDirectIOStorageDetection(
                             fileUuid, spaceId, storageId);
@@ -198,10 +201,8 @@ folly::Future<HelpersCache::HelperPtr> HelpersCache::get(
 
         m_cache.emplace(std::make_tuple(storageId, forceProxyIO), p);
 
-        m_scheduler.post([
-            this, &fileUuid, &spaceId, &storageId, forceProxyIO,
-            p = std::move(p)
-        ] {
+        m_scheduler.post([this, &fileUuid, &spaceId, &storageId, forceProxyIO,
+                             p = std::move(p)] {
             p->setWith([=] {
                 return performAutoIOStorageDetection(
                     fileUuid, spaceId, storageId, forceProxyIO);
@@ -288,9 +289,8 @@ HelpersCache::HelperPtr HelpersCache::performAutoIOStorageDetection(
                        << " wasn't determined on first attempt - "
                           "scheduling retry and returning proxy helper as "
                           "fallback";
-            m_scheduler.post([
-                this, fileUuid, storageId, storageType = params.name()
-            ] {
+            m_scheduler.post([this, fileUuid, storageId,
+                                 storageType = params.name()] {
                 auto directIOHelper =
                     requestStorageTestFileCreation(fileUuid, storageId);
                 if (directIOHelper) {

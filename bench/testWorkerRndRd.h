@@ -52,13 +52,10 @@ public:
         // Wait for all test workers to be ready
         m_startBarrier.wait().get();
 
-        auto f = [
-            this, id = m_id, fileCount, fileSize = m_fileSize,
-            blockSize = m_blockSize, eventCount = m_eventCount,
-            asyncBatchSize = m_asyncBatchSize, flush = m_flush,
-            handles = std::move(handles)
-        ]()
-        {
+        auto f = [this, id = m_id, fileCount, fileSize = m_fileSize,
+                     blockSize = m_blockSize, eventCount = m_eventCount,
+                     asyncBatchSize = m_asyncBatchSize, flush = m_flush,
+                     handles = std::move(handles)]() {
             for (int k = 0; k < eventCount; k += asyncBatchSize) {
 
                 folly::fbvector<folly::Future<folly::Unit>> futs;
@@ -71,14 +68,16 @@ public:
                     auto start = Clock::now();
 
                     futs.emplace_back(
-                        handles[fileIndex]->read(offset, blockSize).then([
-                            this, start, blockSize, id, resultID = k + l
-                        ](folly::IOBufQueue && buf) {
-                            postResult({id, resultID, start, Clock::now(), 1,
-                                buf.chainLength()});
+                        handles[fileIndex]
+                            ->read(offset, blockSize)
+                            .then(
+                                [this, start, blockSize, id, resultID = k + l](
+                                    folly::IOBufQueue &&buf) {
+                                    postResult({id, resultID, start,
+                                        Clock::now(), 1, buf.chainLength()});
 
-                            return folly::makeFuture();
-                        }));
+                                    return folly::makeFuture();
+                                }));
                 }
                 folly::collectAll(futs.begin(), futs.end()).get();
             }

@@ -9,6 +9,7 @@ option(WITH_S3 "Include S3 direct IO support" ON)
 option(WITH_SWIFT "Include Swift direct IO support" ON)
 option(WITH_GLUSTERFS "Include GlusterFS direct IO support" ON)
 option(WITH_WEBDAV "Include WebDAV direct IO support" ON)
+option(WITH_XROOTD "Include XRootD direct IO support" ON)
 option(WITH_ONECLIENT "Include oneclient binary" ON)
 option(WITH_ONEBENCH "Include onebench binary" ON)
 option(WITH_ONEDATAFS "Build onedatafs library" ON)
@@ -195,6 +196,14 @@ else(WITH_WEBDAV)
     add_definitions(-DWITH_WEBDAV=0)
 endif(WITH_WEBDAV)
 
+if(WITH_XROOTD)
+    include(/usr/share/xrootd/cmake/XRootDConfig.cmake)
+    find_package(XRootD REQUIRED)
+    add_definitions(-DWITH_XROOTD=1)
+else(WITH_XROOTD)
+    add_definitions(-DWITH_XROOTD=0)
+endif(WITH_XROOTD)
+
 # gpertools lib
 find_library(PROFILER_LIBRARY NAMES profiler)
 
@@ -342,6 +351,10 @@ endif(WITH_GLUSTERFS)
 if(WITH_WEBDAV)
     list(APPEND CLIENT_LIBRARIES ${PROXYGEN_LIBRARY} ${WANGLE_LIBRARIES})
 endif(WITH_WEBDAV)
+
+if(WITH_XROOTD)
+    list(APPEND CLIENT_LIBRARIES ${XROOTD_LIBRARIES})
+endif(WITH_XROOTD)
 
 # Define targets
 add_library(client OBJECT ${SOURCES} ${HEADERS})

@@ -56,13 +56,10 @@ public:
         // Wait for all test workers to be ready
         m_startBarrier.wait().get();
 
-        auto f = [
-            this, id = m_id, fileCount, fileSize = m_fileSize,
-            blockSize = m_blockSize, eventCount = m_eventCount,
-            asyncBatchSize = m_asyncBatchSize, flush = m_flush,
-            data = std::move(data), handles = std::move(handles)
-        ]()
-        {
+        auto f = [this, id = m_id, fileCount, fileSize = m_fileSize,
+                     blockSize = m_blockSize, eventCount = m_eventCount,
+                     asyncBatchSize = m_asyncBatchSize, flush = m_flush,
+                     data = std::move(data), handles = std::move(handles)]() {
             for (int k = 0; k < eventCount; k += asyncBatchSize) {
 
                 folly::fbvector<folly::Future<folly::Unit>> futs;
@@ -82,23 +79,21 @@ public:
                         handles[fileIndex]
                             ->write(offset, std::move(buf))
                             .then(folly::getIOExecutor().get(),
-                                [
-                                    this, handle = handles[fileIndex], flush,
-                                    resultID = k + l
-                                ](std::size_t written) {
+                                [this, handle = handles[fileIndex], flush,
+                                    resultID = k + l](std::size_t written) {
                                     if (flush)
                                         return handle->flush();
                                     else
                                         return folly::makeFuture();
                                 })
-                            .then(folly::getIOExecutor().get(), [
-                                this, start, blockSize, id, resultID = k + l
-                            ]() {
-                                postResult({id, resultID, start, Clock::now(),
-                                    1, blockSize});
+                            .then(folly::getIOExecutor().get(),
+                                [this, start, blockSize, id,
+                                    resultID = k + l]() {
+                                    postResult({id, resultID, start,
+                                        Clock::now(), 1, blockSize});
 
-                                return folly::makeFuture();
-                            }));
+                                    return folly::makeFuture();
+                                }));
                 }
                 folly::collectAll(futs.begin(), futs.end()).get();
             }

@@ -28,6 +28,8 @@ WITH_S3           ?= ON
 WITH_GLUSTERFS    ?= ON
 # Build with WebDAV storage helper by default
 WITH_WEBDAV       ?= ON
+# Build with XRootD storage helper by default
+WITH_XROOTD       ?= ON
 # Build with onedatafs Python library
 WITH_ONEDATAFS    ?= ON
 # Build with code coverage
@@ -63,6 +65,7 @@ all: debug test
 	                       -DWITH_S3=${WITH_S3} \
 	                       -DWITH_GLUSTERFS=${WITH_GLUSTERFS} \
 	                       -DWITH_WEBDAV=${WITH_WEBDAV} \
+	                       -DWITH_XROOTD=${WITH_XROOTD} \
 	                       -DWITH_ONEDATAFS=${WITH_ONEDATAFS} \
 	                       -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR} \
 	                       -DCMAKE_INSTALL_PREFIX=${PWD}/debug/PREFIX \
@@ -473,4 +476,4 @@ clang-tidy:
 
 .PHONY: clang-format
 clang-format:
-	docker run --rm -v $(CURDIR):/root/sources onedata/clang-format-check:1.1
+	docker run --rm -v $(CURDIR):/root/sources onedata/clang-format-check:1.2

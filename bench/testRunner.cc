@@ -8,14 +8,21 @@
 
 #include "testRunner.h"
 
+#if WITH_CEPH
 #include "cephHelper.h"
 #include "cephRadosHelper.h"
+#endif
 #include "nullDeviceHelper.h"
 #include "posixHelper.h"
+#if WITH_S3
 #include "s3Helper.h"
+#endif
 #include "testWorkerRndRd.h"
 #include "testWorkerRndWr.h"
 #include "webDAVHelper.h"
+#if WITH_XROOTD
+#include "xrootdHelper.h"
+#endif
 
 #include <folly/Function.h>
 
@@ -46,7 +53,7 @@ void TestRunner::initialize()
     std::shared_ptr<one::helpers::StorageHelperFactory> helperFactory;
 
     // Start helper worker threads
-    if (m_config.storageType == "webdav") {
+    if (m_config.storageType == "webdav" || m_config.storageType == "xrootd") {
         m_ioExecutor = std::make_shared<folly::IOThreadPoolExecutor>(
             m_config.helperThreadCount);
     }
@@ -57,7 +64,12 @@ void TestRunner::initialize()
         }
     }
 
-    if (m_config.storageType == "ceph") {
+    if (m_config.storageType == "null") {
+        helperFactory =
+            std::make_shared<one::helpers::NullDeviceHelperFactory>(m_service);
+    }
+#if WITH_CEPH
+    else if (m_config.storageType == "ceph") {
         helperFactory =
             std::make_shared<one::helpers::CephHelperFactory>(m_service);
     }
@@ -65,18 +77,23 @@ void TestRunner::initialize()
         helperFactory =
             std::make_shared<one::helpers::CephRadosHelperFactory>(m_service);
     }
+#endif
+#if WITH_S3
     else if (m_config.storageType == "s3") {
         helperFactory =
             std::make_shared<one::helpers::S3HelperFactory>(m_service);
     }
+#endif
     else if (m_config.storageType == "webdav") {
         helperFactory =
             std::make_shared<one::helpers::WebDAVHelperFactory>(m_ioExecutor);
     }
-    else if (m_config.storageType == "null") {
+#if WITH_XROOTD
+    else if (m_config.storageType == "xrootd") {
         helperFactory =
-            std::make_shared<one::helpers::NullDeviceHelperFactory>(m_service);
+            std::make_shared<one::helpers::XRootDHelperFactory>(m_ioExecutor);
     }
+#endif
     else if (m_config.storageType == "posix") {
         helperFactory =
             std::make_shared<one::helpers::PosixHelperFactory>(m_service);

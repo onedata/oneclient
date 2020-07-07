@@ -50,9 +50,7 @@ void ReaddirCache::fetch(const folly::fbstring &uuid)
     auto p = std::make_shared<folly::SharedPromise<folly::Unit>>();
     m_cache.emplace(uuid, p);
 
-    m_context.lock()->scheduler()->post([
-        this, uuid = uuid, p = std::move(p)
-    ] {
+    m_context.lock()->scheduler()->post([this, uuid = uuid, p = std::move(p)] {
         std::size_t chunkIndex = 0;
         std::size_t fetchedSize = 0;
         auto isLast = false;
@@ -84,10 +82,9 @@ void ReaddirCache::fetch(const folly::fbstring &uuid)
 
                     folly::Promise<folly::Unit> partialPromise;
                     futs.emplace_back(partialPromise.getFuture());
-                    m_runInFiber([
-                        this, msg = std::move(msg),
-                        partialPromise = std::move(partialPromise), uuid
-                    ]() mutable {
+                    m_runInFiber([this, msg = std::move(msg),
+                                     partialPromise = std::move(partialPromise),
+                                     uuid]() mutable {
                         for (const auto it :
                             folly::enumerate(msg.childrenAttrs())) {
                             m_metadataCache.updateAttr(

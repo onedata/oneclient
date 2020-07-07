@@ -5,6 +5,7 @@
 
 %global version {{version}}
 %global folly_version 2017.10.02.00
+%global xrootd_version 20200703
 
 Name:		%{?scl_prefix}oneclient-base
 Version:	%{version}
@@ -17,6 +18,9 @@ Source0:	oneclient-base-%{version}.orig.tar.gz
 
 Requires: epel-release
 Requires: fuse
+Requires: xrootd-libs >= %{xrootd_version}
+Requires: xrootd-client-libs >= %{xrootd_version}
+Requires: xrootd-server-libs >= %{xrootd_version}
 Requires: scl-utils
 Requires: %scl_require_package %{scl} tbb >= 2018.5~
 BuildRequires: %scl_require_package %{scl} aws-sdk-cpp-s3 >= 1.4.35
@@ -62,6 +66,10 @@ BuildRequires: nspr-devel
 BuildRequires: nss-devel
 BuildRequires: openssl >= 1.0.0
 BuildRequires: openssl-devel >= 1.0.0
+BuildRequires: xrootd-private-devel >= %{xrootd_version}
+BuildRequires: xrootd-server-devel >= %{xrootd_version}
+BuildRequires: xrootd-client-devel >= %{xrootd_version}
+BuildRequires: xrootd-devel >= %{xrootd_version}
 BuildRequires: python-devel
 BuildRequires: python36-devel
 BuildRequires: subversion
@@ -73,8 +81,12 @@ allows mounting onedata filesystem on Linux systems.
 
 %package -n %{?scl_prefix}python2-onedatafs
 Summary: Python 2 OnedataFS library.
+Requires: epel-release
 Requires: python
 Requires: scl-utils
+Requires: xrootd-server-libs >= %{xrootd_version}
+Requires: xrootd-client-libs >= %{xrootd_version}
+Requires: xrootd-libs >= %{xrootd_version}
 Requires: %scl_require_package %{scl} tbb >= 2018.5~
 Requires: %scl_require_package %{scl} boost-python
 
@@ -84,8 +96,12 @@ Python 2 OnedataFS library.
 
 %package -n %{?scl_prefix}python3-onedatafs
 Summary: Python 3 OnedataFS library.
+Requires: epel-release
 Requires: python36
 Requires: scl-utils
+Requires: xrootd-server-libs >= %{xrootd_version}
+Requires: xrootd-client-libs >= %{xrootd_version}
+Requires: xrootd-libs >= %{xrootd_version}
 Requires: %scl_require_package %{scl} tbb >= 2018.5~
 Requires: %scl_require_package %{scl} boost-python3
 
@@ -116,7 +132,7 @@ cmake3 . -DLIB_INSTALL_DIR=lib64 \
          -DWANGLE_INCLUDE_DIR=/opt/onedata/%{scl}/root/usr/include \
          -DBOOST_ROOT=/opt/onedata/%{scl}/root/usr \
          -DProtobuf_INCLUDE_DIR=/opt/onedata/%{scl}/root/usr/include \
-         -DWITH_CEPH=ON -DWITH_GLUSTERFS=ON -DWITH_SWIFT=ON -DWITH_WEBDAV=ON \
+         -DWITH_CEPH=ON -DWITH_GLUSTERFS=ON -DWITH_SWIFT=ON -DWITH_WEBDAV=ON -DWITH_XROOTD=ON \
          -DCMAKE_BUILD_TYPE=Release -DBUILD_INTEGRATION_TESTS=OFF -DBUILD_SHARED_LIBS=ON \
          -DSTATIC_LIBSTDCPP=ON -DSTATIC_BOOST=OFF -DSTATIC_PROTOBUF=ON
 make %{_smp_mflags} oneclient

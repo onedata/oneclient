@@ -175,7 +175,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     // Quota initial configuration
     m_eventManager.subscribe(
         events::QuotaExceededSubscription{[=](auto events) {
-            m_runInFiber([ this, events = std::move(events) ] {
+            m_runInFiber([this, events = std::move(events)] {
                 this->disableSpaces(events.back()->spaces());
             });
         }});
@@ -716,9 +716,9 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
         LOG_DBG(2) << "Reading " << availableSize << " bytes from " << uuid
                    << " at offset " << offset;
 
+        using one::logging::log_timer;
         using one::logging::csv::log;
         using one::logging::csv::read_write_perf;
-        using one::logging::log_timer;
 
         log_timer<> timer;
 
@@ -1104,9 +1104,9 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
 
     auto fileBlock = m_metadataCache.getDefaultBlock(uuid);
 
+    using one::logging::log_timer;
     using one::logging::csv::log;
     using one::logging::csv::read_write_perf;
-    using one::logging::log_timer;
 
     size_t bytesWritten = 0;
     try {
@@ -1132,18 +1132,17 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
 
             folly::fibers::await(
                 [&](folly::fibers::Promise<folly::Unit> promise) {
-                    promise.setWith([
-                        this, storageId = fileBlock.storageId(),
-                        spaceId = m_metadataCache.getSpaceId(uuid),
-                        fuseFileHandle, uuid
-                    ]() {
-                        // Invalidate the read cache so that it forgets
-                        // the ekeyexpired exception
-                        return m_helpersCache
-                            ->refreshHelperParameters(storageId, spaceId)
-                            .within(m_providerTimeout)
-                            .get();
-                    });
+                    promise.setWith(
+                        [this, storageId = fileBlock.storageId(),
+                            spaceId = m_metadataCache.getSpaceId(uuid),
+                            fuseFileHandle, uuid]() {
+                            // Invalidate the read cache so that it forgets
+                            // the ekeyexpired exception
+                            return m_helpersCache
+                                ->refreshHelperParameters(storageId, spaceId)
+                                .within(m_providerTimeout)
+                                .get();
+                        });
                 });
 
             return write(uuid, fuseFileHandleId, offset, std::move(buf),
@@ -1679,10 +1678,8 @@ SrvMsg FsLogic::communicate(CliMsg &&msg, const std::chrono::seconds timeout)
     return m_context->communicator()
         ->communicate<SrvMsg>(std::forward<CliMsg>(msg))
         .onTimeout(timeout,
-            [
-                messageString = std::move(messageString),
-                timeout = timeout.count()
-            ]() {
+            [messageString = std::move(messageString),
+                timeout = timeout.count()]() {
                 LOG(ERROR) << "Response to message : " << messageString
                            << " not received within " << timeout << " seconds.";
                 return folly::makeFuture<SrvMsg>(std::system_error{
@@ -1764,21 +1761,20 @@ folly::fbstring FsLogic::computeHash(const folly::IOBufQueue &buf)
     // TODO: move this to CPU-bound threadpool
     return folly::fibers::await(
         [&](folly::fibers::Promise<folly::fbstring> promise) {
-            m_context->scheduler()->post(
-                [&, promise = std::move(promise) ]() mutable {
-                    folly::fbstring hash(MD4_DIGEST_LENGTH, '\0');
-                    MD4_CTX ctx;
-                    MD4_Init(&ctx);
+            m_context->scheduler()->post([&,
+                                             promise =
+                                                 std::move(promise)]() mutable {
+                folly::fbstring hash(MD4_DIGEST_LENGTH, '\0');
+                MD4_CTX ctx;
+                MD4_Init(&ctx);
 
-                    if (!buf.empty())
-                        for (auto &byteRange : *buf.front())
-                            MD4_Update(
-                                &ctx, byteRange.data(), byteRange.size());
+                if (!buf.empty())
+                    for (auto &byteRange : *buf.front())
+                        MD4_Update(&ctx, byteRange.data(), byteRange.size());
 
-                    MD4_Final(
-                        reinterpret_cast<unsigned char *>(&hash[0]), &ctx);
-                    promise.setValue(std::move(hash));
-                });
+                MD4_Final(reinterpret_cast<unsigned char *>(&hash[0]), &ctx);
+                promise.setValue(std::move(hash));
+            });
         });
 }
 

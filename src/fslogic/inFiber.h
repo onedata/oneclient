@@ -30,8 +30,10 @@
 #define WRAP(name, args)                                                       \
     auto name(DECL_PARAMS(args))                                               \
     {                                                                          \
-        return m_fiberManager.addTaskRemoteFuture([this CAPTURE(               \
-            args)]() mutable { return m_fsLogic.name(ARGS(args)); });          \
+        return m_fiberManager.addTaskRemoteFuture(                             \
+            [this CAPTURE(args)]() mutable {                                   \
+                return m_fsLogic.name(ARGS(args));                             \
+            });                                                                \
     }
 
 namespace one {
