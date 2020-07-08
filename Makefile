@@ -6,7 +6,7 @@ DOCKER_REG_NAME       ?= "docker.onedata.org"
 DOCKER_REG_USER       ?= ""
 DOCKER_REG_PASSWORD   ?= ""
 DOCKER_BASE_IMAGE     ?= "ubuntu:18.04"
-DOCKER_DEV_BASE_IMAGE ?= "onedata/worker:2002-1"
+DOCKER_DEV_BASE_IMAGE ?= "onedata/worker:2002-2"
 HTTP_PROXY            ?= "http://proxy.devel.onedata.org:3128"
 
 PKG_REVISION    ?= $(shell git describe --tags --always  --abbrev=7)
@@ -350,6 +350,7 @@ oneclient_tar $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz:
 		    cp /var/lib/oneclient/oneclient.bash-completion /output/etc/bash_completion.d/ && \
 		    cp -r /lib/x86_64-linux-gnu/* /output/lib/ && \
 		    cp -r /usr/lib/x86_64-linux-gnu/nss/* /output/lib/ && \
+	        cp -r /usr/lib/x86_64-linux-gnu/libXrd* /output/lib/ && \
 	        cp -r /usr/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/xlator/* /output/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/xlator/ && \
 	        cp -r /usr/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/rpc-transport/* /output/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/rpc-transport/'
 	# Collect all dynamic libraries GlusterFS dependencies
