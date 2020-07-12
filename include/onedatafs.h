@@ -6,6 +6,8 @@
  * 'LICENSE.txt'
  */
 
+#pragma once
+
 #include "auth/authException.h"
 #include "auth/authManager.h"
 #include "communication/communicator.h"
@@ -820,7 +822,8 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(
     auto authManager = getAuthManager(context);
     auto sessionId = generateSessionId();
 
-    auto configuration = getConfiguration(sessionId, authManager, context);
+    auto configuration =
+        getConfiguration(sessionId, authManager, context, true);
 
     if (!configuration)
         throw std::runtime_error("Authentication to Oneprovider failed...");
@@ -930,9 +933,6 @@ BOOST_PYTHON_MODULE(onedatafs)
         .def("flush", &OnedataFileHandle::flush)
         .def("fsync", &OnedataFileHandle::fsync)
         .def("close", &OnedataFileHandle::close);
-
-    boost::python::register_ptr_to_python<
-        boost::shared_ptr<OnedataFileHandle>>();
 
     PyIterableAdapter().fromPython<std::vector<std::string>>();
 
