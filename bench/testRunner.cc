@@ -17,6 +17,7 @@
 #if WITH_S3
 #include "s3Helper.h"
 #endif
+#include "httpHelper.h"
 #include "testWorkerRndRd.h"
 #include "testWorkerRndWr.h"
 #include "webDAVHelper.h"
@@ -26,6 +27,7 @@
 
 #include <folly/Function.h>
 
+#include <fstream>
 #include <iostream>
 
 namespace one {
@@ -53,7 +55,8 @@ void TestRunner::initialize()
     std::shared_ptr<one::helpers::StorageHelperFactory> helperFactory;
 
     // Start helper worker threads
-    if (m_config.storageType == "webdav" || m_config.storageType == "xrootd") {
+    if (m_config.storageType == "http" || m_config.storageType == "webdav" ||
+        m_config.storageType == "xrootd") {
         m_ioExecutor = std::make_shared<folly::IOThreadPoolExecutor>(
             m_config.helperThreadCount);
     }
@@ -88,6 +91,10 @@ void TestRunner::initialize()
         helperFactory =
             std::make_shared<one::helpers::WebDAVHelperFactory>(m_ioExecutor);
     }
+    else if (m_config.storageType == "http") {
+        helperFactory =
+            std::make_shared<one::helpers::HTTPHelperFactory>(m_ioExecutor);
+    }
 #if WITH_XROOTD
     else if (m_config.storageType == "xrootd") {
         helperFactory =
@@ -115,13 +122,26 @@ void TestRunner::initialize()
         m_helperPool.emplace_back(std::move(helperPtr));
     }
 
-    // Prepare unique file names
-    for (auto i = 0u; i < m_config.fileCount; i++) {
-        m_fileIds.emplace_back(folly::fbstring(ONEBENCH_FILE_PREFIX) +
-            randStr(ONEBENCH_FILEID_LENGTH));
-    }
+    if (m_config.fileIndexPath.empty()) {
+        // Prepare unique file names
+        for (auto i = 0u; i < m_config.fileCount; i++) {
+            m_fileIds.emplace_back(folly::fbstring(ONEBENCH_FILE_PREFIX) +
+                randStr(ONEBENCH_FILEID_LENGTH));
+        }
 
-    createTestFiles();
+        createTestFiles();
+    }
+    else {
+        // Load the file paths from the file
+        // The file must contain one path relative to the registered storage
+        // per line.
+        folly::fbstring filePath{};
+        std::ifstream infile(m_config.fileIndexPath.toStdString());
+        while (infile >> filePath) {
+            m_fileIds.emplace_back(filePath);
+            filePath.clear();
+        }
+    }
 }
 
 void TestRunner::start()

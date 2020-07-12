@@ -27,6 +27,7 @@ std::ostream &operator<<(
     stream << "  Async batch size: " << c.asyncBatchSize << '\n';
     stream << "  Keep test files: " << (c.keepTestFiles ? "yes" : "no") << '\n';
     stream << "  Force flush: " << (c.flush ? "yes" : "no") << '\n';
+    stream << "  File index path: " << c.fileIndexPath << '\n';
 
     return stream;
 }

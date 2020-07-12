@@ -44,6 +44,9 @@ DEFINE_int32(async_batch_size, 1, "Specify request batch size for each worker");
 DEFINE_bool(keep_test_files, false,
     "Keep created temporary test files after test completes");
 DEFINE_bool(flush, false, "Force flush after each IO request");
+DEFINE_string(file_index_path, "",
+    "File containing list of files, one file per line, relative to the "
+    "registered storage");
 
 DEFINE_int32(
     timeout_ms, 60 * 1000, "Specify maximum request timeout in milliseconds");
@@ -80,6 +83,17 @@ DEFINE_int64(webdav_maximum_upload_size, 0,
     "Specify WebDAV maximum upload size for single PUT or PATCH request");
 DEFINE_int32(webdav_connection_pool_size, 10,
     "Specify WebDAV connection pool size for each helper instance");
+
+DEFINE_string(
+    http_endpoint, "", "Specify the HTTP host, e.g.: 'http://192.168.1.2'");
+DEFINE_string(http_credentials_type, "basic",
+    "Specify the HTTP credentials, e.g.: 'basic'");
+DEFINE_string(http_credentials, "",
+    "Specify the HTTP credentials, e.g.: 'admin:password'");
+DEFINE_string(http_verify_certificate, "false",
+    "Specify whether onebench should verify HTTP server certificate.");
+DEFINE_int32(http_connection_pool_size, 10,
+    "Specify HTTP connection pool size for each helper instance");
 
 DEFINE_string(xrootd_url, "",
     "Specify the XRootD url, e.g.: 'xrootd://192.168.1.2//data/'");
@@ -134,6 +148,14 @@ one::helpers::Params makeHelperParams()
         params["connectionPoolSize"] =
             std::to_string(FLAGS_webdav_connection_pool_size);
     }
+    else if (FLAGS_storage == "http") {
+        params["endpoint"] = FLAGS_http_endpoint;
+        params["credentialsType"] = FLAGS_http_credentials_type;
+        params["credentials"] = FLAGS_http_credentials;
+        params["verifyServerCertificate"] = FLAGS_http_verify_certificate;
+        params["connectionPoolSize"] =
+            std::to_string(FLAGS_http_connection_pool_size);
+    }
     else if (FLAGS_storage == "xrootd") {
         params["url"] = FLAGS_xrootd_url;
         params["credentialsType"] = FLAGS_xrootd_credentials_type;
@@ -167,6 +189,11 @@ one::bench::TestRunnerConfig makeTestRunnerConfig()
     config.asyncBatchSize = FLAGS_async_batch_size;
     config.keepTestFiles = FLAGS_keep_test_files;
     config.flush = FLAGS_flush;
+    config.fileIndexPath = FLAGS_file_index_path;
+
+    if (!config.fileIndexPath.empty()) {
+        config.keepTestFiles = true;
+    }
 
     return config;
 }
