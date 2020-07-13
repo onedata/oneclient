@@ -4,6 +4,23 @@ Release notes for project oneclient
 CHANGELOG
 ---------
 
+### 20.02.1
+
+-   **VFS-6504** Added HTTP storage helper allowing registration of HTTP
+    and HTTPS servers as storage sources for Onedata Spaces.
+-   **VFS-6431** Added performance logs for object storages, which can
+    generate CSV file containing all storage requests including their
+    duration.
+-   **VFS-6316** Added \`statfs\` support enabling preview of available
+    storage in each space through oneclient, for instance using \`df\`
+    or \`stat\` utilities.
+-   **VFS-6342** Added build and test plan for Travis to enable
+    automatic builds from develop and release branches of oneclient on
+    GitHub.
+-   **VFS-6474** Added initial support for XRootD storage, including
+    direct access to XRootD storages and importing of legacy data sets
+    stored on XRootD or EOS servers.
+
 ### 20.02.0-beta4
 
 -   **VFS-6359** Fixed an issue with accessing files in spaces which are
@@ -385,7 +402,7 @@ CHANGELOG
 
 -   VFS-2534 Use only time aggregation for update events
 -   VFS-2497 Enable destruction of not-connected AsyncResponder.
--   VFS-2497 Do not lock mutex in WriteBuffer\'s destructor.
+-   VFS-2497 Do not lock mutex in WriteBuffer\\\'s destructor.
 -   VFS-2497 Fix undefined behaviour after timeout in WriteBuffer.
 -   VFS-2497 Ensure DIOHandler exists in async ops.
 -   VFS-2497 Add AsyncResponder communication layer.
@@ -393,7 +410,7 @@ CHANGELOG
 
 ### 3.0.0-rc4
 
--   VFS-1956 Improve CephHelper\'s raw pointer handling.
+-   VFS-1956 Improve CephHelper\\\'s raw pointer handling.
 -   VFS-1956 Protect connecting to Ceph with mutex.
 
 ### 3.0.0-RC3
@@ -407,7 +424,7 @@ CHANGELOG
 -   VFS-2316 Integrate new etls version.
 -   VFS-2250 Add base62 encoding and decoding to tokenHandler
 -   VFS-2272 Give precendence to env AUTHORIZATION\_TOKEN.
--   VFS-2270 Print out the hostname of client\'s provider.
+-   VFS-2270 Print out the hostname of client\\\'s provider.
 -   VFS-2215 Remove the file immediately on unlink.
 
 ### 3.0.0-RC2
@@ -420,7 +437,7 @@ CHANGELOG
 -   VFS-2316 Integrate new etls version.
 -   VFS-2250 Add base62 encoding and decoding to tokenHandler
 -   VFS-2272 Give precendence to env AUTHORIZATION\_TOKEN.
--   VFS-2270 Print out the hostname of client\'s provider.
+-   VFS-2270 Print out the hostname of client\\\'s provider.
 -   VFS-2085 Do not communicate with server in event handlers.
 -   VFS-2215 Remove the file immediately on unlink.
 
@@ -430,7 +447,7 @@ CHANGELOG
 
 ### 3.0.0-beta7
 
--   VFS-2166 Generate \'Format 1.0\' packages for trusty.
+-   VFS-2166 Generate \\\'Format 1.0\\\' packages for trusty.
 -   Fix wily package compilation to use GCC 5.
 -   VFS-2173 Add flag to deleteFile message whether event should be
     emitted
@@ -467,7 +484,7 @@ CHANGELOG
 -   VFS-2057 Enable \--no-check-certificate in docker.
 -   Removing path from target file attrs after overwrite in rename
 -   Fix getattr on alternative file path returning bad attrs.
--   VFS-1973 Name client\'s threads.
+-   VFS-1973 Name client\\\'s threads.
 -   VFS-1991 Update auto install script names.
 -   VFS-1975 Adding uuid to release message
 -   VFS-1841 Clearing caches after rename
@@ -481,7 +498,7 @@ CHANGELOG
 -   VFS-1932 Use BufferAgent with StorageHelperFactory.
 -   VFS-1747 Change unique\_ptr to boost::optional, rename
     dataIsCorrupted function.
--   VFS-1853 Add \".\" nad \"..\" to readdir output
+-   VFS-1853 Add \\\".\\\" nad \\\"..\\\" to readdir output
 -   VFS-1853 Remove sticky bit for nfs compatibility
 -   VFS-1853 Update shares configs
 -   VFS-1952 Remove handle\_id from location immediately after open
@@ -491,7 +508,7 @@ CHANGELOG
 -   VFS-1747 Add checksum computation.
 -   VFS-1747 Fix empty buffer during reread of synced data.
 -   VFS-1857 Multi path file removal event handling
--   VFS-1763 Activate FUSE session in fsOperations\' wrap.
+-   VFS-1763 Activate FUSE session in fsOperations\\\' wrap.
 -   VFS-1507 Replacing map by unordered\_map
 -   VFS-1857 Redefine metadate field path to set
 -   VFS-1763 Check FUSE interrupted while waiting on condition.
@@ -592,7 +609,7 @@ CHANGELOG
 ### 2.9.0
 
 -   VFS-1255 Add golang, sodium to package dependencies.
--   VFS-1235 Do not call helper\'s mknod on mknod.
+-   VFS-1235 Do not call helper\\\'s mknod on mknod.
 -   VFS-1235 Implement PushListener.
 -   VFS-1235 Add a local fileblock after writing behind the file.
 -   VFS-1223 Chmod the token file.
@@ -646,7 +663,7 @@ CHANGELOG
 -   VFS-974 Assume written block is immediately available to read.
 -   VFS-974 Try to read all blocks marked as available.
 -   VFS-976 Use std::string instead of c-strings in FsImpl.
--   Don\'t wait for event ack from cluster.
+-   Don\\\'t wait for event ack from cluster.
 -   VFS-958 Change scheduling. Events have circular shared\_ptr
     dependencies.
 -   VFS-958 Perform events operations in a strand, number messages.
