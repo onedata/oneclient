@@ -3,7 +3,7 @@ Section: net
 Priority: optional
 Maintainer: Onedata Package Maintainer <support@onedata.org>
 Build-Depends:
-    aws-sdk-cpp-s3 (>= 1.4.35),
+    aws-sdk-cpp-s3 (>= 1.8.7),
     cmake (>= 3.0.0),
     debhelper (>= 9),
     folly-dev,
@@ -45,7 +45,9 @@ Build-Depends:
     swift-sdk-cpp (>= 1.0.0),
     uuid-dev,
     wangle-dev,
-    proxygen-dev
+    proxygen-dev,
+    libfmt-dev (>= 7.0.1),
+    libspdlog-dev (>= 1:1.7.0)
 Standards-Version: 3.9.5
 Homepage: https://onedata.org
 
