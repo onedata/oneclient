@@ -62,6 +62,8 @@ foreach(TEST_DIR ${TEST_DIRS})
 
         target_link_libraries(${TEST_NAME}
             clientShared
+            ${SPDLOG_LIBRARY}
+            ${FMT_LIBRARY}
             gmock_main
             gtest
             ${Boost_LIBRARIES}
