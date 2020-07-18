@@ -3,6 +3,9 @@ Section: net
 Priority: optional
 Maintainer: Onedata Package Maintainer <support@onedata.org>
 Build-Depends:
+    aws-c-common (>= 0.4.49),
+    aws-checksums (>= 0.1.7),
+    aws-c-event-stream (>= 0.1.5),
     aws-sdk-cpp-s3 (>= 1.8.7),
     cmake (>= 3.0.0),
     debhelper (>= 9),

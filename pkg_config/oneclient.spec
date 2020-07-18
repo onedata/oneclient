@@ -23,6 +23,9 @@ Requires: xrootd-client-libs >= %{xrootd_version}
 Requires: xrootd-server-libs >= %{xrootd_version}
 Requires: scl-utils
 Requires: %scl_require_package %{scl} tbb >= 2018.5~
+BuildRequires: %scl_require_package %{scl} aws-c-common >= 0.4.49
+BuildRequires: %scl_require_package %{scl} aws-checksums >= 0.1.7
+BuildRequires: %scl_require_package %{scl} aws-c-event-stream >= 0.1.4
 BuildRequires: %scl_require_package %{scl} aws-sdk-cpp-s3 >= 1.8.7
 BuildRequires: %scl_require_package %{scl} boost-devel >= 1.58.0
 BuildRequires: %scl_require_package %{scl} boost-python >= 1.58.0
