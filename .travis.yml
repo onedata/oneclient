@@ -22,9 +22,12 @@ addons:
   apt:
     update: true
     sources:
-      - sourceline: 'ppa:onedata/build-deps-1802'
+      - sourceline: 'ppa:onedata/build-deps-2002'
     packages:
       - autoconf
+      - aws-c-common
+      - aws-c-event-stream
+      - aws-checksums
       - aws-sdk-cpp-s3
       - bash-completion
       - bc
@@ -65,6 +68,7 @@ addons:
       - libcurl4
       - libcurl4-openssl-dev
       - libdouble-conversion1
+      - libfmt-dev
       - libfuse-dev
       - libgflags-dev
       - libgflags2.2
@@ -93,6 +97,7 @@ addons:
       - libradosstriper1
       - libsodium-dev
       - libsodium23
+      - libspdlog-dev
       - libstdc++-7-dev
       - libtbb-dev
       - libtbb2
@@ -136,7 +141,7 @@ script:
     export PKG_COMMIT=$(git rev-parse --verify HEAD) &&
     export HELPERS_COMMIT=$(git -C helpers rev-parse --verify HEAD) &&
     cd debug &&
-    cmake -GNinja -DCMAKE_BUILD_TYPE=Debug -DGIT_VERSION="$PKG_REVISION" -DGIT_COMMIT="$PKG_COMMIT" -DGIT_HELPERS_COMMIT="$HELPERS_COMMIT" -DCODE_COVERAGE=ON -DWITH_CEPH=ON -DWITH_SWIFT=ON -DWITH_S3=ON -DWITH_GLUSTERFS=ON -DWITH_WEBDAV=ON -DWITH_ONEDATAFS=ON .. &&
+    cmake -GNinja -DCMAKE_BUILD_TYPE=Debug -DGIT_VERSION="$PKG_REVISION" -DGIT_COMMIT="$PKG_COMMIT" -DGIT_HELPERS_COMMIT="$HELPERS_COMMIT" -DCODE_COVERAGE=ON -DWITH_CEPH=ON -DWITH_SWIFT=ON -DWITH_S3=ON -DWITH_GLUSTERFS=ON -DWITH_WEBDAV=ON -DWITH_XROOTD=OFF -DWITH_ONEDATAFS=ON .. &&
     cd .. &&
     cmake --build debug &&
     cmake --build debug --target test &&
