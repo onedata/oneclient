@@ -22,9 +22,12 @@ addons:
   apt:
     update: true
     sources:
-      - sourceline: 'ppa:onedata/build-deps-1802'
+      - sourceline: 'ppa:onedata/build-deps-2002'
     packages:
       - autoconf
+      - aws-c-common
+      - aws-checksums
+      - aws-c-event-stream
       - aws-sdk-cpp-s3
       - bash-completion
       - bc
@@ -65,6 +68,7 @@ addons:
       - libcurl4
       - libcurl4-openssl-dev
       - libdouble-conversion1
+      - libfmt-dev
       - libfuse-dev
       - libgflags-dev
       - libgflags2.2
@@ -93,6 +97,7 @@ addons:
       - libradosstriper1
       - libsodium-dev
       - libsodium23
+      - libspdlog-dev
       - libstdc++-7-dev
       - libtbb-dev
       - libtbb2
