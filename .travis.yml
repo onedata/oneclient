@@ -26,8 +26,8 @@ addons:
     packages:
       - autoconf
       - aws-c-common
-      - aws-checksums
       - aws-c-event-stream
+      - aws-checksums
       - aws-sdk-cpp-s3
       - bash-completion
       - bc
