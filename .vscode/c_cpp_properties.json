@@ -1,0 +1,58 @@
+{
+    "env": {
+        "myDefaultIncludePath": [
+            "${workspaceFolder}",
+            "${workspaceFolder}/include",
+            "${workspaceFolder}/helpers/include",
+            "${workspaceFolder}/helpers/src"
+        ]
+    },
+    "configurations": [
+        {
+            "name": "Linux",
+            "intelliSenseMode": "clang-x64",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "include",
+                "src",
+                "helpers/src",
+                "helpers/src/../include",
+                "helpers/deps/asio/asio/include",
+                "helpers/deps/cppmetrics",
+                "/usr/include/..",
+                "/usr/include",
+                "/usr/local/include",
+                "helpers/clproto",
+                "/usr/include/xrootd",
+                "/usr/include/xrootd/private",
+                "deps/libmacaroons",
+                "deps/libmacaroons-cpp",
+                "debug/version",
+                "debug/helpers/clproto"
+            ],
+            "defines": [
+                "-DASIO_STANDALONE",
+                "-DBOOST_ALL_DYN_LINK",
+                "-DBOOST_FILESYSTEM_NO_DEPRECATED",
+                "-DBUILD_PROXY_IO",
+                "-DFIBER_STACK_SIZE=1048576",
+                "-DFOLLY_TIMEDMUTEX_IS_TEMPLATE=1",
+                "-DFUSE_USE_VERSION=30",
+                "-DGLOG_STL_LOGGING_FOR_UNORDERED",
+                "-DSPDLOG_COMPILED_LIB",
+                "-DSPDLOG_FMT_EXTERNAL",
+                "-DWITH_CEPH=1",
+                "-DWITH_GLUSTERFS=1",
+                "-DWITH_S3=1",
+                "-DWITH_SWIFT=1",
+                "-DWITH_WEBDAV=1",
+                "-DWITH_XROOTD=1",
+                "-D_FILE_OFFSET_BITS=64"
+            ],
+            "compilerPath": "/usr/bin/clang",
+            "cppStandard": "c++14",
+            "cStandard": "c11"
+        }
+    ],
+    "version": 4
+}
