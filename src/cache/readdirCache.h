@@ -46,6 +46,7 @@ public:
      */
     ReaddirCache(OpenFileMetadataCache &metadataCache,
         std::weak_ptr<Context> context,
+        std::shared_ptr<virtualfs::VirtualFsHelpersCache> virtualFsHelpersCache,
         std::function<void(folly::Function<void()>)> runInFiber);
 
     /**
@@ -112,6 +113,11 @@ private:
      * Pointer to Oneclient context, used to access options and scheduler.
      */
     std::weak_ptr<Context> m_context;
+
+    /**
+     *
+     */
+    std::shared_ptr<virtualfs::VirtualFsHelpersCache> m_virtualFsHelpersCache;
 
     /**
      * Timeout for communication with provider.

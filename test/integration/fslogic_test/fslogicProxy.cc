@@ -17,6 +17,7 @@
 #include "options/options.h"
 #include "scheduler.h"
 
+#include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/python.hpp>
@@ -155,6 +156,30 @@ public:
             .addTaskRemoteFuture(
                 [this, uuid]() { return m_fsLogic.statfs(uuid); })
             .get();
+    }
+
+    Stat lookup(std::string parentUuid, std::string name)
+    {
+        ReleaseGIL guard;
+
+        auto attr = m_fiberManager
+                        .addTaskRemoteFuture([this, parentUuid, name]() {
+                            return m_fsLogic.lookup(parentUuid, name);
+                        })
+                        .get();
+
+        auto statbuf = one::client::fslogic::detail::toStatbuf(attr, 123);
+        Stat stat;
+
+        stat.atime = statbuf.st_atime;
+        stat.mtime = statbuf.st_mtime;
+        stat.ctime = statbuf.st_ctime;
+        stat.gid = statbuf.st_gid;
+        stat.uid = statbuf.st_uid;
+        stat.mode = statbuf.st_mode;
+        stat.size = statbuf.st_size;
+
+        return stat;
     }
 
     Stat getattr(std::string uuid)
@@ -488,7 +513,8 @@ private:
 
 namespace {
 boost::shared_ptr<FsLogicProxy> create(std::string ip, int port,
-    unsigned int metadataCacheSize, unsigned int dropDirectoryCacheAfter)
+    unsigned int metadataCacheSize, unsigned int dropDirectoryCacheAfter,
+    std::string cliOptions = "")
 {
     FLAGS_minloglevel = 1;
 
@@ -500,10 +526,25 @@ boost::shared_ptr<FsLogicProxy> create(std::string ip, int port,
     auto context = std::make_shared<Context>();
     context->setScheduler(std::make_shared<Scheduler>(1));
     context->setCommunicator(communicator);
+
     const auto globalConfigPath = boost::filesystem::unique_path();
-    context->setOptions(std::make_shared<options::Options>());
+
+    auto options = std::make_shared<options::Options>();
+    std::vector<std::string> optionsTokens;
+    std::string optionsString = std::string("oneclient -H ") + ip +
+        " -t TOKEN " + cliOptions + " mountpoint";
+    boost::split(optionsTokens, optionsString, boost::is_any_of(" "),
+        boost::token_compress_on);
+
+    std::vector<const char *> cmdArgs;
+    std::transform(optionsTokens.begin(), optionsTokens.end(),
+        std::back_inserter(cmdArgs), [](auto &s) { return s.c_str(); });
+
+    options->parse(cmdArgs.size(), cmdArgs.data());
+    context->setOptions(std::move(options));
 
     communicator->setScheduler(context->scheduler());
+
     communicator->connect();
 
     return boost::make_shared<FsLogicProxy>(
@@ -564,6 +605,7 @@ BOOST_PYTHON_MODULE(fslogic)
         .def("stop", &FsLogicProxy::stop)
         .def("statfs", &FsLogicProxy::statfs)
         .def("getattr", &FsLogicProxy::getattr)
+        .def("lookup", &FsLogicProxy::lookup)
         .def("mkdir", &FsLogicProxy::mkdir)
         .def("unlink", &FsLogicProxy::unlink)
         .def("rmdir", &FsLogicProxy::rmdir)

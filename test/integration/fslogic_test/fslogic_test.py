@@ -12,8 +12,10 @@ from threading import Thread
 from multiprocessing import Pool
 import time
 import math
+import json
 import pytest
 from stat import *
+import xml.etree.ElementTree as ET
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, os.path.dirname(script_dir))
@@ -38,7 +40,7 @@ def endpoint(appmock_client):
 
 @pytest.yield_fixture(scope="function")
 def fl(endpoint):
-    fsl = fslogic.FsLogicProxy(endpoint.ip, endpoint.port, 10000, 5*60)
+    fsl = fslogic.FsLogicProxy(endpoint.ip, endpoint.port, 10000, 5*60, "")
     yield fsl
     fsl.stop()
 
@@ -47,8 +49,16 @@ def fl(endpoint):
 def fl_dircache(endpoint):
     fsl = fslogic.FsLogicProxy(endpoint.ip, endpoint.port,
             25, # Max metadata cache size
-            3   # Directory cache expires after 3 seconds
-            )
+            3,   # Directory cache expires after 3 seconds
+            "")
+    yield fsl
+    fsl.stop()
+
+
+@pytest.yield_fixture
+def fl_archivematica(endpoint):
+    fsl = fslogic.FsLogicProxy(endpoint.ip, endpoint.port,
+            10000, 5*60, "--enable-archivematica")
     yield fsl
     fsl.stop()
 
@@ -1298,6 +1308,7 @@ def test_readdir_should_not_get_stuck_on_errors(appmock_client, endpoint, fl, st
         assert len(children_chunk) == 12
 
 
+
 def test_metadatacache_should_ignore_changes_on_deleted_files(appmock_client, endpoint, fl):
     getattr_response = prepare_attr_response('parentUuid', fuse_messages_pb2.DIR)
 
@@ -2346,3 +2357,248 @@ def test_removexattr_should_return_enoattr_for_invalid_xattr(endpoint, fl, uuid)
             fl.removexattr(uuid, "org.onedata.dontexist")
 
     assert 'No data available' in str(excinfo.value)
+
+
+def test_readdir_should_handle_archivematica_metadata(appmock_client, endpoint, fl_archivematica):
+    parentUuid = 'parentParentUuid'
+    uuid = 'parentUuid'
+
+    getattr_reponse = prepare_attr_response(uuid, fuse_messages_pb2.DIR, parent_uuid=parentUuid)
+    getattr_reponse_parent = prepare_attr_response(parentUuid, fuse_messages_pb2.DIR)
+
+    #
+    # Prepare first response with 5 files
+    #
+    repl1 = prepare_file_children_attr_response(uuid, "afiles-", 5)
+    repl1.is_last = False
+
+    response1 = messages_pb2.ServerMessage()
+    response1.fuse_response.file_children_attrs.CopyFrom(repl1)
+    response1.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    #
+    # Prepare second response with another 5 file
+    #
+    repl2 = prepare_file_children_attr_response(uuid, "bfiles-", 5)
+    repl2.is_last = True
+
+    response2 = messages_pb2.ServerMessage()
+    response2.fuse_response.file_children_attrs.CopyFrom(repl2)
+    response2.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    children = []
+    offset = 0
+    chunk_size = 50
+    uuid_am = uuid+".__onedata_archivematica"
+    with reply(endpoint, [getattr_reponse,
+                          getattr_reponse_parent,
+                          response1,
+                          response2]) as queue:
+        parentAttr = fl_archivematica.lookup(parentUuid, "test.__onedata_archivematica")
+        d = fl_archivematica.opendir(uuid_am)
+        children_chunk = fl_archivematica.readdir(uuid_am, chunk_size, offset)
+        _ = queue.get()
+        fl_archivematica.releasedir(uuid_am, d)
+        assert len(children_chunk) == 14
+        assert "processingMCP.xml" in children_chunk
+        assert "metadata" in children_chunk
+
+
+def test_read_should_read_archivematica_processingmcp(appmock_client, endpoint, fl_archivematica):
+    parentUuid = 'parentParentUuid'
+    uuid = 'parentUuid'
+
+    getattr_reponse = prepare_attr_response(
+            uuid, fuse_messages_pb2.DIR, parent_uuid=parentUuid, name="test")
+    getattr_reponse_parent = prepare_attr_response(parentUuid, fuse_messages_pb2.DIR)
+
+    #
+    # Prepare first response with 5 files
+    #
+    repl1 = prepare_file_children_attr_response(uuid, "afiles-", 5)
+    repl1.is_last = False
+
+    response1 = messages_pb2.ServerMessage()
+    response1.fuse_response.file_children_attrs.CopyFrom(repl1)
+    response1.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    #
+    # Prepare second response with another 5 file
+    #
+    repl2 = prepare_file_children_attr_response(uuid, "bfiles-", 5)
+    repl2.is_last = True
+
+    response2 = messages_pb2.ServerMessage()
+    response2.fuse_response.file_children_attrs.CopyFrom(repl2)
+    response2.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    #
+    # Prepare __archivematica metadata response
+    #
+    xattr_name = "onedata_json"
+    xattr_value = """
+{
+  "__onedata": {
+    "__archivematica": {
+      "processingMCP": {
+          "preconfiguredChoices": {
+          "preconfiguredChoice": [
+              {
+                "appliesTo": "1ba589db-88d1-48cf-bb1a-a5f9d2b17378",
+                "goToChain": "0a24787c-00e3-4710-b324-90e792bfb484"
+              },
+              {
+                "appliesTo": "1c2550f1-3fc0-45d8-8bc4-4c06d720283b",
+                "goToChain": "0a24787c-00e3-4710-b324-90e792bfb484"
+              },
+              {
+                "appliesTo": "5e58066d-e113-4383-b20b-f301ed4d751c",
+                "goToChain": "4500f34e-f004-4ccf-8720-5c38d0be2254"
+              },
+              {
+                "appliesTo": "01c651cb-c174-4ba4-b985-1d87a44d6754",
+                "goToChain": "ecfad581-b007-4612-a0e0-fcc551f4057f"
+              }
+          ]
+        }
+      }
+    }
+  }
+}
+"""
+    am_metadata_response = prepare_getxattr_response(uuid, xattr_name, xattr_value)
+
+    children = []
+    offset = 0
+    chunk_size = 50
+    with reply(endpoint, [getattr_reponse,
+                          getattr_reponse_parent,
+                          response1,
+                          response2,
+                          am_metadata_response]) as queue:
+        parentAttr = fl_archivematica.lookup(parentUuid, "test.__onedata_archivematica")
+
+        # First try to open the 'test' directory as is
+        d = fl_archivematica.opendir(uuid)
+        children_chunk = fl_archivematica.readdir(uuid, chunk_size, offset)
+        _ = queue.get()
+        fl_archivematica.releasedir(uuid, d)
+        print("STEP 0")
+        assert len(children_chunk) == 12
+        assert "processingMCP.xml" not in children_chunk
+        print("STEP 1")
+
+        uuid_am = uuid + ".__onedata_archivematica"
+
+        # Now try to open the 'test' directory in Archivematica mode
+        d = fl_archivematica.opendir(uuid_am)
+        children_chunk = fl_archivematica.readdir(uuid_am, chunk_size, offset)
+        _ = queue.get()
+        fl_archivematica.releasedir(uuid_am, d)
+        print("STEP 2")
+        assert len(children_chunk) == 14
+        assert "processingMCP.xml" in children_chunk
+        print("STEP 3")
+
+        assert fl_archivematica.metadata_cache_contains(uuid+"-processing-mcp")
+        assert fl_archivematica.metadata_cache_contains(uuid+"-metadata")
+
+        attr = fl_archivematica.lookup(uuid_am, "processingMCP.xml")
+        fh = fl_archivematica.open(uuid+"-processing-mcp", 0)
+        data = fl_archivematica.read(uuid+"-processing-mcp", fh, 0, 4096)
+        fl_archivematica.release(uuid+"-processing-mcp", fh)
+
+        processing_mcp = ET.fromstring(data)
+        assert processing_mcp.tag == "processingMCP"
+        preconfigured_choices = processing_mcp.find("preconfiguredChoices")
+        assert preconfigured_choices.tag == "preconfiguredChoices"
+        choice_list = preconfigured_choices.findall("preconfiguredChoice")
+        assert len(choice_list) == 4
+
+
+def test_read_should_read_archivematica_metadata_json(appmock_client, endpoint, fl_archivematica):
+    parentUuid = 'parentParentUuid'
+    uuid = 'parentUuid'
+
+    getattr_reponse = prepare_attr_response(uuid, fuse_messages_pb2.DIR, parent_uuid=parentUuid)
+    getattr_reponse_parent = prepare_attr_response(parentUuid, fuse_messages_pb2.DIR)
+
+    repl1 = prepare_file_children_attr_response(uuid, "afiles-", 1)
+    repl1.is_last = True
+
+    dir1_response = prepare_attr_response(
+            "dir1Uuid", fuse_messages_pb2.DIR, parent_uuid=uuid, name='dir1')
+    repl1.child_attrs.extend([dir1_response.fuse_response.file_attr])
+
+    response1 = messages_pb2.ServerMessage()
+    response1.fuse_response.file_children_attrs.CopyFrom(repl1)
+    response1.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    xattr_list1 = fuse_messages_pb2.XattrList()
+    xattr_list1.names.extend(["onedata_json", "dc.license"])
+    xattr_list1_response = messages_pb2.ServerMessage()
+    xattr_list1_response.fuse_response.xattr_list.CopyFrom(xattr_list1)
+    xattr_list1_response.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    xattr_list2 = fuse_messages_pb2.XattrList()
+    xattr_list2.names.extend(["onedata_json"])
+    xattr_list2_response = messages_pb2.ServerMessage()
+    xattr_list2_response.fuse_response.xattr_list.CopyFrom(xattr_list2)
+    xattr_list2_response.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    xattr_value1 = """{"dc.language":"CSV","dc.identifier":"123"}"""
+    metadata_response1 = prepare_getxattr_response(uuid, "onedata_json", xattr_value1)
+    xattr_value2 = "CC-0"
+    metadata_response2 = prepare_getxattr_response(uuid, "dc.license", xattr_value2)
+
+    xattr_value3 = """{"dc.language":"CSV","dc.identifier":"456"}"""
+    metadata_response3 = prepare_getxattr_response(uuid, "onedata_json", xattr_value3)
+
+    repl2 = prepare_file_children_attr_response("dir1Uuid", "bfiles-", 1)
+    repl2.is_last = True
+
+    response2 = messages_pb2.ServerMessage()
+    response2.fuse_response.file_children_attrs.CopyFrom(repl2)
+    response2.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    children = []
+    offset = 0
+    chunk_size = 50
+    uuid_am = uuid+".__onedata_archivematica"
+    with reply(endpoint, [getattr_reponse,
+                          getattr_reponse_parent,
+                          response1,
+                          response2,
+                          xattr_list1_response,
+                          metadata_response1,
+                          metadata_response2,
+                          xattr_list2_response,
+                          metadata_response3]) as queue:
+        parentAttr = fl_archivematica.lookup(parentUuid, "test.__onedata_archivematica")
+        d = fl_archivematica.opendir(uuid_am)
+        children_chunk = fl_archivematica.readdir(uuid_am, chunk_size, offset)
+        _ = queue.get()
+        fl_archivematica.releasedir(uuid_am, d)
+        print(list(children_chunk))
+        assert len(children_chunk) == 6
+        assert "metadata" in children_chunk
+
+        assert fl_archivematica.metadata_cache_contains(uuid+"-metadata")
+
+        metadataUuid = uuid+"-metadata"
+        d = fl_archivematica.opendir(metadataUuid)
+        children_chunk = fl_archivematica.readdir(metadataUuid, chunk_size, 0)
+        fl_archivematica.release(uuid, d)
+
+        assert len(children_chunk) == 3
+        assert "metadata.json" in list(children_chunk)
+
+        attr = fl_archivematica.lookup(metadataUuid, "metadata.json")
+        fh = fl_archivematica.open(metadataUuid+"-metadata-json", 0)
+        data = fl_archivematica.read(metadataUuid+"-metadata-json", fh, 0, 1024)
+        fl_archivematica.release(metadataUuid+"-metadata-json", fh)
+
+        am_metadata = json.loads(data)
+        assert len(am_metadata) == 2
+        assert am_metadata[0]["filename"] == "objects/dir1/bfiles-0"
+        assert am_metadata[1]["filename"] == "objects/afiles-0"

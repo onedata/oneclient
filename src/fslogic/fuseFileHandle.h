@@ -26,12 +26,11 @@ namespace one {
 namespace client {
 
 namespace cache {
-class HelpersCache;
+class HelpersCacheBase;
 class ForceProxyIOCache;
 } // namespace cache
 
 namespace fslogic {
-
 /**
  * @c FuseFileHandle is responsible for storing information about open files.
  */
@@ -50,7 +49,7 @@ public:
     FuseFileHandle(const int flags, folly::fbstring handleId,
         std::shared_ptr<cache::OpenFileMetadataCache::OpenFileToken>
             openFileToken,
-        cache::HelpersCache &helpersCache,
+        cache::HelpersCacheBase &helpersCache,
         cache::ForceProxyIOCache &forceProxyIOCache,
         std::chrono::seconds providerTimeout,
         const unsigned int prefetchCalculateSkipReads = 0,
@@ -136,7 +135,7 @@ private:
     folly::fbstring m_handleId;
     std::shared_ptr<cache::OpenFileMetadataCache::OpenFileToken>
         m_openFileToken;
-    cache::HelpersCache &m_helpersCache;
+    cache::HelpersCacheBase &m_helpersCache;
     cache::ForceProxyIOCache &m_forceProxyIOCache;
     std::unordered_map<std::tuple<folly::fbstring, folly::fbstring, bool>,
         helpers::FileHandlePtr>

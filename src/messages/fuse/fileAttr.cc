@@ -95,6 +95,19 @@ folly::Optional<off_t> FileAttr::size() const { return m_size; }
 
 void FileAttr::size(const off_t size_) { m_size = size_; }
 
+bool FileAttr::isVirtual() const { return !!m_virtualFsAdapter; }
+
+void FileAttr::setVirtualFsAdapter(
+    std::shared_ptr<VirtualFsAdapter> virtualFsAdapter)
+{
+    m_virtualFsAdapter = virtualFsAdapter;
+}
+
+std::shared_ptr<VirtualFsAdapter> FileAttr::getVirtualFsAdapter() const
+{
+    return m_virtualFsAdapter;
+}
+
 std::string FileAttr::toString() const
 {
     std::stringstream stream;

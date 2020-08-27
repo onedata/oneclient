@@ -388,6 +388,11 @@ public:
     std::unordered_map<folly::fbstring, folly::fbstring>
     getHelperOverrideParams(const folly::fbstring &storageId) const;
 
+    /**
+     * @return Is Archivematica mode enabled.
+     */
+    bool isArchivematicaModeEnabled() const;
+
     /*
      * @return Is monitoring enabled.
      */

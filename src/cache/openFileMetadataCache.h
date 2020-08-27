@@ -105,8 +105,8 @@ public:
      * @param chunkSize Number of entries which should be returned
      * @return List of file or directory names.
      */
-    folly::fbvector<folly::fbstring> readdir(
-        const folly::fbstring &uuid, off_t off, std::size_t chunkSize);
+    folly::fbvector<folly::fbstring> readdir(const folly::fbstring &uuid,
+        off_t off, std::size_t chunkSize, bool includeVirtual = false);
 
     /**
      * Opens a file in the cache.

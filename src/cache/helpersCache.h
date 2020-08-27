@@ -44,16 +44,47 @@ namespace cache {
 constexpr unsigned int VERIFY_TEST_FILE_ATTEMPTS = 5;
 constexpr std::chrono::seconds VERIFY_TEST_FILE_DELAY{5};
 
-/**
- * @c HelpersCache is responsible for creating and caching
- * @c helpers::StorageHelper instances.
- */
-class HelpersCache {
+class HelpersCacheBase {
 public:
     using HelperPtr = std::shared_ptr<helpers::StorageHelper>;
 
     enum class AccessType { DIRECT, PROXY, UNKNOWN };
 
+    /**
+     * Destructor.
+     */
+    virtual ~HelpersCacheBase() = default;
+
+    /**
+     * Retrieves a helper instance.
+     * @param fileUuid UUID of a file for which helper will be used.
+     * @param spaceId SpaceId in the context of which the helper should be
+     *                determined.
+     * @param storageId Storage id for which to retrieve a helper.
+     * @param forceProxyIO Determines whether to return a ProxyIO helper.
+     * @return Retrieved future to helper instance shared pointer.
+     */
+    virtual folly::Future<HelpersCacheBase::HelperPtr> get(
+        const folly::fbstring &fileUuid, const folly::fbstring &spaceId,
+        const folly::fbstring &storageId, bool forceProxyIO) = 0;
+
+    /**
+     * Returns the storage access type for specific storage, if not
+     * determined yet UNKNOWN value will be returned.
+     */
+    virtual HelpersCacheBase::AccessType getAccessType(
+        const folly::fbstring &storageId) = 0;
+
+    virtual folly::Future<folly::Unit> refreshHelperParameters(
+        const folly::fbstring &storageId, const folly::fbstring &spaceId) = 0;
+};
+
+/**
+ * @c HelpersCache is responsible for creating and caching
+ * @c helpers::StorageHelper instances.
+ */
+class HelpersCache : public HelpersCacheBase {
+public:
     /**
      * Constructor.
      * Starts an @c asio::io_service instance with one worker thread for
@@ -82,19 +113,20 @@ public:
      * @param forceProxyIO Determines whether to return a ProxyIO helper.
      * @return Retrieved future to helper instance shared pointer.
      */
-    virtual folly::Future<HelpersCache::HelperPtr> get(
+    virtual folly::Future<HelpersCacheBase::HelperPtr> get(
         const folly::fbstring &fileUuid, const folly::fbstring &spaceId,
-        const folly::fbstring &storageId, bool forceProxyIO);
+        const folly::fbstring &storageId, bool forceProxyIO) override;
 
     /**
      * Returns the storage access type for specific storage, if not
      * determined yet UNKNOWN value will be returned.
      */
     virtual HelpersCache::AccessType getAccessType(
-        const folly::fbstring &storageId);
+        const folly::fbstring &storageId) override;
 
-    folly::Future<folly::Unit> refreshHelperParameters(
-        const folly::fbstring &storageId, const folly::fbstring &spaceId);
+    virtual folly::Future<folly::Unit> refreshHelperParameters(
+        const folly::fbstring &storageId,
+        const folly::fbstring &spaceId) override;
 
 private:
     HelpersCache::HelperPtr requestStorageTestFileCreation(
