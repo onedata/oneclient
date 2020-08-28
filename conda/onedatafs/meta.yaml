@@ -21,7 +21,7 @@ requirements:
     - autoconf
     - autoconf-archive
     - automake
-    - aws-sdk-cpp-s3
+    - aws-sdk-cpp-s3 =1.4.35
     - backports.lzma
     - binutils_linux-64
     - boost =1.67.0
