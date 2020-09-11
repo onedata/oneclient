@@ -35,6 +35,10 @@ if(WITH_WEBDAV)
     list(APPEND ONEBENCH_LIBRARIES ${PROXYGEN_LIBRARY} ${WANGLE_LIBRARIES})
 endif(WITH_WEBDAV)
 
+if(WITH_XROOTD)
+    list(APPEND ONEBENCH_LIBRARIES ${XROOTD_LIBRARIES})
+endif(WITH_XROOTD)
+
 add_executable(onebench
     "onebench.cc"
     "testRunner.cc"

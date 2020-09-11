@@ -83,18 +83,21 @@ std::shared_ptr<auth::AuthManager> getAuthManager(
 std::shared_ptr<messages::Configuration> getConfiguration(
     const std::string &sessionId,
     std::shared_ptr<auth::AuthManager> authManager,
-    std::shared_ptr<Context> context)
+    std::shared_ptr<Context> context, bool quiet)
 {
     auto options = context->options();
-    std::cout << "Connecting to provider '" << options->getProviderHost().get()
-              << ":" << options->getProviderPort() << "' using session ID: '"
-              << sessionId << "'..." << std::endl;
+    if (!quiet)
+        std::cout << "Connecting to provider '"
+                  << options->getProviderHost().get() << ":"
+                  << options->getProviderPort() << "' using session ID: '"
+                  << sessionId << "'..." << std::endl;
 
     try {
         auto communicator =
             handshake(sessionId, std::move(authManager), std::move(context));
 
-        std::cout << "Getting configuration..." << std::endl;
+        if (!quiet)
+            std::cout << "Getting configuration..." << std::endl;
 
         auto future = communicator->communicate<messages::Configuration>(
             messages::GetConfiguration{});

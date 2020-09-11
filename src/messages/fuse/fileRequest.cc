@@ -14,10 +14,8 @@ namespace one {
 namespace messages {
 namespace fuse {
 
-FileRequest::FileRequest(
-    std::string contextGuid, folly::Optional<bool> extendedDirectIO)
+FileRequest::FileRequest(std::string contextGuid)
     : m_contextGuid{std::move(contextGuid)}
-    , m_extendedDirectIO{std::move(extendedDirectIO)}
 {
 }
 
@@ -29,12 +27,6 @@ std::unique_ptr<ProtocolClientMessage> FileRequest::serializeAndDestroy()
                   ->mutable_file_request()
                   ->mutable_context_guid();
     cg->swap(m_contextGuid);
-
-    if (m_extendedDirectIO) {
-        msg->mutable_fuse_request()
-            ->mutable_file_request()
-            ->set_extended_direct_io(*m_extendedDirectIO);
-    }
 
     return msg;
 }

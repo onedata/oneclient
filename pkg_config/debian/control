@@ -3,7 +3,10 @@ Section: net
 Priority: optional
 Maintainer: Onedata Package Maintainer <support@onedata.org>
 Build-Depends:
-    aws-sdk-cpp-s3 (>= 1.4.35),
+    aws-c-common (>= 0.4.49),
+    aws-checksums (>= 0.1.7),
+    aws-c-event-stream (>= 0.1.5),
+    aws-sdk-cpp-s3 (>= 1.8.7),
     cmake (>= 3.0.0),
     debhelper (>= 9),
     folly-dev,
@@ -22,8 +25,8 @@ Build-Depends:
     libnspr4-dev,
     libnss3-dev,
     libprotobuf-dev (>= 3.4.1),
-    librados-dev (>= 12.2.1),
-    libradosstriper-dev (>= 12.2.1),
+    libradospp-dev (>= 14.2.2),
+    libradosstriper-dev (>= 14.2.2),
     libsodium-dev,
     libssl-dev (>= 1.1.0),
     libstdc++-5-dev,
@@ -33,6 +36,9 @@ Build-Depends:
     libpoconetssl50,
     libpocoutil50,
     libpocoxml50,
+    libxrootd-client-dev,
+    libxrootd-server-dev,
+    libxrootd-private-dev,
     openssl (>= 1.1.0),
     pkg-config,
     protobuf-compiler (>= 3.4.1),
@@ -42,27 +48,29 @@ Build-Depends:
     swift-sdk-cpp (>= 1.0.0),
     uuid-dev,
     wangle-dev,
-    proxygen-dev
+    proxygen-dev,
+    libfmt-dev (>= 7.0.1),
+    libspdlog-dev (>= 1:1.7.0)
 Standards-Version: 3.9.5
 Homepage: https://onedata.org
 
 Package: oneclient-base
 Architecture: amd64
-Depends: glusterfs-common (>= 3.12.1), ${shlibs:Depends}, ${misc:Depends}, fuse
+Depends: glusterfs-common (>= 3.12.1), libxrootd-client-dev, xrootd-plugins, ${shlibs:Depends}, ${misc:Depends}, fuse
 Description: FUSE client for onedata system.
  Oneclient is a software based on FUSE (Filesystem in Userspace) that allows
  mounting onedata filesystem on Linux systems.
 
 Package: python-onedatafs
 Architecture: amd64
-Depends: python, libboost-python1.58.0, ${shlibs:Depends}, ${misc:Depends}
+Depends: python, libboost-python1.58.0, libxrootd-client-dev, xrootd-plugins, ${shlibs:Depends}, ${misc:Depends}
 Description: FUSE client for onedata system.
  oneclient is a software based on FUSE (Filesystem in Userspace) that allows
  mounting onedata filesystem on Linux systems.
 
 Package: python3-onedatafs
 Architecture: amd64
-Depends: python3, libboost-python1.58.0, ${shlibs:Depends}, ${misc:Depends}
+Depends: python3, libboost-python1.58.0, libxrootd-client-dev, xrootd-plugins, ${shlibs:Depends}, ${misc:Depends}
 Description: FUSE client for onedata system.
  oneclient is a software based on FUSE (Filesystem in Userspace) that allows
  mounting onedata filesystem on Linux systems.

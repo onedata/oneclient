@@ -26,7 +26,7 @@ std::shared_ptr<auth::AuthManager> getAuthManager(
 std::shared_ptr<messages::Configuration> getConfiguration(
     const std::string &sessionId,
     std::shared_ptr<auth::AuthManager> authManager,
-    std::shared_ptr<Context> context);
+    std::shared_ptr<Context> context, bool quiet = false);
 
 std::shared_ptr<communication::Communicator> getCommunicator(
     const std::string &sessionId,

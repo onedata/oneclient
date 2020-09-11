@@ -43,6 +43,11 @@ void startLogging(
                   << "'. Aborting..." << std::endl;
     }
 
+    if (options->isReadWritePerfEnabled()) {
+        one::helpers::startReadWritePerfLogger(
+            options->getLogDirPath().string());
+    }
+
     FLAGS_log_dir = options->getLogDirPath().c_str();
     FLAGS_stop_logging_if_full_disk = true;
     FLAGS_logtostderr = false;
@@ -86,6 +91,8 @@ void startLogging(
             LOG(INFO) << "Graphite namespace prefix: "
                       << options->getMonitoringGraphiteNamespacePrefix().get();
     }
+    LOG(INFO) << "Read/write perf log enabled: "
+              << options->isReadWritePerfEnabled();
     LOG(INFO) << "Mountpoint: " << options->getMountpoint();
 
     google::FlushLogFiles(google::GLOG_INFO);

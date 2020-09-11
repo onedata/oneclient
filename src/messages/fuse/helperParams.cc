@@ -58,9 +58,6 @@ void HelperParams::deserialize(ProtocolMessage &message)
 
     for (auto &entry : *message.mutable_helper_args())
         m_args[entry.key()] = entry.value();
-
-    if (message.has_extended_direct_io())
-        m_extendedDirectIO.emplace(message.extended_direct_io());
 }
 
 } // namespace fuse

@@ -150,6 +150,15 @@ Options::Options()
 
     add<bool>()
         ->asSwitch()
+        .withLongName("log-read-write-perf")
+        .withConfigName("log_read_write_perf")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Enable read write performance logger.");
+
+    add<bool>()
+        ->asSwitch()
         .withLongName("force-proxy-io")
         .withConfigName("force_proxy_io")
         .withImplicitValue(true)
@@ -806,6 +815,12 @@ boost::filesystem::path Options::getLogDirPath() const
 bool Options::isIOTraceLoggerEnabled() const
 {
     return get<bool>({"io-trace-log", "io_trace_log"}).get_value_or(false);
+}
+
+bool Options::isReadWritePerfEnabled() const
+{
+    return get<bool>({"log-read-write-perf", "log_read_write_perf"})
+        .get_value_or(false);
 }
 
 bool Options::isProxyIOForced() const

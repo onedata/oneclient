@@ -123,7 +123,7 @@ public:
             auto stoppedFuture = stopped.getFuture();
 
             m_fiberManager.addTaskRemote(
-                [ this, stopped = std::move(stopped) ]() mutable {
+                [this, stopped = std::move(stopped)]() mutable {
                     m_context->communicator()->stop();
                     stopped.setValue();
                 });
@@ -145,6 +145,16 @@ public:
     {
         m_helpersCache->m_helper->set_ec(
             std::make_error_code(std::errc::owner_dead));
+    }
+
+    struct statvfs statfs(std::string uuid)
+    {
+        ReleaseGIL guard;
+
+        return m_fiberManager
+            .addTaskRemoteFuture(
+                [this, uuid]() { return m_fsLogic.statfs(uuid); })
+            .get();
     }
 
     Stat getattr(std::string uuid)
@@ -514,6 +524,19 @@ BOOST_PYTHON_MODULE(fslogic)
     PyEval_InitThreads();
     register_exception_translator<std::errc>(&translate);
 
+    class_<struct statvfs>("StatVFS")
+        .def_readonly("bsize", &statvfs::f_bsize)
+        .def_readonly("frsize", &statvfs::f_frsize)
+        .def_readonly("blocks", &statvfs::f_blocks)
+        .def_readonly("bfree", &statvfs::f_bfree)
+        .def_readonly("bavail", &statvfs::f_bavail)
+        .def_readonly("files", &statvfs::f_files)
+        .def_readonly("ffree", &statvfs::f_ffree)
+        .def_readonly("favail", &statvfs::f_favail)
+        .def_readonly("fsid", &statvfs::f_fsid)
+        .def_readonly("flag", &statvfs::f_flag)
+        .def_readonly("namemax", &statvfs::f_namemax);
+
     class_<Stat>("Stat")
         .def_readonly("atime", &Stat::atime)
         .def_readonly("mtime", &Stat::mtime)
@@ -539,6 +562,7 @@ BOOST_PYTHON_MODULE(fslogic)
         .def("__init__", make_constructor(create))
         .def("failHelper", &FsLogicProxy::failHelper)
         .def("stop", &FsLogicProxy::stop)
+        .def("statfs", &FsLogicProxy::statfs)
         .def("getattr", &FsLogicProxy::getattr)
         .def("mkdir", &FsLogicProxy::mkdir)
         .def("unlink", &FsLogicProxy::unlink)

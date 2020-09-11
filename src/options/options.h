@@ -182,6 +182,11 @@ public:
     bool isIOTraceLoggerEnabled() const;
 
     /*
+     * @return True if read write perf is enabled.
+     */
+    bool isReadWritePerfEnabled() const;
+
+    /*
      * @return true if 'force-proxy-io' option has been provided, otherwise
      * false.
      */

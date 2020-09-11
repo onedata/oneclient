@@ -6,6 +6,8 @@
  * 'LICENSE.txt'
  */
 
+#pragma once
+
 #include "auth/authException.h"
 #include "auth/authManager.h"
 #include "communication/communicator.h"
@@ -275,7 +277,7 @@ public:
 
         return m_fiberManager
             .addTaskRemoteFuture(
-                [ this, buf = std::move(buf), offset ]() mutable {
+                [this, buf = std::move(buf), offset]() mutable {
                     return m_fsLogic->write(
                         m_uuid, m_fileHandleId, offset, std::move(buf));
                 })
@@ -384,13 +386,12 @@ public:
     {
         ReleaseGIL guard;
 
-        auto res = m_fiberManager
-                       .addTaskRemoteFuture(
-                           [ this, path = std::move(path) ]() mutable {
-                               return attrToStat(
-                                   m_fsLogic->getattr(uuidFromPath(path)));
-                           })
-                       .get();
+        auto res =
+            m_fiberManager
+                .addTaskRemoteFuture([this, path = std::move(path)]() mutable {
+                    return attrToStat(m_fsLogic->getattr(uuidFromPath(path)));
+                })
+                .get();
         return res;
     }
 
@@ -399,7 +400,7 @@ public:
         ReleaseGIL guard;
 
         return m_fiberManager
-            .addTaskRemoteFuture([ this, path = std::move(path) ]() mutable {
+            .addTaskRemoteFuture([this, path = std::move(path)]() mutable {
                 return m_fsLogic->opendir(uuidFromPath(path));
             })
             .get();
@@ -411,7 +412,7 @@ public:
 
         m_fiberManager
             .addTaskRemoteFuture(
-                [ this, path = std::move(path), handleId ]() mutable {
+                [this, path = std::move(path), handleId]() mutable {
                     m_fsLogic->releasedir(uuidFromPath(path), handleId);
                 })
             .get();
@@ -424,7 +425,7 @@ public:
 
         return m_fiberManager
             .addTaskRemoteFuture(
-                [ this, path = std::move(path), maxSize, off ]() mutable {
+                [this, path = std::move(path), maxSize, off]() mutable {
                     return m_fsLogic->readdir(uuidFromPath(path), maxSize, off);
                 })
             .then([](folly::fbvector<folly::fbstring> &&entries) {
@@ -446,7 +447,7 @@ public:
 
         return m_fiberManager
             .addTaskRemoteFuture(
-                [ this, path = std::move(path), mode, flags ]() mutable {
+                [this, path = std::move(path), mode, flags]() mutable {
                     auto parentPair = splitToParentName(path);
                     auto res = m_fsLogic->create(uuidFromPath(parentPair.first),
                         parentPair.second, mode, flags);
@@ -482,7 +483,7 @@ public:
             // Now try to open the file
             .then([this, flags](std::string &&uuid) {
                 return m_fiberManager.addTaskRemoteFuture(
-                    [ this, uuid = std::move(uuid), flags ]() mutable {
+                    [this, uuid = std::move(uuid), flags]() mutable {
                         return m_fsLogic->open(uuid, flags);
                     });
             })
@@ -499,13 +500,12 @@ public:
         ReleaseGIL guard;
 
         return m_fiberManager
-            .addTaskRemoteFuture(
-                [ this, path = std::move(path), mode ]() mutable {
-                    auto parentPair = splitToParentName(path);
-                    return attrToStat(
-                        m_fsLogic->mkdir(uuidFromPath(parentPair.first),
-                            parentPair.second, mode));
-                })
+            .addTaskRemoteFuture([this, path = std::move(path),
+                                     mode]() mutable {
+                auto parentPair = splitToParentName(path);
+                return attrToStat(m_fsLogic->mkdir(
+                    uuidFromPath(parentPair.first), parentPair.second, mode));
+            })
             .get();
     }
 
@@ -514,13 +514,12 @@ public:
         ReleaseGIL guard;
 
         return m_fiberManager
-            .addTaskRemoteFuture(
-                [ this, path = std::move(path), mode ]() mutable {
-                    auto parentPair = splitToParentName(path);
-                    return attrToStat(
-                        m_fsLogic->mknod(uuidFromPath(parentPair.first),
-                            parentPair.second, mode));
-                })
+            .addTaskRemoteFuture([this, path = std::move(path),
+                                     mode]() mutable {
+                auto parentPair = splitToParentName(path);
+                return attrToStat(m_fsLogic->mknod(
+                    uuidFromPath(parentPair.first), parentPair.second, mode));
+            })
             .get();
     }
 
@@ -529,7 +528,7 @@ public:
         ReleaseGIL guard;
 
         m_fiberManager
-            .addTaskRemoteFuture([ this, path = std::move(path) ]() mutable {
+            .addTaskRemoteFuture([this, path = std::move(path)]() mutable {
                 auto parentPair = splitToParentName(path);
                 m_fsLogic->unlink(
                     uuidFromPath(parentPair.first), parentPair.second);
@@ -542,15 +541,14 @@ public:
         ReleaseGIL guard;
 
         m_fiberManager
-            .addTaskRemoteFuture(
-                [ this, from = std::move(from), to = std::move(to) ]() mutable {
-                    auto fromPair = splitToParentName(from);
-                    auto toPair = splitToParentName(to);
+            .addTaskRemoteFuture([this, from = std::move(from),
+                                     to = std::move(to)]() mutable {
+                auto fromPair = splitToParentName(from);
+                auto toPair = splitToParentName(to);
 
-                    m_fsLogic->rename(uuidFromPath(fromPair.first),
-                        fromPair.second, uuidFromPath(toPair.first),
-                        toPair.second);
-                })
+                m_fsLogic->rename(uuidFromPath(fromPair.first), fromPair.second,
+                    uuidFromPath(toPair.first), toPair.second);
+            })
             .get();
     }
 
@@ -558,15 +556,14 @@ public:
     {
         ReleaseGIL guard;
 
-        auto res =
-            m_fiberManager
-                .addTaskRemoteFuture([
-                    this, path = std::move(path), attr = std::move(attr), toSet
-                ]() mutable {
-                    return m_fsLogic->setattr(
-                        uuidFromPath(path), toStatBuf(attr), toSet);
-                })
-                .get();
+        auto res = m_fiberManager
+                       .addTaskRemoteFuture(
+                           [this, path = std::move(path),
+                               attr = std::move(attr), toSet]() mutable {
+                               return m_fsLogic->setattr(
+                                   uuidFromPath(path), toStatBuf(attr), toSet);
+                           })
+                       .get();
 
         return attrToStat(res);
     }
@@ -577,7 +574,7 @@ public:
 
         m_fiberManager
             .addTaskRemoteFuture(
-                [ this, path = std::move(path), size ]() mutable {
+                [this, path = std::move(path), size]() mutable {
                     struct stat statbuf = {};
                     statbuf.st_size = size;
                     return m_fsLogic->setattr(
@@ -594,14 +591,14 @@ public:
     {
         ReleaseGIL guard;
 
-        auto res = m_fiberManager
-                       .addTaskRemoteFuture([
-                           this, path = std::move(path), name = std::move(name)
-                       ]() mutable {
-                           return m_fsLogic->getxattr(uuidFromPath(path), name)
-                               .toStdString();
-                       })
-                       .get();
+        auto res =
+            m_fiberManager
+                .addTaskRemoteFuture([this, path = std::move(path),
+                                         name = std::move(name)]() mutable {
+                    return m_fsLogic->getxattr(uuidFromPath(path), name)
+                        .toStdString();
+                })
+                .get();
 
 #if PY_MAJOR_VERSION >= 3
         if (res.size()) {
@@ -623,13 +620,12 @@ public:
         ReleaseGIL guard;
 
         m_fiberManager
-            .addTaskRemoteFuture([
-                this, path = std::move(path), name = std::move(name),
-                value = std::move(value), create, replace
-            ]() mutable {
-                return m_fsLogic->setxattr(
-                    uuidFromPath(path), name, value, create, replace);
-            })
+            .addTaskRemoteFuture(
+                [this, path = std::move(path), name = std::move(name),
+                    value = std::move(value), create, replace]() mutable {
+                    return m_fsLogic->setxattr(
+                        uuidFromPath(path), name, value, create, replace);
+                })
             .get();
     }
 
@@ -638,9 +634,8 @@ public:
         ReleaseGIL guard;
 
         m_fiberManager
-            .addTaskRemoteFuture([
-                this, path = std::move(path), name = std::move(name)
-            ]() mutable {
+            .addTaskRemoteFuture([this, path = std::move(path),
+                                     name = std::move(name)]() mutable {
                 return m_fsLogic->removexattr(uuidFromPath(path), name);
             })
             .get();
@@ -651,7 +646,7 @@ public:
         ReleaseGIL guard;
 
         return m_fiberManager
-            .addTaskRemoteFuture([ this, path = std::move(path) ]() mutable {
+            .addTaskRemoteFuture([this, path = std::move(path)]() mutable {
                 return m_fsLogic->listxattr(uuidFromPath(path));
             })
             .then([](folly::fbvector<folly::fbstring> &&xattrs) mutable {
@@ -668,7 +663,7 @@ public:
         ReleaseGIL guard;
 
         return m_fiberManager
-            .addTaskRemoteFuture([ this, path = std::move(path) ]() mutable {
+            .addTaskRemoteFuture([this, path = std::move(path)]() mutable {
                 return m_fsLogic->getFileLocalBlocks(uuidFromPath(path));
             })
             .then([](std::map<folly::fbstring,
@@ -816,7 +811,7 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(
 
     ReleaseGIL guard;
 
-    if (log_level >= 0) {
+    if (log_level >= 0 || options->isReadWritePerfEnabled()) {
         std::call_once(__googleLoggingInitOnceFlag,
             [&] { one::client::logging::startLogging("onedatafs", options); });
     }
@@ -827,7 +822,8 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(
     auto authManager = getAuthManager(context);
     auto sessionId = generateSessionId();
 
-    auto configuration = getConfiguration(sessionId, authManager, context);
+    auto configuration =
+        getConfiguration(sessionId, authManager, context, true);
 
     if (!configuration)
         throw std::runtime_error("Authentication to Oneprovider failed...");
@@ -937,9 +933,6 @@ BOOST_PYTHON_MODULE(onedatafs)
         .def("flush", &OnedataFileHandle::flush)
         .def("fsync", &OnedataFileHandle::fsync)
         .def("close", &OnedataFileHandle::close);
-
-    boost::python::register_ptr_to_python<
-        boost::shared_ptr<OnedataFileHandle>>();
 
     PyIterableAdapter().fromPython<std::vector<std::string>>();
 

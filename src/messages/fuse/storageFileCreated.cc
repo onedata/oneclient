@@ -19,7 +19,7 @@ namespace messages {
 namespace fuse {
 
 StorageFileCreated::StorageFileCreated(folly::fbstring uuid)
-    : FileRequest{uuid.toStdString(), true}
+    : FileRequest{uuid.toStdString()}
 {
 }
 

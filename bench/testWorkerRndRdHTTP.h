@@ -1,5 +1,5 @@
 /**
- * @file testWorkerRndWr.h
+ * @file testWorkerRndRd.h
  * @author Bartek Kryza
  * @copyright (C) 2018 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
@@ -9,6 +9,7 @@
 #pragma once
 
 #include "common.h"
+#include "helpers/httpHelper.h"
 #include "helpers/storageHelper.h"
 #include "testResult.h"
 #include "testRunner.h"
@@ -16,16 +17,15 @@
 #include <folly/FBVector.h>
 #include <folly/MPMCQueue.h>
 #include <folly/Unit.h>
-#include <folly/executors/GlobalExecutor.h>
 
 #include <iostream>
 
 namespace one {
 namespace bench {
 
-class TestWorkerRndWr : public TestWorker {
+class TestWorkerRndRdHTTP : public TestWorker {
 public:
-    TestWorkerRndWr(TestWorkerID id, folly::IOThreadPoolExecutor &executor,
+    TestWorkerRndRd(TestWorkerID id, folly::IOThreadPoolExecutor &executor,
         folly::futures::Barrier &startBarrier,
         folly::futures::Barrier &stopBarrier,
         std::shared_ptr<one::helpers::StorageHelper> helper,
@@ -47,11 +47,8 @@ public:
             fileCount);
 
         for (size_t i = 0; i < fileCount; i++) {
-            handles[i] = m_helper->open(m_fileIds[i], O_WRONLY, {}).get();
+            handles[i] = m_helper->open(m_fileIds[i], O_RDONLY, {}).get();
         }
-
-        // Prepare random data for writing
-        auto data = randStr(m_blockSize);
 
         // Wait for all test workers to be ready
         m_startBarrier.wait().get();
@@ -59,7 +56,7 @@ public:
         auto f = [this, id = m_id, fileCount, fileSize = m_fileSize,
                      blockSize = m_blockSize, eventCount = m_eventCount,
                      asyncBatchSize = m_asyncBatchSize, flush = m_flush,
-                     data = std::move(data), handles = std::move(handles)]() {
+                     handles = std::move(handles)]() {
             for (int k = 0; k < eventCount; k += asyncBatchSize) {
 
                 folly::fbvector<folly::Future<folly::Unit>> futs;
@@ -69,28 +66,16 @@ public:
                     auto fileIndex = std::rand() % fileCount;
                     auto offset = std::rand() % (fileSize - blockSize);
 
-                    folly::IOBufQueue buf{
-                        folly::IOBufQueue::cacheChainLength()};
-                    buf.append(data);
-
                     auto start = Clock::now();
 
                     futs.emplace_back(
                         handles[fileIndex]
-                            ->write(offset, std::move(buf))
-                            .then(folly::getIOExecutor().get(),
-                                [this, handle = handles[fileIndex], flush,
-                                    resultID = k + l](std::size_t written) {
-                                    if (flush)
-                                        return handle->flush();
-                                    else
-                                        return folly::makeFuture();
-                                })
-                            .then(folly::getIOExecutor().get(),
-                                [this, start, blockSize, id,
-                                    resultID = k + l]() {
+                            ->read(offset, blockSize)
+                            .then(
+                                [this, start, blockSize, id, resultID = k + l](
+                                    folly::IOBufQueue &&buf) {
                                     postResult({id, resultID, start,
-                                        Clock::now(), 1, blockSize});
+                                        Clock::now(), 1, buf.chainLength()});
 
                                     return folly::makeFuture();
                                 }));

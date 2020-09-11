@@ -30,6 +30,7 @@ struct TestRunnerConfig {
     int asyncBatchSize;
     bool keepTestFiles;
     bool flush;
+    folly::fbstring fileIndexPath;
 
 private:
     friend std::ostream &operator<<(

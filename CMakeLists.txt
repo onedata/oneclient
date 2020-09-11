@@ -8,7 +8,8 @@ option(WITH_CEPH "Include Ceph direct IO support" ON)
 option(WITH_S3 "Include S3 direct IO support" ON)
 option(WITH_SWIFT "Include Swift direct IO support" ON)
 option(WITH_GLUSTERFS "Include GlusterFS direct IO support" ON)
-option(WITH_WEBDAV "Include WebDAV direct IO support" ON)
+option(WITH_WEBDAV "Include WebDAV and HTTP direct IO support" ON)
+option(WITH_XROOTD "Include XRootD direct IO support" ON)
 option(WITH_ONECLIENT "Include oneclient binary" ON)
 option(WITH_ONEBENCH "Include onebench binary" ON)
 option(WITH_ONEDATAFS "Build onedatafs library" ON)
@@ -115,6 +116,11 @@ set(ASIO_INCLUDE_DIRS ${HELPERS_DIR}/deps/asio/asio/include)
 # Setup cppmetrics
 set(CPPMETRICS_INCLUDE_DIRS ${HELPERS_DIR}/deps/cppmetrics)
 
+# Setup spdlog and fmt
+find_library(FMT_LIBRARY NAMES libfmt.a fmt REQUIRED)
+find_library(SPDLOG_LIBRARY NAMES libspdlog.a spdlog REQUIRED)
+add_definitions(-DSPDLOG_COMPILED_LIB -DSPDLOG_FMT_EXTERNAL)
+
 # Utility libs
 find_library(LTDL_LIBRARY NAMES ltdl)
 find_library(ZLIB_LIBRARY NAMES z)
@@ -132,15 +138,22 @@ if(WITH_CEPH)
     find_library(CEPHCOMMON_LIBRARY "ceph-common" NAMES "ceph-common" "libceph-common.so.0" PATH_SUFFIXES "ceph")
     find_library(RADOS_LIBRARY rados)
     find_library(RADOSSTRIPER_LIBRARY radosstriper)
+    get_filename_component(CEPHCOMMON_RPATH "${CEPHCOMMON_LIBRARY}" DIRECTORY)
 endif(WITH_CEPH)
 
 # AWS SDK library
 if(WITH_S3)
-    find_library(AWS_SKD_CORE_LIBRARY aws-cpp-sdk-core HINTS /usr/lib/x86_64-linux-gnu)
-    find_library(AWS_SKD_S3_LIBRARY aws-cpp-sdk-s3 HINTS /usr/lib/x86_64-linux-gnu)
+    find_library(AWS_SDK_C_COMMON_LIBRARY aws-c-common HINTS /usr/lib/x86_64-linux-gnu)
+    find_library(AWS_SDK_CHECKSUMS_LIBRARY aws-checksums HINTS /usr/lib/x86_64-linux-gnu)
+    find_library(AWS_SDK_C_EVENT_STREAM_LIBRARY aws-c-event-stream HINTS /usr/lib/x86_64-linux-gnu)
+    find_library(AWS_SDK_CORE_LIBRARY aws-cpp-sdk-core HINTS /usr/lib/x86_64-linux-gnu)
+    find_library(AWS_SDK_S3_LIBRARY aws-cpp-sdk-s3 HINTS /usr/lib/x86_64-linux-gnu)
     set(AWS_SDK_LIBRARIES
-        ${AWS_SKD_S3_LIBRARY}
-        ${AWS_SKD_CORE_LIBRARY}
+        ${AWS_SDK_S3_LIBRARY}
+        ${AWS_SDK_CORE_LIBRARY}
+        ${AWS_SDK_C_COMMON_LIBRARY}
+        ${AWS_SDK_CHECKSUMS_LIBRARY}
+        ${AWS_SDK_C_EVENT_STREAM_LIBRARY}
         ${CURL_LIBRARIES})
     add_definitions(-DWITH_S3=1)
     if(APPLE)
@@ -189,6 +202,14 @@ if(WITH_WEBDAV)
 else(WITH_WEBDAV)
     add_definitions(-DWITH_WEBDAV=0)
 endif(WITH_WEBDAV)
+
+if(WITH_XROOTD)
+    include(/usr/share/xrootd/cmake/XRootDConfig.cmake)
+    find_package(XRootD REQUIRED)
+    add_definitions(-DWITH_XROOTD=1)
+else(WITH_XROOTD)
+    add_definitions(-DWITH_XROOTD=0)
+endif(WITH_XROOTD)
 
 # gpertools lib
 find_library(PROFILER_LIBRARY NAMES profiler)
@@ -241,6 +262,7 @@ add_definitions(
 
 if(WITH_CEPH)
     add_definitions(-DWITH_CEPH=1)
+    list(APPEND CUSTOM_RPATH "${CEPHCOMMON_RPATH}")
 else(WITH_CEPH)
     add_definitions(-DWITH_CEPH=0)
 endif(WITH_CEPH)
@@ -337,6 +359,12 @@ if(WITH_WEBDAV)
     list(APPEND CLIENT_LIBRARIES ${PROXYGEN_LIBRARY} ${WANGLE_LIBRARIES})
 endif(WITH_WEBDAV)
 
+if(WITH_XROOTD)
+    list(APPEND CLIENT_LIBRARIES ${XROOTD_LIBRARIES})
+endif(WITH_XROOTD)
+
+list(APPEND CLIENT_LIBRARIES ${SPDLOG_LIBRARY} ${FMT_LIBRARY})
+
 # Define targets
 add_library(client OBJECT ${SOURCES} ${HEADERS})
 add_dependencies(client helpers clproto)
@@ -357,23 +385,33 @@ if(WITH_ONEDATAFS)
   if(PYTHON2_FOUND)
     set(CMAKE_SHARED_LIBRARY_PREFIX "")
     add_library(onedatafs.py2 SHARED ${ONEDATAFS_SOURCES})
+    target_compile_definitions(onedatafs.py2 PRIVATE ONEDATAFS)
     target_link_libraries(onedatafs.py2 PRIVATE ${CLIENT_LIBRARIES} ${LIBBOOST_PYTHON2})
     set_target_properties(onedatafs.py2 PROPERTIES OUTPUT_NAME "onedatafs_py2")
     set_target_properties(onedatafs.py2 PROPERTIES COMPILE_FLAGS ${PYTHON2_CFLAGS})
     set_target_properties(onedatafs.py2 PROPERTIES LINK_FLAGS ${PYTHON2_LDFLAGS})
     set_target_properties(onedatafs.py2 PROPERTIES VERSION ${GIT_VERSION}
       SOVERSION ${GIT_VERSION})
+    set_target_properties(onedatafs.py2 PROPERTIES
+      BUILD_WITH_INSTALL_RPATH true
+      INSTALL_RPATH_USE_LINK_PATH true
+      INSTALL_RPATH "${CUSTOM_RPATH}")
   endif(PYTHON2_FOUND)
 
   if(PYTHON3_FOUND)
     set(CMAKE_SHARED_LIBRARY_PREFIX "")
     add_library(onedatafs.py3 SHARED ${ONEDATAFS_SOURCES})
+    target_compile_definitions(onedatafs.py3 PUBLIC ONEDATAFS)
     target_link_libraries(onedatafs.py3 PRIVATE ${CLIENT_LIBRARIES} ${LIBBOOST_PYTHON3})
     set_target_properties(onedatafs.py3 PROPERTIES OUTPUT_NAME "onedatafs_py3")
     set_target_properties(onedatafs.py3 PROPERTIES COMPILE_FLAGS ${PYTHON3_CFLAGS})
     set_target_properties(onedatafs.py3 PROPERTIES LINK_FLAGS ${PYTHON3_LDFLAGS})
     set_target_properties(onedatafs.py3 PROPERTIES VERSION ${GIT_VERSION}
       SOVERSION ${GIT_VERSION})
+    set_target_properties(onedatafs.py3 PROPERTIES
+      BUILD_WITH_INSTALL_RPATH true
+      INSTALL_RPATH_USE_LINK_PATH true
+      INSTALL_RPATH "${CUSTOM_RPATH}")
   endif(PYTHON3_FOUND)
 endif(WITH_ONEDATAFS)
 

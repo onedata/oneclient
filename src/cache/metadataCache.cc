@@ -346,7 +346,7 @@ MetadataCache::Map::iterator MetadataCache::fetchAttr(ReqMsg &&msg)
     if (!result.second) {
         LOG_DBG(2) << "Updating fetched attribute in cache: " << uuid;
 
-        m_cache.modify(result.first, [a = std::move(sharedAttr)](Metadata & m) {
+        m_cache.modify(result.first, [a = std::move(sharedAttr)](Metadata &m) {
             m.attr = std::move(a);
         });
     }

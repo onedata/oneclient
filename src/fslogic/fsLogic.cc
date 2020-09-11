@@ -27,7 +27,9 @@
 #include "messages/fuse/fileOpened.h"
 #include "messages/fuse/fileRenamed.h"
 #include "messages/fuse/fileRenamedEntry.h"
+#include "messages/fuse/fsStats.h"
 #include "messages/fuse/fsync.h"
+#include "messages/fuse/getFSStats.h"
 #include "messages/fuse/getFileChildren.h"
 #include "messages/fuse/getFileChildrenAttrs.h"
 #include "messages/fuse/getHelperParams.h"
@@ -173,7 +175,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     // Quota initial configuration
     m_eventManager.subscribe(
         events::QuotaExceededSubscription{[=](auto events) {
-            m_runInFiber([ this, events = std::move(events) ] {
+            m_runInFiber([this, events = std::move(events)] {
                 this->disableSpaces(events.back()->spaces());
             });
         }});
@@ -296,6 +298,58 @@ struct statvfs FsLogic::statfs(const folly::fbstring &uuid)
         statinfo.f_blocks = statinfo.f_bfree = statinfo.f_bavail =
             emulatedFreeSpace / statinfo.f_frsize;
         statinfo.f_files = statinfo.f_ffree = kFreeInodes;
+    }
+    else {
+        size_t totalSize = 0;
+        size_t totalFreeSize = 0;
+        if (uuid != m_rootUuid) {
+            // Handle statfs for a specific space or a file inside a space
+            messages::fuse::GetFSStats msg{uuid.toStdString()};
+            auto fsStats = communicate<messages::fuse::FSStats>(
+                std::move(msg), m_providerTimeout);
+            totalSize = fsStats.getTotalSize();
+            totalFreeSize = fsStats.getTotalFreeSize();
+        }
+        else {
+            // Handle statfs for entire mountpoint by summing storage size
+            // on all accessible spaces
+            constexpr auto kMaxStatFSSpaceCount = 1024;
+            auto spaces = readdir(uuid, kMaxStatFSSpaceCount, 0);
+            for (const auto &space : spaces) {
+                if (space == "." || space == "..")
+                    continue;
+
+                try {
+                    auto spaceAttrs = lookup(uuid, space);
+
+                    messages::fuse::GetFSStats msg{
+                        spaceAttrs->uuid().toStdString()};
+                    auto fsStats = communicate<messages::fuse::FSStats>(
+                        std::move(msg), m_providerTimeout);
+
+                    totalSize += fsStats.getTotalSize();
+                    totalFreeSize += fsStats.getTotalFreeSize();
+                }
+                catch (const std::system_error &e) {
+                    if (e.code().value() == ENOENT)
+                        continue;
+
+                    throw e;
+                }
+            }
+        }
+
+        // block and fragment size
+        statinfo.f_frsize = statinfo.f_bsize = kBlockSize;
+        // size of fs in f_frsize units
+        statinfo.f_blocks = std::ceil(static_cast<double>(totalSize) /
+            static_cast<double>(statinfo.f_frsize));
+        // free blocks for privileged and unprivileged users
+        statinfo.f_bfree = statinfo.f_bavail =
+            std::ceil(static_cast<double>(totalFreeSize) /
+                static_cast<double>(statinfo.f_frsize));
+        // free inodes for privileged and unprivileged users
+        statinfo.f_ffree = statinfo.f_favail = kFreeInodes;
     }
     statinfo.f_namemax = kMaxNameLength;
 
@@ -567,7 +621,8 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
         return folly::IOBufQueue{folly::IOBufQueue::cacheChainLength()};
     }
 
-    LOG_DBG(2) << "Reading from file " << uuid << " from range " << wantedRange;
+    LOG_DBG(2) << "FsLogic reading from file " << uuid << " in range "
+               << wantedRange;
 
     // Even if several "touching" blocks with different helpers are
     // available to read right now, for simplicity we'll only read a single
@@ -661,9 +716,18 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
         LOG_DBG(2) << "Reading " << availableSize << " bytes from " << uuid
                    << " at offset " << offset;
 
+        using one::logging::log_timer;
+        using one::logging::csv::log;
+        using one::logging::csv::read_write_perf;
+
+        log_timer<> timer;
+
         auto readBuffer = communication::wait(
             helperHandle->read(offset, availableSize, continuousSize),
             helperHandle->timeout());
+
+        log<read_write_perf>(
+            fileBlock.fileId(), "FsLogic", "read", offset, size, timer.stop());
 
         if (helperHandle->needsDataConsistencyCheck() && checksum &&
             dataCorrupted(uuid, readBuffer, *checksum, wantedAvailableRange,
@@ -1040,6 +1104,10 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
 
     auto fileBlock = m_metadataCache.getDefaultBlock(uuid);
 
+    using one::logging::log_timer;
+    using one::logging::csv::log;
+    using one::logging::csv::read_write_perf;
+
     size_t bytesWritten = 0;
     try {
         auto helperHandle = fuseFileHandle->getHelperHandle(
@@ -1048,9 +1116,14 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
         folly::IOBufQueue bufq{folly::IOBufQueue::cacheChainLength()};
         bufq.append(buf->clone());
 
+        log_timer<> timer;
+
         bytesWritten =
             communication::wait(helperHandle->write(offset, std::move(bufq)),
                 helperHandle->timeout());
+
+        log<read_write_perf>(fileBlock.fileId(), "FsLogic", "write", offset,
+            buf->length(), timer.stop());
     }
     catch (const std::system_error &e) {
         if ((e.code().value() == EKEYEXPIRED) && (retriesLeft >= 0)) {
@@ -1059,18 +1132,17 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
 
             folly::fibers::await(
                 [&](folly::fibers::Promise<folly::Unit> promise) {
-                    promise.setWith([
-                        this, storageId = fileBlock.storageId(),
-                        spaceId = m_metadataCache.getSpaceId(uuid),
-                        fuseFileHandle, uuid
-                    ]() {
-                        // Invalidate the read cache so that it forgets
-                        // the ekeyexpired exception
-                        return m_helpersCache
-                            ->refreshHelperParameters(storageId, spaceId)
-                            .within(m_providerTimeout)
-                            .get();
-                    });
+                    promise.setWith(
+                        [this, storageId = fileBlock.storageId(),
+                            spaceId = m_metadataCache.getSpaceId(uuid),
+                            fuseFileHandle, uuid]() {
+                            // Invalidate the read cache so that it forgets
+                            // the ekeyexpired exception
+                            return m_helpersCache
+                                ->refreshHelperParameters(storageId, spaceId)
+                                .within(m_providerTimeout)
+                                .get();
+                        });
                 });
 
             return write(uuid, fuseFileHandleId, offset, std::move(buf),
@@ -1606,10 +1678,8 @@ SrvMsg FsLogic::communicate(CliMsg &&msg, const std::chrono::seconds timeout)
     return m_context->communicator()
         ->communicate<SrvMsg>(std::forward<CliMsg>(msg))
         .onTimeout(timeout,
-            [
-                messageString = std::move(messageString),
-                timeout = timeout.count()
-            ]() {
+            [messageString = std::move(messageString),
+                timeout = timeout.count()]() {
                 LOG(ERROR) << "Response to message : " << messageString
                            << " not received within " << timeout << " seconds.";
                 return folly::makeFuture<SrvMsg>(std::system_error{
@@ -1691,21 +1761,20 @@ folly::fbstring FsLogic::computeHash(const folly::IOBufQueue &buf)
     // TODO: move this to CPU-bound threadpool
     return folly::fibers::await(
         [&](folly::fibers::Promise<folly::fbstring> promise) {
-            m_context->scheduler()->post(
-                [&, promise = std::move(promise) ]() mutable {
-                    folly::fbstring hash(MD4_DIGEST_LENGTH, '\0');
-                    MD4_CTX ctx;
-                    MD4_Init(&ctx);
+            m_context->scheduler()->post([&,
+                                             promise =
+                                                 std::move(promise)]() mutable {
+                folly::fbstring hash(MD4_DIGEST_LENGTH, '\0');
+                MD4_CTX ctx;
+                MD4_Init(&ctx);
 
-                    if (!buf.empty())
-                        for (auto &byteRange : *buf.front())
-                            MD4_Update(
-                                &ctx, byteRange.data(), byteRange.size());
+                if (!buf.empty())
+                    for (auto &byteRange : *buf.front())
+                        MD4_Update(&ctx, byteRange.data(), byteRange.size());
 
-                    MD4_Final(
-                        reinterpret_cast<unsigned char *>(&hash[0]), &ctx);
-                    promise.setValue(std::move(hash));
-                });
+                MD4_Final(reinterpret_cast<unsigned char *>(&hash[0]), &ctx);
+                promise.setValue(std::move(hash));
+            });
         });
 }
 

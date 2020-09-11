@@ -1,12 +1,12 @@
 # distro for package building (oneof: xenial, centos-7-x86_64)
-RELEASE               ?= 1902
+RELEASE               ?= 2002
 DISTRIBUTION          ?= none
 DOCKER_RELEASE        ?= development
 DOCKER_REG_NAME       ?= "docker.onedata.org"
 DOCKER_REG_USER       ?= ""
 DOCKER_REG_PASSWORD   ?= ""
 DOCKER_BASE_IMAGE     ?= "ubuntu:18.04"
-DOCKER_DEV_BASE_IMAGE ?= "onedata/worker:1902-1"
+DOCKER_DEV_BASE_IMAGE ?= "onedata/worker:2002-2"
 HTTP_PROXY            ?= "http://proxy.devel.onedata.org:3128"
 
 PKG_REVISION    ?= $(shell git describe --tags --always  --abbrev=7)
@@ -28,8 +28,12 @@ WITH_S3           ?= ON
 WITH_GLUSTERFS    ?= ON
 # Build with WebDAV storage helper by default
 WITH_WEBDAV       ?= ON
+# Build with XRootD storage helper by default
+WITH_XROOTD       ?= ON
 # Build with onedatafs Python library
 WITH_ONEDATAFS    ?= ON
+# Build with code coverage
+WITH_COVERAGE     ?= ON
 
 # Oneclient FPM packaging variables
 PATCHELF_DOCKER_IMAGE   ?= docker.onedata.org/patchelf:0.9
@@ -61,6 +65,7 @@ all: debug test
 	                       -DWITH_S3=${WITH_S3} \
 	                       -DWITH_GLUSTERFS=${WITH_GLUSTERFS} \
 	                       -DWITH_WEBDAV=${WITH_WEBDAV} \
+	                       -DWITH_XROOTD=${WITH_XROOTD} \
 	                       -DWITH_ONEDATAFS=${WITH_ONEDATAFS} \
 	                       -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR} \
 	                       -DCMAKE_INSTALL_PREFIX=${PWD}/debug/PREFIX \
@@ -102,6 +107,9 @@ debug: debug/oneclient debug/onebench debug/onedatafs-py2 debug/onedatafs-py3
 
 .PHONY: test
 test: debug
+ifdef ONEDATA_GIT_URL
+	git config --global url."${ONEDATA_GIT_URL}".insteadOf "ssh://git@git.onedata.org:7999/vfs"
+endif
 	cmake --build debug
 	cmake --build debug --target test
 
@@ -118,15 +126,51 @@ install: release
 docs:
 	@doxygen Doxyfile
 
+#
+# Coverage tests are collected from 2 types of tests:
+# - Unit tests
+# - Integration tests
+#
+# Unit test coverage results are managed by CMake and are collected
+# in ./coverage/cunit/ subdirectory and should be generated after
+# running cunit target.
+#
+# Integration tests coverage results have to be collected after
+# each integration test (e.g. fslogic_test) and are stored in
+# ./coverage/integration/TEST_NAME.
+# A combined report containing the sum of coverage from individual
+# integration tests can be generated using coverage_integration target
+# and the result will be stored in ./coverage/integration/combined
+#
 .PHONY: coverage
-coverage:
-	lcov --directory `pwd`/debug --capture --output-file `pwd`/oneclient.info
-	lcov --remove `pwd`/oneclient.info 'test/*' '/usr/*' 'asio/*' '**/messages/*' \
+coverage_cunit coverage:
+	lcov --quiet --directory `pwd`/debug --capture --output-file `pwd`/oneclient.info
+	lcov --quiet --remove `pwd`/oneclient.info 'test/*' '/usr/*' 'asio/*' '**/messages/*' \
 	                                   'relwithdebinfo/*' 'debug/*' 'release/*' \
 	                                   '**/helpers/*' 'deps/*' \
-	     --output-file `pwd`/oneclient.info.cleaned
-	genhtml -o `pwd`/coverage `pwd`/oneclient.info.cleaned
-	@echo "Coverage written to `pwd`/coverage/index.html"
+	     --output-file `pwd`/oneclient_cunit.info.cleaned
+	find `pwd`/debug/ -name "*.gcda" -type f -delete
+	genhtml -o `pwd`/coverage/cunit `pwd`/oneclient_cunit.info.cleaned
+	@echo "Coverage written to `pwd`/coverage/cunit/index.html"
+
+.PHONY: coverage/%
+coverage/%:
+	lcov --quiet --directory `pwd`/debug --capture --output-file `pwd`/oneclient.info
+	lcov --quiet --remove `pwd`/oneclient.info 'test/*' '/usr/*' 'asio/*' '**/messages/*' \
+	                                   'relwithdebinfo/*' 'debug/*' 'release/*' \
+	                                   '**/helpers/*' 'deps/*' \
+	     --output-file `pwd`/oneclient_integration_$*.info.cleaned
+	find `pwd`/debug/ -name "*.gcda" -type f -delete
+	genhtml -o `pwd`/coverage/integration/$* `pwd`/oneclient_integration_$*.info.cleaned
+	@echo "Coverage written to `pwd`/coverage/integration/$*/index.html"
+
+.PHONY: coverage_integration
+coverage_integration:
+	lcov --quiet -a `pwd`/oneclient_integration_events_test.info.cleaned \
+		         -a `pwd`/oneclient_integration_fslogic_test.info.cleaned \
+		         -o `pwd`/oneclient_integration_combined.info
+	genhtml -o `pwd`/coverage/integration/combined `pwd`/oneclient_integration_combined.info
+	@echo "Coverage written to `pwd`/coverage/integration/combined/index.html"
 
 .PHONY: check_distribution
 check_distribution:
@@ -306,6 +350,7 @@ oneclient_tar $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz:
 		    cp /var/lib/oneclient/oneclient.bash-completion /output/etc/bash_completion.d/ && \
 		    cp -r /lib/x86_64-linux-gnu/* /output/lib/ && \
 		    cp -r /usr/lib/x86_64-linux-gnu/nss/* /output/lib/ && \
+	        cp -r /usr/lib/x86_64-linux-gnu/libXrd* /output/lib/ && \
 	        cp -r /usr/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/xlator/* /output/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/xlator/ && \
 	        cp -r /usr/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/rpc-transport/* /output/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/rpc-transport/'
 	# Collect all dynamic libraries GlusterFS dependencies
@@ -432,4 +477,4 @@ clang-tidy:
 
 .PHONY: clang-format
 clang-format:
-	docker run --rm -v $(CURDIR):/root/sources onedata/clang-format-check:1.1
+	docker run --rm -v $(CURDIR):/root/sources onedata/clang-format-check:1.2
