@@ -34,6 +34,10 @@ CHANGELOG
 
 -   Empty commit to differentiate between 20.02.0 beta1 and beta2 tags
 
+### 19.02.4
+
+-   Releasing new version 19.02.4
+
 ### 19.02.3
 
 -   VFS-6356 Fixed file location cache after release
