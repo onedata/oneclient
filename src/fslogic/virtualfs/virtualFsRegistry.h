@@ -106,7 +106,7 @@ private:
  */
 class VirtualFsHelpersCache
     : public HelpersCacheBase,
-      std::enable_shared_from_this<VirtualFsHelpersCache> {
+      public std::enable_shared_from_this<VirtualFsHelpersCache> {
 public:
     /**
      * @brief Construct a new VirtualFs Helpers Cache object
