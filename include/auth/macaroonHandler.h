@@ -22,8 +22,8 @@ namespace one {
 namespace client {
 namespace auth {
 
-constexpr std::chrono::minutes RESTRICTED_MACAROON_EXPIRATION{15};
-constexpr std::chrono::minutes RESTRICTED_MACAROON_REFRESH{5};
+constexpr std::chrono::minutes RESTRICTED_MACAROON_EXPIRATION{20};
+constexpr std::chrono::minutes RESTRICTED_MACAROON_REFRESH{10};
 
 /**
  * The @c MacaroonHandler class is responsible for retrieving and manipulating
