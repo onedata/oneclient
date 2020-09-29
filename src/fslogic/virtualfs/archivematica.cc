@@ -435,6 +435,7 @@ void ArchivematicaVirtualFsAdapter::readdir(
             a->size(1);
             a->setType(FileAttr::FileType::regular);
             a->setName("metadata.json");
+            a->mode(S_IRUSR | S_IRGRP | S_IRGRP);
             a->setVirtualFsAdapter(shared_from_this());
             metadataCache.putAttr(std::move(a));
         }
@@ -449,6 +450,7 @@ void ArchivematicaVirtualFsAdapter::readdir(
             a->size(1);
             a->setType(FileAttr::FileType::regular);
             a->setName("processingMCP.xml");
+            a->mode(S_IRUSR | S_IRGRP | S_IRGRP);
             a->setVirtualFsAdapter(shared_from_this());
             metadataCache.putAttr(std::move(a));
         }
@@ -460,6 +462,7 @@ void ArchivematicaVirtualFsAdapter::readdir(
             a->setParentUuid(uuid);
             a->setType(FileAttr::FileType::directory);
             a->setName("metadata");
+            a->mode(S_IRUSR | S_IRGRP | S_IRGRP | S_IXUSR | S_IXGRP | S_IXOTH);
             a->setVirtualFsAdapter(shared_from_this());
             metadataCache.putAttr(std::move(a));
         }
