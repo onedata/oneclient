@@ -579,6 +579,14 @@ Options::Options()
         .withGroup(OptionGroup::FUSE)
         .withDescription("Pass mount arguments directly to FUSE.");
 
+    add<bool>()
+        ->asSwitch()
+        .withLongName("enable-archivematica")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Enable Archivematica mode.");
+
     add<std::string>()
         ->withEnvName("monitoring_type")
         .withLongName("monitoring-type")
@@ -1076,6 +1084,12 @@ uint64_t Options::getEmulateAvailableSpace() const
 {
     return get<uint64_t>({"emulate-available-space", "emulate_available_space"})
         .get_value_or(DEFAULT_EMULATE_AVAILABLE_SPACE);
+}
+
+bool Options::isArchivematicaModeEnabled() const
+{
+    return get<bool>({"enable-archivematica", "enable_archivematica"})
+        .get_value_or(false);
 }
 
 bool Options::isMonitoringEnabled() const

@@ -25,8 +25,15 @@
 #include <string>
 
 namespace one {
+namespace client {
+namespace virtualfs {
+class VirtualFsAdapter;
+}
+}
 namespace messages {
 namespace fuse {
+
+using one::client::virtualfs::VirtualFsAdapter;
 
 /**
  * The FileAttr class represents server-sent attributes of a file.
@@ -36,6 +43,9 @@ public:
     using ProtocolMessage = clproto::FileAttr;
 
     enum class FileType { regular, directory, link };
+
+    FileAttr() = default;
+    FileAttr(const FileAttr &) = default;
 
     /**
      * Constructor.
@@ -161,6 +171,8 @@ public:
      */
     FileType type() const;
 
+    void setType(FileType fileType) { m_type = fileType; }
+
     /**
      * @return Size of the file.
      */
@@ -171,7 +183,45 @@ public:
      */
     void size(const off_t size);
 
+    /**
+     * @brief Serialize FileAttr to string
+     *
+     * @return String representation of the FileAttr.
+     */
     std::string toString() const override;
+
+    /**
+     * Returns true if the FileAttr represents a virtual file
+     */
+    bool isVirtual() const;
+
+    /**
+     * Returns true if the FileAttr represents a directory
+     * which is an entrypoint to a virtual subtree
+     */
+    bool isVirtualEntrypoint() const { return m_isVirtualEntrypoint; }
+
+    /**
+     * @brief Set virtual entrypoint flag
+     *
+     * @param ve true if the FileAttr represents a virtual fs entrypoint
+     */
+    void setVirtualEntrypoint(bool ve) { m_isVirtualEntrypoint = ve; }
+
+    /**
+     * @brief Set virtual fs adapter
+     *
+     * @param virtualFsAdapter Shared pointer to VirtualFSAdapter instance
+     */
+    void setVirtualFsAdapter(
+        std::shared_ptr<VirtualFsAdapter> virtualFsAdapter);
+
+    /**
+     * @brief Get virtual fs adapter instance
+     *
+     * @return Virtual fs adapter instance
+     */
+    std::shared_ptr<VirtualFsAdapter> getVirtualFsAdapter() const;
 
 private:
     void deserialize(const ProtocolMessage &message);
@@ -179,14 +229,16 @@ private:
     folly::fbstring m_uuid;
     folly::fbstring m_name;
     folly::Optional<folly::fbstring> m_parentUuid;
-    mode_t m_mode;
-    uid_t m_uid;
-    gid_t m_gid;
+    mode_t m_mode{};
+    uid_t m_uid{};
+    gid_t m_gid{};
     std::chrono::system_clock::time_point m_atime;
     std::chrono::system_clock::time_point m_mtime;
     std::chrono::system_clock::time_point m_ctime;
     FileType m_type;
-    folly::Optional<off_t> m_size;
+    folly::Optional<off_t> m_size{};
+    std::shared_ptr<VirtualFsAdapter> m_virtualFsAdapter{};
+    bool m_isVirtualEntrypoint{false};
 };
 
 } // namespace fuse

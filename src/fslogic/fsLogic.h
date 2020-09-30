@@ -19,6 +19,7 @@
 #include "fsSubscriptions.h"
 #include "fslogic/fiberBound.h"
 #include "ioTraceLogger.h"
+#include "virtualfs/virtualFsRegistry.h"
 
 #include <asio/buffer.hpp>
 #include <boost/icl/discrete_interval.hpp>
@@ -286,6 +287,8 @@ public:
         m_maxRetryCount = std::min(retryCount, FsLogic::MAX_RETRY_COUNT);
     }
 
+    folly::fbstring rootUuid() const { return m_rootUuid; }
+
 private:
     template <typename SrvMsg = messages::fuse::FuseResponse, typename CliMsg>
     SrvMsg communicate(CliMsg &&msg, const std::chrono::seconds timeout);
@@ -340,6 +343,7 @@ private:
     cache::OpenFileMetadataCache m_metadataCache;
     cache::ForceProxyIOCache m_forceProxyIOCache;
     std::unique_ptr<cache::HelpersCache> m_helpersCache;
+    std::shared_ptr<virtualfs::VirtualFsHelpersCache> m_virtualFsHelpersCache;
     std::shared_ptr<cache::ReaddirCache> m_readdirCache;
     bool m_readEventsDisabled = false;
 

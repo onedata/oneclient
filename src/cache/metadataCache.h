@@ -37,11 +37,15 @@ class UpdateTimes;
 } // namespace messages
 
 namespace client {
+namespace virtualfs {
+class VirtualFsHelpersCache;
+}
 namespace cache {
 
 class ReaddirCache;
 
 namespace bmi = boost::multi_index;
+using one::client::virtualfs::VirtualFsHelpersCache;
 
 /**
  * @c MetadataCache is responsible for retrieving and caching file attributes
@@ -61,6 +65,9 @@ public:
      */
     void setReaddirCache(std::shared_ptr<ReaddirCache> readdirCache);
 
+    void setVirtualFsHelpersCache(
+        std::shared_ptr<VirtualFsHelpersCache> virtualFsHelpersCache);
+
     /**
      * Invalidates (i.e. removes from cache) direct children of directory with
      * specified uuid.
@@ -79,8 +86,8 @@ public:
      * @param chunkSize Maximum number of directory entries to be returned.
      * @returns Directory entries in the requested range.
      */
-    folly::fbvector<folly::fbstring> readdir(
-        const folly::fbstring &uuid, off_t off, std::size_t chunkSize);
+    folly::fbvector<folly::fbstring> readdir(const folly::fbstring &uuid,
+        off_t off, std::size_t chunkSize, bool includeVirtual = false);
     /**
      * Retrieves file attributes by uuid.
      * @param uuid Uuid of the file.
@@ -119,6 +126,8 @@ public:
      */
     void updateSizeFromRange(const folly::fbstring &uuid,
         const boost::icl::discrete_interval<off_t> range);
+
+    void updateSize(const folly::fbstring &uuid, const off_t size);
 
     /**
      * Returns a pointer to fetched or cached file location.
@@ -310,18 +319,23 @@ protected:
     };
 
 private:
+    // Main index which returns any FileAttr based only
+    // on it's unique UUID
     using UuidIndexHash = std::hash<folly::fbstring>;
     using UuidIndex =
         bmi::hashed_unique<bmi::tag<ByUuid>, UuidExtractor, UuidIndexHash>;
 
+    // Index for accessing all children of a directory, used
+    // for caching readdir calls
     using ParentIndexHash = std::hash<folly::fbstring>;
     using ParentIndex = bmi::hashed_non_unique<bmi::tag<ByParent>,
         ParentUuidExtractor, ParentIndexHash>;
 
+    // Index for accessing FileAttr by it's name and
+    // UUID of the parent directory
     using ParentNameIndexHash =
         bmi::composite_key_hash<std::hash<folly::fbstring>,
             std::hash<folly::fbstring>>;
-
     using ParentNameIndex = bmi::hashed_unique<bmi::tag<ByParentName>,
         bmi::composite_key<Metadata, ParentUuidExtractor, NameExtractor>,
         ParentNameIndexHash>;
@@ -363,6 +377,8 @@ private:
     const folly::fbstring m_rootUuid;
     std::unordered_set<folly::fbstring> m_whitelistedSpaceNames;
     std::unordered_set<folly::fbstring> m_whitelistedSpaceIds;
+
+    std::shared_ptr<VirtualFsHelpersCache> m_virtualFsHelpersCache{};
 };
 
 } // namespace cache

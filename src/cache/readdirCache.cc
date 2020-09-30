@@ -9,12 +9,13 @@
 #include "cache/readdirCache.h"
 
 #include "communication/communicator.h"
+#include "fslogic/virtualfs/virtualFsRegistry.h"
 #include "helpers/logging.h"
-#include "options/options.h"
-
 #include "messages/fuse/fileChildrenAttrs.h"
 #include "messages/fuse/getFileChildren.h"
 #include "messages/fuse/getFileChildrenAttrs.h"
+#include "options/options.h"
+
 #include <folly/Enumerate.h>
 #include <folly/FBString.h>
 #include <folly/Optional.h>
@@ -29,9 +30,11 @@ namespace cache {
 
 ReaddirCache::ReaddirCache(OpenFileMetadataCache &metadataCache,
     std::weak_ptr<Context> context,
+    std::shared_ptr<virtualfs::VirtualFsHelpersCache> virtualFsHelpersCache,
     std::function<void(folly::Function<void()>)> runInFiber)
     : m_metadataCache(metadataCache)
     , m_context{std::move(context)}
+    , m_virtualFsHelpersCache{std::move(virtualFsHelpersCache)}
     , m_providerTimeout(m_context.lock()->options()->getProviderTimeout())
     , m_prefetchSize(m_context.lock()->options()->getReaddirPrefetchSize())
     , m_runInFiber{std::move(runInFiber)}
@@ -124,37 +127,64 @@ folly::fbvector<folly::fbstring> ReaddirCache::readdir(
 
     assertInFiber();
 
-    // Check if the uuid is already in the cache, if not start fetch
-    // asynchronously and add a shared promise to the cache so if any
-    // other request for this uuid comes in the meantime it gets queued
-    // on that promise
-    // In case of error, the promise contains an exception which can
-    // be propagated upwards
+    folly::fbstring effectiveUuid{uuid};
+    auto virtualStorageId = m_virtualFsHelpersCache->match(uuid);
+    auto virtualMode = !virtualStorageId.empty();
+    if (virtualMode) {
+        effectiveUuid =
+            m_virtualFsHelpersCache->get(virtualStorageId)->effectiveName(uuid);
+    }
 
     // Check if the directory is already in the metadata cache, if yes,
     // just return the result
-    if (m_metadataCache.isDirectorySynced(uuid)) {
-        m_cache.erase(uuid);
-        return m_metadataCache.readdir(uuid, off, chunkSize);
+    auto attr = m_metadataCache.getAttr(uuid);
+    auto includeVirtualEntries =
+        virtualMode || (attr->isVirtual() && !attr->isVirtualEntrypoint());
+    if (m_metadataCache.isDirectorySynced(effectiveUuid)) {
+        // Clean temporary dir contents fetch cache
+        m_cache.erase(effectiveUuid);
+
+        if (includeVirtualEntries) {
+            assert(attr->isVirtual());
+            attr->getVirtualFsAdapter()->readdir(
+                m_metadataCache.readdir(effectiveUuid, off, chunkSize, true),
+                attr, m_metadataCache);
+        }
+
+        return m_metadataCache.readdir(
+            effectiveUuid, off, chunkSize, includeVirtualEntries);
     }
 
-    auto uuidIt = m_cache.find(uuid);
+    if (!attr->isVirtual() ||
+        attr->getVirtualFsAdapter()->fetchRemoteDirectoryContents(attr)) {
+        auto uuidIt = m_cache.find(effectiveUuid);
 
-    if (uuidIt == m_cache.end()) {
-        fetch(uuid);
+        if (uuidIt == m_cache.end()) {
+            fetch(effectiveUuid);
+        }
+
+        auto dirEntriesFuture = (*m_cache.find(effectiveUuid)).second;
+        auto f = dirEntriesFuture->getFuture().wait();
+
+        if (f.hasException()) {
+            m_cache.erase(effectiveUuid);
+            f.get();
+        }
     }
 
-    auto dirEntriesFuture = (*m_cache.find(uuid)).second;
-    auto f = dirEntriesFuture->getFuture().wait();
+    if (virtualMode || attr->isVirtual()) {
+        attr->getVirtualFsAdapter()->readdir(
+            m_metadataCache.readdir(
+                effectiveUuid, off, chunkSize, includeVirtualEntries),
+            attr, m_metadataCache);
 
-    if (f.hasException()) {
-        m_cache.erase(uuid);
-        f.get();
+        m_metadataCache.setDirectorySynced(effectiveUuid);
     }
 
-    assert(m_metadataCache.isDirectorySynced(uuid));
+    assert(m_metadataCache.isDirectorySynced(effectiveUuid));
 
-    return m_metadataCache.readdir(uuid, off, chunkSize);
+    return m_metadataCache.readdir(
+        effectiveUuid, off, chunkSize, includeVirtualEntries);
 }
 
 void ReaddirCache::purge(const folly::fbstring &uuid)

@@ -10,6 +10,7 @@
 
 #include "communication/communicator.h"
 #include "context.h"
+#include "fslogic/virtualfs/archivematica.h"
 #include "helpers/logging.h"
 #include "messages/configuration.h"
 #include "messages/fuse/blockSynchronizationRequest.h"
@@ -126,8 +127,10 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
           m_context->options()->getSpaceNames(),
           m_context->options()->getSpaceIds()}
     , m_helpersCache{std::move(helpersCache)}
+    , m_virtualFsHelpersCache{std::make_shared<
+          virtualfs::VirtualFsHelpersCache>(*this)}
     , m_readdirCache{std::make_shared<cache::ReaddirCache>(
-          m_metadataCache, m_context, runInFiber)}
+          m_metadataCache, m_context, m_virtualFsHelpersCache, runInFiber)}
     , m_readEventsDisabled{readEventsDisabled}
     , m_forceFullblockRead{forceFullblockRead}
     , m_fsSubscriptions{m_eventManager, m_metadataCache, m_forceProxyIOCache,
@@ -171,6 +174,15 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     m_eventManager.subscribe(*configuration);
 
     m_metadataCache.setReaddirCache(m_readdirCache);
+
+    m_metadataCache.setVirtualFsHelpersCache(m_virtualFsHelpersCache);
+
+    // Register Archivematica virtual fs
+    if (m_context->options()->isArchivematicaModeEnabled())
+        m_virtualFsHelpersCache->add("archivematica",
+            std::make_shared<
+                virtualfs::archivematica::ArchivematicaVirtualFsAdapter>(
+                *this, "archivematica"));
 
     // Quota initial configuration
     m_eventManager.subscribe(
@@ -365,7 +377,25 @@ FileAttrPtr FsLogic::lookup(
 
     assertInFiber();
 
-    auto attr = m_metadataCache.getAttr(uuid, name);
+    FileAttrPtr attr{};
+
+    try {
+        attr = m_metadataCache.getAttr(uuid, name);
+    }
+    catch (std::system_error &e) {
+        if (m_metadataCache.getAttr(uuid)->isVirtual()) {
+            if (e.code() == std::errc::no_such_file_or_directory) {
+                // Force update of the directory contents and lookup
+                // the file again
+                readdir(uuid, std::numeric_limits<int>::max(), 0);
+                attr = m_metadataCache.getAttr(uuid, name);
+            }
+        }
+    }
+
+    if (!attr)
+        throw std::system_error(
+            std::make_error_code(std::errc::no_such_file_or_directory));
 
     auto type = attr->type() == FileAttr::FileType::directory ? "d" : "f";
     auto size = attr->size();
@@ -449,12 +479,33 @@ std::uint64_t FsLogic::open(const folly::fbstring &uuid, const int flags)
     const auto flag = getOpenFlag(helpers::maskToFlags(filteredFlags));
     messages::fuse::OpenFile msg{uuid.toStdString(), flag};
 
+    // Check if the file is a virtual file
+    auto attr = m_metadataCache.getAttr(uuid);
+
+    if (attr->isVirtual()) {
+        auto fuseFileHandleId = m_nextFuseHandleId++;
+        // Create a virtual file handle id
+        // Register the file handle in fusefilehandles
+        m_fuseFileHandles.emplace(fuseFileHandleId,
+            std::make_shared<FuseFileHandle>(filteredFlags,
+                std::to_string(fuseFileHandleId), openFileToken,
+                *m_virtualFsHelpersCache, m_forceProxyIOCache,
+                m_providerTimeout, m_randomReadPrefetchEvaluationFrequency));
+
+        auto fuseFileHandle = m_fuseFileHandles.at(fuseFileHandleId);
+        fuseFileHandle->getHelperHandle(
+            uuid, {}, attr->getVirtualFsAdapter()->name(), uuid);
+
+        // Return fuse file handle id
+        return fuseFileHandleId;
+    }
+
     LOG_DBG(2) << "Sending file opened message for " << uuid;
 
     auto opened = communicate<messages::fuse::FileOpened>(
         std::move(msg), m_providerTimeout);
 
-    const auto fuseFileHandleId = m_nextFuseHandleId++;
+    auto fuseFileHandleId = m_nextFuseHandleId++;
 
     m_fuseFileHandles.emplace(fuseFileHandleId,
         std::make_shared<FuseFileHandle>(filteredFlags, opened.handleId(),
@@ -486,6 +537,9 @@ void FsLogic::release(
         return;
     }
 
+    auto attr = m_metadataCache.getAttr(uuid);
+    auto isVirtualFile = attr->isVirtual();
+
     auto fuseFileHandle = m_fuseFileHandles.at(fileHandleId);
 
     fsync(uuid, fileHandleId, false);
@@ -509,9 +563,12 @@ void FsLogic::release(
 
         LOG_DBG(2) << "Sending file release message for " << uuid;
 
-        communicate(messages::fuse::Release{uuid.toStdString(),
-                        fuseFileHandle->providerHandleId()->toStdString()},
-            m_providerTimeout);
+        // If the file is not a virtual file, send release message to
+        // the Oneprovider
+        if (!isVirtualFile)
+            communicate(messages::fuse::Release{uuid.toStdString(),
+                            fuseFileHandle->providerHandleId()->toStdString()},
+                m_providerTimeout);
     }
     catch (const std::system_error &e) {
         if (e.code().value() == ENOENT)
@@ -570,9 +627,12 @@ void FsLogic::fsync(const folly::fbstring &uuid,
 
     LOG_DBG(2) << "Sending file fsync message for " << uuid;
 
-    communicate(messages::fuse::FSync{uuid.toStdString(), dataOnly,
-                    fuseFileHandle->providerHandleId()->toStdString()},
-        m_providerTimeout);
+    auto attr = m_metadataCache.getAttr(uuid);
+    auto isVirtualFile = attr->isVirtual();
+    if (!isVirtualFile)
+        communicate(messages::fuse::FSync{uuid.toStdString(), dataOnly,
+                        fuseFileHandle->providerHandleId()->toStdString()},
+            m_providerTimeout);
 
     for (auto &helperHandle : fuseFileHandle->helperHandles())
         communication::wait(

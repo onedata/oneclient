@@ -9,9 +9,11 @@
 #include "metadataCache.h"
 
 #include "cache/readdirCache.h"
+#include "fslogic/virtualfs/virtualFsRegistry.h"
 #include "fuseOperations.h"
 #include "helpers/logging.h"
 #include "messages/fuse/fileAttr.h"
+#include "messages/fuse/fileBlock.h"
 #include "messages/fuse/fileRenamed.h"
 #include "messages/fuse/getChildAttr.h"
 #include "messages/fuse/getFileAttr.h"
@@ -28,11 +30,11 @@
 
 #include <chrono>
 
-using namespace std::literals;
-
 namespace one {
 namespace client {
 namespace cache {
+
+using namespace std::literals;
 
 MetadataCache::MetadataCache(communication::Communicator &communicator,
     const std::chrono::seconds providerTimeout, folly::fbstring rootUuid,
@@ -53,6 +55,12 @@ MetadataCache::MetadataCache(communication::Communicator &communicator,
 void MetadataCache::setReaddirCache(std::shared_ptr<ReaddirCache> readdirCache)
 {
     m_readdirCache = readdirCache;
+}
+
+void MetadataCache::setVirtualFsHelpersCache(
+    std::shared_ptr<VirtualFsHelpersCache> virtualFsHelpersCache)
+{
+    m_virtualFsHelpersCache = virtualFsHelpersCache;
 }
 
 bool MetadataCache::contains(const folly::fbstring &uuid) const
@@ -110,7 +118,8 @@ void MetadataCache::invalidateChildren(const folly::fbstring &uuid)
 }
 
 folly::fbvector<folly::fbstring> MetadataCache::readdir(
-    const folly::fbstring &uuid, off_t off, std::size_t chunkSize)
+    const folly::fbstring &uuid, off_t off, std::size_t chunkSize,
+    bool includeVirtual)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(off) << LOG_FARG(chunkSize);
 
@@ -119,6 +128,8 @@ folly::fbvector<folly::fbstring> MetadataCache::readdir(
     assert(!uuid.empty());
 
     folly::fbvector<folly::fbstring> result;
+
+    int extraFilesCount = 2;
     if (off == 0) {
         result.emplace_back(".");
         result.emplace_back("..");
@@ -131,14 +142,22 @@ folly::fbvector<folly::fbstring> MetadataCache::readdir(
         // Advance the iterator to off safely
         off_t offCount{0};
         auto it = irange.begin();
-        for (; (offCount < off - 2) && (it != irange.end()); it++, offCount++) {
+        for (; (offCount < off - extraFilesCount) && (it != irange.end());
+             it++, offCount++) {
         }
-        if (offCount < off - 2)
+        if (offCount < off - extraFilesCount)
             return result;
 
-        for (size_t count = (off > 0) ? 0 : 2;
-             (it != irange.end()) && (count < chunkSize); it++, count++) {
+        for (size_t count = (off > 0) ? 0 : extraFilesCount;
+             (it != irange.end()) && (count < chunkSize); it++) {
+            if (!includeVirtual && it->attr->isVirtual() &&
+                !it->attr->isVirtualEntrypoint()) {
+                LOG_DBG(2) << "Skipping virtual file: " << it->attr->name();
+                continue;
+            }
+
             result.emplace_back(it->attr->name());
+            count++;
         }
     }
     else {
@@ -150,13 +169,14 @@ folly::fbvector<folly::fbstring> MetadataCache::readdir(
 
         off_t offCount{0};
         auto it = whitelistedSpaces.begin();
-        for (; (offCount < off - 2) && (it != whitelistedSpaces.end());
+        for (; (offCount < off - extraFilesCount) &&
+             (it != whitelistedSpaces.end());
              it++, offCount++) {
         }
-        if (offCount < off - 2)
+        if (offCount < off - extraFilesCount)
             return result;
 
-        for (size_t count = (off > 0) ? 0 : 2;
+        for (size_t count = (off > 0) ? 0 : extraFilesCount;
              (it != whitelistedSpaces.end()) && (count < chunkSize);
              it++, count++) {
             result.emplace_back(*it);
@@ -181,19 +201,48 @@ FileAttrPtr MetadataCache::getAttr(
 
     assertInFiber();
 
+    folly::StringPiece effectiveName{name};
+    folly::fbstring effectiveParentUuid{parentUuid};
+    auto isVirtual{false};
+    folly::fbstring virtualStorageId{};
+
+    auto virtualParentStorageId = m_virtualFsHelpersCache->match(parentUuid);
+    auto isParentVirtual{!virtualParentStorageId.empty()};
+    if (isParentVirtual)
+        effectiveParentUuid =
+            m_virtualFsHelpersCache->get(virtualParentStorageId)
+                ->effectiveName(parentUuid);
+
     auto &index = bmi::get<ByParentName>(m_cache);
-    auto it = index.find(std::make_tuple(parentUuid, name));
+    auto it = index.find(
+        std::make_tuple(effectiveParentUuid, effectiveName.toFbstring()));
+
+    // Check if the requested entry 'name' matches a name pattern of
+    // any of the registered virtual filesystem adapters
+    virtualStorageId = m_virtualFsHelpersCache->match(name);
+    isVirtual = !virtualStorageId.empty();
+    if (isVirtual) {
+        effectiveName =
+            m_virtualFsHelpersCache->get(virtualStorageId)->effectiveName(name);
+    }
+
     if (it != index.end() && !it->deleted) {
-        LOG_DBG(2) << "Found metadata attr for file " << name
-                   << " in directory " << parentUuid;
+        LOG_DBG(2) << "Found metadata attr for file " << effectiveName
+                   << " in directory " << effectiveParentUuid;
+        if (isVirtual && !it->attr->isVirtual()) {
+            it->attr->setVirtualFsAdapter(
+                m_virtualFsHelpersCache->get(virtualStorageId));
+        }
 
         if (it->attr->type() == FileAttr::FileType::regular &&
             !it->attr->size()) {
-            LOG_DBG(2) << "Metadata for file " << parentUuid << "/" << name
+            LOG_DBG(1) << "Metadata for file " << effectiveParentUuid << "/"
+                       << effectiveName
                        << " exists, but size is undefined, fetch the "
                           "attribute again";
         }
-        else if (parentUuid == m_rootUuid && !isSpaceWhitelisted(*it->attr)) {
+        else if (effectiveParentUuid == m_rootUuid &&
+            !isSpaceWhitelisted(*it->attr)) {
             throw std::system_error(
                 std::make_error_code(std::errc::no_such_file_or_directory));
         }
@@ -202,20 +251,94 @@ FileAttrPtr MetadataCache::getAttr(
         }
     }
 
-    LOG_DBG(2) << "Metadata attr for file " << name << " in directory "
-               << parentUuid << " not found in cache - retrieving from server";
+    LOG_DBG(2) << "Metadata attr for file " << effectiveName << " in directory "
+               << effectiveParentUuid
+               << " not found in cache - retrieving from server";
 
-    auto fetchedIt = fetchAttr(messages::fuse::GetChildAttr{parentUuid, name});
+    auto fetchedIt = fetchAttr(messages::fuse::GetChildAttr{
+        effectiveParentUuid, effectiveName.toFbstring()});
 
-    if (parentUuid == m_rootUuid && !isSpaceWhitelisted(*fetchedIt->attr)) {
+    if (effectiveParentUuid == m_rootUuid &&
+        !isSpaceWhitelisted(*fetchedIt->attr)) {
         throw std::system_error(
             std::make_error_code(std::errc::no_such_file_or_directory));
     }
 
-    LOG_DBG(2) << "Got metadata attr for file " << name << " in directory "
-               << parentUuid << " from server";
+    LOG_DBG(2) << "Got metadata attr for file " << effectiveName
+               << " in directory " << effectiveParentUuid << " from server";
+
+    if (isVirtual) {
+        fetchedIt->attr->setVirtualFsAdapter(
+            m_virtualFsHelpersCache->get(virtualStorageId));
+        fetchedIt->attr->setVirtualEntrypoint(true);
+
+        auto virtualAttr = std::make_shared<FileAttr>(*fetchedIt->attr);
+        // Modify uuid for the attr
+        virtualAttr->setUuid(
+            virtualAttr->uuid() + ".__onedata_" + virtualStorageId);
+
+        return virtualAttr;
+    }
 
     return fetchedIt->attr;
+}
+
+MetadataCache::Map::iterator MetadataCache::getAttrIt(
+    const folly::fbstring &uuid)
+{
+    assertInFiber();
+
+    // Check if the uuid does not represent a virtual file or directory
+    folly::fbstring effectiveUuid{uuid};
+    auto virtualStorageId = m_virtualFsHelpersCache->match(uuid);
+    auto isVirtual = !virtualStorageId.empty();
+    if (isVirtual)
+        effectiveUuid =
+            m_virtualFsHelpersCache->get(virtualStorageId)->effectiveName(uuid);
+
+    // Check if the file is not marked as deleted
+    if (m_deletedUuids.find(effectiveUuid) != m_deletedUuids.end())
+        throw std::system_error(
+            std::make_error_code(std::errc::no_such_file_or_directory));
+
+    // Check if effective uuid exists in the metadata cache
+    auto &index = bmi::get<ByUuid>(m_cache);
+    auto it = index.find(effectiveUuid);
+    if (it != index.end()) {
+        LOG_DBG(2) << "Metadata attr for file " << effectiveUuid
+                   << " found in cache";
+
+        if (isVirtual) {
+            it->attr->setVirtualEntrypoint(true);
+            if (!it->attr->isVirtual())
+                it->attr->setVirtualFsAdapter(
+                    m_virtualFsHelpersCache->get(virtualStorageId));
+        }
+
+        if (it->attr->type() == FileAttr::FileType::regular &&
+            !it->attr->size()) {
+            LOG_DBG(2) << "Metadata for file " << effectiveUuid
+                       << " exists, but size is undefined, fetch the "
+                          "attribute again";
+        }
+        else {
+            return it;
+        }
+    }
+
+    LOG_DBG(2) << "Metadata attributes for " << effectiveUuid
+               << " not found in cache - fetching from server";
+
+    auto res = fetchAttr(messages::fuse::GetFileAttr{effectiveUuid});
+    if (isVirtual) {
+        res->attr->setVirtualEntrypoint(true);
+        res->attr->setVirtualFsAdapter(
+            m_virtualFsHelpersCache->get(virtualStorageId));
+    }
+
+    LOG_DBG(2) << "Got metadata attr for " << effectiveUuid << " from server";
+
+    return res;
 }
 
 bool MetadataCache::putAttr(std::shared_ptr<FileAttr> attr)
@@ -223,10 +346,9 @@ bool MetadataCache::putAttr(std::shared_ptr<FileAttr> attr)
     LOG_FCALL() << LOG_FARG(attr->toString());
 
     assertInFiber();
-
     assert(attr->parentUuid());
 
-    auto const &uuid = attr->uuid();
+    const auto &uuid = attr->uuid();
 
     if (m_deletedUuids.find(uuid) != m_deletedUuids.end()) {
         LOG(WARNING) << "Received attribute for deleted file or directory "
@@ -258,9 +380,9 @@ bool MetadataCache::putAttr(std::shared_ptr<FileAttr> attr)
                    << attr->uuid();
 
         if (attr->parentUuid() && !attr->parentUuid().value().empty()) {
-            LOG_DBG(2)
-                << "Subscribing for changes on the parent of newly added file: "
-                << attr->uuid();
+            LOG_DBG(2) << "Subscribing for changes on the parent of newly "
+                          "added file: "
+                       << attr->uuid();
             m_onAdd(attr->parentUuid().value());
         }
 
@@ -280,41 +402,6 @@ bool MetadataCache::putAttr(std::shared_ptr<FileAttr> attr)
     catch (std::exception &e) {
         throw;
     }
-}
-
-MetadataCache::Map::iterator MetadataCache::getAttrIt(
-    const folly::fbstring &uuid)
-{
-    assertInFiber();
-
-    if (m_deletedUuids.find(uuid) != m_deletedUuids.end())
-        throw std::system_error(
-            std::make_error_code(std::errc::no_such_file_or_directory));
-
-    auto &index = bmi::get<ByUuid>(m_cache);
-    auto it = index.find(uuid);
-    if (it != index.end()) {
-        LOG_DBG(2) << "Metadata attr for file " << uuid << " found in cache";
-
-        if (it->attr->type() == FileAttr::FileType::regular &&
-            !it->attr->size()) {
-            LOG_DBG(2) << "Metadata for file " << uuid
-                       << " exists, but size is undefined, fetch the "
-                          "attribute again";
-        }
-        else {
-            return it;
-        }
-    }
-
-    LOG_DBG(2) << "Metadata attributes for " << uuid
-               << " not found in cache - fetching from server";
-
-    auto res = fetchAttr(messages::fuse::GetFileAttr{uuid});
-
-    LOG_DBG(2) << "Got metadata attr for " << uuid << " from server";
-
-    return res;
 }
 
 template <typename ReqMsg>
@@ -353,8 +440,8 @@ MetadataCache::Map::iterator MetadataCache::fetchAttr(ReqMsg &&msg)
     else {
         LOG_DBG(2) << "Added new fetched attribute to cache: " << uuid;
 
-        // In case the parent of uuid is not in the cache, add it and subscribe
-        // for change events on that directory
+        // In case the parent of uuid is not in the cache, add it and
+        // subscribe for change events on that directory
         if (parentUuid && !parentUuid.value().empty()) {
             m_onAdd(parentUuid.value());
         }
@@ -417,6 +504,10 @@ std::shared_ptr<FileLocation> MetadataCache::fetchFileLocation(
     LOG_FCALL() << LOG_FARG(uuid);
 
     assertInFiber();
+    auto attr = getAttr(uuid);
+    if (attr->isVirtual()) {
+        return {};
+    }
 
     auto location = communication::wait(
         m_communicator.communicate<FileLocation>(
@@ -669,6 +760,20 @@ void MetadataCache::updateSizeFromRange(const folly::fbstring &uuid,
         LOG_DBG(2) << "Updating file size for " << uuid << " to " << newSize;
 
         m.attr->size(newSize);
+    });
+}
+
+void MetadataCache::updateSize(const folly::fbstring &uuid, const off_t size)
+{
+    LOG_FCALL() << LOG_FARG(uuid);
+
+    assertInFiber();
+
+    auto it = bmi::get<ByUuid>(m_cache).find(uuid);
+    m_cache.modify(it, [&](Metadata &m) {
+        LOG_DBG(2) << "Updating file size for " << uuid << " to " << size;
+
+        m.attr->size(size);
     });
 }
 

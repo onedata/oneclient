@@ -91,6 +91,7 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(false, options.isIOTraceLoggerEnabled());
     EXPECT_EQ(false, options.isProxyIOForced());
     EXPECT_EQ(false, options.isDirectIOForced());
+    EXPECT_EQ(false, options.isArchivematicaModeEnabled());
     EXPECT_EQ(false, options.isMonitoringEnabled());
     EXPECT_EQ(false, options.isMonitoringLevelFull());
     EXPECT_EQ(false, options.areFileReadEventsDisabled());
@@ -932,6 +933,13 @@ TEST_F(OptionsTest, parseConfigFileShouldSetSingleThread)
     setInConfigFile("fuse_single_thread", "1");
     options.parse(fileArgs.size(), fileArgs.data());
     EXPECT_EQ(true, options.getSingleThread());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldEnableArchivematicaMode)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--enable-archivematica", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.isArchivematicaModeEnabled());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldEnableMonitoringWithType)
