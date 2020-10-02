@@ -21,13 +21,16 @@ requirements:
     - autoconf
     - autoconf-archive
     - automake
+    - aws-c-common
+    - aws-checksums
+    - aws-c-event-stream
     - aws-sdk-cpp-s3
     - backports.lzma
-    - binutils_linux-64
     - boost =1.67.0
     - ceph-client =14.2.2
     - cmake
     - double-conversion
+    - fmt >=7.0.1
     - folly ={{ folly_version }}
     - poco =1.8.1
     - swift-sdk-cpp
@@ -54,6 +57,7 @@ requirements:
     - proxygen ={{ folly_version }}
     - pthread-stubs
     - python =3.7.4
+    - spdlog >=1.7.0
     - swift-sdk-cpp
     - tbb =2018.0.5
     - tbb-devel =2018.0.5
