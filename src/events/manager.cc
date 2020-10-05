@@ -108,7 +108,7 @@ void Manager::flush()
     LOG_FCALL();
 
     for (int it = static_cast<int>(StreamKey::FILE_READ);
-         it != static_cast<int>(StreamKey::TEST); ++it) {
+         it != static_cast<int>(StreamKey::STREAM_KEY_MAX); ++it) {
         flush(static_cast<StreamKey>(it));
     }
 }
