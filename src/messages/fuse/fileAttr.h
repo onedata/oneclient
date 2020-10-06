@@ -184,6 +184,16 @@ public:
     void size(const off_t size);
 
     /**
+     * @return True when the file is fully replicated.
+     */
+    folly::Optional<bool> fullyReplicated() const;
+
+    /**
+     * Set whether the file is fully replicated.
+     */
+    void setFullyReplicated(bool isFullyReplicated);
+
+    /**
      * @brief Serialize FileAttr to string
      *
      * @return String representation of the FileAttr.
@@ -237,6 +247,7 @@ private:
     std::chrono::system_clock::time_point m_ctime;
     FileType m_type;
     folly::Optional<off_t> m_size{};
+    folly::Optional<bool> m_fullyReplicated;
     std::shared_ptr<VirtualFsAdapter> m_virtualFsAdapter{};
     bool m_isVirtualEntrypoint{false};
 };

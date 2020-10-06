@@ -376,6 +376,7 @@ private:
     const unsigned int m_randomReadPrefetchEvaluationFrequency;
     const double m_randomReadPrefetchClusterWindowGrowFactor;
     const bool m_clusterPrefetchThresholdRandom;
+    const bool m_showOnlyFullReplicas;
     const bool m_ioTraceLoggerEnabled;
     const boost::optional<std::pair<std::string, std::string>> m_tagOnCreate;
     const boost::optional<std::pair<std::string, std::string>> m_tagOnModify;

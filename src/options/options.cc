@@ -1094,7 +1094,7 @@ uint64_t Options::getEmulateAvailableSpace() const
         .get_value_or(DEFAULT_EMULATE_AVAILABLE_SPACE);
 }
 
-bool Options::listOnlyFullyReplicatedFiles() const
+bool Options::showOnlyFullReplicas() const
 {
     return get<bool>({"only-full-replicas", "only_full_replicas"})
         .get_value_or(false);

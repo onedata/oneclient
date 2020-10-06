@@ -60,10 +60,13 @@ public:
      * @param uuid Directory id.
      * @param off Directory entry offset.
      * @param chunkSize Maximum number of directory entries to be returned.
+     * @param includeReplicationStatus Determines whether replication status
+     * should be included in files attributes.
      * @return Directory entries in the requested range.
      */
     folly::fbvector<folly::fbstring> readdir(const folly::fbstring &uuid,
-        const off_t off, const std::size_t chunkSize);
+        const off_t off, const std::size_t chunkSize,
+        const bool includeReplicationStatus);
 
     /**
      * Returns true if cache doesn't contain any elements.
@@ -82,7 +85,8 @@ private:
      *
      * @param uuid Directory id.
      */
-    void fetch(const folly::fbstring &uuid);
+    void fetch(
+        const folly::fbstring &uuid, const bool includeReplicationStatus);
 
     /**
      * Removes element cache for specific directory.

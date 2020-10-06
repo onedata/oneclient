@@ -87,6 +87,35 @@ bool FsSubscriptions::unsubscribeFileAttrChanged(
     return unsubscribe(events::StreamKey::FILE_ATTR_CHANGED, fileUuid);
 }
 
+void FsSubscriptions::subscribeReplicaStatusChanged(
+    const folly::fbstring &fileUuid)
+{
+    LOG_FCALL() << LOG_FARG(fileUuid);
+
+    ONE_METRIC_COUNTER_INC("comp.oneclient.mod.events.submod.subscriptions."
+                           "replica_status_changed");
+
+    LOG_DBG(2) << "Subscribing for ReplicaStatusChanged for file " << fileUuid;
+
+    subscribe(fileUuid,
+        events::ReplicaStatusChangedSubscription{fileUuid.toStdString(),
+            REMOTE_TIME_THRESHOLD, [this](auto events) mutable {
+                this->handleFileAttrChanged(std::move(events));
+            }});
+}
+
+bool FsSubscriptions::unsubscribeReplicaStatusChanged(
+    const folly::fbstring &fileUuid)
+{
+    LOG_FCALL() << LOG_FARG(fileUuid);
+
+    ONE_METRIC_COUNTER_DEC("comp.oneclient.mod.events.submod.subscriptions."
+                           "replica_status_changed");
+    LOG_DBG(2) << "Unsubscribing for ReplicaStatusChanged for file "
+               << fileUuid;
+    return unsubscribe(events::StreamKey::REPLICA_STATUS_CHANGED, fileUuid);
+}
+
 void FsSubscriptions::subscribeFileLocationChanged(
     const folly::fbstring &fileUuid)
 {

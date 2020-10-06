@@ -391,7 +391,7 @@ public:
     /**
      * @return Should client show only fully replicated files?
      */
-    bool listOnlyFullyReplicatedFiles() const;
+    bool showOnlyFullReplicas() const;
 
     /**
      * @return Is Archivematica mode enabled.

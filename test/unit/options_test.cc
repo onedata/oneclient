@@ -91,7 +91,7 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(false, options.isIOTraceLoggerEnabled());
     EXPECT_EQ(false, options.isProxyIOForced());
     EXPECT_EQ(false, options.isDirectIOForced());
-    EXPECT_EQ(false, options.listOnlyFullyReplicatedFiles());
+    EXPECT_EQ(false, options.showOnlyFullReplicas());
     EXPECT_EQ(false, options.isArchivematicaModeEnabled());
     EXPECT_EQ(false, options.isMonitoringEnabled());
     EXPECT_EQ(false, options.isMonitoringLevelFull());
@@ -936,11 +936,11 @@ TEST_F(OptionsTest, parseConfigFileShouldSetSingleThread)
     EXPECT_EQ(true, options.getSingleThread());
 }
 
-TEST_F(OptionsTest, parseCommandLineShouldListOnlyFullReplicas)
+TEST_F(OptionsTest, parseCommandLineShouldShowOnlyFullReplicas)
 {
     cmdArgs.insert(cmdArgs.end(), {"--only-full-replicas", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
-    EXPECT_EQ(true, options.listOnlyFullyReplicatedFiles());
+    EXPECT_EQ(true, options.showOnlyFullReplicas());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldEnableArchivematicaMode)

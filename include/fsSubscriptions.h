@@ -73,6 +73,19 @@ public:
     bool unsubscribeFileAttrChanged(const folly::fbstring &fileUuid);
 
     /**
+     * Adds subscription for replication status change.
+     * @param fileUuid UUID of file for which subscription is added.
+     */
+    void subscribeReplicaStatusChanged(const folly::fbstring &fileUuid);
+
+    /**
+     * Cancels subscription for replication status changes.
+     * @param fileUuid UUID of file for which subscription is removed.
+     * @return true if subscription has been removed, false if it didn't exist.
+     */
+    bool unsubscribeReplicaStatusChanged(const folly::fbstring &fileUuid);
+
+    /**
      * Adds subscription for file location updates.
      * @param fileUuid UUID of file for which subscription is added.
      */

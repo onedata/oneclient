@@ -26,10 +26,12 @@ GetFileChildrenAttrs::GetFileChildrenAttrs(
 
 GetFileChildrenAttrs::GetFileChildrenAttrs(const folly::fbstring &uuid,
     const off_t offset, const std::size_t size,
-    folly::Optional<folly::fbstring> indexToken)
+    folly::Optional<folly::fbstring> indexToken,
+    folly::Optional<bool> includeReplicationStatus)
     : GetFileChildrenAttrs{uuid, offset, size}
 {
     m_indexToken.assign(std::move(indexToken));
+    m_includeReplicationStatus.assign(std::move(includeReplicationStatus));
 }
 
 std::string GetFileChildrenAttrs::toString() const
@@ -41,6 +43,10 @@ std::string GetFileChildrenAttrs::toString() const
 
     if (m_indexToken)
         stream << ", index_token: " << *m_indexToken;
+
+    if (m_includeReplicationStatus)
+        stream << ", include_replication_status: "
+               << *m_includeReplicationStatus;
 
     return stream.str();
 }
@@ -58,6 +64,9 @@ GetFileChildrenAttrs::serializeAndDestroy()
 
     if (m_indexToken)
         gfc->set_index_token(m_indexToken->toStdString());
+
+    if (m_includeReplicationStatus)
+        gfc->set_include_replication_status(*m_includeReplicationStatus);
 
     return msg;
 }

@@ -156,6 +156,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
           ->getRandomReadPrefetchClusterWindowGrowFactor()}
     , m_clusterPrefetchThresholdRandom{m_context->options()
           ->isClusterPrefetchThresholdRandom()}
+    , m_showOnlyFullReplicas{m_context->options()->showOnlyFullReplicas()}
     , m_ioTraceLoggerEnabled{m_context->options()->isIOTraceLoggerEnabled()}
     , m_tagOnCreate{m_context->options()->getOnCreateTag()}
     , m_tagOnModify{m_context->options()->getOnModifyTag()}
@@ -213,6 +214,9 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
         m_fsSubscriptions.subscribeFileAttrChanged(uuid);
         m_fsSubscriptions.subscribeFileRemoved(uuid);
         m_fsSubscriptions.subscribeFileRenamed(uuid);
+
+        if (m_showOnlyFullReplicas)
+            m_fsSubscriptions.subscribeReplicaStatusChanged(uuid);
     });
 
     // Called when file is opened
@@ -234,6 +238,8 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
         m_fsSubscriptions.unsubscribeFileLocationChanged(uuid);
         m_fsSubscriptions.unsubscribeFileRemoved(uuid);
         m_fsSubscriptions.unsubscribeFileRenamed(uuid);
+        if (m_showOnlyFullReplicas)
+            m_fsSubscriptions.unsubscribeReplicaStatusChanged(uuid);
     });
 
     // Called when directory attributes are dropped from metadata cache
@@ -241,6 +247,8 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
         m_fsSubscriptions.unsubscribeFileAttrChanged(uuid);
         m_fsSubscriptions.unsubscribeFileRemoved(uuid);
         m_fsSubscriptions.unsubscribeFileRenamed(uuid);
+        if (m_showOnlyFullReplicas)
+            m_fsSubscriptions.unsubscribeReplicaStatusChanged(uuid);
     });
 
     // Called when file is renamed
@@ -250,9 +258,13 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
                 m_fsSubscriptions.unsubscribeFileAttrChanged(oldUuid);
                 m_fsSubscriptions.unsubscribeFileRemoved(oldUuid);
                 m_fsSubscriptions.unsubscribeFileRenamed(oldUuid);
+                if (m_showOnlyFullReplicas)
+                    m_fsSubscriptions.unsubscribeReplicaStatusChanged(oldUuid);
                 m_fsSubscriptions.subscribeFileAttrChanged(newUuid);
                 m_fsSubscriptions.subscribeFileRemoved(newUuid);
                 m_fsSubscriptions.subscribeFileRenamed(newUuid);
+                if (m_showOnlyFullReplicas)
+                    m_fsSubscriptions.subscribeReplicaStatusChanged(newUuid);
 
                 if (m_fsSubscriptions.unsubscribeFileLocationChanged(oldUuid))
                     m_fsSubscriptions.subscribeFileLocationChanged(newUuid);
@@ -456,7 +468,8 @@ folly::fbvector<folly::fbstring> FsLogic::readdir(
 
     assertInFiber();
 
-    auto entries = m_readdirCache->readdir(uuid, off, maxSize);
+    auto entries =
+        m_readdirCache->readdir(uuid, off, maxSize, m_showOnlyFullReplicas);
 
     IOTRACE_END(IOTraceReadDir, IOTraceLogger::OpType::READDIR, uuid, 0,
         maxSize, off, entries.size())

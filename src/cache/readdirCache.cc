@@ -41,7 +41,8 @@ ReaddirCache::ReaddirCache(OpenFileMetadataCache &metadataCache,
 {
 }
 
-void ReaddirCache::fetch(const folly::fbstring &uuid)
+void ReaddirCache::fetch(
+    const folly::fbstring &uuid, const bool includeReplicationStatus)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
@@ -53,7 +54,8 @@ void ReaddirCache::fetch(const folly::fbstring &uuid)
     auto p = std::make_shared<folly::SharedPromise<folly::Unit>>();
     m_cache.emplace(uuid, p);
 
-    m_context.lock()->scheduler()->post([this, uuid = uuid, p = std::move(p)] {
+    m_context.lock()->scheduler()->post([this, uuid = uuid, p = std::move(p),
+                                            includeReplicationStatus] {
         std::size_t chunkIndex = 0;
         std::size_t fetchedSize = 0;
         auto isLast = false;
@@ -70,12 +72,12 @@ void ReaddirCache::fetch(const folly::fbstring &uuid)
 
             auto ew = folly::try_and_catch<std::exception>(
                 [this, p, &isLast, uuid, &chunkIndex, &fetchedSize, &futs,
-                    &indexToken]() {
+                    &indexToken, includeReplicationStatus]() {
                     auto msg =
                         communicate<one::messages::fuse::FileChildrenAttrs>(
                             one::messages::fuse::GetFileChildrenAttrs{uuid,
                                 static_cast<off_t>(chunkIndex), m_prefetchSize,
-                                indexToken},
+                                indexToken, includeReplicationStatus},
                             m_providerTimeout);
 
                     fetchedSize = msg.childrenAttrs().size();
@@ -121,7 +123,8 @@ void ReaddirCache::fetch(const folly::fbstring &uuid)
 }
 
 folly::fbvector<folly::fbstring> ReaddirCache::readdir(
-    const folly::fbstring &uuid, off_t off, std::size_t chunkSize)
+    const folly::fbstring &uuid, off_t off, std::size_t chunkSize,
+    bool includeReplicationStatus)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(off) << LOG_FARG(chunkSize);
 
@@ -160,7 +163,7 @@ folly::fbvector<folly::fbstring> ReaddirCache::readdir(
         auto uuidIt = m_cache.find(effectiveUuid);
 
         if (uuidIt == m_cache.end()) {
-            fetch(effectiveUuid);
+            fetch(effectiveUuid, includeReplicationStatus);
         }
 
         auto dirEntriesFuture = (*m_cache.find(effectiveUuid)).second;

@@ -17,9 +17,11 @@ namespace one {
 namespace messages {
 namespace fuse {
 
-GetChildAttr::GetChildAttr(folly::fbstring uuid, folly::fbstring name)
+GetChildAttr::GetChildAttr(folly::fbstring uuid, folly::fbstring name,
+    folly::Optional<bool> includeReplicationStatus)
     : FileRequest{uuid.toStdString()}
     , m_name{std::move(name)}
+    , m_includeReplicationStatus{includeReplicationStatus}
 {
 }
 
@@ -36,6 +38,12 @@ std::unique_ptr<ProtocolClientMessage> GetChildAttr::serializeAndDestroy()
         ->mutable_file_request()
         ->mutable_get_child_attr()
         ->set_name(m_name.toStdString());
+
+    if (m_includeReplicationStatus)
+        msg->mutable_fuse_request()
+            ->mutable_file_request()
+            ->mutable_get_child_attr()
+            ->set_include_replication_status(*m_includeReplicationStatus);
 
     return msg;
 }
