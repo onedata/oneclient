@@ -478,6 +478,7 @@ def test_getattrs_should_get_attrs(appmock_client, endpoint, fl, uuid, parentUui
     assert client_message.HasField('fuse_request')
 
     fuse_request = client_message.fuse_request
+    assert fuse_request.file_request.HasField('get_file_attr')
     assert fuse_request.file_request.context_guid == uuid
 
     repl = response.fuse_response.file_attr

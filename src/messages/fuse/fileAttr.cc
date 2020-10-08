@@ -159,6 +159,7 @@ std::string FileAttr::toString() const
 void FileAttr::deserialize(const ProtocolMessage &message)
 {
     m_uuid = message.uuid();
+    m_parentUuid = message.parent_uuid();
     m_name = message.name();
     m_mode = static_cast<mode_t>(message.mode());
     m_uid = static_cast<uid_t>(message.uid());
@@ -167,8 +168,6 @@ void FileAttr::deserialize(const ProtocolMessage &message)
     m_mtime = std::chrono::system_clock::from_time_t(message.mtime());
     m_ctime = std::chrono::system_clock::from_time_t(message.ctime());
 
-    if (message.has_parent_uuid())
-        m_parentUuid = message.parent_uuid();
     if (message.has_size())
         m_size = message.size();
     if (message.has_fully_replicated())
