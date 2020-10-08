@@ -467,7 +467,8 @@ def test_statfs_should_report_empty_free_space_on_overoccupied_storage(appmock_c
 
 def test_getattrs_should_get_attrs(appmock_client, endpoint, fl, uuid, parentUuid):
     response = prepare_attr_response(uuid, fuse_messages_pb2.REG, 1, parentUuid)
-    parent_response = prepare_attr_response(parentUuid, fuse_messages_pb2.DIR)
+    parentParentUuid = random_str()
+    parent_response = prepare_attr_response(parentUuid, fuse_messages_pb2.DIR, None, parentParentUuid)
 
     with reply(endpoint, [response,
                           parent_response]) as queue:
@@ -477,7 +478,6 @@ def test_getattrs_should_get_attrs(appmock_client, endpoint, fl, uuid, parentUui
     assert client_message.HasField('fuse_request')
 
     fuse_request = client_message.fuse_request
-    assert fuse_request.file_request.HasField('get_file_attr')
     assert fuse_request.file_request.context_guid == uuid
 
     repl = response.fuse_response.file_attr
@@ -1753,7 +1753,7 @@ def test_mknod_should_create_multiple_files(appmock_client, endpoint, fl, uuid, 
 
 
 def test_mknod_should_make_new_location(appmock_client, endpoint, fl, uuid, parentUuid, parentStat):
-    getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.REG)
+    getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.REG, 10, parentUuid)
 
     with reply(endpoint, [getattr_response]) as queue:
         fl.mknod(parentUuid, 'childName', 0762 | S_IFREG)
