@@ -95,9 +95,9 @@ folly::Optional<off_t> FileAttr::size() const { return m_size; }
 
 void FileAttr::size(const off_t size_) { m_size = size_; }
 
-folly::Optional<bool> FileAttr::fullyReplicated() const
+bool FileAttr::fullyReplicated() const
 {
-    return m_fullyReplicated;
+    return m_fullyReplicated && *m_fullyReplicated;
 }
 
 void FileAttr::setFullyReplicated(bool isFullyReplicated)

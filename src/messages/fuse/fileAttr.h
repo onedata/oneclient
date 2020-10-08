@@ -186,7 +186,7 @@ public:
     /**
      * @return True when the file is fully replicated.
      */
-    folly::Optional<bool> fullyReplicated() const;
+    bool fullyReplicated() const;
 
     /**
      * Set whether the file is fully replicated.

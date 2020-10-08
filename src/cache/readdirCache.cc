@@ -150,12 +150,13 @@ folly::fbvector<folly::fbstring> ReaddirCache::readdir(
         if (includeVirtualEntries) {
             assert(attr->isVirtual());
             attr->getVirtualFsAdapter()->readdir(
-                m_metadataCache.readdir(effectiveUuid, off, chunkSize, true),
+                m_metadataCache.readdir(effectiveUuid, off, chunkSize, true,
+                    includeReplicationStatus),
                 attr, m_metadataCache);
         }
 
-        return m_metadataCache.readdir(
-            effectiveUuid, off, chunkSize, includeVirtualEntries);
+        return m_metadataCache.readdir(effectiveUuid, off, chunkSize,
+            includeVirtualEntries, includeReplicationStatus);
     }
 
     if (!attr->isVirtual() ||
@@ -177,8 +178,8 @@ folly::fbvector<folly::fbstring> ReaddirCache::readdir(
 
     if (virtualMode || attr->isVirtual()) {
         attr->getVirtualFsAdapter()->readdir(
-            m_metadataCache.readdir(
-                effectiveUuid, off, chunkSize, includeVirtualEntries),
+            m_metadataCache.readdir(effectiveUuid, off, chunkSize,
+                includeVirtualEntries, includeReplicationStatus),
             attr, m_metadataCache);
 
         m_metadataCache.setDirectorySynced(effectiveUuid);
@@ -186,8 +187,8 @@ folly::fbvector<folly::fbstring> ReaddirCache::readdir(
 
     assert(m_metadataCache.isDirectorySynced(effectiveUuid));
 
-    return m_metadataCache.readdir(
-        effectiveUuid, off, chunkSize, includeVirtualEntries);
+    return m_metadataCache.readdir(effectiveUuid, off, chunkSize,
+        includeVirtualEntries, includeReplicationStatus);
 }
 
 void ReaddirCache::purge(const folly::fbstring &uuid)

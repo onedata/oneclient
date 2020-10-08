@@ -119,7 +119,7 @@ void MetadataCache::invalidateChildren(const folly::fbstring &uuid)
 
 folly::fbvector<folly::fbstring> MetadataCache::readdir(
     const folly::fbstring &uuid, off_t off, std::size_t chunkSize,
-    bool includeVirtual)
+    bool includeVirtual, bool onlyFullReplicas)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(off) << LOG_FARG(chunkSize);
 
@@ -153,6 +153,12 @@ folly::fbvector<folly::fbstring> MetadataCache::readdir(
             if (!includeVirtual && it->attr->isVirtual() &&
                 !it->attr->isVirtualEntrypoint()) {
                 LOG_DBG(2) << "Skipping virtual file: " << it->attr->name();
+                continue;
+            }
+
+            if (onlyFullReplicas && it->attr->fullyReplicated()) {
+                LOG_DBG(2) << "Skipping non-replicated file: "
+                           << it->attr->name();
                 continue;
             }
 

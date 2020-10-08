@@ -84,10 +84,13 @@ public:
      * @param uuid Directory id.
      * @param off Directory entry offset.
      * @param chunkSize Maximum number of directory entries to be returned.
+     * @param includeVirtual Include in the list virtual files.
+     * @param onlyFullReplicas Include in the list only fully replicated files.
      * @returns Directory entries in the requested range.
      */
     folly::fbvector<folly::fbstring> readdir(const folly::fbstring &uuid,
-        off_t off, std::size_t chunkSize, bool includeVirtual = false);
+        off_t off, std::size_t chunkSize, bool includeVirtual = false,
+        bool onlyFullReplicas = false);
     /**
      * Retrieves file attributes by uuid.
      * @param uuid Uuid of the file.
