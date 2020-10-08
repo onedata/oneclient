@@ -21,7 +21,7 @@ GetChildAttr::GetChildAttr(folly::fbstring uuid, folly::fbstring name,
     folly::Optional<bool> includeReplicationStatus)
     : FileRequest{uuid.toStdString()}
     , m_name{std::move(name)}
-    , m_includeReplicationStatus{includeReplicationStatus}
+    , m_includeReplicationStatus{std::move(includeReplicationStatus)}
 {
 }
 
