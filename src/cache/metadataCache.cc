@@ -156,8 +156,10 @@ folly::fbvector<folly::fbstring> MetadataCache::readdir(
                 continue;
             }
 
-            if (onlyFullReplicas && it->attr->fullyReplicated()) {
-                LOG_DBG(2) << "Skipping non-replicated file: "
+            if (onlyFullReplicas &&
+                it->attr->type() == FileAttr::FileType::regular &&
+                it->attr->fullyReplicated()) {
+                LOG_DBG(2) << "Skipping file with incomplete replica: "
                            << it->attr->name();
                 continue;
             }
