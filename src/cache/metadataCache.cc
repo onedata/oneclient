@@ -825,6 +825,10 @@ bool MetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr)
                 }
                 if (newAttr->size())
                     m.attr->size(*newAttr->size());
+
+                if (newAttr->fullyReplicated()) {
+                    m.attr->setFullyReplicated(newAttr->fullyReplicated());
+                }
             }
 
             m.attr->atime(std::max(m.attr->atime(), newAttr->atime()));
