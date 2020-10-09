@@ -157,8 +157,8 @@ folly::fbvector<folly::fbstring> MetadataCache::readdir(
             }
 
             if (onlyFullReplicas &&
-                it->attr->type() == FileAttr::FileType::regular &&
-                it->attr->fullyReplicated()) {
+                (it->attr->type() == FileAttr::FileType::regular) &&
+                !(it->attr->fullyReplicated())) {
                 LOG_DBG(2) << "Skipping file with incomplete replica: "
                            << it->attr->name();
                 continue;
@@ -823,12 +823,12 @@ bool MetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr)
                         boost::icl::discrete_interval<off_t>::right_open(
                             0, *newAttr->size()));
                 }
+
                 if (newAttr->size())
                     m.attr->size(*newAttr->size());
 
-                if (newAttr->fullyReplicated()) {
+                if (newAttr->fullyReplicated())
                     m.attr->setFullyReplicated(newAttr->fullyReplicated());
-                }
             }
 
             m.attr->atime(std::max(m.attr->atime(), newAttr->atime()));
