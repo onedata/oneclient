@@ -53,7 +53,7 @@ std::string ReplicaStatusChangedSubscription::toString() const
 ProtoSubscriptionPtr ReplicaStatusChangedSubscription::serialize() const
 {
     auto subscriptionMsg = std::make_unique<clproto::Subscription>();
-    auto msg = subscriptionMsg->mutable_file_attr_changed();
+    auto msg = subscriptionMsg->mutable_replica_status_changed();
     msg->set_file_uuid(m_fileUuid);
     msg->set_time_threshold(m_remoteThreshold.count());
 
