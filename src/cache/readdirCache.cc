@@ -89,11 +89,16 @@ void ReaddirCache::fetch(
                     futs.emplace_back(partialPromise.getFuture());
                     m_runInFiber([this, msg = std::move(msg),
                                      partialPromise = std::move(partialPromise),
-                                     uuid]() mutable {
+                                     uuid, includeReplicationStatus]() mutable {
                         for (const auto it :
                             folly::enumerate(msg.childrenAttrs())) {
-                            m_metadataCache.updateAttr(
-                                std::make_shared<FileAttr>(*it));
+                            auto attr = std::make_shared<FileAttr>(*it);
+                            if (includeReplicationStatus &&
+                                (attr->type() == FileAttr::FileType::regular) &&
+                                !attr->fullyReplicated())
+                                continue;
+
+                            m_metadataCache.updateAttr(std::move(attr));
                         }
                         partialPromise.setValue();
                     });
