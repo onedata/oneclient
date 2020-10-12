@@ -100,6 +100,11 @@ bool FileAttr::fullyReplicated() const
     return m_fullyReplicated && *m_fullyReplicated;
 }
 
+folly::Optional<bool> FileAttr::fullyReplicatedOpt() const
+{
+    return m_fullyReplicated;
+}
+
 void FileAttr::setFullyReplicated(bool isFullyReplicated)
 {
     m_fullyReplicated = isFullyReplicated;

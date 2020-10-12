@@ -796,7 +796,21 @@ bool MetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr)
     if (it == index.end()) {
         LOG_DBG(2) << "Attribute for " << newAttr->name() << " (" << uuid
                    << ")  not found in cache - adding";
+
+        if (newAttr->fullyReplicatedOpt() &&
+            !(*newAttr->fullyReplicatedOpt())) {
+            LOG_DBG(2) << "Ignoring not fully replicated file...";
+            return false;
+        }
+
         return putAttr(newAttr);
+    }
+
+    if (newAttr->fullyReplicatedOpt() && !(*newAttr->fullyReplicatedOpt())) {
+        LOG_DBG(2) << "Forgetting not fully replicated file...";
+
+        index.erase(uuid);
+        return false;
     }
 
     LOG_DBG(2) << "Updating attribute for " << uuid;

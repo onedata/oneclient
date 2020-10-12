@@ -189,6 +189,11 @@ public:
     bool fullyReplicated() const;
 
     /**
+     * @return The optional object representing the fullyReplicated status.
+     */
+    folly::Optional<bool> fullyReplicatedOpt() const;
+
+    /**
      * Set whether the file is fully replicated.
      */
     void setFullyReplicated(bool isFullyReplicated);
