@@ -4,6 +4,23 @@ Release notes for project oneclient
 CHANGELOG
 ---------
 
+### 20.02.2
+
+-   **VFS-6673** Added support for Archivematica, allowing to use
+    Onedata spaces as Archivematica transfer sources. Oneclient now has
+    a special command line flag --enable-archivematica, which toggles
+    automatic generation of Archivematica configuration and metadata
+    virtual files in the Fuse file system.
+-   **VFS-6623** S3 storage helper now supports public buckets, which do
+    not require any credentials. The access and secret keys can be left
+    empty when adding storage.
+-   **VFS-6577** Improve data transfer performance to object storages
+    (e.g. S3) by aligning transferred block size to the object size on
+    target storage, thus minimizing the overhead necessary when updating
+    a file object with partial content.
+-   **VFS-6535** Updated S3 SDK library to 1.8.7.
+
+
 ### 20.02.1
 
 -   **VFS-6504** Added HTTP storage helper allowing registration of HTTP
