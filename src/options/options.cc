@@ -584,7 +584,7 @@ Options::Options()
         .withLongName("only-full-replicas")
         .withImplicitValue(true)
         .withDefaultValue(false, "false")
-        .withGroup(OptionGroup::ADVANCED)
+        .withGroup(OptionGroup::INVISIBLE)
         .withDescription("Show only fully replicated files.");
 
     add<bool>()
