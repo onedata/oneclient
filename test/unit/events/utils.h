@@ -29,7 +29,7 @@ one::clproto::FileRenamedEvent fileRenamedEvent(std::string fileUuid);
 struct TestEvent : public one::client::events::SingleEvent {
     one::client::events::StreamKey streamKey() const override
     {
-        return one::client::events::StreamKey::TEST;
+        return one::client::events::StreamKey::STREAM_KEY_MAX;
     }
 
     std::string toString() const override { return "type: 'Test'"; }
@@ -44,7 +44,7 @@ struct TestSubscription : public one::client::events::Subscription {
 
     one::client::events::StreamKey streamKey() const override
     {
-        return one::client::events::StreamKey::TEST;
+        return one::client::events::StreamKey::STREAM_KEY_MAX;
     }
 
     one::client::events::StreamPtr createStream(

@@ -12,6 +12,7 @@
 #include "fileRequest.h"
 
 #include <folly/FBString.h>
+#include <folly/Optional.h>
 
 #include <string>
 
@@ -27,13 +28,18 @@ public:
     /**
      * Constructor.
      * @param uuid UUID of the file for which attributes are requested.
+     * @param includeReplicationStatus Whether the response should include
+     * replication status.
      */
-    GetFileAttr(folly::fbstring uuid);
+    GetFileAttr(folly::fbstring uuid,
+        folly::Optional<bool> includeReplicationStatus = {});
 
     std::string toString() const override;
 
 private:
     std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
+
+    folly::Optional<bool> m_includeReplicationStatus;
 };
 
 } // namespace fuse

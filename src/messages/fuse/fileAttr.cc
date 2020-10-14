@@ -95,6 +95,21 @@ folly::Optional<off_t> FileAttr::size() const { return m_size; }
 
 void FileAttr::size(const off_t size_) { m_size = size_; }
 
+bool FileAttr::fullyReplicated() const
+{
+    return m_fullyReplicated && *m_fullyReplicated;
+}
+
+folly::Optional<bool> FileAttr::fullyReplicatedOpt() const
+{
+    return m_fullyReplicated;
+}
+
+void FileAttr::setFullyReplicated(bool isFullyReplicated)
+{
+    m_fullyReplicated = isFullyReplicated;
+}
+
 bool FileAttr::isVirtual() const { return !!m_virtualFsAdapter; }
 
 void FileAttr::setVirtualFsAdapter(
@@ -137,6 +152,12 @@ std::string FileAttr::toString() const
             break;
     }
 
+    if (m_parentUuid)
+        stream << ", parentUuid: " << *m_parentUuid;
+
+    if (m_fullyReplicated)
+        stream << ", fullyReplicated: " << *m_fullyReplicated;
+
     return stream.str();
 }
 
@@ -151,8 +172,11 @@ void FileAttr::deserialize(const ProtocolMessage &message)
     m_atime = std::chrono::system_clock::from_time_t(message.atime());
     m_mtime = std::chrono::system_clock::from_time_t(message.mtime());
     m_ctime = std::chrono::system_clock::from_time_t(message.ctime());
+
     if (message.has_size())
         m_size = message.size();
+    if (message.has_fully_replicated())
+        m_fullyReplicated = message.fully_replicated();
 
     if (message.type() == clproto::FileType::DIR)
         m_type = FileType::directory;

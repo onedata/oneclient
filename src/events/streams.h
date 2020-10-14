@@ -27,7 +27,9 @@ enum class StreamKey {
     FILE_REMOVED,
     FILE_RENAMED,
     QUOTA_EXCEEDED,
-    TEST
+    HELPER_PARAMS_CHANGED,
+    REPLICA_STATUS_CHANGED,
+    STREAM_KEY_MAX
 };
 
 /**
@@ -52,6 +54,10 @@ inline std::ostream &operator<<(std::ostream &os, const StreamKey &key)
             return os << "FileRenamed";
         case StreamKey::QUOTA_EXCEEDED:
             return os << "QuotaExceeded";
+        case StreamKey::HELPER_PARAMS_CHANGED:
+            return os << "HelperParamsChanged";
+        case StreamKey::REPLICA_STATUS_CHANGED:
+            return os << "ReplicaStatusChanged";
         default:
             return os << "--";
     }

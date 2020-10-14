@@ -581,6 +581,14 @@ Options::Options()
 
     add<bool>()
         ->asSwitch()
+        .withLongName("only-full-replicas")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::INVISIBLE)
+        .withDescription("Show only fully replicated files.");
+
+    add<bool>()
+        ->asSwitch()
         .withLongName("enable-archivematica")
         .withImplicitValue(true)
         .withDefaultValue(false, "false")
@@ -1084,6 +1092,12 @@ uint64_t Options::getEmulateAvailableSpace() const
 {
     return get<uint64_t>({"emulate-available-space", "emulate_available_space"})
         .get_value_or(DEFAULT_EMULATE_AVAILABLE_SPACE);
+}
+
+bool Options::showOnlyFullReplicas() const
+{
+    return get<bool>({"only-full-replicas", "only_full_replicas"})
+        .get_value_or(false);
 }
 
 bool Options::isArchivematicaModeEnabled() const
