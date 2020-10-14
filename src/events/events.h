@@ -29,6 +29,7 @@
 #include "subscriptions/fileWrittenSubscription.h"
 #include "subscriptions/quotaExceededSubscription.h"
 #include "subscriptions/remoteSubscription.h"
+#include "subscriptions/replicaStatusChangedSubscription.h"
 #include "subscriptions/subscriptionHandle.h"
 #include "types/fileAttrChanged.h"
 #include "types/fileLocationChanged.h"

@@ -113,7 +113,7 @@ void OpenFileMetadataCache::releasedir(const folly::fbstring &uuid)
 
 folly::fbvector<folly::fbstring> OpenFileMetadataCache::readdir(
     const folly::fbstring &uuid, off_t off, std::size_t chunkSize,
-    bool includeVirtual)
+    bool includeVirtual, bool onlyFullReplicas)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(off) << LOG_FARG(chunkSize);
 
@@ -121,7 +121,8 @@ folly::fbvector<folly::fbstring> OpenFileMetadataCache::readdir(
 
     noteDirectoryActivity(uuid);
 
-    return MetadataCache::readdir(uuid, off, chunkSize, includeVirtual);
+    return MetadataCache::readdir(
+        uuid, off, chunkSize, includeVirtual, onlyFullReplicas);
 }
 
 void OpenFileMetadataCache::pinFile(const folly::fbstring &uuid)
@@ -317,9 +318,16 @@ void OpenFileMetadataCache::pruneExpiredDirectories()
 
     // Invalidate all directories and their direct children which are
     // expired and do not contain any opened files
-    while (!m_lruDirectoryList.empty()) {
+    // In case all cached files are opened, ensure loop limit using
+    // maxIteraions
+    auto maxIterations = m_lruDirectoryList.size();
+
+    while (!m_lruDirectoryList.empty() && (maxIterations > 0)) {
         LOG_DBG(2) << "Directory LRU list size is: "
                    << m_lruDirectoryList.size();
+
+        maxIterations--;
+
         auto &uuid = m_lruDirectoryList.front();
         auto oldestItem = m_lruDirectoryData.find(uuid);
 

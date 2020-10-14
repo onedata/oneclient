@@ -63,6 +63,13 @@ def fl_archivematica(endpoint):
     fsl.stop()
 
 
+@pytest.yield_fixture
+def fl_onlyfullreplicas(endpoint):
+    fsl = fslogic.FsLogicProxy(endpoint.ip, endpoint.port,
+            10000, 5*60, "--only-full-replicas")
+    yield fsl
+    fsl.stop()
+
 @pytest.fixture
 def uuid():
     return random_str()
@@ -460,7 +467,8 @@ def test_statfs_should_report_empty_free_space_on_overoccupied_storage(appmock_c
 
 def test_getattrs_should_get_attrs(appmock_client, endpoint, fl, uuid, parentUuid):
     response = prepare_attr_response(uuid, fuse_messages_pb2.REG, 1, parentUuid)
-    parent_response = prepare_attr_response(parentUuid, fuse_messages_pb2.DIR)
+    parentParentUuid = random_str()
+    parent_response = prepare_attr_response(parentUuid, fuse_messages_pb2.DIR, None, parentParentUuid)
 
     with reply(endpoint, [response,
                           parent_response]) as queue:
@@ -1152,6 +1160,62 @@ def test_readdir_should_read_dir(appmock_client, endpoint, fl, stat):
         time.sleep(1)
 
 
+def test_readdir_should_skip_incomplete_replicas(appmock_client, endpoint, fl_onlyfullreplicas):
+    uuid = 'parentUuid'
+
+    getattr_reponse = prepare_attr_response(uuid, fuse_messages_pb2.DIR)
+
+    #
+    # Prepare first response with 5 files
+    #
+    repl1 = prepare_file_children_attr_response(uuid, "afiles-", 5)
+    for f in repl1.child_attrs:
+        f.fully_replicated = True
+    repl1.is_last = False
+
+    response1 = messages_pb2.ServerMessage()
+    response1.fuse_response.file_children_attrs.CopyFrom(repl1)
+    response1.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    #
+    # Prepare second response with another 5 file
+    #
+    repl2 = prepare_file_children_attr_response(uuid, "bfiles-", 5)
+    for f in repl2.child_attrs:
+        f.fully_replicated = False
+    repl2.is_last = True
+
+    response2 = messages_pb2.ServerMessage()
+    response2.fuse_response.file_children_attrs.CopyFrom(repl2)
+    response2.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    children = []
+    offset = 0
+    chunk_size = 50
+    with reply(endpoint, [getattr_reponse,
+                          response1,
+                          response2]) as queue:
+        d = fl_onlyfullreplicas.opendir(uuid)
+        children_chunk = fl_onlyfullreplicas.readdir(uuid, chunk_size, offset)
+        _ = queue.get()
+        fl_onlyfullreplicas.releasedir(uuid, d)
+        assert len(children_chunk) == 5+2
+
+    time.sleep(2)
+
+    #
+    # After the last request the value should be available
+    # from readdir cache, without any communication with provider
+    #
+    for i in range(3):
+        with reply(endpoint, []) as queue:
+            d = fl_onlyfullreplicas.opendir(uuid)
+            children_chunk = fl_onlyfullreplicas.readdir(uuid, 5, 0)
+            fl_onlyfullreplicas.releasedir(uuid, d)
+            assert len(children_chunk) == 5
+        time.sleep(1)
+
+
 def test_readdir_should_handle_fileattrchanged_event(appmock_client, endpoint, fl, parentUuid, stat):
     getattr_reponse = prepare_attr_response(parentUuid, fuse_messages_pb2.DIR)
 
@@ -1690,7 +1754,7 @@ def test_mknod_should_create_multiple_files(appmock_client, endpoint, fl, uuid, 
 
 
 def test_mknod_should_make_new_location(appmock_client, endpoint, fl, uuid, parentUuid, parentStat):
-    getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.REG)
+    getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.REG, 10, parentUuid)
 
     with reply(endpoint, [getattr_response]) as queue:
         fl.mknod(parentUuid, 'childName', 0762 | S_IFREG)

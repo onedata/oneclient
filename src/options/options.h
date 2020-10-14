@@ -389,6 +389,11 @@ public:
     getHelperOverrideParams(const folly::fbstring &storageId) const;
 
     /**
+     * @return Should client show only fully replicated files?
+     */
+    bool showOnlyFullReplicas() const;
+
+    /**
      * @return Is Archivematica mode enabled.
      */
     bool isArchivematicaModeEnabled() const;

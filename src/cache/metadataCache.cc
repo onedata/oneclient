@@ -119,7 +119,7 @@ void MetadataCache::invalidateChildren(const folly::fbstring &uuid)
 
 folly::fbvector<folly::fbstring> MetadataCache::readdir(
     const folly::fbstring &uuid, off_t off, std::size_t chunkSize,
-    bool includeVirtual)
+    bool includeVirtual, bool /*onlyFullReplicas*/)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(off) << LOG_FARG(chunkSize);
 
@@ -796,7 +796,21 @@ bool MetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr)
     if (it == index.end()) {
         LOG_DBG(2) << "Attribute for " << newAttr->name() << " (" << uuid
                    << ")  not found in cache - adding";
+
+        if (newAttr->fullyReplicatedOpt() &&
+            !(*newAttr->fullyReplicatedOpt())) {
+            LOG_DBG(2) << "Ignoring not fully replicated file...";
+            return false;
+        }
+
         return putAttr(newAttr);
+    }
+
+    if (newAttr->fullyReplicatedOpt() && !(*newAttr->fullyReplicatedOpt())) {
+        LOG_DBG(2) << "Forgetting not fully replicated file...";
+
+        index.erase(uuid);
+        return false;
     }
 
     LOG_DBG(2) << "Updating attribute for " << uuid;
@@ -815,8 +829,12 @@ bool MetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr)
                         boost::icl::discrete_interval<off_t>::right_open(
                             0, *newAttr->size()));
                 }
+
                 if (newAttr->size())
                     m.attr->size(*newAttr->size());
+
+                if (newAttr->fullyReplicated())
+                    m.attr->setFullyReplicated(newAttr->fullyReplicated());
             }
 
             m.attr->atime(std::max(m.attr->atime(), newAttr->atime()));

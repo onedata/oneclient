@@ -63,7 +63,7 @@ TEST_F(ManagerTest, flushShouldCallHandler)
     this->manager.subscribe(this->subscription);
     this->manager.emit(std::make_unique<TestEvent>());
     ASSERT_FALSE(this->handlerCalled);
-    this->manager.flush(StreamKey::TEST);
+    this->manager.flush(StreamKey::STREAM_KEY_MAX);
     ASSERT_TRUE(this->handlerCalled);
 }
 

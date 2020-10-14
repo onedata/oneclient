@@ -103,10 +103,13 @@ public:
      * @param uuid UUID of the directory
      * @param off Offset in the directory
      * @param chunkSize Number of entries which should be returned
+     * @param includeVirtual Include in the list virtual files.
+     * @param onlyFullReplicas Include in the list only fully replicated files.
      * @return List of file or directory names.
      */
     folly::fbvector<folly::fbstring> readdir(const folly::fbstring &uuid,
-        off_t off, std::size_t chunkSize, bool includeVirtual = false);
+        off_t off, std::size_t chunkSize, bool includeVirtual = false,
+        bool onlyFullReplicas = false);
 
     /**
      * Opens a file in the cache.
