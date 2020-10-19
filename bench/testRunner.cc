@@ -117,8 +117,8 @@ void TestRunner::initialize()
     // Create the helper pool
     m_helperPool.reserve(m_config.helperCount);
     for (auto i = 0; i < m_config.helperCount; i++) {
-        auto helperPtr =
-            helperFactory->createStorageHelper(m_config.helperParams);
+        auto helperPtr = helperFactory->createStorageHelper(
+            m_config.helperParams, one::helpers::ExecutionContext::ONECLIENT);
         m_helperPool.emplace_back(std::move(helperPtr));
     }
 

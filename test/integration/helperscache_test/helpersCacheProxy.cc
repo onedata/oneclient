@@ -128,6 +128,8 @@ public:
                 ->get(fileUuid, spaceId, storageId, forceProxyIO, proxyFallback)
                 .get();
 
+        assert(helper->executionContext() == ExecutionContext::ONECLIENT);
+
         return !!helper;
     }
 
