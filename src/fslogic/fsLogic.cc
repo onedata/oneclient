@@ -1005,12 +1005,10 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
             throw;
         }
 
-        LOG(ERROR) << "Reading from " << uuid
-                   << " failed due to insufficient permissions";
-
-        if (m_forceProxyIOCache.contains(uuid)) {
-            LOG(ERROR) << "Reading from " << uuid
-                       << " failed since proxy mode is forced for this file";
+        if (m_context->options()->isDirectIOForced() ||
+            m_forceProxyIOCache.contains(uuid)) {
+            LOG(ERROR) << "Reading from " << uuid << " failed due to "
+                       << e.what();
             throw;
         }
 
@@ -1359,9 +1357,10 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
             throw;
         }
 
-        if (m_forceProxyIOCache.contains(uuid)) {
-            LOG(ERROR) << "Writing to " << uuid
-                       << " failed since proxy mode is forced for this file";
+        if (m_context->options()->isDirectIOForced() ||
+            m_forceProxyIOCache.contains(uuid)) {
+            LOG(ERROR) << "Writing to " << uuid << " failed due to "
+                       << e.what();
             throw;
         }
 
