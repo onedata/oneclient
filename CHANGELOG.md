@@ -4,6 +4,8 @@ Release notes for project oneclient
 CHANGELOG
 ---------
 
+### 19.02.5
+
 ### 19.02.4
 
 ### 19.02.3
