@@ -23,7 +23,7 @@ RUN apt-get -y update && \
 
 # Install fs.onedatafs dependencies
 RUN pip install fs six setuptools xmlrunner pyyaml
-RUN pip3 install fs six setuptools xmlrunner pyyaml
+RUN pip3 install fs six setuptools xmlrunner pyyaml rpyc==4.0.2
 
 WORKDIR /tmp
 
