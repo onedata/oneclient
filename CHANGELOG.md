@@ -4,6 +4,8 @@ Release notes for project oneclient
 CHANGELOG
 ---------
 
+### 20.02.3
+
 ### 20.02.2
 
 -   **VFS-6673** Added support for Archivematica, allowing to use
