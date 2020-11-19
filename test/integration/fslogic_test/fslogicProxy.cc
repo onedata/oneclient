@@ -82,7 +82,8 @@ public:
         std::make_shared<NullHelperMock>();
 
     folly::Future<HelperPtr> get(const folly::fbstring &,
-        const folly::fbstring &, const folly::fbstring &, const bool) override
+        const folly::fbstring &, const folly::fbstring &, const bool,
+        const bool) override
     {
         m_helper->m_real.setNeedsDataConsistencyCheck(
             m_needsDataConsistencyCheck);

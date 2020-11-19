@@ -43,10 +43,16 @@ public:
     bool contains(const folly::fbstring &fileUuid);
 
     /**
+     * @param fileUuid
+     */
+    bool get(const folly::fbstring &fileUuid);
+
+    /**
      * Adds file to the cache.
      * @param fileUuid of a file to be added to the cache.
      */
-    void add(const folly::fbstring &fileUuid);
+    void add(
+        const folly::fbstring &fileUuid, const bool overrideDirectIO = false);
 
     /**
      * Removes file from the cache.

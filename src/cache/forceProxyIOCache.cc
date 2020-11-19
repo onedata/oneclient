@@ -18,14 +18,24 @@ bool ForceProxyIOCache::contains(const folly::fbstring &fileUuid)
     return m_cache.find(acc, fileUuid);
 }
 
-void ForceProxyIOCache::add(const folly::fbstring &fileUuid)
+bool ForceProxyIOCache::get(const folly::fbstring &fileUuid)
+{
+    ConstCacheAcc acc;
+    if (m_cache.find(acc, fileUuid))
+        return acc->second;
+
+    return false;
+}
+
+void ForceProxyIOCache::add(
+    const folly::fbstring &fileUuid, const bool overrideDirectIO)
 {
     LOG_FCALL() << LOG_FARG(fileUuid);
 
     CacheAcc acc;
     if (m_cache.insert(acc, fileUuid)) {
         LOG_DBG(1) << "Adding " << fileUuid << " to ForceProxyIOCache";
-        acc->second = true;
+        acc->second = overrideDirectIO;
         m_onAdd(fileUuid);
     }
 }

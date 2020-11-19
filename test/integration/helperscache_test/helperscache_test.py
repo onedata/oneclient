@@ -214,7 +214,7 @@ def test_automatic_posix_helper_detection_should_work(endpoint, hc, storage_id,
     with reply(endpoint, [posix_helper_params,
                           create_storage_file_response,
                           verify_storage_test_file_response]) as queue:
-        res = hc.get(file_uuid, space_id, storage_id, False)
+        res = hc.get(file_uuid, space_id, storage_id, False, False)
         assert res
         posix_helper_params_request = queue.get()
         create_storage_file_request = queue.get()
@@ -271,7 +271,7 @@ def test_directio_posix_helper_detection_should_work(endpoint, hc_directio,
     with reply(endpoint, [posix_helper_params,
                           create_storage_file_response,
                           verify_storage_test_file_response]) as queue:
-        res = hc_directio.get(file_uuid, space_id, storage_id, False)
+        res = hc_directio.get(file_uuid, space_id, storage_id, False, False)
         assert res
         get_helper_params_request = queue.get()
         create_storage_file_request = queue.get()
@@ -316,7 +316,7 @@ def test_proxyio_posix_helper_detection_should_work(endpoint, hc_proxyio,
     proxy_helper_params_request = None
 
     with reply(endpoint, [proxy_helper_params_response]) as queue:
-        res = hc_proxyio.get(file_uuid, space_id, storage_id, True)
+        res = hc_proxyio.get(file_uuid, space_id, storage_id, True, False)
         assert res
         proxy_helper_params_request = queue.get()
 
@@ -362,7 +362,7 @@ def test_automatic_posix_helper_detection_should_fallback_to_proxy(endpoint,
                           create_storage_file_response,
                           proxy_helper_params_response,
                           create_storage_file_response]) as queue:
-        res = hc.get(file_uuid, space_id, storage_id, False)
+        res = hc.get(file_uuid, space_id, storage_id, False, False)
         posix_helper_params_request = queue.get()
         create_storage_file_request = queue.get()
         proxy_helper_params_request = queue.get()
@@ -394,10 +394,33 @@ def test_directio_posix_helper_detection_should_not_allow_proxy(
 
     with pytest.raises(RuntimeError) as excinfo:
         with reply(endpoint, []) as queue:
-            hc_directio.get(file_uuid, space_id, storage_id, True)
+            hc_directio.get(file_uuid, space_id, storage_id, True, False)
             queue.get()
 
     assert 'Operation not supported' in str(excinfo.value)
+
+
+def test_directio_posix_helper_detection_should_fallback_to_proxy_on_eaccess(
+        endpoint, hc_directio, storage_id, space_id, file_uuid):
+
+    assert hc_directio.is_directio_forced() is True
+
+    proxy_helper_params_response = prepare_proxy_helper_response(storage_id)
+
+    proxy_helper_params_request = None
+
+    with reply(endpoint, [proxy_helper_params_response]) as queue:
+        res = hc_directio.get(file_uuid, space_id, storage_id, True, True)
+        assert res
+        proxy_helper_params_request = queue.get()
+
+    assert proxy_helper_params_request.HasField('fuse_request')
+    get_helper_params = proxy_helper_params_request.fuse_request.get_helper_params
+    assert get_helper_params.storage_id == storage_id
+    assert get_helper_params.space_id == space_id
+    assert get_helper_params.helper_mode == 2
+
+    assert hc_directio.get_access_type(storage_id) == "proxy"
 
 
 def test_helper_should_refresh_parameters(
@@ -429,7 +452,7 @@ def test_helper_should_refresh_parameters(
     with reply(endpoint, [posix_helper_params,
                           create_storage_file_response,
                           verify_storage_test_file_response]) as queue:
-        res = hc_directio.get(file_uuid, space_id, storage_id, False)
+        res = hc_directio.get(file_uuid, space_id, storage_id, False, False)
         assert res
         get_helper_params_request = queue.get()
         create_storage_file_request = queue.get()
@@ -468,7 +491,7 @@ def test_helper_should_refresh_parameters(
         # Refresh helper parameters
         hc_directio.refresh_helper_parameters(storage_id, space_id)
 
-        res = hc_directio.get(file_uuid, space_id, storage_id, False)
+        res = hc_directio.get(file_uuid, space_id, storage_id, False, False)
         assert res
         get_helper_params_request = queue.get()
 

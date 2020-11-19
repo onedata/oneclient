@@ -93,7 +93,7 @@ public:
     void mknod(std::string fileUuid, std::string spaceId, std::string storageId,
         bool forceProxyIO)
     {
-        m_helpersCache->get(fileUuid, spaceId, storageId, forceProxyIO)
+        m_helpersCache->get(fileUuid, spaceId, storageId, forceProxyIO, false)
             .then([fileUuid](auto &helperPtr) {
                 helperPtr->mknod(fileUuid, S_IFREG | 0666, {}, 0);
             })
@@ -104,7 +104,8 @@ public:
         std::string spaceId, std::string storageId, bool forceProxyIO)
     {
         auto handle =
-            m_helpersCache->get(fileUuid, spaceId, storageId, forceProxyIO)
+            m_helpersCache
+                ->get(fileUuid, spaceId, storageId, forceProxyIO, false)
                 .then([fileUuid](auto &helperPtr) {
                     return helperPtr->open(fileUuid, O_RDWR | O_CREAT, {});
                 })
@@ -118,12 +119,13 @@ public:
     bool isProxyIOForced() { return m_context->options()->isProxyIOForced(); }
 
     bool get(std::string fileUuid, std::string spaceId, std::string storageId,
-        bool forceProxyIO)
+        bool forceProxyIO, bool proxyFallback)
     {
         ReleaseGIL guard;
 
         auto helper =
-            m_helpersCache->get(fileUuid, spaceId, storageId, forceProxyIO)
+            m_helpersCache
+                ->get(fileUuid, spaceId, storageId, forceProxyIO, proxyFallback)
                 .get();
 
         return !!helper;
