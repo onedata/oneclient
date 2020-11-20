@@ -66,7 +66,8 @@ public:
      */
     virtual folly::Future<HelpersCacheBase::HelperPtr> get(
         const folly::fbstring &fileUuid, const folly::fbstring &spaceId,
-        const folly::fbstring &storageId, bool forceProxyIO) = 0;
+        const folly::fbstring &storageId, bool forceProxyIO,
+        bool proxyFallback) = 0;
 
     /**
      * Returns the storage access type for specific storage, if not
@@ -115,7 +116,8 @@ public:
      */
     virtual folly::Future<HelpersCacheBase::HelperPtr> get(
         const folly::fbstring &fileUuid, const folly::fbstring &spaceId,
-        const folly::fbstring &storageId, bool forceProxyIO) override;
+        const folly::fbstring &storageId, bool forceProxyIO,
+        bool proxyFallback) override;
 
     /**
      * Returns the storage access type for specific storage, if not

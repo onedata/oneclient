@@ -131,7 +131,8 @@ public:
      */
     virtual folly::Future<HelpersCacheBase::HelperPtr> get(
         const folly::fbstring &fileUuid, const folly::fbstring &spaceId,
-        const folly::fbstring &storageId, bool forceProxyIO) override
+        const folly::fbstring &storageId, bool forceProxyIO,
+        bool proxyFallback = false) override
     {
         return m_helpers.at(storageId);
     }

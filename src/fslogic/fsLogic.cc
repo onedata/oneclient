@@ -936,7 +936,7 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
         LOG_DBG(1) << "Adding file " << uuid
                    << " to force proxy cache after direct read failed";
 
-        m_forceProxyIOCache.add(uuid);
+        m_forceProxyIOCache.add(uuid, true);
 
         LOG_DBG(1) << "Rereading requested block for " << uuid
                    << " via proxy fallback, restarting retry counter";
@@ -1253,7 +1253,7 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
         LOG_DBG(1) << "Adding file " << uuid
                    << " to force proxy cache after direct write failed";
 
-        m_forceProxyIOCache.add(uuid);
+        m_forceProxyIOCache.add(uuid, true);
 
         LOG_DBG(1) << "Writing requested block for " << uuid
                    << " via proxy fallback";

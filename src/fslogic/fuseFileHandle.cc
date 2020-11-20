@@ -53,13 +53,18 @@ helpers::FileHandlePtr FuseFileHandle::getHelperHandle(
 
     const bool forceProxyIO = m_forceProxyIOCache.contains(uuid);
     const auto key = std::make_tuple(storageId, fileId, forceProxyIO);
+    bool proxyFallback = false;
+    if (forceProxyIO)
+        proxyFallback = m_forceProxyIOCache.get(uuid);
 
     auto it = m_helperHandles.find(key);
     if (it != m_helperHandles.end())
         return it->second;
 
     auto helper =
-        m_helpersCache.get(uuid, spaceId, storageId, forceProxyIO).get();
+        m_helpersCache
+            .get(uuid, spaceId, storageId, forceProxyIO, proxyFallback)
+            .get();
 
     if (!helper) {
         LOG(ERROR) << "Could not create storage helper for file " << uuid

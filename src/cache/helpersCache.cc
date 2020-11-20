@@ -145,7 +145,7 @@ folly::Future<folly::Unit> HelpersCache::refreshHelperParameters(
 
 folly::Future<HelpersCache::HelperPtr> HelpersCache::get(
     const folly::fbstring &fileUuid, const folly::fbstring &spaceId,
-    const folly::fbstring &storageId, bool forceProxyIO)
+    const folly::fbstring &storageId, bool forceProxyIO, bool proxyFallback)
 {
     LOG_FCALL() << LOG_FARG(fileUuid) << LOG_FARG(storageId)
                 << LOG_FARG(forceProxyIO);
@@ -153,40 +153,43 @@ folly::Future<HelpersCache::HelperPtr> HelpersCache::get(
     LOG_DBG(2) << "Getting storage helper for file " << fileUuid
                << " on storage " << storageId;
 
-    if (m_options.isDirectIOForced() && forceProxyIO) {
-        LOG(ERROR)
-            << "Direct IO and force IO options cannot be simultanously set.";
-        throw std::errc::operation_not_supported; // NOLINT
-    }
-
-    if (m_options.isDirectIOForced()) {
-        auto helperKey = std::make_pair(storageId, false);
-        auto helperPromiseIt = m_cache.find(helperKey);
-
-        std::lock_guard<std::mutex> guard(m_cacheMutex);
-
-        if (helperPromiseIt == m_cache.end()) {
-            LOG_DBG(2) << "Storage helper promise for storage " << storageId
-                       << " in direct mode unavailable - creating new storage "
-                          "helper...";
-
-            auto p = std::make_shared<folly::SharedPromise<HelperPtr>>();
-
-            m_cache.emplace(std::make_tuple(storageId, false), p);
-
-            m_scheduler.post(
-                [this, &fileUuid, &spaceId, &storageId, p = std::move(p)] {
-                    p->setWith([=] {
-                        return performForcedDirectIOStorageDetection(
-                            fileUuid, spaceId, storageId);
-                    });
-                });
+    if (!proxyFallback) {
+        if (m_options.isDirectIOForced() && forceProxyIO) {
+            LOG(ERROR) << "Direct IO and force IO options cannot be "
+                          "simultanously set.";
+            throw std::errc::operation_not_supported; // NOLINT
         }
 
-        return m_cache.find(helperKey)->second->getFuture();
+        if (m_options.isDirectIOForced()) {
+            auto helperKey = std::make_pair(storageId, false);
+            auto helperPromiseIt = m_cache.find(helperKey);
+
+            std::lock_guard<std::mutex> guard(m_cacheMutex);
+
+            if (helperPromiseIt == m_cache.end()) {
+                LOG_DBG(2)
+                    << "Storage helper promise for storage " << storageId
+                    << " in direct mode unavailable - creating new storage "
+                       "helper...";
+
+                auto p = std::make_shared<folly::SharedPromise<HelperPtr>>();
+
+                m_cache.emplace(std::make_tuple(storageId, false), p);
+
+                m_scheduler.post(
+                    [this, &fileUuid, &spaceId, &storageId, p = std::move(p)] {
+                        p->setWith([=] {
+                            return performForcedDirectIOStorageDetection(
+                                fileUuid, spaceId, storageId);
+                        });
+                    });
+            }
+
+            return m_cache.find(helperKey)->second->getFuture();
+        }
     }
 
-    forceProxyIO |= m_options.isProxyIOForced();
+    forceProxyIO |= (m_options.isProxyIOForced() || proxyFallback);
 
     auto helperKey = std::make_pair(storageId, forceProxyIO);
 
@@ -287,7 +290,7 @@ HelpersCache::HelperPtr HelpersCache::performAutoIOStorageDetection(
 
             LOG_DBG(2) << "Direct access to storage " << storageId
                        << " wasn't determined on first attempt - "
-                          "scheduling retry and returning proxy helper as "
+                          "scheduling retry and return proxy helper as "
                           "fallback";
             m_scheduler.post([this, fileUuid, storageId,
                                  storageType = params.name()] {
