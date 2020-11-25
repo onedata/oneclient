@@ -268,6 +268,16 @@ public:
     void pruneExpiredDirectories();
 
     /**
+     * Clear all metadata contents.
+     */
+    void clear();
+
+    /**
+     * Perform cleanup on reconnect.
+     */
+    void onReconnect();
+
+    /**
      * Returns true if the directory uuid has been at least once synced from the
      * server through readdir.
      * @param uuid UUID of the synced directory.

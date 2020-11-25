@@ -54,7 +54,9 @@ class Context;
 namespace fslogic {
 
 const std::array<std::pair<int, int>, 6> FSLOGIC_RETRY_DELAYS{
-    {{1, 5}, {5, 10}, {10, 30}, {100, 500}, {500, 10'000}, {10'000, 30'000}}};
+    {{4'000, 6'000}, {5'000, 10'000}, {10'000, 15'000}, {10'000, 20'000},
+        {10'000, 30'000}, {10'000, 30'000}}};
+
 constexpr int FSLOGIC_RETRY_COUNT = FSLOGIC_RETRY_DELAYS.size();
 
 constexpr auto SYNCHRONIZE_BLOCK_PRIORITY_IMMEDIATE = 32;
@@ -91,6 +93,16 @@ public:
         std::function<void(folly::Function<void()>)> runInFiber);
 
     ~FsLogic();
+
+    /**
+     * Perform operations required to start FsLogic properly
+     */
+    void start();
+
+    /**
+     * Reset FsLogic state, e.g. after a connection loss.
+     */
+    void reset();
 
     /**
      * FUSE @c lookup callback.
@@ -135,7 +147,8 @@ public:
      * FUSE @c open callback.
      * @see https://libfuse.github.io/doxygen/structfuse__lowlevel__ops.html
      */
-    std::uint64_t open(const folly::fbstring &uuid, const int flags);
+    std::uint64_t open(const folly::fbstring &uuid, const int flags,
+        const std::uint64_t reuseFuseFileHandleId = 0);
 
     /**
      * FUSE @c release callback.
@@ -333,8 +346,8 @@ private:
     /**
      * Removes contents of expired directories from cache.
      *
-     * @param delay Time in seconds after which contents of inactive directories
-     *              are purged from the metadata cache.
+     * @param delay Time in seconds after which contents of inactive
+     * directories are purged from the metadata cache.
      */
     void pruneExpiredDirectories(const std::chrono::seconds delay);
 
@@ -356,8 +369,9 @@ private:
 
     std::unordered_map<std::uint64_t, std::shared_ptr<FuseFileHandle>>
         m_fuseFileHandles;
+    std::unordered_map<std::uint64_t, int> m_fuseFileHandleFlags;
     std::unordered_map<std::uint64_t, folly::fbstring> m_fuseDirectoryHandles;
-    std::atomic<std::uint64_t> m_nextFuseHandleId;
+    std::atomic<std::uint64_t> m_nextFuseHandleId{1};
 
     std::function<void(const folly::fbstring &)> m_onMarkDeleted = [](auto) {};
     std::function<void(const folly::fbstring &, const folly::fbstring &)>

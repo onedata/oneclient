@@ -86,6 +86,7 @@
 namespace one {
 namespace client {
 namespace fslogic {
+
 using namespace std::literals;
 
 /**
@@ -185,14 +186,6 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
                 virtualfs::archivematica::ArchivematicaVirtualFsAdapter>(
                 *this, "archivematica"));
 
-    // Quota initial configuration
-    m_eventManager.subscribe(
-        events::QuotaExceededSubscription{[=](auto events) {
-            m_runInFiber([this, events = std::move(events)] {
-                this->disableSpaces(events.back()->spaces());
-            });
-        }});
-
     disableSpaces(configuration->disabledSpaces());
 
     //
@@ -291,13 +284,58 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     m_runInFiber([this, directoryCacheDropAfter]() {
         pruneExpiredDirectories(directoryCacheDropAfter);
     });
+
+    m_context->communicator()->setOnConnectionLostCallback([this]() {
+        LOG_DBG(2) << "Called on connection lost callback";
+        m_runInFiber([this]() { reset(); });
+    });
+
+    m_context->communicator()->setOnReconnectCallback([this]() {
+        LOG_DBG(2) << "Called on reconnect callback";
+        m_runInFiber([]() {});
+    });
+
+    start();
 }
 
 FsLogic::~FsLogic()
 {
     m_stopped = true;
+
     m_directoryCachePruneBaton.post();
     m_context->communicator()->stop();
+}
+
+void FsLogic::start()
+{
+    // Quota initial configuration
+    m_eventManager.subscribe(
+        events::QuotaExceededSubscription{[=](auto events) {
+            m_runInFiber([this, events = std::move(events)] {
+                this->disableSpaces(events.back()->spaces());
+            });
+        }});
+
+    m_stopped = false;
+}
+
+void FsLogic::reset()
+{
+    LOG_DBG(1) << "Resetting internal caches after connection lost...";
+
+    // Close all files
+    for (auto &fh : m_fuseFileHandles) {
+        fh.second->reset();
+    }
+    m_fuseFileHandles.clear();
+
+    // Clear metadata cache
+    m_metadataCache.clear();
+
+    // Cancel all subscriptions
+    m_fsSubscriptions.unsubscribeAll();
+
+    m_eventManager.reset();
 }
 
 constexpr int FsLogic::MAX_RETRY_COUNT; // NOLINT
@@ -477,7 +515,8 @@ folly::fbvector<folly::fbstring> FsLogic::readdir(
     return entries;
 }
 
-std::uint64_t FsLogic::open(const folly::fbstring &uuid, const int flags)
+std::uint64_t FsLogic::open(const folly::fbstring &uuid, const int flags,
+    const std::uint64_t reuseFuseFileHandleId)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARGH(flags);
 
@@ -488,15 +527,17 @@ std::uint64_t FsLogic::open(const folly::fbstring &uuid, const int flags)
     auto openFileToken = m_metadataCache.open(uuid);
 
     const auto filteredFlags = flags & (~O_CREAT) & (~O_APPEND);
-
     const auto flag = getOpenFlag(helpers::maskToFlags(filteredFlags));
     messages::fuse::OpenFile msg{uuid.toStdString(), flag};
 
     // Check if the file is a virtual file
     auto attr = m_metadataCache.getAttr(uuid);
 
+    auto fuseFileHandleId = reuseFuseFileHandleId;
+    if (fuseFileHandleId != 0U)
+        fuseFileHandleId = m_nextFuseHandleId++;
+
     if (attr->isVirtual()) {
-        auto fuseFileHandleId = m_nextFuseHandleId++;
         // Create a virtual file handle id
         // Register the file handle in fusefilehandles
         m_fuseFileHandles.emplace(fuseFileHandleId,
@@ -518,12 +559,11 @@ std::uint64_t FsLogic::open(const folly::fbstring &uuid, const int flags)
     auto opened = communicate<messages::fuse::FileOpened>(
         std::move(msg), m_providerTimeout);
 
-    auto fuseFileHandleId = m_nextFuseHandleId++;
-
     m_fuseFileHandles.emplace(fuseFileHandleId,
         std::make_shared<FuseFileHandle>(filteredFlags, opened.handleId(),
             openFileToken, *m_helpersCache, m_forceProxyIOCache,
             m_providerTimeout, m_randomReadPrefetchEvaluationFrequency));
+    m_fuseFileHandleFlags.emplace(fuseFileHandleId, flags);
 
     IOTRACE_END(
         IOTraceOpen, IOTraceLogger::OpType::OPEN, uuid, fuseFileHandleId, flags)
@@ -600,6 +640,7 @@ void FsLogic::release(
     }
 
     m_fuseFileHandles.erase(fileHandleId);
+    m_fuseFileHandleFlags.erase(fileHandleId);
 
     if (releaseException)
         std::rethrow_exception(releaseException);
@@ -614,6 +655,12 @@ void FsLogic::flush(
         IOTraceFlush, IOTraceLogger::OpType::FLUSH, uuid, fileHandleId)
 
     assertInFiber();
+
+    if (m_fuseFileHandles.find(fileHandleId) == m_fuseFileHandles.cend()) {
+        LOG_DBG(1) << "Fuse file handle " << fileHandleId
+                   << " already released.";
+        return;
+    }
 
     auto fuseFileHandle = m_fuseFileHandles.at(fileHandleId);
 
@@ -633,6 +680,12 @@ void FsLogic::fsync(const folly::fbstring &uuid,
         fileHandleId, dataOnly)
 
     assertInFiber();
+
+    if (m_fuseFileHandles.find(fileHandleId) == m_fuseFileHandles.cend()) {
+        LOG_DBG(1) << "Fuse file handle " << fileHandleId
+                   << " already released.";
+        return;
+    }
 
     m_eventManager.flush();
 
@@ -674,6 +727,32 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
         std::get<3>(ioTraceEntry->arguments) = 0;
         std::get<4>(ioTraceEntry->arguments) =
             IOTraceLogger::toString(IOTraceLogger::PrefetchType::NONE);
+    }
+
+    if (!m_context->communicator()->isConnected()) {
+        if (retriesLeft > 0) {
+            fiberRetryDelay(retriesLeft);
+            return read(uuid, fileHandleId, offset, size, checksum,
+                retriesLeft - 1, std::move(ioTraceEntry));
+        }
+
+        throw std::system_error(std::make_error_code(std::errc::timed_out));
+    }
+
+    if (m_fuseFileHandles.find(fileHandleId) == m_fuseFileHandles.end()) {
+        // File was probably opened during a network failure, reopen it
+        // Get open flags from previous open
+        auto flagIt = m_fuseFileHandleFlags.find(fileHandleId);
+        if (flagIt == m_fuseFileHandleFlags.end()) {
+            LOG(ERROR) << "Cannot reopen file " << uuid
+                       << " - no cached open flags...";
+            throw std::system_error(
+                std::make_error_code(std::errc::bad_file_descriptor));
+        }
+        LOG(INFO) << "Reopening file " << uuid
+                  << " after network connection failure...";
+        m_metadataCache.getAttr(uuid);
+        open(uuid, flagIt->second, fileHandleId);
     }
 
     auto fuseFileHandle = m_fuseFileHandles.at(fileHandleId);
@@ -1164,11 +1243,39 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
         std::get<1>(ioTraceEntry->arguments) = 0;
     }
 
+    if (!m_context->communicator()->isConnected()) {
+        LOG(ERROR) << "Connection to Oneprovider lost...";
+        if (retriesLeft > 0) {
+            fiberRetryDelay(retriesLeft);
+            return write(uuid, fuseFileHandleId, offset, std::move(buf),
+                retriesLeft - 1, std::move(ioTraceEntry));
+        }
+        throw std::system_error(std::make_error_code(std::errc::timed_out));
+    }
+
+    if (m_fuseFileHandles.find(fuseFileHandleId) == m_fuseFileHandles.end()) {
+        // File was probably opened during a network failure, reopen it
+        // Get open flags from previous open
+        auto flagIt = m_fuseFileHandleFlags.find(fuseFileHandleId);
+
+        LOG(INFO) << "Reopening file " << uuid << " with descriptor "
+                  << fuseFileHandleId << " after network connection failure...";
+
+        if (flagIt == m_fuseFileHandleFlags.end()) {
+            LOG(ERROR) << "Cannot reopen file " << uuid
+                       << " - no cached open flags...";
+            throw std::system_error(
+                std::make_error_code(std::errc::bad_file_descriptor));
+        }
+        m_metadataCache.getAttr(uuid);
+        open(uuid, flagIt->second, fuseFileHandleId);
+    }
+
     auto fuseFileHandle = m_fuseFileHandles.at(fuseFileHandleId);
     auto attr = m_metadataCache.getAttr(uuid);
     auto spaceId = m_metadataCache.getSpaceId(uuid);
 
-    // Check if this space is marked as disabled due to exeeded quota
+    // Check if this space is marked as disabled due to exceeded quota
     if (isSpaceDisabled(spaceId)) {
         LOG(ERROR) << "Write to file " << uuid << " failed - space "
                    << m_metadataCache.getSpaceId(uuid) << " quota exceeded";
@@ -1191,6 +1298,10 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
 
         log_timer<> timer;
 
+        LOG_DBG(2) << "Writing to helper with timeout [ms]: "
+                   << std::chrono::duration_cast<std::chrono::milliseconds>(
+                          helperHandle->timeout())
+                          .count();
         bytesWritten =
             communication::wait(helperHandle->write(offset, std::move(bufq)),
                 helperHandle->timeout());
@@ -1232,7 +1343,8 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
                 retriesLeft - 1, std::move(ioTraceEntry));
         }
 
-        if ((e.code().value() == EAGAIN) && (retriesLeft >= 0)) {
+        if ((e.code().value() == EAGAIN || e.code().value() == ETIMEDOUT) &&
+            (retriesLeft >= 0)) {
             fiberRetryDelay(retriesLeft);
             return write(uuid, fuseFileHandleId, offset, std::move(buf),
                 retriesLeft - 1, std::move(ioTraceEntry));
@@ -1401,6 +1513,7 @@ std::pair<FileAttrPtr, std::uint64_t> FsLogic::create(
         m_providerTimeout);
 
     m_fuseFileHandles.emplace(fuseFileHandleId, fuseFileHandle);
+    m_fuseFileHandleFlags.emplace(fuseFileHandleId, flags);
 
     LOG_DBG(2) << "Created file " << name << " in " << parentUuid
                << " with uuid " << uuid;

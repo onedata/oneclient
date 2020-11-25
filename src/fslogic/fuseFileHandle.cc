@@ -97,6 +97,13 @@ void FuseFileHandle::releaseHelperHandle(const folly::fbstring &uuid,
     }
 }
 
+void FuseFileHandle::reset()
+{
+    LOG_FCALL();
+
+    m_helperHandles.clear();
+}
+
 folly::fbvector<helpers::FileHandlePtr> FuseFileHandle::helperHandles() const
 {
     folly::fbvector<helpers::FileHandlePtr> result;

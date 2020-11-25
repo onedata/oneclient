@@ -19,7 +19,7 @@ namespace events {
 
 /**
  * @c Subscription class represents an abstract subscription for events that
- * occure in the system. It provides an interface for concrete subscriptions.
+ * occur in the system. It provides an interface for concrete subscriptions.
  */
 class Subscription {
 public:
@@ -34,7 +34,7 @@ public:
     virtual StreamKey streamKey() const = 0;
 
     /**
-     * Creates a stream responsible for processing event associated with this
+     * Creates a stream responsible for processing events associated with this
      * subscription.
      * @param manager A @c Manager instance.
      * @param seqManager A @c SequencerManager instance.

@@ -232,6 +232,11 @@ public:
     void releaseFile(const folly::fbstring &uuid);
 
     /**
+     * Clear all contents of the metadata cache.
+     */
+    void clear();
+
+    /**
      * Sets a callback that will be called after a file is added to the cache.
      * @param cb The callback that takes uuid as parameter.
      */

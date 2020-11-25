@@ -79,6 +79,14 @@ public:
         const folly::fbstring &storageId, const folly::fbstring &fileId);
 
     /**
+     * @brief Reset the handle state
+     *
+     * Unconditinally reset the handle state, including all helper handles and
+     * buffers as well as any buffers, for instance after a network loss.
+     */
+    void reset();
+
+    /**
      * @returns Open flags with which the handle was created.
      */
     int flags() const { return m_flags; }
