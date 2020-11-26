@@ -669,6 +669,7 @@ void OpenFileMetadataCache::addBlock(const folly::fbstring &uuid,
     }
     else {
         // Update the attribute in the general cache
+        MetadataCache::ensureAttrAndLocationCached(uuid);
         MetadataCache::updateSizeFromRange(uuid, range);
 
         // Ensure location is updated
