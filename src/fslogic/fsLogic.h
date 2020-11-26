@@ -378,6 +378,7 @@ private:
         m_onRename = [](auto, auto) {};
 
     const std::chrono::seconds m_providerTimeout;
+    const std::chrono::seconds m_storageTimeout;
     std::function<void(folly::Function<void()>)> m_runInFiber;
 
     const bool m_prefetchModeAsync;

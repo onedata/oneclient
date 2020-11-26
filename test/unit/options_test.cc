@@ -115,6 +115,8 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(options::DEFAULT_PROVIDER_TIMEOUT,
         options.getProviderTimeout().count());
     EXPECT_EQ(
+        options::DEFAULT_STORAGE_TIMEOUT, options.getStorageTimeout().count());
+    EXPECT_EQ(
         options::DEFAULT_READ_BUFFER_MIN_SIZE, options.getReadBufferMinSize());
     EXPECT_EQ(
         options::DEFAULT_READ_BUFFER_MAX_SIZE, options.getReadBufferMaxSize());
@@ -349,6 +351,13 @@ TEST_F(OptionsTest, parseCommandLineShouldSetProviderTimeout)
     cmdArgs.insert(cmdArgs.end(), {"--provider-timeout", "300", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ(300, options.getProviderTimeout().count());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetStorageTimeout)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--storage-timeout", "45", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(45, options.getStorageTimeout().count());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetReadBufferMinSize)

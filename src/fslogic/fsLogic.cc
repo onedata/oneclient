@@ -138,6 +138,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
           runInFiber}
     , m_nextFuseHandleId{0}
     , m_providerTimeout{providerTimeout}
+    , m_storageTimeout{m_context->options()->getStorageTimeout()}
     , m_runInFiber{std::move(runInFiber)} /* clang-format off */
     , m_prefetchModeAsync{m_context->options()->getPrefetchMode() == "async"}
     , m_minPrefetchBlockSize{m_context->options()->getMinimumBlockPrefetchSize()}
@@ -667,7 +668,7 @@ void FsLogic::flush(
     LOG_DBG(2) << "Sending file flush message for " << uuid;
 
     for (auto &helperHandle : fuseFileHandle->helperHandles())
-        communication::wait(helperHandle->flush(), helperHandle->timeout());
+        communication::wait(helperHandle->flush(), m_storageTimeout);
 }
 
 void FsLogic::fsync(const folly::fbstring &uuid,
@@ -701,8 +702,7 @@ void FsLogic::fsync(const folly::fbstring &uuid,
             m_providerTimeout);
 
     for (auto &helperHandle : fuseFileHandle->helperHandles())
-        communication::wait(
-            helperHandle->fsync(dataOnly), helperHandle->timeout());
+        communication::wait(helperHandle->fsync(dataOnly), m_storageTimeout);
 }
 
 folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
@@ -730,6 +730,7 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
     }
 
     if (!m_context->communicator()->isConnected()) {
+        LOG(ERROR) << "Connection to Oneprovider lost...";
         if (retriesLeft > 0) {
             fiberRetryDelay(retriesLeft);
             return read(uuid, fileHandleId, offset, size, checksum,
@@ -849,7 +850,7 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
             LOG_DBG(1) << "Waiting on helper flush for " << uuid
                        << " due to required checksum";
             communication::wait(
-                helperHandle->flushUnderlying(), helperHandle->timeout());
+                helperHandle->flushUnderlying(), m_storageTimeout);
         }
 
         auto prefetchParams = prefetchAsync(fuseFileHandle, helperHandle,
@@ -876,7 +877,7 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
 
         auto readBuffer = communication::wait(
             helperHandle->read(offset, availableSize, continuousSize),
-            helperHandle->timeout());
+            m_storageTimeout);
 
         log<read_write_perf>(
             fileBlock.fileId(), "FsLogic", "read", offset, size, timer.stop());
@@ -1247,6 +1248,8 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
         LOG(ERROR) << "Connection to Oneprovider lost...";
         if (retriesLeft > 0) {
             fiberRetryDelay(retriesLeft);
+            LOG(INFO) << "Retrying write to " << uuid
+                      << " - retries left: " << retriesLeft;
             return write(uuid, fuseFileHandleId, offset, std::move(buf),
                 retriesLeft - 1, std::move(ioTraceEntry));
         }
@@ -1300,11 +1303,10 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
 
         LOG_DBG(2) << "Writing to helper with timeout [ms]: "
                    << std::chrono::duration_cast<std::chrono::milliseconds>(
-                          helperHandle->timeout())
+                          m_storageTimeout)
                           .count();
-        bytesWritten =
-            communication::wait(helperHandle->write(offset, std::move(bufq)),
-                helperHandle->timeout());
+        bytesWritten = communication::wait(
+            helperHandle->write(offset, std::move(bufq)), m_storageTimeout);
 
         log<read_write_perf>(fileBlock.fileId(), "FsLogic", "write", offset,
             buf->length(), timer.stop());
