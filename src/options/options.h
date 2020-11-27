@@ -56,6 +56,7 @@ static constexpr auto DEFAULT_METADATA_CACHE_SIZE = 5'000'000;
 static constexpr auto DEFAULT_READDIR_PREFETCH_SIZE = 2500;
 static constexpr auto DEFAULT_DIR_CACHE_DROP_AFTER = 5 * 60;
 static constexpr auto DEFAULT_PROVIDER_TIMEOUT = 2 * 60;
+static constexpr auto DEFAULT_STORAGE_TIMEOUT = 30;
 static constexpr auto DEFAULT_MONITORING_PERIOD_SECONDS = 30;
 #if defined(__APPLE__)
 static constexpr auto DEFAULT_EMULATE_AVAILABLE_SPACE =
@@ -242,6 +243,11 @@ public:
      * @return Return timeout for Oneprovider communication.
      */
     std::chrono::seconds getProviderTimeout() const;
+
+    /*
+     * @return Return timeout for storage operations.
+     */
+    std::chrono::seconds getStorageTimeout() const;
 
     /*
      * @return Minimum size in bytes of in-memory cache for input data blocks.

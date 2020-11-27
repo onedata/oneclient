@@ -241,6 +241,15 @@ Options::Options()
         .withGroup(OptionGroup::ADVANCED)
         .withDescription("Specify Oneprovider connection timeout in seconds.");
 
+    add<unsigned int>()
+        ->withLongName("storage-timeout")
+        .withConfigName("storage_timeout")
+        .withValueName("<duration>")
+        .withDefaultValue(
+            DEFAULT_STORAGE_TIMEOUT, std::to_string(DEFAULT_STORAGE_TIMEOUT))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Specify I/O storage timeout in seconds.");
+
     add<bool>()
         ->asSwitch()
         .withLongName("disable-read-events")
@@ -907,6 +916,13 @@ std::chrono::seconds Options::getProviderTimeout() const
     return std::chrono::seconds{
         get<unsigned int>({"provider-timeout", "provider_timeout"})
             .get_value_or(DEFAULT_PROVIDER_TIMEOUT)};
+}
+
+std::chrono::seconds Options::getStorageTimeout() const
+{
+    return std::chrono::seconds{
+        get<unsigned int>({"storage-timeout", "storage_timeout"})
+            .get_value_or(DEFAULT_STORAGE_TIMEOUT)};
 }
 
 unsigned int Options::getReadBufferMinSize() const

@@ -67,7 +67,7 @@ void ReaddirCache::fetch(
         folly::fbvector<folly::Future<folly::Unit>> futs;
 
         do {
-            LOG_DBG(1) << "Requesting directory entries for directory " << uuid
+            LOG_DBG(2) << "Requesting directory entries for directory " << uuid
                        << " starting at offset " << chunkIndex;
 
             auto ew = folly::try_and_catch<std::exception>(

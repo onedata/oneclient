@@ -551,6 +551,18 @@ void MetadataCache::releaseFile(const folly::fbstring &uuid)
     m_cache.modify(it, [&](Metadata &m) { m.location = {}; });
 }
 
+void MetadataCache::clear()
+{
+    LOG_FCALL();
+
+    assertInFiber();
+
+    auto &index = bmi::get<ByUuid>(m_cache);
+    index.clear();
+
+    assert(index.empty());
+}
+
 void MetadataCache::erase(folly::fbstring uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);

@@ -31,8 +31,12 @@ public:
     Router(Manager &manager, communication::Communicator &communicator);
 
 private:
+    // Handle remote events
     void handle(const ProtoEvents &msg);
+    // Handle remote subscriptions (from Oneprovider to Oneclient), currently
+    // this includes only FileWritten and FileRead
     void handle(const ProtoSubscription &msg);
+    // Handle remote subscription cancellation
     void handle(const ProtoCancellation &msg);
 
     Manager &m_eventManager;

@@ -96,7 +96,7 @@ public:
     {
         LOG_FCALL() << LOG_FARG(ino) << LOG_FARG(flags);
 
-        return wrap(&FsLogicT::open, ino, flags);
+        return wrap(&FsLogicT::open, ino, flags, 0);
     }
 
     auto read(const fuse_ino_t ino, const std::uint64_t handle,

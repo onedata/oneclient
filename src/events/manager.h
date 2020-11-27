@@ -92,6 +92,11 @@ public:
      */
     virtual void flush(StreamKey streamKey);
 
+    /**
+     * Reset streams.
+     */
+    void reset();
+
 private:
     std::int64_t subscribe(
         std::int64_t subscriptionId, const Subscription &subscription);

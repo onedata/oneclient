@@ -32,6 +32,12 @@ FsSubscriptions::FsSubscriptions(events::Manager &eventManager,
 {
 }
 
+void FsSubscriptions::unsubscribeAll()
+{
+    SubscriptionAcc subscriptionAcc;
+    m_subscriptions.clear();
+}
+
 void FsSubscriptions::subscribeFileAttrChanged(const folly::fbstring &fileUuid)
 {
     LOG_FCALL() << LOG_FARG(fileUuid);
@@ -307,6 +313,8 @@ void FsSubscriptions::subscribe(
     SubscriptionAcc subscriptionAcc;
     if (m_subscriptions.insert(
             subscriptionAcc, {subscription.streamKey(), fileUuid})) {
+        // If the subscription doesn't exist yet, create new stream and
+        // store it's id
         subscriptionAcc->second = m_eventManager.subscribe(subscription);
     }
 }

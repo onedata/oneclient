@@ -370,6 +370,39 @@ void OpenFileMetadataCache::prune()
     }
 }
 
+void OpenFileMetadataCache::clear()
+{
+    LOG_FCALL();
+
+    assertInFiber();
+
+    m_lruFileData.clear();
+    m_lruFileList.clear();
+    m_lruDirectoryList.clear();
+    m_lruDirectoryData.clear();
+
+    MetadataCache::clear();
+}
+
+void OpenFileMetadataCache::onReconnect()
+{
+    LOG_FCALL();
+
+    assertInFiber();
+
+    LOG_DBG(2) << "Updating opened files attrs "
+                  "after reconnect";
+    std::for_each(
+        m_lruFileData.begin(), m_lruFileData.end(), [this](const auto &p) {
+            LOG_DBG(2) << "Updating opened file attrs "
+                          "after reconnect: "
+                       << p.first;
+            getAttr(p.first);
+            getLocation(p.first, true);
+            assert(getAttr(p.first)->size());
+        });
+}
+
 bool OpenFileMetadataCache::rename(folly::fbstring uuid,
     folly::fbstring newParentUuid, folly::fbstring newName,
     folly::fbstring newUuid)
@@ -636,6 +669,7 @@ void OpenFileMetadataCache::addBlock(const folly::fbstring &uuid,
     }
     else {
         // Update the attribute in the general cache
+        MetadataCache::ensureAttrAndLocationCached(uuid);
         MetadataCache::updateSizeFromRange(uuid, range);
 
         // Ensure location is updated

@@ -117,10 +117,18 @@ void Manager::flush(StreamKey streamKey)
 {
     LOG_FCALL() << LOG_FARG(streamKey);
 
+    LOG_DBG(3) << "Trying to flush stream: " << streamKey;
+
     StreamConstAcc streamAcc;
     if (m_streams.find(streamAcc, streamKey)) {
         streamAcc->second->flush();
     }
+}
+
+void Manager::reset()
+{
+    LOG_DBG(3) << "Resetting sequence manager stream counters";
+    m_sequencerManager.reset();
 }
 
 } // namespace events
