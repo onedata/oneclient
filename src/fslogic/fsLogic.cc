@@ -535,7 +535,7 @@ std::uint64_t FsLogic::open(const folly::fbstring &uuid, const int flags,
     auto attr = m_metadataCache.getAttr(uuid);
 
     auto fuseFileHandleId = reuseFuseFileHandleId;
-    if (fuseFileHandleId != 0U)
+    if (fuseFileHandleId == 0U)
         fuseFileHandleId = m_nextFuseHandleId++;
 
     if (attr->isVirtual()) {
@@ -550,6 +550,7 @@ std::uint64_t FsLogic::open(const folly::fbstring &uuid, const int flags,
         auto fuseFileHandle = m_fuseFileHandles.at(fuseFileHandleId);
         fuseFileHandle->getHelperHandle(
             uuid, {}, attr->getVirtualFsAdapter()->name(), uuid);
+        m_fuseFileHandleFlags.emplace(fuseFileHandleId, flags);
 
         // Return fuse file handle id
         return fuseFileHandleId;
