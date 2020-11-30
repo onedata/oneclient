@@ -59,17 +59,16 @@ HelpersCache::HelpersCache(communication::Communicator &communicator,
 #endif
         m_helpersIoService, m_communicator,
         options.getBufferSchedulerThreadCount(),
-        helpers::buffering::BufferLimits
-    {
-        options.getReadBufferMinSize(), options.getReadBufferMaxSize(),
+        helpers::buffering::BufferLimits{options.getReadBufferMinSize(),
+            options.getReadBufferMaxSize(),
             options.getReadBufferPrefetchDuration(),
             options.getWriteBufferMinSize(), options.getWriteBufferMaxSize(),
             options.getWriteBufferFlushDelay(),
             options::DEFAULT_PREFETCH_TARGET_LATENCY,
             options::DEFAULT_PREFETCH_POWER_BASE,
             options.getReadBuffersTotalSize(),
-            options.getWriteBuffersTotalSize()
-    }
+            options.getWriteBuffersTotalSize()},
+        helpers::ExecutionContext::ONECLIENT
 }
 , m_storageAccessManager{m_helperFactory, m_options},
     m_providerTimeout{options.getProviderTimeout()}
