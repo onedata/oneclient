@@ -46,6 +46,12 @@ namespace {
 // request
 constexpr auto AVERAGE_FILE_NAME_LENGTH = 20;
 
+// Print Fuse request context, including uid, gid, pid and umask
+#define LOG_FUSE_CTX(ARG)                                                      \
+    " " #ARG " = {uid: " << (ARG)->uid << ", gid: " << (ARG)->gid              \
+                         << ", pid: " << (ARG)->pid                            \
+                         << ", umask: " << (ARG)->umask << "}"
+
 template <typename Fun, typename... Args>
 auto callFslogic(Fun &&fun, void *userData, Args &&... args)
 {
@@ -115,7 +121,8 @@ extern "C" {
 
 void wrap_lookup(fuse_req_t req, fuse_ino_t parent, const char *name)
 {
-    LOG_FCALL() << LOG_FARG(req) << LOG_FARG(parent) << LOG_FARG(name);
+    LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(parent)
+                << LOG_FARG(name);
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.lookup");
     // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDelete)
@@ -134,7 +141,7 @@ void wrap_lookup(fuse_req_t req, fuse_ino_t parent, const char *name)
 void wrap_getattr(
     fuse_req_t req, fuse_ino_t ino, struct fuse_file_info * /*fi*/)
 {
-    LOG_FCALL() << LOG_FARG(req) << LOG_FARG(ino);
+    LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino);
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.getattr");
     wrap(&fslogic::Composite::getattr,
@@ -145,7 +152,7 @@ void wrap_getattr(
 
 void wrap_opendir(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
 {
-    LOG_FCALL() << LOG_FARG(req) << LOG_FARG(ino);
+    LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino);
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.opendir");
     wrap(&fslogic::Composite::opendir,
@@ -159,7 +166,7 @@ void wrap_opendir(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
 
 void wrap_releasedir(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
 {
-    LOG_FCALL() << LOG_FARG(req) << LOG_FARG(ino);
+    LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino);
 
     auto timer =
         ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.releasedir");
@@ -171,8 +178,8 @@ void wrap_releasedir(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
 void wrap_readdir(fuse_req_t req, fuse_ino_t ino, size_t maxSize, off_t off,
     struct fuse_file_info * /*fi*/)
 {
-    LOG_FCALL() << LOG_FARG(req) << LOG_FARG(ino) << LOG_FARG(maxSize)
-                << LOG_FARG(off);
+    LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino)
+                << LOG_FARG(maxSize) << LOG_FARG(off);
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.readdir");
     wrap(&fslogic::Composite::readdir,
@@ -224,7 +231,8 @@ void wrap_readdir(fuse_req_t req, fuse_ino_t ino, size_t maxSize, off_t off,
 
 void wrap_open(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
 {
-    LOG_FCALL() << LOG_FARG(req) << LOG_FARG(ino) << LOG_FARG(fi->fh);
+    LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino)
+                << LOG_FARG(fi->fh);
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.open");
     wrap(&fslogic::Composite::open,
@@ -241,7 +249,8 @@ void wrap_open(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
 
 void wrap_release(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
 {
-    LOG_FCALL() << LOG_FARG(req) << LOG_FARG(ino) << LOG_FARG(fi->fh);
+    LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino)
+                << LOG_FARG(fi->fh);
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.release");
     wrap(&fslogic::Composite::release,
@@ -252,8 +261,8 @@ void wrap_release(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
 void wrap_read(fuse_req_t req, fuse_ino_t ino, size_t size, off_t off,
     struct fuse_file_info *fi)
 {
-    LOG_FCALL() << LOG_FARG(req) << LOG_FARG(ino) << LOG_FARG(size)
-                << LOG_FARG(off) << LOG_FARG(fi->fh);
+    LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino)
+                << LOG_FARG(size) << LOG_FARG(off) << LOG_FARG(fi->fh);
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.read");
 
@@ -300,8 +309,8 @@ void wrap_read(fuse_req_t req, fuse_ino_t ino, size_t size, off_t off,
 void wrap_write(fuse_req_t req, fuse_ino_t ino, const char *buf, size_t size,
     off_t off, struct fuse_file_info *fi)
 {
-    LOG_FCALL() << LOG_FARG(req) << LOG_FARG(ino) << LOG_FARG(size)
-                << LOG_FARG(off) << LOG_FARG(fi->fh);
+    LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino)
+                << LOG_FARG(size) << LOG_FARG(off) << LOG_FARG(fi->fh);
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.write");
     std::shared_ptr<folly::IOBuf> iobuf{folly::IOBuf::copyBuffer(buf, size)};
@@ -319,8 +328,8 @@ void wrap_write(fuse_req_t req, fuse_ino_t ino, const char *buf, size_t size,
 void wrap_mkdir(
     fuse_req_t req, fuse_ino_t parent, const char *name, mode_t mode)
 {
-    LOG_FCALL() << LOG_FARG(req) << LOG_FARG(parent) << LOG_FARG(name)
-                << LOG_FARG(mode);
+    LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(parent)
+                << LOG_FARG(name) << LOG_FARG(mode);
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.mkdir");
     wrap(&fslogic::Composite::mkdir,
@@ -336,8 +345,8 @@ void wrap_mkdir(
 void wrap_mknod(fuse_req_t req, fuse_ino_t parent, const char *name,
     mode_t mode, dev_t /*rdev*/)
 {
-    LOG_FCALL() << LOG_FARG(req) << LOG_FARG(parent) << LOG_FARG(name)
-                << LOG_FARG(mode);
+    LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(parent)
+                << LOG_FARG(name) << LOG_FARG(mode);
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.mknod");
     wrap(&fslogic::Composite::mknod,
@@ -352,7 +361,8 @@ void wrap_mknod(fuse_req_t req, fuse_ino_t parent, const char *name,
 
 void wrap_unlink(fuse_req_t req, fuse_ino_t parent, const char *name)
 {
-    LOG_FCALL() << LOG_FARG(req) << LOG_FARG(parent) << LOG_FARG(name);
+    LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(parent)
+                << LOG_FARG(name);
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.unlink");
     wrap(&fslogic::Composite::unlink,
@@ -366,8 +376,8 @@ void wrap_unlink(fuse_req_t req, fuse_ino_t parent, const char *name)
 void wrap_rename(fuse_req_t req, fuse_ino_t parent, const char *name,
     fuse_ino_t newparent, const char *newname)
 {
-    LOG_FCALL() << LOG_FARG(req) << LOG_FARG(parent) << LOG_FARG(name)
-                << LOG_FARG(newparent) << LOG_FARG(newname);
+    LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(parent)
+                << LOG_FARG(name) << LOG_FARG(newparent) << LOG_FARG(newname);
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.rename");
     wrap(&fslogic::Composite::rename,
@@ -382,7 +392,8 @@ void wrap_rename(fuse_req_t req, fuse_ino_t parent, const char *name,
 
 void wrap_forget(fuse_req_t req, fuse_ino_t ino, uint64_t nlookup)
 {
-    LOG_FCALL() << LOG_FARG(req) << LOG_FARG(ino) << LOG_FARG(nlookup);
+    LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino)
+                << LOG_FARG(nlookup);
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.forget");
     wrap(&fslogic::Composite::forget,
@@ -396,8 +407,8 @@ void wrap_forget(fuse_req_t req, fuse_ino_t ino, uint64_t nlookup)
 void wrap_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int to_set,
     struct fuse_file_info * /*fi*/)
 {
-    LOG_FCALL() << LOG_FARG(req) << LOG_FARG(ino) << LOG_FARG(attr->st_ino)
-                << LOG_FARG(to_set);
+    LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino)
+                << LOG_FARG(attr->st_ino) << LOG_FARG(to_set);
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.setattr");
     wrap(&fslogic::Composite::setattr,
@@ -411,8 +422,8 @@ void wrap_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int to_set,
 void wrap_create(fuse_req_t req, fuse_ino_t parent, const char *name,
     mode_t mode, struct fuse_file_info *fi)
 {
-    LOG_FCALL() << LOG_FARG(req) << LOG_FARG(parent) << LOG_FARG(name)
-                << LOG_FARG(mode) << LOG_FARG(fi->fh);
+    LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(parent)
+                << LOG_FARG(name) << LOG_FARG(mode) << LOG_FARG(fi->fh);
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.create");
     wrap(&fslogic::Composite::create,
@@ -430,7 +441,7 @@ void wrap_create(fuse_req_t req, fuse_ino_t parent, const char *name,
 
 void wrap_statfs(fuse_req_t req, fuse_ino_t ino)
 {
-    LOG_FCALL() << LOG_FARG(req) << LOG_FARG(ino);
+    LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino);
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.statfs");
     wrap(&fslogic::Composite::statfs,
@@ -442,7 +453,8 @@ void wrap_statfs(fuse_req_t req, fuse_ino_t ino)
 
 void wrap_flush(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
 {
-    LOG_FCALL() << LOG_FARG(req) << LOG_FARG(ino) << LOG_FARG(fi->fh);
+    LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino)
+                << LOG_FARG(fi->fh);
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.flush");
     wrap(&fslogic::Composite::flush,
@@ -453,8 +465,8 @@ void wrap_flush(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
 void wrap_fsync(
     fuse_req_t req, fuse_ino_t ino, int dataSync, struct fuse_file_info *fi)
 {
-    LOG_FCALL() << LOG_FARG(req) << LOG_FARG(ino) << LOG_FARG(dataSync)
-                << LOG_FARG(fi->fh);
+    LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino)
+                << LOG_FARG(dataSync) << LOG_FARG(fi->fh);
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.fsync");
     wrap(&fslogic::Composite::fsync,
@@ -469,7 +481,8 @@ void wrap_getxattr(fuse_req_t req, fuse_ino_t ino, const char *attr, size_t size
 #endif
 )
 {
-    LOG_FCALL() << LOG_FARG(req) << LOG_FARG(ino) << LOG_FARG(attr);
+    LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino)
+                << LOG_FARG(attr);
 
     if (attr == nullptr) {
         fuse_reply_err(req, EINVAL);
@@ -561,8 +574,9 @@ void wrap_setxattr(fuse_req_t req, fuse_ino_t ino, const char *attr,
 #endif
 )
 {
-    LOG_FCALL() << LOG_FARG(req) << LOG_FARG(ino) << LOG_FARG(attr)
-                << LOG_FARG(val) << LOG_FARG(size) << LOG_FARGO(flags);
+    LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino)
+                << LOG_FARG(attr) << LOG_FARG(val) << LOG_FARG(size)
+                << LOG_FARGO(flags);
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.setxattr");
 
@@ -616,7 +630,8 @@ void wrap_setxattr(fuse_req_t req, fuse_ino_t ino, const char *attr,
 
 void wrap_removexattr(fuse_req_t req, fuse_ino_t ino, const char *attr)
 {
-    LOG_FCALL() << LOG_FARG(req) << LOG_FARG(ino) << LOG_FARG(attr);
+    LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino)
+                << LOG_FARG(attr);
 
     auto timer =
         ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.removexattr");
@@ -650,7 +665,8 @@ void wrap_removexattr(fuse_req_t req, fuse_ino_t ino, const char *attr)
 
 void wrap_listxattr(fuse_req_t req, fuse_ino_t ino, size_t size)
 {
-    LOG_FCALL() << LOG_FARG(req) << LOG_FARG(ino) << LOG_FARG(size);
+    LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino)
+                << LOG_FARG(size);
 
     auto timer =
         ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.listxattr");
