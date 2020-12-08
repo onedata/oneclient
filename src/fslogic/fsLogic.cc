@@ -1709,20 +1709,27 @@ folly::fbstring FsLogic::getxattr(
 
     folly::fbstring result;
 
-    if (name == ONE_XATTR("uuid")) {
-        return "\"" + uuid + "\"";
+    if (name == ONE_XATTR("guid")) {
+        return folly::sformat("\"{}\"", uuid);
     }
 
     if (name == ONE_XATTR("file_id")) {
-        return "\"" + m_metadataCache.getDefaultBlock(uuid).fileId() + "\"";
+        return folly::sformat(
+            "\"{}\"", util::cdmi::uuidToObjectId(uuid.toStdString()));
+    }
+
+    if (name == ONE_XATTR("storage_file_id")) {
+        return folly::sformat(
+            "\"{}\"", m_metadataCache.getDefaultBlock(uuid).fileId());
     }
 
     if (name == ONE_XATTR("storage_id")) {
-        return "\"" + m_metadataCache.getDefaultBlock(uuid).storageId() + "\"";
+        return folly::sformat(
+            "\"{}\"", m_metadataCache.getDefaultBlock(uuid).storageId());
     }
 
     if (name == ONE_XATTR("space_id")) {
-        return "\"" + m_metadataCache.getSpaceId(uuid) + "\"";
+        return folly::sformat("\"{}\"", m_metadataCache.getSpaceId(uuid));
     }
 
     if (name == ONE_XATTR("access_type")) {
@@ -1741,11 +1748,9 @@ folly::fbstring FsLogic::getxattr(
     if (name == ONE_XATTR("file_blocks_count")) {
         auto forceLocationUpdate =
             !m_fsSubscriptions.isSubscribedToFileLocationChanged(uuid);
-        return "\"" +
-            std::to_string(
-                m_metadataCache.getLocation(uuid, forceLocationUpdate)
-                    ->blocksCount()) +
-            "\"";
+        return folly::sformat("\"{}\"",
+            m_metadataCache.getLocation(uuid, forceLocationUpdate)
+                ->blocksCount());
     }
 
     if (name == ONE_XATTR("file_blocks")) {
@@ -1756,10 +1761,9 @@ folly::fbstring FsLogic::getxattr(
 
         auto forceLocationUpdate =
             !m_fsSubscriptions.isSubscribedToFileLocationChanged(uuid);
-        return "\"[" +
+        return folly::sformat("\"[{}]\"",
             m_metadataCache.getLocation(uuid, forceLocationUpdate)
-                ->progressString(size, XATTR_FILE_BLOCKS_MAP_LENGTH) +
-            "]\"";
+                ->progressString(size, XATTR_FILE_BLOCKS_MAP_LENGTH));
     }
 
     if (name == ONE_XATTR("replication_progress")) {
@@ -1772,10 +1776,9 @@ folly::fbstring FsLogic::getxattr(
                 ->replicationProgress(size);
 
         constexpr auto REPLICATION_PROGRESS_TO_PERCENT = 100;
-        return "\"" +
-            std::to_string(static_cast<int>(std::floor(
-                replicationProgress * REPLICATION_PROGRESS_TO_PERCENT))) +
-            "%\"";
+        return folly::sformat("\"{}%\"",
+            static_cast<int>(std::floor(
+                replicationProgress * REPLICATION_PROGRESS_TO_PERCENT)));
     }
 
     messages::fuse::GetXAttr getXAttrRequest{uuid, name};
@@ -1844,11 +1847,12 @@ folly::fbvector<folly::fbstring> FsLogic::listxattr(const folly::fbstring &uuid)
         result.push_back(xattrName.c_str());
     }
 
-    result.push_back(ONE_XATTR("uuid"));
+    result.push_back(ONE_XATTR("guid"));
+    result.push_back(ONE_XATTR("file_id"));
     if (m_metadataCache.getAttr(uuid)->type() == FileAttr::FileType::regular) {
         result.push_back(ONE_XATTR("space_id"));
-        result.push_back(ONE_XATTR("file_id"));
         result.push_back(ONE_XATTR("storage_id"));
+        result.push_back(ONE_XATTR("storage_file_id"));
         result.push_back(ONE_XATTR("access_type"));
         result.push_back(ONE_XATTR("file_blocks"));
         result.push_back(ONE_XATTR("file_blocks_count"));
