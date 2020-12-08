@@ -294,7 +294,8 @@ folly::fbstring StorageAccessManager::modifyStorageTestFile(
     std::string content;
     buf.appendToString(content);
 
-    communication::wait(handle->write(0, std::move(buf)), helper->timeout());
+    communication::wait(
+        handle->write(0, std::move(buf), {}), helper->timeout());
     communication::wait(handle->fsync(true), helper->timeout());
 
     LOG_DBG(1) << "Storage " << storageId << " test file " << testFile.fileId()

@@ -1307,7 +1307,14 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
                           m_storageTimeout)
                           .count();
         bytesWritten = communication::wait(
-            helperHandle->write(offset, std::move(bufq)), m_storageTimeout);
+            helperHandle->write(offset, std::move(bufq),
+                [this, uuid = uuid.toStdString(), offset,
+                    storageId = fileBlock.storageId(),
+                    fileId = fileBlock.fileId()](std::size_t bytesWritten) {
+                    m_eventManager.emit<events::FileWritten>(
+                        uuid, offset, bytesWritten, storageId, fileId);
+                }),
+            m_storageTimeout);
 
         log<read_write_perf>(fileBlock.fileId(), "FsLogic", "write", offset,
             buf->length(), timer.stop());
@@ -1377,8 +1384,8 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
             retriesLeft, std::move(ioTraceEntry));
     }
 
-    m_eventManager.emit<events::FileWritten>(uuid.toStdString(), offset,
-        bytesWritten, fileBlock.storageId(), fileBlock.fileId());
+    // m_eventManager.emit<events::FileWritten>(uuid.toStdString(), offset,
+    //    bytesWritten, fileBlock.storageId(), fileBlock.fileId());
 
     auto writtenRange = boost::icl::discrete_interval<off_t>::right_open(
         offset, offset + bytesWritten);

@@ -34,6 +34,7 @@ using one::helpers::FileHandlePtr;
 using one::helpers::Params;
 using one::helpers::StorageHelper;
 using one::helpers::Timeout;
+using one::helpers::WriteCallback;
 using one::messages::fuse::FileAttr;
 
 const auto kArchivematicaTimeout = 120 * 1'000;
@@ -78,8 +79,8 @@ public:
     virtual folly::Future<folly::IOBufQueue> read(
         const off_t offset, const std::size_t size) override;
 
-    virtual folly::Future<std::size_t> write(
-        const off_t offset, folly::IOBufQueue buf) override;
+    virtual folly::Future<std::size_t> write(const off_t offset,
+        folly::IOBufQueue buf, WriteCallback &&writeCb) override;
 
     virtual const Timeout &timeout() override;
 
@@ -106,8 +107,8 @@ public:
     virtual folly::Future<folly::IOBufQueue> read(
         const off_t offset, const std::size_t size) override;
 
-    virtual folly::Future<std::size_t> write(
-        const off_t offset, folly::IOBufQueue buf) override;
+    virtual folly::Future<std::size_t> write(const off_t offset,
+        folly::IOBufQueue buf, WriteCallback &&writeCb) override;
 
     virtual const Timeout &timeout() override;
 

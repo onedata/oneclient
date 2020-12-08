@@ -40,13 +40,17 @@ public:
         return folly::makeFuture(std::move(buf));
     }
 
-    folly::Future<std::size_t> write(
-        const off_t, folly::IOBufQueue buf) override
+    folly::Future<std::size_t> write(const off_t, folly::IOBufQueue buf,
+        one::helpers::WriteCallback &&writeCb) override
     {
         if (m_ec)
             return folly::makeFuture<std::size_t>(std::system_error{m_ec});
 
-        return buf.chainLength();
+        auto size = buf.chainLength();
+        if (writeCb)
+            writeCb(size);
+
+        return size;
     }
 
     folly::Future<folly::Unit> release() override

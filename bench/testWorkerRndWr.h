@@ -77,7 +77,7 @@ public:
 
                     futs.emplace_back(
                         handles[fileIndex]
-                            ->write(offset, std::move(buf))
+                            ->write(offset, std::move(buf), {})
                             .then(folly::getIOExecutor().get(),
                                 [this, handle = handles[fileIndex], flush,
                                     resultID = k + l](std::size_t written) {
