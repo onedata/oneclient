@@ -4,6 +4,14 @@ Release notes for project oneclient
 CHANGELOG
 ---------
 
+### 20.02.4
+
+-   **VFS-7015** Added I/O proxy fallback in direct access mode in
+    Oneclient, allowing to access files for which permissions on a
+    specific storage are not properly configured, even when global
+    permissions allow access.
+
+
 ### 20.02.3
 
 ### 20.02.2
