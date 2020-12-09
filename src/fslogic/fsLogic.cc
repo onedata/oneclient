@@ -1384,9 +1384,6 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
             retriesLeft, std::move(ioTraceEntry));
     }
 
-    // m_eventManager.emit<events::FileWritten>(uuid.toStdString(), offset,
-    //    bytesWritten, fileBlock.storageId(), fileBlock.fileId());
-
     auto writtenRange = boost::icl::discrete_interval<off_t>::right_open(
         offset, offset + bytesWritten);
 
