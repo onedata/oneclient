@@ -40,7 +40,8 @@ folly::Future<folly::IOBufQueue> ArchivematicaProcessingMCPFileHandle::read(
 }
 
 folly::Future<std::size_t> ArchivematicaProcessingMCPFileHandle::write(
-    const off_t /*offset*/, folly::IOBufQueue /*buf*/)
+    const off_t /*offset*/, folly::IOBufQueue /*buf*/,
+    WriteCallback && /*writeCb*/)
 {
     throw std::system_error(
         std::make_error_code(std::errc::operation_not_permitted));
@@ -345,7 +346,8 @@ folly::Future<folly::IOBufQueue> ArchivematicaMetadataJSONFileHandle::read(
 }
 
 folly::Future<std::size_t> ArchivematicaMetadataJSONFileHandle::write(
-    const off_t /*offset*/, folly::IOBufQueue /*buf*/)
+    const off_t /*offset*/, folly::IOBufQueue /*buf*/,
+    WriteCallback && /*writeCb*/)
 {
     throw std::system_error(
         std::make_error_code(std::errc::operation_not_permitted));

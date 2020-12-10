@@ -71,7 +71,7 @@ public:
         folly::IOBufQueue buf{folly::IOBufQueue::cacheChainLength()};
         buf.append(data);
 
-        return m_fileHandle->write(offset, std::move(buf)).get();
+        return m_fileHandle->write(offset, std::move(buf), {}).get();
     }
 
 private:
