@@ -369,6 +369,7 @@ private:
 
     std::unordered_map<std::uint64_t, std::shared_ptr<FuseFileHandle>>
         m_fuseFileHandles;
+    std::multimap<folly::fbstring, std::uint64_t> m_openFileHandles;
     std::unordered_map<std::uint64_t, int> m_fuseFileHandleFlags;
     std::unordered_map<std::uint64_t, folly::fbstring> m_fuseDirectoryHandles;
     std::atomic<std::uint64_t> m_nextFuseHandleId{1};

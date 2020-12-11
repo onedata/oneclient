@@ -329,6 +329,7 @@ void FsLogic::reset()
         fh.second->reset();
     }
     m_fuseFileHandles.clear();
+    m_openFileHandles.clear();
 
     // Clear metadata cache
     m_metadataCache.clear();
@@ -547,6 +548,7 @@ std::uint64_t FsLogic::open(const folly::fbstring &uuid, const int flags,
                 *m_virtualFsHelpersCache, m_forceProxyIOCache,
                 m_providerTimeout, m_randomReadPrefetchEvaluationFrequency));
 
+        m_openFileHandles.emplace(uuid, fuseFileHandleId);
         auto fuseFileHandle = m_fuseFileHandles.at(fuseFileHandleId);
         fuseFileHandle->getHelperHandle(
             uuid, {}, attr->getVirtualFsAdapter()->name(), uuid);
@@ -565,6 +567,7 @@ std::uint64_t FsLogic::open(const folly::fbstring &uuid, const int flags,
         std::make_shared<FuseFileHandle>(filteredFlags, opened.handleId(),
             openFileToken, *m_helpersCache, m_forceProxyIOCache,
             m_providerTimeout, m_randomReadPrefetchEvaluationFrequency));
+    m_openFileHandles.emplace(uuid, fuseFileHandleId);
     m_fuseFileHandleFlags.emplace(fuseFileHandleId, flags);
 
     IOTRACE_END(
@@ -642,6 +645,14 @@ void FsLogic::release(
     }
 
     m_fuseFileHandles.erase(fileHandleId);
+    auto pairIt = m_openFileHandles.equal_range(uuid);
+    auto it = pairIt.first;
+    for (; it != pairIt.second; ++it) {
+        if (it->second == fileHandleId) {
+            m_openFileHandles.erase(it);
+            break;
+        }
+    }
     m_fuseFileHandleFlags.erase(fileHandleId);
 
     if (releaseException)
@@ -1520,6 +1531,7 @@ std::pair<FileAttrPtr, std::uint64_t> FsLogic::create(
         m_providerTimeout);
 
     m_fuseFileHandles.emplace(fuseFileHandleId, fuseFileHandle);
+    m_openFileHandles.emplace(uuid, fuseFileHandleId);
     m_fuseFileHandleFlags.emplace(fuseFileHandleId, flags);
 
     LOG_DBG(2) << "Created file " << name << " in " << parentUuid
@@ -1655,6 +1667,15 @@ FileAttrPtr FsLogic::setattr(
     }
 
     if ((toSet & FUSE_SET_ATTR_SIZE) != 0) {
+        // Make sure all opened handles for file uuid are fsynced before
+        // truncating
+        auto pairIt = m_openFileHandles.equal_range(uuid);
+        auto it = pairIt.first;
+        for (; it != pairIt.second; ++it) {
+            auto fileHandleId = it->second;
+            fsync(uuid, fileHandleId, false);
+        }
+
         communicate(messages::fuse::Truncate{uuid.toStdString(), attr.st_size},
             m_providerTimeout);
         m_metadataCache.truncate(uuid, attr.st_size);
