@@ -2,7 +2,7 @@
 
 [![Build Status](https://api.travis-ci.org/onedata/oneclient.svg?branch=develop)](https://travis-ci.org/onedata/oneclient) [![Coverage Status](https://coveralls.io/repos/github/onedata/oneclient/badge.svg?branch=develop)](https://coveralls.io/github/onedata/oneclient?branch=develop)
 
-Latest stable release: ![version](https://img.shields.io/badge/version-19.02.2-blue)
+Latest stable release: ![version](https://img.shields.io/badge/version-20.02.4-blue)
 
 *oneclient* is a command line [Onedata](onedata.org) client. It provides a POSIX interface to user's files in *Onedata* system.
 
