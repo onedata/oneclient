@@ -54,7 +54,7 @@ requirements:
     - openssl >=1.1.1c
     - pcre
     - pkg-config >=0.29
-    - protobuf
+    - protobuf =3.13.0.1
     - proxygen ={{ folly_version }}
     - pthread-stubs
     - python {{ python }}
@@ -79,7 +79,7 @@ requirements:
     - pcre
     - poco =1.8.1
     - python {{ python }}
-    - protobuf
+    - protobuf =3.13.0.1
     - tbb >=2018.0.5
     - zlib
 
