@@ -232,7 +232,7 @@ conda/oneclient_centos6: package/$(PKG_ID).tar.gz
 		PKG_VERSION=$(PKG_VERSION) CONDA_BLD_PATH=$$PWD/package/conda-bld \
 		conda build --user onedata-centos6-devel --token "${CONDA_TOKEN}" \
 		${CONDA_BUILD_OPTIONS} package/conda/oneclient
-	echo "onedata-centos6-devel/oneclient/$(PKG_VERSION)/download/linux-64/oneclient-$(PKG_VERSION)_0.tar.bz2" >> conda-pkg-list.txt
+	echo "onedata-centos6-devel/oneclient/$(PKG_VERSION)/download/linux-64/oneclient-$(PKG_VERSION)-0.tar.bz2" >> conda-pkg-list.txt
 
 .PHONY: conda/onedatafs
 conda/onedatafs: SHELL:=/bin/bash
