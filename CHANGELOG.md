@@ -4,6 +4,18 @@ Release notes for project oneclient
 CHANGELOG
 ---------
 
+### 20.02.5
+
+-   **VFS-7129** Improved connection pool management for HTTP storages,
+    including minimized reconnections and DNS caching.
+-   **VFS-7113** Fixed original timestamp preservation during \`cp
+    \--preserve=times\` or \`rsync \--times\` commands.
+-   **VFS-7079** Updated the list of system extended attributes in
+    oneclient, org.onedata.uuid was renamed to org.onedata.guid and
+    org.onedata.file\_id now contains CDMI object id.
+-   **VFS-7047** Fixed possible race when using buffered helper to write
+    to storage which fails after the file size has been updated.
+
 ### 20.02.4
 
 -   **VFS-7015** Added I/O proxy fallback in direct access mode in
