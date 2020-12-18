@@ -1689,6 +1689,8 @@ FileAttrPtr FsLogic::setattr(
             "comp.oneclient.mod.events.submod.emitted.truncate");
     }
 
+    m_eventManager.flush();
+
     messages::fuse::UpdateTimes updateTimes{uuid.toStdString()};
 
     const auto now = std::chrono::system_clock::now();
