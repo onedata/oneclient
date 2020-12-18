@@ -1689,8 +1689,6 @@ FileAttrPtr FsLogic::setattr(
             "comp.oneclient.mod.events.submod.emitted.truncate");
     }
 
-    m_eventManager.flush();
-
     messages::fuse::UpdateTimes updateTimes{uuid.toStdString()};
 
     const auto now = std::chrono::system_clock::now();
@@ -1701,6 +1699,17 @@ FileAttrPtr FsLogic::setattr(
         LOG_DBG(2) << "Changed atime of " << uuid << " to " << attr.st_atime;
     }
     if ((toSet & FUSE_SET_ATTR_MTIME) != 0) {
+        // Make sure all opened handles for file uuid are fsynced before
+        // updating mtime
+        auto pairIt = m_openFileHandles.equal_range(uuid);
+        auto it = pairIt.first;
+        for (; it != pairIt.second; ++it) {
+            auto fileHandleId = it->second;
+            fsync(uuid, fileHandleId, false);
+        }
+
+        m_eventManager.flush();
+
         updateTimes.mtime(
             std::chrono::system_clock::from_time_t(attr.st_mtime));
         LOG_DBG(2) << "Changed mtime of " << uuid << " to " << attr.st_atime;
