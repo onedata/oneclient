@@ -62,6 +62,8 @@ void FsSubscriptions::handleFileAttrChanged(
 
     m_runInFiber(
         [this, events = std::move(events)] {
+            if (m_stopped)
+                return;
             for (auto &event : events) {
                 auto attr = std::make_shared<FileAttr>(event->fileAttr());
 
@@ -143,6 +145,8 @@ void FsSubscriptions::handleFileLocationChanged(
     ONE_METRIC_COUNTER_INC(
         "comp.oneclient.mod.events.submod.received.file_location_changed");
     m_runInFiber([this, events = std::move(events)] {
+        if (m_stopped)
+            return;
         for (auto &event : events) {
             bool updateSucceeded = false;
 
@@ -201,6 +205,8 @@ void FsSubscriptions::handlePermissionChanged(
     ONE_METRIC_COUNTER_INC(
         "comp.oneclient.mod.events.submod.received.file_permission_changed");
     m_runInFiber([this, events = std::move(events)] {
+        if (m_stopped)
+            return;
         for (auto &event : events) {
             m_forceProxyIOCache.remove(event->fileUuid());
         }
