@@ -301,6 +301,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
 
 FsLogic::~FsLogic()
 {
+    m_fsSubscriptions.stop();
     m_stopped = true;
 
     m_directoryCachePruneBaton.post();
