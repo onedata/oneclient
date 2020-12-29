@@ -321,6 +321,9 @@ public:
 
         m_fiberManager
             .addTaskRemoteFuture([this]() mutable {
+                return m_fsLogic->fsync(m_uuid, m_fileHandleId, false);
+            })
+            .then([this]() mutable {
                 return m_fsLogic->release(m_uuid, m_fileHandleId);
             })
             .get();
@@ -738,7 +741,7 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(
     int port = 443,
     int provider_timeout = 2 * 60,
     int metadata_cache_size = 5 * 1'000'000,
-    int drop_dir_cache_after = 5 * 60,
+    int drop_dir_cache_after = 0,
     int log_level = 0,
     std::string cli_args = {})
 // clang-format on

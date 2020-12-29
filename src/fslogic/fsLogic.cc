@@ -301,6 +301,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
 
 FsLogic::~FsLogic()
 {
+    m_fsSubscriptions.stop();
     m_stopped = true;
 
     m_directoryCachePruneBaton.post();
@@ -1644,12 +1645,9 @@ FileAttrPtr FsLogic::setattr(
 
     assertInFiber();
 
-    // TODO: this operation can be optimized with a single message to the
-    // provider
     if ((toSet & FUSE_SET_ATTR_UID) != 0 || (toSet & FUSE_SET_ATTR_GID) != 0) {
-        LOG_DBG(1) << "Attempting to modify uid or gid attempted for " << uuid
-                   << ". Operation not supported.";
-        throw std::errc::operation_not_supported; // NOLINT
+        LOG_DBG(2) << "Attempting to modify uid or gid attempted for " << uuid
+                   << ". Operation not supported - ignoring...";
     }
 
     if ((toSet & FUSE_SET_ATTR_MODE) != 0) {

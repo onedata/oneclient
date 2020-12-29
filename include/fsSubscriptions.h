@@ -148,6 +148,11 @@ public:
      */
     bool unsubscribeFileRenamed(const folly::fbstring &fileUuid);
 
+    /**
+     * Stop handling of events.
+     */
+    void stop() { m_stopped = true; }
+
 private:
     void subscribe(const folly::fbstring &fileUuid,
         const events::Subscription &subscription);
@@ -174,6 +179,8 @@ private:
         m_subscriptions;
 
     using SubscriptionAcc = typename decltype(m_subscriptions)::accessor;
+
+    bool m_stopped{false};
 };
 
 } // namespace client
