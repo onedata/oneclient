@@ -248,7 +248,6 @@ conda/onedatafs: package/$(PKG_ID).tar.gz
 		PKG_VERSION=$(PKG_VERSION) CONDA_BLD_PATH=$$PWD/package/conda-bld \
 		conda build --user onedata-devel --token "${CONDA_TOKEN}" \
 		${CONDA_BUILD_OPTIONS} package/conda/onedatafs
-	echo "onedata-devel/onedatafs/$(PKG_VERSION)/download/linux-64/onedatafs-$(PKG_VERSION)-py27.tar.bz2" >> conda-pkg-list.txt
 	echo "onedata-devel/onedatafs/$(PKG_VERSION)/download/linux-64/onedatafs-$(PKG_VERSION)-py36.tar.bz2" >> conda-pkg-list.txt
 	echo "onedata-devel/onedatafs/$(PKG_VERSION)/download/linux-64/onedatafs-$(PKG_VERSION)-py37.tar.bz2" >> conda-pkg-list.txt
 
