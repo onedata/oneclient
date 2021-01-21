@@ -1908,6 +1908,19 @@ def test_truncate_should_truncate(appmock_client, endpoint, fl, uuid, stat):
     assert file_request.context_guid == uuid
 
 
+def test_truncate_should_truncate_open_file(appmock_client, endpoint, fl, uuid):
+    fh = do_open(endpoint, fl, uuid, size=10, blocks=[(0, 10)])
+
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    with reply(endpoint, [response, response, response]) as queue:
+        fl.truncate(uuid, 0)
+        client_message = queue.get()
+
+    do_release(endpoint, fl, uuid, fh)
+
+
 def test_truncate_should_pass_truncate_errors(appmock_client, endpoint, fl, uuid):
     getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.REG)
     response = messages_pb2.ServerMessage()
