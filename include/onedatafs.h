@@ -342,6 +342,7 @@ class OnedataFS {
 public:
     OnedataFS(std::string sessionId, std::string rootUuid,
         std::shared_ptr<Context> context,
+        std::shared_ptr<auth::AuthManager> authManager,
         std::shared_ptr<messages::Configuration> configuration,
         std::unique_ptr<cache::HelpersCache> helpersCache,
         unsigned int metadataCacheSize, bool readEventsDisabled,
@@ -350,6 +351,7 @@ public:
         : m_rootUuid{std::move(rootUuid)}
         , m_sessionId{std::move(sessionId)}
         , m_context{std::move(context)}
+        , m_authManager{authManager}
     {
         m_fsLogic = std::make_unique<FiberFsLogic>(m_context,
             std::move(configuration), std::move(helpersCache),
@@ -718,6 +720,7 @@ private:
     std::string m_rootUuid;
     std::string m_sessionId;
     std::shared_ptr<Context> m_context;
+    std::shared_ptr<auth::AuthManager> m_authManager;
     folly::EventBase m_eventBase;
 
     folly::fibers::FiberManager &m_fiberManager{
@@ -841,10 +844,11 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(
     const auto &rootUuid = configuration->rootUuid();
 
     auto onedatafs = boost::make_shared<OnedataFS>(sessionId,
-        rootUuid.toStdString(), std::move(context), std::move(configuration),
-        std::move(helpersCache), options->getMetadataCacheSize(),
-        options->areFileReadEventsDisabled(), options->isFullblockReadEnabled(),
-        options->getProviderTimeout(), options->getDirectoryCacheDropAfter());
+        rootUuid.toStdString(), std::move(context), std::move(authManager),
+        std::move(configuration), std::move(helpersCache),
+        options->getMetadataCacheSize(), options->areFileReadEventsDisabled(),
+        options->isFullblockReadEnabled(), options->getProviderTimeout(),
+        options->getDirectoryCacheDropAfter());
 
     return onedatafs;
 }
