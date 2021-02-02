@@ -90,7 +90,7 @@ void unmountFuse(std::shared_ptr<options::Options> options)
 #else
         auto exec = "/bin/fusermount";
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
-        execl(exec, exec, "-u", options->getMountpoint().c_str(), NULL);
+        execl(exec, exec, "-uz", options->getMountpoint().c_str(), NULL);
 #endif
     }
     if (status == 0) {
