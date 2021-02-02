@@ -47,6 +47,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <csignal>
 #include <exception>
 #include <future>
 #include <iostream>
@@ -60,6 +61,10 @@ using namespace one::client;          // NOLINT
 using namespace one::client::logging; // NOLINT
 using namespace one::monitoring;      // NOLINT
 
+namespace {
+std::shared_ptr<options::Options> __options{};
+} // namespace
+
 std::shared_ptr<options::Options> getOptions(int argc, char *argv[])
 {
     auto options = std::make_shared<options::Options>();
@@ -72,6 +77,22 @@ std::shared_ptr<options::Options> getOptions(int argc, char *argv[])
                   << "See '" << argv[0] << " --help'." << std::endl;
         exit(EXIT_FAILURE);
     }
+}
+
+void sigtermHandler(int signum)
+{
+    if (!__options)
+        exit(signum);
+
+    std::cerr << "Oneclient received (" << signum
+              << ") signal - releasing mountpoint: "
+              << __options->getMountpoint().c_str() << std::endl;
+
+    auto exec = "/bin/fusermount";
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
+    execl(exec, exec, "-uz", __options->getMountpoint().c_str(), NULL);
+
+    exit(signum);
 }
 
 void unmountFuse(std::shared_ptr<options::Options> options)
@@ -90,7 +111,7 @@ void unmountFuse(std::shared_ptr<options::Options> options)
 #else
         auto exec = "/bin/fusermount";
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
-        execl(exec, exec, "-u", options->getMountpoint().c_str(), NULL);
+        execl(exec, exec, "-uz", options->getMountpoint().c_str(), NULL);
 #endif
     }
     if (status == 0) {
@@ -104,6 +125,7 @@ int main(int argc, char *argv[])
     helpers::init();
     auto context = std::make_shared<Context>();
     auto options = getOptions(argc, argv);
+    __options = options;
     context->setOptions(options);
 
     if (options->getHelp()) {
@@ -160,6 +182,9 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
 
     ScopeExit unmountFuse{[=] { fuse_unmount(mountpoint, ch); }};
+
+    std::signal(SIGINT, sigtermHandler);
+    std::signal(SIGTERM, sigtermHandler);
 
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
     res = fcntl(fuse_chan_fd(ch), F_SETFD, FD_CLOEXEC);
