@@ -64,20 +64,10 @@ std::shared_ptr<communication::Communicator> handshake(
 std::shared_ptr<auth::AuthManager> getAuthManager(
     std::shared_ptr<Context> context)
 {
-    try {
-        auto options = context->options();
-        return std::make_shared<auth::MacaroonAuthManager>(context,
-            options->getProviderHost().get(), options->getProviderPort(),
-            !options->isInsecure(), options->getProviderTimeout());
-    }
-    catch (std::exception &e) {
-        std::cerr << "Authentication error: '" << e.what() << "'. Aborting..."
-                  << std::endl;
-        std::cerr << "Please make sure that the access token has been copied "
-                     "correctly."
-                  << std::endl;
-        exit(EXIT_FAILURE);
-    }
+    auto options = context->options();
+    return std::make_shared<auth::MacaroonAuthManager>(context,
+        options->getProviderHost().get(), options->getProviderPort(),
+        !options->isInsecure(), options->getProviderTimeout());
 }
 
 std::shared_ptr<messages::Configuration> getConfiguration(
@@ -92,28 +82,20 @@ std::shared_ptr<messages::Configuration> getConfiguration(
                   << options->getProviderPort() << "' using session ID: '"
                   << sessionId << "'..." << std::endl;
 
-    try {
-        auto communicator =
-            handshake(sessionId, std::move(authManager), std::move(context));
+    auto communicator =
+        handshake(sessionId, std::move(authManager), std::move(context));
 
-        if (!quiet)
-            std::cout << "Getting configuration..." << std::endl;
+    if (!quiet)
+        std::cout << "Getting configuration..." << std::endl;
 
-        auto future = communicator->communicate<messages::Configuration>(
-            messages::GetConfiguration{});
-        auto configuration =
-            communication::wait(future, options->getProviderTimeout());
+    auto future = communicator->communicate<messages::Configuration>(
+        messages::GetConfiguration{});
+    auto configuration =
+        communication::wait(future, options->getProviderTimeout());
 
-        communicator->stop();
+    communicator->stop();
 
-        return std::make_shared<messages::Configuration>(
-            std::move(configuration));
-    }
-    catch (const std::exception &e) {
-        std::cerr << "Handshake connection error: " << e.what() << std::endl;
-        std::cerr << "Connection refused - aborting..." << std::endl;
-        return {};
-    }
+    return std::make_shared<messages::Configuration>(std::move(configuration));
 }
 
 std::shared_ptr<communication::Communicator> getCommunicator(
