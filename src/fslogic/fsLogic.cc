@@ -1671,8 +1671,10 @@ FileAttrPtr FsLogic::setattr(
         auto it = pairIt.first;
         for (; it != pairIt.second; ++it) {
             auto fileHandleId = it->second;
-            fsync(uuid, fileHandleId, false);
+            flush(uuid, fileHandleId);
         }
+
+        m_eventManager.flush();
 
         communicate(messages::fuse::Truncate{uuid.toStdString(), attr.st_size},
             m_providerTimeout);
@@ -1703,7 +1705,7 @@ FileAttrPtr FsLogic::setattr(
         auto it = pairIt.first;
         for (; it != pairIt.second; ++it) {
             auto fileHandleId = it->second;
-            fsync(uuid, fileHandleId, false);
+            flush(uuid, fileHandleId);
         }
 
         m_eventManager.flush();
