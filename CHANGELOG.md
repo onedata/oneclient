@@ -1,8 +1,16 @@
-Release notes for project oneclient
-===================================
+# Release notes for project oneclient
 
-CHANGELOG
----------
+## CHANGELOG
+
+### 20.02.6
+
+-   **VFS-7154** Improved support for preservation of attributes during
+    rsync or cp commands, chown does not raise errors anymore.
+-   **VFS-7119** Dropped support for OnedataFS Anaconda packages for
+    Python 2, due to Python 2 EOL.
+-   **VFS-6928** Fixed possible deadlock in massive parallel truncate
+    operations on Ceph pools, which could\'ve affected replica eviction
+    and delete operations.
 
 ### 20.02.5
 
