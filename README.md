@@ -25,18 +25,19 @@ make submodules
 
 # To build debug version
 mkdir debug && cd debug
-cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCODE_COVERAGE=ON -DWITH_CEPH=ON -DWITH_SWIFT=ON -DWITH_S3=ON -DWITH_GLUSTERFS=ON -DWITH_WEBDAV=ON -DWITH_ONEDATAFS=ON ..
+cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCODE_COVERAGE=ON -DWITH_CEPH=ON -DWITH_SWIFT=ON -DWITH_S3=ON -DWITH_GLUSTERFS=ON -DWITH_WEBDAV=ON -DWITH_XROOTD=ON -DWITH_ONEDATAFS=ON ..
 cd ..
 cmake --build release
 ```
 
-*oneclient* by default compiles with built-in support for Ceph, S3, OpenStack SWIFT, GlusterFS and WebDAV.  These drivers can be disabled during compilation by providing the following flags:
+*oneclient* by default compiles with built-in support for Ceph, S3, OpenStack SWIFT, GlusterFS, WebDAV and XRootD.  These drivers can be disabled during compilation by providing the following flags:
 
 * WITH_CEPH=OFF - disables Ceph support
 * WITH_S3=OFF - disables S3 support
 * WITH_SWIFT=OFF - disables Swift support
 * WITH_GLUSTERFS=OFF - disables GlusterFS support
 * WITH_WEBDAV=OFF - disables WebDAV support
+* WITH_XROOTD=OFF - disables XRootD support
 
 The compiled binary `oneclient` will be created on path `release/oneclient`.
 
@@ -126,7 +127,7 @@ General options:
   -V [ --version ]                      Show current Oneclient version and
                                         exit.
   -u [ --unmount ]                      Unmount Oneclient and exit.
-  -c [ --config ] <path> (=/mnt/docker/onedata/2002-beta3/oneclient/debug/PREFIX/etc/oneclient.conf)
+  -c [ --config ] <path> (=/etc/oneclient.conf)
                                         Specify path to config file.
   -H [ --host ] <host>                  Specify the hostname of the Oneprovider
                                         instance to which the Oneclient should
@@ -326,13 +327,13 @@ Some options in the config file can be overridden using environment variables, w
 Running dockerized *oneclient* is easy:
 
 ```
-docker run -it --privileged onedata/oneclient:19.02.2
+docker run -it --privileged onedata/oneclient:20.02.6
 ```
 
 To run *oneclient* image without it automatically mounting the volume specify custom entrypoint:
 
 ```
-docker run -it --privileged --entrypoint bash onedata/oneclient:19.02.2
+docker run -it --privileged --entrypoint bash onedata/oneclient:20.02.6
 ```
 
 
@@ -341,19 +342,19 @@ docker run -it --privileged --entrypoint bash onedata/oneclient:19.02.2
 The application will ask for a token and run in the foreground. In order for *oneclient* to remember your token, mount volume `/root/.local/share/oneclient`:
 
 ```
-docker run -it --privileged -v ~/.oneclient_local:/root/.local/share/oneclient onedata/oneclient:19.02.2
+docker run -it --privileged -v ~/.oneclient_local:/root/.local/share/oneclient onedata/oneclient:20.02.6
 ```
 
 You can also pass your token in `ONECLIENT_ACCESS_TOKEN` environment variable:
 
 ```
-docker run -it --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:19.02.2
+docker run -it --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:20.02.6
 ```
 
 If *oneclient* knows the token (either by reading its config file or by reading the environment variable), it can be run as a daemon container:
 
 ```
-docker run -d --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:19.02.2
+docker run -d --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:20.02.6
 ```
 
 ### Accessing your data
@@ -362,7 +363,7 @@ docker run -d --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:19
 spaces.
 
 ```
-docker run -d --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:19.02.2
+docker run -d --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:20.02.6
 
 # Display container's IP address
 docker inspect --format "{{ .NetworkSettings.IPAddress }}" $(docker ps -ql)
