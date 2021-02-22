@@ -38,11 +38,15 @@
 #include "messages/fuse/helperParams.h"
 #include "messages/fuse/listXAttr.h"
 #include "messages/fuse/makeFile.h"
+#include "messages/fuse/makeLink.h"
+#include "messages/fuse/makeSymLink.h"
 #include "messages/fuse/openFile.h"
+#include "messages/fuse/readSymLink.h"
 #include "messages/fuse/release.h"
 #include "messages/fuse/removeXAttr.h"
 #include "messages/fuse/rename.h"
 #include "messages/fuse/setXAttr.h"
+#include "messages/fuse/symLink.h"
 #include "messages/fuse/syncResponse.h"
 #include "messages/fuse/synchronizeBlock.h"
 #include "messages/fuse/synchronizeBlockAndComputeChecksum.h"
@@ -1492,6 +1496,60 @@ FileAttrPtr FsLogic::mknod(const folly::fbstring &parentUuid,
         sharedAttr->uuid(), mode)
 
     return sharedAttr;
+}
+
+FileAttrPtr FsLogic::link(const folly::fbstring &uuid,
+    const folly::fbstring &newParentUuid, const folly::fbstring &newName)
+{
+    LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(newParentUuid)
+                << LOG_FARG(newName);
+
+    IOTRACE_START()
+
+    assertInFiber();
+
+    messages::fuse::MakeLink msg{uuid, newParentUuid, newName};
+    auto attr = communicate<FileAttr>(std::move(msg), m_providerTimeout);
+    auto sharedAttr = std::make_shared<FileAttr>(std::move(attr));
+
+    IOTRACE_END(IOTraceLink, IOTraceLogger::OpType::LINK, uuid, 0,
+        newParentUuid, newName)
+
+    return sharedAttr;
+}
+
+FileAttrPtr FsLogic::symlink(const folly::fbstring &parentUuid,
+    const folly::fbstring &name, const folly::fbstring &link)
+{
+    LOG_FCALL() << LOG_FARG(link) << LOG_FARG(parentUuid) << LOG_FARG(name);
+
+    assertInFiber();
+
+    IOTRACE_START()
+
+    messages::fuse::MakeSymLink msg{link, parentUuid, name};
+    auto attr = communicate<FileAttr>(std::move(msg), m_providerTimeout);
+    auto sharedAttr = std::make_shared<FileAttr>(std::move(attr));
+
+    IOTRACE_END(
+        IOTraceLink, IOTraceLogger::OpType::SYMLINK, parentUuid, 0, name, link)
+
+    return sharedAttr;
+}
+
+folly::fbstring FsLogic::readlink(const folly::fbstring &uuid)
+{
+    LOG_FCALL() << LOG_FARG(uuid);
+
+    assertInFiber();
+
+    IOTRACE_GUARD(IOTraceReadLink, IOTraceLogger::OpType::READLINK, uuid, 0)
+
+    messages::fuse::ReadSymLink msg{uuid};
+    auto symlink = communicate<one::messages::fuse::SymLink>(
+        std::move(msg), m_providerTimeout);
+
+    return symlink.link();
 }
 
 std::pair<FileAttrPtr, std::uint64_t> FsLogic::create(
