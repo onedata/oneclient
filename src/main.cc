@@ -280,6 +280,7 @@ int main(int argc, char *argv[])
                 "ERROR: Expired token - the provided token is "
                 "expired, please create a new one.\n");
         else if (e.code() == ErrorCode::invalid_macaroon ||
+            e.code() == ErrorCode::invalid_provider ||
             e.code() == ErrorCode::macaroon_not_found)
             fmt::print(stderr,
                 "ERROR: Invalid token - the provided token is not valid for "
