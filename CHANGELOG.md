@@ -4,6 +4,11 @@ Release notes for project oneclient
 CHANGELOG
 ---------
 
+### 21.02.0-alpha3
+
+-   **VFS-7275** Improved Oneclient exception handling, including
+    connection errors and invalid tokens.
+
 ### 21.02.0-alpha2
 
 -   **VFS-7276** Improved handling of startup errors in Oneclient,
