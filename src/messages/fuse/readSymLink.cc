@@ -31,6 +31,8 @@ std::string ReadSymLink::toString() const
 std::unique_ptr<ProtocolClientMessage> ReadSymLink::serializeAndDestroy()
 {
     auto msg = FileRequest::serializeAndDestroy();
+    msg->mutable_fuse_request()->mutable_file_request()->mutable_read_symlink();
+
     return msg;
 }
 

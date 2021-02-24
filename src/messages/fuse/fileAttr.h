@@ -42,7 +42,7 @@ class FileAttr : public FuseResponse {
 public:
     using ProtocolMessage = clproto::FileAttr;
 
-    enum class FileType { regular, directory, link };
+    enum class FileType { regular, directory, link, symlink };
 
     FileAttr() = default;
     FileAttr(const FileAttr &) = default;

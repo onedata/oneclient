@@ -149,6 +149,8 @@ std::string FileAttr::toString() const
             break;
         case FileType::link:
             stream << "link";
+        case FileType::symlink:
+            stream << "symlink";
             break;
     }
 
@@ -184,6 +186,8 @@ void FileAttr::deserialize(const ProtocolMessage &message)
         m_type = FileType::regular;
     else if (message.type() == clproto::FileType::LNK)
         m_type = FileType::link;
+    else if (message.type() == clproto::FileType::SYMLNK)
+        m_type = FileType::symlink;
     else
         throw std::system_error{
             std::make_error_code(std::errc::protocol_error), "bad filetype"};
