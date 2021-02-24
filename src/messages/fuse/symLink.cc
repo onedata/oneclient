@@ -33,7 +33,6 @@ SymLink::SymLink(std::unique_ptr<ProtocolServerMessage> serverMessage)
 
 const std::string &SymLink::link() const { return m_link; }
 
-
 std::string SymLink::toString() const
 {
     return fmt::format("type: 'SymLink', link: '{}'", m_link);

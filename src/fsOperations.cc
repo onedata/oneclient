@@ -391,15 +391,13 @@ void wrap_symlink(
         req, parent, name, link);
 }
 
-void wrap_readlink(
-    fuse_req_t req, fuse_ino_t ino)
+void wrap_readlink(fuse_req_t req, fuse_ino_t ino)
 {
     LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino);
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.readlink");
     wrap(&fslogic::Composite::readlink,
-        [req, timer = std::move(timer)](
-            const folly::fbstring &link) {
+        [req, timer = std::move(timer)](const folly::fbstring &link) {
             LOG_DBG(2) << "Read symbolic link: " << link;
             fuse_reply_readlink(req, link.c_str());
         },

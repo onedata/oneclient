@@ -22,7 +22,8 @@ namespace messages {
 namespace fuse {
 
 /**
- * The MakeSymLink class represents a FUSE request for creation of a symbolic link.
+ * The MakeSymLink class represents a FUSE request for creation of a symbolic
+ * link.
  */
 class MakeSymLink : public FileRequest {
 public:
