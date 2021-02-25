@@ -112,7 +112,7 @@ public:
      */
     folly::fbvector<folly::fbstring> readdir(const folly::fbstring &uuid,
         off_t off, std::size_t chunkSize, bool includeVirtual = false,
-        bool onlyFullReplicas = false, bool showHardLinkCount = false);
+        bool onlyFullReplicas = false, bool includeHardLinkCount = false);
 
     /**
      * Opens a file in the cache.

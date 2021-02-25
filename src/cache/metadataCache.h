@@ -392,14 +392,9 @@ private:
     std::unordered_set<folly::fbstring> m_whitelistedSpaceNames;
     std::unordered_set<folly::fbstring> m_whitelistedSpaceIds;
     std::shared_ptr<VirtualFsHelpersCache> m_virtualFsHelpersCache{};
-<<<<<<< HEAD
-    const folly::Optional<bool> m_showOnlyFullReplicas;
-    const folly::Optional<bool> m_showHardLinkCount;
-    const bool m_showSpaceIdsNotNames;
-=======
     const bool m_showOnlyFullReplicas;
     const bool m_showHardLinkCount;
->>>>>>> VFS-7360 Refactor hard link option to native bool
+    const bool m_showSpaceIdsNotNames;
 };
 
 } // namespace cache

@@ -58,8 +58,8 @@ private:
     const off_t m_offset;
     const std::size_t m_size;
     folly::Optional<folly::fbstring> m_indexToken;
-    bool m_includeReplicationStatus;
-    bool m_includeHardLinkCount;
+    bool m_includeReplicationStatus{};
+    bool m_includeHardLinkCount{};
 };
 
 } // namespace fuse
