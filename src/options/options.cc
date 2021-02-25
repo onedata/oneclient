@@ -1140,22 +1140,16 @@ uint64_t Options::getEmulateAvailableSpace() const
         .get_value_or(DEFAULT_EMULATE_AVAILABLE_SPACE);
 }
 
-folly::Optional<bool> Options::showOnlyFullReplicas() const
+bool Options::showOnlyFullReplicas() const
 {
-    auto res = get<bool>({"only-full-replicas", "only_full_replicas"});
-    if (!res)
-        return {};
-
-    return res.get();
+    return get<bool>({"only-full-replicas", "only_full_replicas"})
+        .get_value_or(false);
 }
 
-folly::Optional<bool> Options::showHardLinkCount() const
+bool Options::showHardLinkCount() const
 {
-    auto res = get<bool>({"hard-link-count", "hard_link_count"});
-    if (!res)
-        return {};
-
-    return res.get();
+    return get<bool>({"hard-link-count", "hard_link_count"})
+        .get_value_or(false);
 }
 
 bool Options::isArchivematicaModeEnabled() const

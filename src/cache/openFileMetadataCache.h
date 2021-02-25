@@ -73,8 +73,7 @@ public:
         const folly::fbstring &rootUuid,
         const std::vector<std::string> &spaceNames,
         const std::vector<std::string> &spaceIds,
-        const folly::Optional<bool> showOnlyFullReplicas,
-        const folly::Optional<bool> showHardLinkCount,
+        const bool showOnlyFullReplicas, const bool showHardLinkCount,
         const bool showSpaceIdsNotNames = false);
 
     /**

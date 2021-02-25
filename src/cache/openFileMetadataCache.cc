@@ -28,13 +28,11 @@ OpenFileMetadataCache::OpenFileMetadataCache(
     const std::chrono::seconds providerTimeout,
     const std::chrono::seconds directoryCacheDropAfter,
     const folly::fbstring &rootUuid, const std::vector<std::string> &spaceNames,
-    const std::vector<std::string> &spaceIds,
-    const folly::Optional<bool> showOnlyFullReplicas,
-    const folly::Optional<bool> showHardLinkCount,
-    const bool showSpaceIdsNotNames)
+    const std::vector<std::string> &spaceIds, const bool showOnlyFullReplicas,
+    const bool showHardLinkCount, const bool showSpaceIdsNotNames)
     : MetadataCache{communicator, providerTimeout, rootUuid, spaceNames,
-          spaceIds, std::move(showOnlyFullReplicas),
-          std::move(showHardLinkCount), showSpaceIdsNotNames}
+          spaceIds, showOnlyFullReplicas, showHardLinkCount,
+          showSpaceIdsNotNames}
     , m_targetSize{targetSize}
     , m_directoryCacheDropAfter{directoryCacheDropAfter}
 {

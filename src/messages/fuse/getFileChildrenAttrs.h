@@ -47,8 +47,8 @@ public:
      */
     GetFileChildrenAttrs(const folly::fbstring &uuid, const off_t offset,
         const std::size_t size, folly::Optional<folly::fbstring> indexToken,
-        folly::Optional<bool> includeReplicationStatus,
-        folly::Optional<bool> includeHardLinkCount);
+        bool includeReplicationStatus = false,
+        bool includeHardLinkCount = false);
 
     std::string toString() const override;
 
@@ -58,8 +58,8 @@ private:
     const off_t m_offset;
     const std::size_t m_size;
     folly::Optional<folly::fbstring> m_indexToken;
-    folly::Optional<bool> m_includeReplicationStatus;
-    folly::Optional<bool> m_includeHardLinkCount;
+    bool m_includeReplicationStatus;
+    bool m_includeHardLinkCount;
 };
 
 } // namespace fuse

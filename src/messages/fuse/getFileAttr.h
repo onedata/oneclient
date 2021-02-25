@@ -33,17 +33,16 @@ public:
      * @param includeLinkCount Whether the response should include hard link
      * count
      */
-    GetFileAttr(folly::fbstring uuid,
-        folly::Optional<bool> includeReplicationStatus = {},
-        folly::Optional<bool> includeLinkCount = {});
+    GetFileAttr(folly::fbstring uuid, bool includeReplicationStatus = false,
+        bool includeLinkCount = false);
 
     std::string toString() const override;
 
 private:
     std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
 
-    folly::Optional<bool> m_includeReplicationStatus;
-    folly::Optional<bool> m_includeLinkCount;
+    bool m_includeReplicationStatus;
+    bool m_includeLinkCount;
 };
 
 } // namespace fuse

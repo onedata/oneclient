@@ -20,7 +20,6 @@
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index_container.hpp>
 #include <folly/FBString.h>
-#include <folly/Optional.h>
 #include <folly/futures/Future.h>
 
 #include <chrono>
@@ -57,8 +56,7 @@ public:
         const std::chrono::seconds providerTimeout, folly::fbstring rootUuid,
         const std::vector<std::string> &spaceNames,
         const std::vector<std::string> &spaceIds,
-        const folly::Optional<bool> showOnlyFullReplicas,
-        const folly::Optional<bool> showHardLinkCount,
+        const bool showOnlyFullReplicas, const bool showHardLinkCount,
         const bool showSpaceIdsNotNames = false);
 
     /**
@@ -394,9 +392,14 @@ private:
     std::unordered_set<folly::fbstring> m_whitelistedSpaceNames;
     std::unordered_set<folly::fbstring> m_whitelistedSpaceIds;
     std::shared_ptr<VirtualFsHelpersCache> m_virtualFsHelpersCache{};
+<<<<<<< HEAD
     const folly::Optional<bool> m_showOnlyFullReplicas;
     const folly::Optional<bool> m_showHardLinkCount;
     const bool m_showSpaceIdsNotNames;
+=======
+    const bool m_showOnlyFullReplicas;
+    const bool m_showHardLinkCount;
+>>>>>>> VFS-7360 Refactor hard link option to native bool
 };
 
 } // namespace cache

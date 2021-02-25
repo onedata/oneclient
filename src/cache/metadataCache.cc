@@ -39,10 +39,8 @@ using namespace std::literals;
 MetadataCache::MetadataCache(communication::Communicator &communicator,
     const std::chrono::seconds providerTimeout, folly::fbstring rootUuid,
     const std::vector<std::string> &spaceNames,
-    const std::vector<std::string> &spaceIds,
-    const folly::Optional<bool> showOnlyFullReplicas,
-    const folly::Optional<bool> showHardLinkCount,
-    const bool showSpaceIdsNotNames)
+    const std::vector<std::string> &spaceIds, const bool showOnlyFullReplicas,
+    const bool showHardLinkCount, const bool showSpaceIdsNotNames)
     : m_communicator{communicator}
     , m_providerTimeout{providerTimeout}
     , m_rootUuid{std::move(rootUuid)}

@@ -91,8 +91,8 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(false, options.isIOTraceLoggerEnabled());
     EXPECT_EQ(false, options.isProxyIOForced());
     EXPECT_EQ(false, options.isDirectIOForced());
-    EXPECT_FALSE(options.showOnlyFullReplicas().hasValue());
-    EXPECT_FALSE(options.showHardLinkCount().hasValue());
+    EXPECT_FALSE(options.showOnlyFullReplicas());
+    EXPECT_FALSE(options.showHardLinkCount());
     EXPECT_EQ(false, options.isArchivematicaModeEnabled());
     EXPECT_EQ(false, options.isOpenSharesModeEnabled());
     EXPECT_EQ(false, options.showSpaceIds());

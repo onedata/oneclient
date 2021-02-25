@@ -399,12 +399,12 @@ public:
     /**
      * @return Should client show only fully replicated files?
      */
-    folly::Optional<bool> showOnlyFullReplicas() const;
+    bool showOnlyFullReplicas() const;
 
     /**
      * @return Show number of hard links
      */
-    folly::Optional<bool> showHardLinkCount() const;
+    bool showHardLinkCount() const;
 
     /**
      * @return Is Archivematica mode enabled.
