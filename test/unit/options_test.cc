@@ -91,7 +91,8 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(false, options.isIOTraceLoggerEnabled());
     EXPECT_EQ(false, options.isProxyIOForced());
     EXPECT_EQ(false, options.isDirectIOForced());
-    EXPECT_EQ(false, options.showOnlyFullReplicas());
+    EXPECT_FALSE(options.showOnlyFullReplicas().hasValue());
+    EXPECT_FALSE(options.showHardLinkCount().hasValue());
     EXPECT_EQ(false, options.isArchivematicaModeEnabled());
     EXPECT_EQ(false, options.isOpenSharesModeEnabled());
     EXPECT_EQ(false, options.showSpaceIds());
@@ -952,6 +953,13 @@ TEST_F(OptionsTest, parseCommandLineShouldShowOnlyFullReplicas)
     cmdArgs.insert(cmdArgs.end(), {"--only-full-replicas", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ(true, options.showOnlyFullReplicas());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldShowHardLinkCount)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--hard-link-count", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.showHardLinkCount());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldEnableArchivematicaMode)

@@ -131,6 +131,8 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
           providerTimeout, directoryCacheDropAfter, configuration->rootUuid(),
           m_context->options()->getSpaceNames(),
           m_context->options()->getSpaceIds(),
+          m_context->options()->showOnlyFullReplicas(),
+          m_context->options()->showHardLinkCount(),
           m_context->options()->showSpaceIds()}
     , m_helpersCache{std::move(helpersCache)}
     , m_virtualFsHelpersCache{std::make_shared<
@@ -165,6 +167,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
           ->isClusterPrefetchThresholdRandom()}
     , m_showOnlyFullReplicas{m_context->options()->showOnlyFullReplicas()}
     , m_showSpaceIdsNotNames{m_context->options()->showSpaceIds()}
+    , m_showHardLinkCount{m_context->options()->showHardLinkCount()}
     , m_ioTraceLoggerEnabled{m_context->options()->isIOTraceLoggerEnabled()}
     , m_tagOnCreate{m_context->options()->getOnCreateTag()}
     , m_tagOnModify{m_context->options()->getOnModifyTag()}
@@ -515,8 +518,8 @@ folly::fbvector<folly::fbstring> FsLogic::readdir(
 
     assertInFiber();
 
-    auto entries =
-        m_readdirCache->readdir(uuid, off, maxSize, m_showOnlyFullReplicas);
+    auto entries = m_readdirCache->readdir(
+        uuid, off, maxSize, m_showOnlyFullReplicas, m_showHardLinkCount);
 
     IOTRACE_END(IOTraceReadDir, IOTraceLogger::OpType::READDIR, uuid, 0,
         maxSize, off, entries.size())

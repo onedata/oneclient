@@ -16,6 +16,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/optional.hpp>
 #include <boost/program_options.hpp>
+#include <folly/Optional.h>
 #include <fuse/fuse_opt.h>
 
 #include <chrono>
@@ -398,7 +399,12 @@ public:
     /**
      * @return Should client show only fully replicated files?
      */
-    bool showOnlyFullReplicas() const;
+    folly::Optional<bool> showOnlyFullReplicas() const;
+
+    /**
+     * @return Show number of hard links
+     */
+    folly::Optional<bool> showHardLinkCount() const;
 
     /**
      * @return Is Archivematica mode enabled.

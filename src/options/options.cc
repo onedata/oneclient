@@ -590,9 +590,15 @@ Options::Options()
         ->asSwitch()
         .withLongName("only-full-replicas")
         .withImplicitValue(true)
-        .withDefaultValue(false, "false")
         .withGroup(OptionGroup::INVISIBLE)
         .withDescription("Show only fully replicated files.");
+
+    add<bool>()
+        ->asSwitch()
+        .withLongName("hard-link-count")
+        .withImplicitValue(true)
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Show hard link count properly in stat.");
 
     add<bool>()
         ->asSwitch()
@@ -1134,10 +1140,22 @@ uint64_t Options::getEmulateAvailableSpace() const
         .get_value_or(DEFAULT_EMULATE_AVAILABLE_SPACE);
 }
 
-bool Options::showOnlyFullReplicas() const
+folly::Optional<bool> Options::showOnlyFullReplicas() const
 {
-    return get<bool>({"only-full-replicas", "only_full_replicas"})
-        .get_value_or(false);
+    auto res = get<bool>({"only-full-replicas", "only_full_replicas"});
+    if (!res)
+        return {};
+
+    return res.get();
+}
+
+folly::Optional<bool> Options::showHardLinkCount() const
+{
+    auto res = get<bool>({"hard-link-count", "hard_link_count"});
+    if (!res)
+        return {};
+
+    return res.get();
 }
 
 bool Options::isArchivematicaModeEnabled() const

@@ -28,9 +28,13 @@ OpenFileMetadataCache::OpenFileMetadataCache(
     const std::chrono::seconds providerTimeout,
     const std::chrono::seconds directoryCacheDropAfter,
     const folly::fbstring &rootUuid, const std::vector<std::string> &spaceNames,
-    const std::vector<std::string> &spaceIds, const bool showSpaceIdsNotNames)
+    const std::vector<std::string> &spaceIds,
+    const folly::Optional<bool> showOnlyFullReplicas,
+    const folly::Optional<bool> showHardLinkCount,
+    const bool showSpaceIdsNotNames)
     : MetadataCache{communicator, providerTimeout, rootUuid, spaceNames,
-          spaceIds, showSpaceIdsNotNames}
+          spaceIds, std::move(showOnlyFullReplicas),
+          std::move(showHardLinkCount), showSpaceIdsNotNames}
     , m_targetSize{targetSize}
     , m_directoryCacheDropAfter{directoryCacheDropAfter}
 {
@@ -113,7 +117,7 @@ void OpenFileMetadataCache::releasedir(const folly::fbstring &uuid)
 
 folly::fbvector<folly::fbstring> OpenFileMetadataCache::readdir(
     const folly::fbstring &uuid, off_t off, std::size_t chunkSize,
-    bool includeVirtual, bool onlyFullReplicas)
+    bool includeVirtual, bool onlyFullReplicas, bool includeHardLinkCount)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(off) << LOG_FARG(chunkSize);
 
@@ -121,8 +125,8 @@ folly::fbvector<folly::fbstring> OpenFileMetadataCache::readdir(
 
     noteDirectoryActivity(uuid);
 
-    return MetadataCache::readdir(
-        uuid, off, chunkSize, includeVirtual, onlyFullReplicas);
+    return MetadataCache::readdir(uuid, off, chunkSize, includeVirtual,
+        onlyFullReplicas, includeHardLinkCount);
 }
 
 void OpenFileMetadataCache::pinFile(const folly::fbstring &uuid)
