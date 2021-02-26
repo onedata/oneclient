@@ -72,7 +72,8 @@ public:
         const std::chrono::seconds directoryCacheDropAfter,
         const folly::fbstring &rootUuid,
         const std::vector<std::string> &spaceNames,
-        const std::vector<std::string> &spaceIds);
+        const std::vector<std::string> &spaceIds,
+        const bool showSpaceIdsNotNames = false);
 
     /**
      * Sets a pointer to an instance of @c ReaddirCache.

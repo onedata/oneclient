@@ -28,9 +28,9 @@ OpenFileMetadataCache::OpenFileMetadataCache(
     const std::chrono::seconds providerTimeout,
     const std::chrono::seconds directoryCacheDropAfter,
     const folly::fbstring &rootUuid, const std::vector<std::string> &spaceNames,
-    const std::vector<std::string> &spaceIds)
+    const std::vector<std::string> &spaceIds, const bool showSpaceIdsNotNames)
     : MetadataCache{communicator, providerTimeout, rootUuid, spaceNames,
-          spaceIds}
+          spaceIds, showSpaceIdsNotNames}
     , m_targetSize{targetSize}
     , m_directoryCacheDropAfter{directoryCacheDropAfter}
 {

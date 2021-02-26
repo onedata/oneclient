@@ -56,7 +56,8 @@ public:
     MetadataCache(communication::Communicator &communicator,
         const std::chrono::seconds providerTimeout, folly::fbstring rootUuid,
         const std::vector<std::string> &spaceNames,
-        const std::vector<std::string> &spaceIds);
+        const std::vector<std::string> &spaceIds,
+        const bool showSpaceIdsNotNames = false);
 
     /**
      * Sets a pointer to an instance of @c ReaddirCache.
@@ -385,7 +386,7 @@ private:
     const folly::fbstring m_rootUuid;
     std::unordered_set<folly::fbstring> m_whitelistedSpaceNames;
     std::unordered_set<folly::fbstring> m_whitelistedSpaceIds;
-
+    const bool m_showSpaceIdsNotNames;
     std::shared_ptr<VirtualFsHelpersCache> m_virtualFsHelpersCache{};
 };
 
