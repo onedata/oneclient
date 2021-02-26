@@ -604,6 +604,15 @@ Options::Options()
         .withGroup(OptionGroup::ADVANCED)
         .withDescription("Enable Archivematica mode.");
 
+    add<bool>()
+        ->asSwitch()
+        .withLongName("show-space-ids")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription(
+            "Show space Id's instead of space names in the filesystem tree.");
+
     add<std::string>()
         ->withEnvName("monitoring_type")
         .withLongName("monitoring-type")
@@ -1120,6 +1129,11 @@ bool Options::isArchivematicaModeEnabled() const
 {
     return get<bool>({"enable-archivematica", "enable_archivematica"})
         .get_value_or(false);
+}
+
+bool Options::showSpaceIds() const
+{
+    return get<bool>({"show-space-ids", "show-space-ids"}).get_value_or(false);
 }
 
 bool Options::isMonitoringEnabled() const
