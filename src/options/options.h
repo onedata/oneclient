@@ -404,6 +404,11 @@ public:
      */
     bool isArchivematicaModeEnabled() const;
 
+    /**
+     * @return Show space ids instead of names in filesystem tree.
+     */
+    bool showSpaceIds() const;
+
     /*
      * @return Is monitoring enabled.
      */

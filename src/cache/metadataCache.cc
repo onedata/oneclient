@@ -39,10 +39,11 @@ using namespace std::literals;
 MetadataCache::MetadataCache(communication::Communicator &communicator,
     const std::chrono::seconds providerTimeout, folly::fbstring rootUuid,
     const std::vector<std::string> &spaceNames,
-    const std::vector<std::string> &spaceIds)
+    const std::vector<std::string> &spaceIds, const bool showSpaceIdsNotNames)
     : m_communicator{communicator}
     , m_providerTimeout{providerTimeout}
     , m_rootUuid{std::move(rootUuid)}
+    , m_showSpaceIdsNotNames(showSpaceIdsNotNames)
 {
     for (const auto &name : spaceNames) {
         m_whitelistedSpaceNames.emplace(name);
@@ -163,9 +164,15 @@ folly::fbvector<folly::fbstring> MetadataCache::readdir(
     else {
         // Handle space whitelisting
         folly::fbvector<folly::fbstring> whitelistedSpaces;
+
         for (const auto &m : irange)
-            if (isSpaceWhitelisted(*m.attr))
-                whitelistedSpaces.emplace_back(m.attr->name());
+            if (isSpaceWhitelisted(*m.attr)) {
+                if (m_showSpaceIdsNotNames)
+                    whitelistedSpaces.emplace_back(
+                        util::uuid::uuidToSpaceId(m.attr->uuid()));
+                else
+                    whitelistedSpaces.emplace_back(m.attr->name());
+            }
 
         off_t offCount{0};
         auto it = whitelistedSpaces.begin();
@@ -200,6 +207,9 @@ FileAttrPtr MetadataCache::getAttr(
     LOG_FCALL() << LOG_FARG(parentUuid) << LOG_FARG(name);
 
     assertInFiber();
+
+    if (m_showSpaceIdsNotNames && (parentUuid == m_rootUuid))
+        return getAttr(util::uuid::spaceIdToSpaceUUID(name));
 
     folly::StringPiece effectiveName{name};
     folly::fbstring effectiveParentUuid{parentUuid};

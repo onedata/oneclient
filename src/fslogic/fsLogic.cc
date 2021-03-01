@@ -126,7 +126,8 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     , m_metadataCache{*m_context->communicator(), metadataCacheSize,
           providerTimeout, directoryCacheDropAfter, configuration->rootUuid(),
           m_context->options()->getSpaceNames(),
-          m_context->options()->getSpaceIds()}
+          m_context->options()->getSpaceIds(),
+          m_context->options()->showSpaceIds()}
     , m_helpersCache{std::move(helpersCache)}
     , m_virtualFsHelpersCache{std::make_shared<
           virtualfs::VirtualFsHelpersCache>(*this)}
@@ -159,6 +160,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     , m_clusterPrefetchThresholdRandom{m_context->options()
           ->isClusterPrefetchThresholdRandom()}
     , m_showOnlyFullReplicas{m_context->options()->showOnlyFullReplicas()}
+    , m_showSpaceIdsNotNames{m_context->options()->showSpaceIds()}
     , m_ioTraceLoggerEnabled{m_context->options()->isIOTraceLoggerEnabled()}
     , m_tagOnCreate{m_context->options()->getOnCreateTag()}
     , m_tagOnModify{m_context->options()->getOnModifyTag()}
