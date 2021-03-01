@@ -12,6 +12,7 @@
 
 #include <folly/FBString.h>
 #include <folly/String.h>
+#include <spdlog/fmt/fmt.h>
 
 namespace one {
 namespace client {
@@ -28,7 +29,7 @@ folly::fbstring uuidToSpaceId(const folly::fbstring &uuid)
 {
     folly::fbstring result;
     folly::fbstring decodedUuid;
-    auto status = util::base64::base64_decode(uuid, decodedUuid);
+    auto status = util::base64::base64_url_decode(uuid, decodedUuid);
 
     if (status) {
         std::vector<folly::StringPiece> v;
@@ -47,6 +48,24 @@ folly::fbstring uuidToSpaceId(const folly::fbstring &uuid)
     }
     else
         throw std::invalid_argument("Base64 decoding of Onedata uuid failed.");
+}
+
+/**
+ * Generates space UUID from spaceId, which is in the format:
+ *    guid#space_<spaceId>#<spaceId>
+ * < and > are omitted
+ *
+ * @param spaceId ID of the space
+ * @return Space UUID
+ */
+folly::fbstring spaceIdToSpaceUUID(const folly::fbstring &spaceId)
+{
+    folly::fbstring result;
+    util::base64::base64_url_encode(
+        fmt::format(
+            "guid#space_{}#{}", spaceId.toStdString(), spaceId.toStdString()),
+        result);
+    return result;
 }
 }
 }
