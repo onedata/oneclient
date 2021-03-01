@@ -164,10 +164,12 @@ folly::fbvector<folly::fbstring> MetadataCache::readdir(
     else {
         // Handle space whitelisting
         folly::fbvector<folly::fbstring> whitelistedSpaces;
+
         for (const auto &m : irange)
             if (isSpaceWhitelisted(*m.attr)) {
                 if (m_showSpaceIdsNotNames)
-                    whitelistedSpaces.emplace_back(m.attr->uuid());
+                    whitelistedSpaces.emplace_back(
+                        util::uuid::uuidToSpaceId(m.attr->uuid()));
                 else
                     whitelistedSpaces.emplace_back(m.attr->name());
             }
@@ -207,7 +209,7 @@ FileAttrPtr MetadataCache::getAttr(
     assertInFiber();
 
     if (m_showSpaceIdsNotNames && (parentUuid == m_rootUuid))
-        return getAttr(name);
+        return getAttr(util::uuid::spaceIdToSpaceUUID(name));
 
     folly::StringPiece effectiveName{name};
     folly::fbstring effectiveParentUuid{parentUuid};
