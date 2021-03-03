@@ -405,6 +405,11 @@ public:
     bool isArchivematicaModeEnabled() const;
 
     /**
+     * @return Is open share browsing mode enabled.
+     */
+    bool isOpenSharesModeEnabled() const;
+
+    /**
      * @return Show space ids instead of names in filesystem tree.
      */
     bool showSpaceIds() const;

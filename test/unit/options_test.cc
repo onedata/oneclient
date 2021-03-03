@@ -93,6 +93,7 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(false, options.isDirectIOForced());
     EXPECT_EQ(false, options.showOnlyFullReplicas());
     EXPECT_EQ(false, options.isArchivematicaModeEnabled());
+    EXPECT_EQ(false, options.isOpenSharesModeEnabled());
     EXPECT_EQ(false, options.showSpaceIds());
     EXPECT_EQ(false, options.isMonitoringEnabled());
     EXPECT_EQ(false, options.isMonitoringLevelFull());
@@ -958,6 +959,13 @@ TEST_F(OptionsTest, parseCommandLineShouldEnableArchivematicaMode)
     cmdArgs.insert(cmdArgs.end(), {"--enable-archivematica", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ(true, options.isArchivematicaModeEnabled());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldEnableOpenSharesMode)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--open-shares-mode", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.isOpenSharesModeEnabled());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldShouldShowSpaceIds)

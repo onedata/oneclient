@@ -606,6 +606,15 @@ Options::Options()
 
     add<bool>()
         ->asSwitch()
+        .withLongName("open-shares-mode")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Enable open share mode, in which space directories "
+                         "list open data shares.");
+
+    add<bool>()
+        ->asSwitch()
         .withLongName("show-space-ids")
         .withImplicitValue(true)
         .withDefaultValue(false, "false")
@@ -1128,6 +1137,12 @@ bool Options::showOnlyFullReplicas() const
 bool Options::isArchivematicaModeEnabled() const
 {
     return get<bool>({"enable-archivematica", "enable_archivematica"})
+        .get_value_or(false);
+}
+
+bool Options::isOpenSharesModeEnabled() const
+{
+    return get<bool>({"open-shares-mode", "open-share-mode"})
         .get_value_or(false);
 }
 
