@@ -471,8 +471,8 @@ Options::Options()
         .withDefaultValue(DEFAULT_METADATA_CACHE_SIZE,
             std::to_string(DEFAULT_METADATA_CACHE_SIZE))
         .withGroup(OptionGroup::ADVANCED)
-        .withDescription("Number of separate blocks after which replication "
-                         "for the file is triggered automatically.");
+        .withDescription(
+            "Maximum number of file attributes cached in the metadata cache.");
 
     add<unsigned int>()
         ->withLongName("readdir-prefetch-size")
