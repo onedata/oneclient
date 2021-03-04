@@ -249,7 +249,7 @@ FileAttrPtr MetadataCache::getAttr(
                 m_virtualFsHelpersCache->get(virtualStorageId));
         }
 
-        if (it->attr->type() == FileAttr::FileType::regular &&
+        if (it->attr->type() != FileAttr::FileType::directory &&
             !it->attr->size()) {
             LOG_DBG(1) << "Metadata for file " << effectiveParentUuid << "/"
                        << effectiveName
@@ -331,7 +331,7 @@ MetadataCache::Map::iterator MetadataCache::getAttrIt(
                     m_virtualFsHelpersCache->get(virtualStorageId));
         }
 
-        if (it->attr->type() == FileAttr::FileType::regular &&
+        if (it->attr->type() != FileAttr::FileType::directory &&
             !it->attr->size()) {
             LOG_DBG(2) << "Metadata for file " << effectiveUuid
                        << " exists, but size is undefined, fetch the "
@@ -374,7 +374,7 @@ bool MetadataCache::putAttr(std::shared_ptr<FileAttr> attr)
     }
 
     try {
-        if (attr->type() == FileAttr::FileType::regular &&
+        if (attr->type() != FileAttr::FileType::directory &&
             !(attr->size().hasValue())) {
             LOG(WARNING)
                 << "Received attribute for new file " << uuid
@@ -859,7 +859,7 @@ bool MetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr, bool force)
 
     index.modify(
         it, [&](Metadata &m) {
-            if (m.attr->type() == FileAttr::FileType::regular) {
+            if (m.attr->type() != FileAttr::FileType::directory) {
                 if (newAttr->size() && m.attr->size() &&
                     (*newAttr->size() < *m.attr->size()) && m.location) {
                     LOG_DBG(2)

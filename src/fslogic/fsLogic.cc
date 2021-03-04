@@ -1515,6 +1515,8 @@ FileAttrPtr FsLogic::link(const folly::fbstring &uuid,
     auto attr = communicate<FileAttr>(std::move(msg), m_providerTimeout);
     auto sharedAttr = std::make_shared<FileAttr>(std::move(attr));
 
+    m_metadataCache.putAttr(sharedAttr);
+
     IOTRACE_END(IOTraceLink, IOTraceLogger::OpType::LINK, uuid, 0,
         newParentUuid, newName)
 
@@ -1530,9 +1532,11 @@ FileAttrPtr FsLogic::symlink(const folly::fbstring &parentUuid,
 
     IOTRACE_START()
 
-    messages::fuse::MakeSymLink msg{link, parentUuid, name};
+    messages::fuse::MakeSymLink msg{parentUuid, name, link};
     auto attr = communicate<FileAttr>(std::move(msg), m_providerTimeout);
     auto sharedAttr = std::make_shared<FileAttr>(std::move(attr));
+
+    m_metadataCache.putAttr(sharedAttr);
 
     IOTRACE_END(
         IOTraceLink, IOTraceLogger::OpType::SYMLINK, parentUuid, 0, name, link)
