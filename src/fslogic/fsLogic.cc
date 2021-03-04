@@ -56,6 +56,7 @@
 #include "messages/fuse/xattrList.h"
 #include "monitoring/monitoring.h"
 #include "util/cdmi.h"
+#include "util/uuid.h"
 #include "util/xattrHelper.h"
 
 #include <boost/icl/interval_set.hpp>
@@ -1832,7 +1833,8 @@ folly::fbstring FsLogic::getxattr(
     }
 
     if (name == ONE_XATTR("space_id")) {
-        return folly::sformat("\"{}\"", m_metadataCache.getSpaceId(uuid));
+        return folly::sformat(
+            "\"{}\"", util::uuid::uuidToSpaceId(uuid).toStdString());
     }
 
     if (name == ONE_XATTR("access_type")) {
@@ -1952,8 +1954,11 @@ folly::fbvector<folly::fbstring> FsLogic::listxattr(const folly::fbstring &uuid)
 
     result.push_back(ONE_XATTR("guid"));
     result.push_back(ONE_XATTR("file_id"));
-    if (m_metadataCache.getAttr(uuid)->type() == FileAttr::FileType::regular) {
-        result.push_back(ONE_XATTR("space_id"));
+    result.push_back(ONE_XATTR("space_id"));
+
+    auto fileType = m_metadataCache.getAttr(uuid)->type();
+    if ((fileType == FileAttr::FileType::regular) ||
+        (fileType == FileAttr::FileType::link)) {
         result.push_back(ONE_XATTR("storage_id"));
         result.push_back(ONE_XATTR("storage_file_id"));
         result.push_back(ONE_XATTR("access_type"));
