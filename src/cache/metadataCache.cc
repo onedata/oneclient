@@ -879,6 +879,9 @@ bool MetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr, bool force)
                     m.attr->setFullyReplicated(newAttr->fullyReplicated());
             }
 
+            if (newAttr->nlink())
+                m.attr->nlink(*newAttr->nlink());
+
             m.attr->atime(std::max(m.attr->atime(), newAttr->atime()));
             m.attr->ctime(std::max(m.attr->ctime(), newAttr->ctime()));
             m.attr->mtime(std::max(m.attr->mtime(), newAttr->mtime()));

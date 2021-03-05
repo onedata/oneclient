@@ -27,7 +27,7 @@ struct stat toStatbuf(const FileAttrPtr &attr, const fuse_ino_t ino)
     statbuf.st_uid = attr->uid();
     statbuf.st_mode = attr->mode();
     statbuf.st_size = attr->size() ? *attr->size() : 0;
-    statbuf.st_nlink = 1;
+    statbuf.st_nlink = attr->nlink() ? *attr->nlink() : 1;
     statbuf.st_blksize = kBlockSize;
     // The block count must be returned in 512B blocks, i.e. an eigth
     // of the 4K block size

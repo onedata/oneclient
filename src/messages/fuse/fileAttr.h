@@ -184,6 +184,16 @@ public:
     void size(const off_t size);
 
     /**
+     * Set number of hard links to file.
+     */
+    void nlink(const int count);
+
+    /**
+     * Return number of hardlinks to the file.
+     */
+    folly::Optional<int> nlink() const;
+
+    /**
      * @return True when the file is fully replicated.
      */
     bool fullyReplicated() const;
@@ -255,6 +265,7 @@ private:
     folly::Optional<bool> m_fullyReplicated;
     std::shared_ptr<VirtualFsAdapter> m_virtualFsAdapter{};
     bool m_isVirtualEntrypoint{false};
+    folly::Optional<int> m_nlink{1};
 };
 
 } // namespace fuse
