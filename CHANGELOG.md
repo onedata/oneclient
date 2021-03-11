@@ -4,6 +4,12 @@ Release notes for project oneclient
 CHANGELOG
 ---------
 
+### 21.02.0-alpha4
+
+-   **VFS-7397** Added new option to oneclient \`\--show-space-ids\`
+    which allows to list spaces using their space Id\'s instead of names
+    in the top level oneclient mount directory.
+
 ### 21.02.0-alpha3
 
 -   **VFS-7275** Improved Oneclient exception handling, including
