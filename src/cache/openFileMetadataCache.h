@@ -335,7 +335,7 @@ public:
      * @returns true if attributes have been updated, false if they were not
      * cached.
      */
-    bool updateAttr(std::shared_ptr<FileAttr> newAttr);
+    bool updateAttr(std::shared_ptr<FileAttr> newAttr, bool force = false);
 
 private:
     /**

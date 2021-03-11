@@ -48,6 +48,8 @@ void ReaddirCache::fetch(
 
     assertInFiber();
 
+    auto current_readdir = m_metadataCache.readdir(uuid, 0, 1000);
+    assert(current_readdir.size() == 2);
     // This private method is only called from a lock_guard block, which makes
     // sure before that uuid is no longer member of m_cache, so that we don't
     // have to check again here
@@ -98,7 +100,7 @@ void ReaddirCache::fetch(
                                 !attr->fullyReplicated())
                                 continue;
 
-                            m_metadataCache.updateAttr(std::move(attr));
+                            m_metadataCache.updateAttr(std::move(attr), true);
                         }
                         partialPromise.setValue();
                     });

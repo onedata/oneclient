@@ -182,10 +182,12 @@ public:
     /**
      * Updates file attributes, if cached.
      * @param newAttr Updated attributes.
+     * @param force If set to true and the attr already exists in the cache, it
+     * is first removed and then newAttr is added.
      * @returns true if attributes have been updated, false if they were not
      * cached.
      */
-    bool updateAttr(std::shared_ptr<FileAttr> newAttr);
+    bool updateAttr(std::shared_ptr<FileAttr> newAttr, bool force = false);
 
     /**
      * Updates file location, if cached.

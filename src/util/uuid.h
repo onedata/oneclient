@@ -19,8 +19,6 @@ namespace client {
 namespace util {
 namespace uuid {
 
-constexpr auto ONEDATA_GUID_FRAGMENT_COUNT = 3u;
-
 /**
  * Extracts space Id from Onedata UUID.
  * @param uuid Onedata uuid Based64 encoded Onedata uuid.
@@ -35,7 +33,7 @@ folly::fbstring uuidToSpaceId(const folly::fbstring &uuid)
         std::vector<folly::StringPiece> v;
         folly::split("#", decodedUuid, v);
 
-        if ((v.size() != ONEDATA_GUID_FRAGMENT_COUNT) || (v[0] != "guid"))
+        if ((v[0] != "guid"))
             throw std::invalid_argument("Invalid Onedata uuid format.");
 
         auto spaceFragment = v[1];
