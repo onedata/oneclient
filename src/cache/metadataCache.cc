@@ -168,13 +168,9 @@ folly::fbvector<folly::fbstring> MetadataCache::readdir(
 
         for (const auto &m : irange)
             if (isSpaceWhitelisted(*m.attr)) {
-                if (m_showSpaceIdsNotNames) {
-                    LOG(ERROR)
-                        << "ADDING WHITELISTED SPACE " << m.attr->name() << ":"
-                        << util::uuid::uuidToSpaceId(m.attr->uuid());
+                if (m_showSpaceIdsNotNames)
                     whitelistedSpaces.emplace_back(
                         util::uuid::uuidToSpaceId(m.attr->uuid()));
-                }
                 else
                     whitelistedSpaces.emplace_back(m.attr->name());
             }

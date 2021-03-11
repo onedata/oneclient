@@ -488,8 +488,6 @@ Options::Options()
         ->withLongName("dir-cache-drop-after")
         .withConfigName("dir_cache_drop_after")
         .withValueName("<seconds>")
-        .withDefaultValue(DEFAULT_DIR_CACHE_DROP_AFTER,
-            std::to_string(DEFAULT_DIR_CACHE_DROP_AFTER))
         .withGroup(OptionGroup::ADVANCED)
         .withDescription("Specify (in seconds) how long should directories be "
                          "cached since last activity. When 0 is provided, "
@@ -1078,9 +1076,17 @@ unsigned int Options::getReaddirPrefetchSize() const
 
 std::chrono::seconds Options::getDirectoryCacheDropAfter() const
 {
+    auto defaultDirCacheDropAfter = DEFAULT_DIR_CACHE_DROP_AFTER;
+    if (get<unsigned int>({"dir-cache-drop-after", "dir_cache_drop_after"}) ==
+            boost::none &&
+        isOpenSharesModeEnabled()) {
+        defaultDirCacheDropAfter =
+            DEFAULT_DIR_CACHE_DROP_AFTER_IN_OPEN_SHARE_MODE;
+    }
+
     return std::chrono::seconds{
         get<unsigned int>({"dir-cache-drop-after", "dir_cache_drop_after"})
-            .get_value_or(DEFAULT_DIR_CACHE_DROP_AFTER)};
+            .get_value_or(defaultDirCacheDropAfter)};
 }
 
 boost::optional<std::pair<std::string, std::string>>

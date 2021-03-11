@@ -968,6 +968,16 @@ TEST_F(OptionsTest, parseCommandLineShouldEnableOpenSharesMode)
     EXPECT_EQ(true, options.isOpenSharesModeEnabled());
 }
 
+TEST_F(OptionsTest, parseCommandLineShouldSetDropDirCacheInOpenSharesMode)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--open-shares-mode", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+
+    using namespace one::client::options;
+    EXPECT_EQ(DEFAULT_DIR_CACHE_DROP_AFTER_IN_OPEN_SHARE_MODE,
+        options.getDirectoryCacheDropAfter().count());
+}
+
 TEST_F(OptionsTest, parseCommandLineShouldShouldShowSpaceIds)
 {
     cmdArgs.insert(cmdArgs.end(), {"--show-space-ids", "mountpoint"});
