@@ -241,7 +241,7 @@ def prepare_attr_response_mode(uuid, filetype, mode, parent_uuid=None):
 
 
 def prepare_readlink_response(uuid, link):
-    repl = fuse_messages_pb2.SymLink()
+    repl = fuse_messages_pb2.Symlink()
 
     repl.link = link
 
