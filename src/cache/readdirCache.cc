@@ -98,7 +98,7 @@ void ReaddirCache::fetch(
                                 !attr->fullyReplicated())
                                 continue;
 
-                            m_metadataCache.updateAttr(std::move(attr));
+                            m_metadataCache.updateAttr(std::move(attr), true);
                         }
                         partialPromise.setValue();
                     });

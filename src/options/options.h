@@ -55,6 +55,7 @@ static constexpr auto DEFAULT_PREFETCH_CLUSTER_BLOCK_THRESHOLD = 5;
 static constexpr auto DEFAULT_METADATA_CACHE_SIZE = 5'000'000;
 static constexpr auto DEFAULT_READDIR_PREFETCH_SIZE = 2500;
 static constexpr auto DEFAULT_DIR_CACHE_DROP_AFTER = 5 * 60;
+static constexpr auto DEFAULT_DIR_CACHE_DROP_AFTER_IN_OPEN_SHARE_MODE = 10;
 static constexpr auto DEFAULT_PROVIDER_TIMEOUT = 2 * 60;
 static constexpr auto DEFAULT_STORAGE_TIMEOUT = 2 * 60;
 static constexpr auto DEFAULT_MONITORING_PERIOD_SECONDS = 30;
@@ -403,6 +404,11 @@ public:
      * @return Is Archivematica mode enabled.
      */
     bool isArchivematicaModeEnabled() const;
+
+    /**
+     * @return Is open share browsing mode enabled.
+     */
+    bool isOpenSharesModeEnabled() const;
 
     /**
      * @return Show space ids instead of names in filesystem tree.

@@ -111,10 +111,11 @@ void MetadataCache::invalidateChildren(const folly::fbstring &uuid)
 
     assert(!uuid.empty());
 
-    LOG_DBG(2) << "Invalidating children of directory: " << uuid;
-
     auto &index = bmi::get<ByParent>(m_cache);
     auto irange = boost::make_iterator_range(index.equal_range(uuid));
+
+    LOG_DBG(2) << "Invalidating children of directory: " << uuid;
+
     index.erase(irange.begin(), irange.end());
 }
 
@@ -504,7 +505,6 @@ std::shared_ptr<FileLocation> MetadataCache::getLocation(
     LOG_FCALL() << LOG_FARG(attr->uuid());
 
     assertInFiber();
-
     return fetchFileLocation(attr->uuid());
 }
 
@@ -804,7 +804,7 @@ void MetadataCache::updateSize(const folly::fbstring &uuid, const off_t size)
     });
 }
 
-bool MetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr)
+bool MetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr, bool force)
 {
     LOG_FCALL() << LOG_FARG(newAttr->toString());
 
@@ -820,7 +820,14 @@ bool MetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr)
 
     auto &index = bmi::get<ByUuid>(m_cache);
     auto it = index.find(uuid);
-    if (it == index.end()) {
+    auto alreadyExists = it != index.end();
+
+    if (force && alreadyExists) {
+        index.erase(uuid);
+        return putAttr(newAttr);
+    }
+
+    if (!alreadyExists) {
         LOG_DBG(2) << "Attribute for " << newAttr->name() << " (" << uuid
                    << ")  not found in cache - adding";
 
