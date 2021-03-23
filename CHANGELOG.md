@@ -4,6 +4,11 @@ Release notes for project oneclient
 CHANGELOG
 ---------
 
+### 21.02.0-alpha5
+
+-   **VFS-7358** Added support for accessing open data shares in
+    oneclient with \--open-shares-mode option.
+
 ### 21.02.0-alpha4
 
 -   **VFS-7397** Added new option to oneclient \`\--show-space-ids\`
