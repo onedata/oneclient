@@ -38,8 +38,8 @@ folly::fbstring uuidToSpaceId(const folly::fbstring &uuid)
 
         throw std::invalid_argument("Onedata uuid does not contain space id.");
     }
-    else
-        throw std::invalid_argument("Base64 decoding of Onedata uuid failed.");
+
+    throw std::invalid_argument("Base64 decoding of Onedata uuid failed.");
 }
 
 folly::fbstring spaceIdToSpaceUUID(const folly::fbstring &spaceId)
