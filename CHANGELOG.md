@@ -4,6 +4,11 @@ Release notes for project oneclient
 CHANGELOG
 ---------
 
+### 21.02.0-alpha6
+
+-   **VFS-7486** Added option to nulldevice helper allowing control of
+    file size returned by getattr in simulated file systems.
+
 ### 21.02.0-alpha5
 
 -   **VFS-7358** Added support for accessing open data shares in
