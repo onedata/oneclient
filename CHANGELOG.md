@@ -37,6 +37,20 @@ CHANGELOG
 -   **VFS-7256** Fixed OnedataFS token refresh, which caused
     disconnection from Oneprovider after the token expired.
 
+### 20.02.7
+
+-   **VFS-7276** Improved handling of startup errors in Oneclient,
+    including more graceful handling of various exceptions and more
+    informative error messages including Oneclient and Oneprovider
+    compatibility and invalid token issues.
+-   **VFS-7275** Improved Oneclient exception handling, including
+    connection errors and invalid tokens.
+-   **VFS-7274** Added SIGTERM and SIGINT handlers to Oneclient,
+    ensuring that after the oneclient process is stopped by some other
+    process, the mountpoint is properly released.
+-   **VFS-7256** Fixed OnedataFS token refresh, which caused
+    disconnection from Oneprovider after the token expired.
+
 ### 20.02.6
 
 -   **VFS-7154** Improved support for preservation of attributes during
