@@ -20,7 +20,6 @@
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index_container.hpp>
 #include <folly/FBString.h>
-#include <folly/Optional.h>
 #include <folly/futures/Future.h>
 
 #include <chrono>
@@ -57,6 +56,7 @@ public:
         const std::chrono::seconds providerTimeout, folly::fbstring rootUuid,
         const std::vector<std::string> &spaceNames,
         const std::vector<std::string> &spaceIds,
+        const bool showOnlyFullReplicas, const bool showHardLinkCount,
         const bool showSpaceIdsNotNames = false);
 
     /**
@@ -87,11 +87,14 @@ public:
      * @param chunkSize Maximum number of directory entries to be returned.
      * @param includeVirtual Include in the list virtual files.
      * @param onlyFullReplicas Include in the list only fully replicated files.
+     * @param showHardLinkCount Include information about hard link count in
+     * FileAttr.
      * @returns Directory entries in the requested range.
      */
     folly::fbvector<folly::fbstring> readdir(const folly::fbstring &uuid,
         off_t off, std::size_t chunkSize, bool includeVirtual = false,
-        bool onlyFullReplicas = false);
+        bool onlyFullReplicas = false, bool showHardLinkCount = false);
+
     /**
      * Retrieves file attributes by uuid.
      * @param uuid Uuid of the file.
@@ -388,8 +391,10 @@ private:
     const folly::fbstring m_rootUuid;
     std::unordered_set<folly::fbstring> m_whitelistedSpaceNames;
     std::unordered_set<folly::fbstring> m_whitelistedSpaceIds;
-    const bool m_showSpaceIdsNotNames;
     std::shared_ptr<VirtualFsHelpersCache> m_virtualFsHelpersCache{};
+    const bool m_showOnlyFullReplicas;
+    const bool m_showHardLinkCount;
+    const bool m_showSpaceIdsNotNames;
 };
 
 } // namespace cache

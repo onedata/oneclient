@@ -32,7 +32,7 @@ public:
      * @param name Name of parent's child to look up.
      */
     GetChildAttr(folly::fbstring uuid, folly::fbstring name,
-        folly::Optional<bool> includeReplicationStatus = {});
+        bool includeReplicationStatus = false, bool includeLinkCount = false);
 
     std::string toString() const override;
 
@@ -41,7 +41,8 @@ private:
 
     folly::fbstring n_uuid;
     folly::fbstring m_name;
-    folly::Optional<bool> m_includeReplicationStatus;
+    bool m_includeReplicationStatus;
+    bool m_includeLinkCount;
 };
 
 } // namespace fuse

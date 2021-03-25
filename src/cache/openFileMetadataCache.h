@@ -73,6 +73,7 @@ public:
         const folly::fbstring &rootUuid,
         const std::vector<std::string> &spaceNames,
         const std::vector<std::string> &spaceIds,
+        const bool showOnlyFullReplicas, const bool showHardLinkCount,
         const bool showSpaceIdsNotNames = false);
 
     /**
@@ -106,11 +107,12 @@ public:
      * @param chunkSize Number of entries which should be returned
      * @param includeVirtual Include in the list virtual files.
      * @param onlyFullReplicas Include in the list only fully replicated files.
+     * @param showHardLinkCount Include hard link count information in FileAttr.
      * @return List of file or directory names.
      */
     folly::fbvector<folly::fbstring> readdir(const folly::fbstring &uuid,
         off_t off, std::size_t chunkSize, bool includeVirtual = false,
-        bool onlyFullReplicas = false);
+        bool onlyFullReplicas = false, bool includeHardLinkCount = false);
 
     /**
      * Opens a file in the cache.

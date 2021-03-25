@@ -136,9 +136,10 @@ struct stat toStatbuf(const FileAttrPtr &attr)
             // Remove sticky bit for nfs compatibility
             statbuf.st_mode &= ~S_ISVTX;
             break;
-        case messages::fuse::FileAttr::FileType::link:
+        case messages::fuse::FileAttr::FileType::symlink:
             statbuf.st_mode |= S_IFLNK;
             break;
+        case messages::fuse::FileAttr::FileType::link:
         case messages::fuse::FileAttr::FileType::regular:
             statbuf.st_mode |= S_IFREG;
             break;
