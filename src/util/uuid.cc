@@ -27,16 +27,10 @@ folly::fbstring uuidToSpaceId(const folly::fbstring &uuid)
         std::vector<folly::StringPiece> v;
         folly::split("#", decodedUuid, v);
 
-        if ((v[0] != "guid"))
+        if ((v.size() < 3) || (v[0] != "guid" && v[0] != "shareGuid"))
             throw std::invalid_argument("Invalid Onedata uuid format.");
 
-        auto spaceFragment = v[1];
-
-        if (spaceFragment.removePrefix("space_")) {
-            return spaceFragment.toString();
-        }
-
-        throw std::invalid_argument("Onedata uuid does not contain space id.");
+        return v[2].toString();
     }
 
     throw std::invalid_argument("Base64 decoding of Onedata uuid failed.");
