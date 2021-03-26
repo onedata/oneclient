@@ -145,6 +145,35 @@ public:
         return toEntry(std::move(attr));
     }
 
+    auto link(const fuse_ino_t ino, const fuse_ino_t newParent,
+        const folly::fbstring &newName)
+    {
+        LOG_FCALL() << LOG_FARG(ino) << LOG_FARG(newParent)
+                    << LOG_FARG(newName);
+
+        FileAttrPtr attr =
+            wrap(&FsLogicT::link, ino, m_inodeCache.at(newParent), newName);
+        return toEntry(std::move(attr));
+    }
+
+    auto symlink(const fuse_ino_t parent, const folly::fbstring &name,
+        const folly::fbstring &link)
+    {
+        LOG_FCALL() << LOG_FARG(parent) << LOG_FARG(name) << LOG_FARG(link);
+
+        FileAttrPtr attr = wrap(&FsLogicT::symlink, parent, name, link);
+        return toEntry(std::move(attr));
+    }
+
+    auto readlink(const fuse_ino_t ino)
+    {
+        LOG_FCALL() << LOG_FARG(ino);
+
+        folly::fbstring link = wrap(&FsLogicT::readlink, ino);
+
+        return link;
+    }
+
     auto unlink(const fuse_ino_t ino, const folly::fbstring &name)
     {
         LOG_FCALL() << LOG_FARG(ino) << LOG_FARG(name);

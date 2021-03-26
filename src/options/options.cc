@@ -590,9 +590,15 @@ Options::Options()
         ->asSwitch()
         .withLongName("only-full-replicas")
         .withImplicitValue(true)
-        .withDefaultValue(false, "false")
         .withGroup(OptionGroup::INVISIBLE)
         .withDescription("Show only fully replicated files.");
+
+    add<bool>()
+        ->asSwitch()
+        .withLongName("hard-link-count")
+        .withImplicitValue(true)
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Show hard link count properly in stat.");
 
     add<bool>()
         ->asSwitch()
@@ -1137,6 +1143,12 @@ uint64_t Options::getEmulateAvailableSpace() const
 bool Options::showOnlyFullReplicas() const
 {
     return get<bool>({"only-full-replicas", "only_full_replicas"})
+        .get_value_or(false);
+}
+
+bool Options::showHardLinkCount() const
+{
+    return get<bool>({"hard-link-count", "hard_link_count"})
         .get_value_or(false);
 }
 

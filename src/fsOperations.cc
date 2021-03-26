@@ -359,6 +359,51 @@ void wrap_mknod(fuse_req_t req, fuse_ino_t parent, const char *name,
         req, parent, name, mode);
 }
 
+void wrap_link(
+    fuse_req_t req, fuse_ino_t ino, fuse_ino_t newparent, const char *newname)
+{
+    LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino)
+                << LOG_FARG(newparent) << LOG_FARG(newname);
+
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.link");
+    wrap(&fslogic::Composite::link,
+        [req, timer = std::move(timer), newname = folly::fbstring(newname)](
+            const struct fuse_entry_param &entry) {
+            LOG_DBG(2) << "Created hard link " << newname;
+            fuse_reply_entry(req, &entry);
+        },
+        req, ino, newparent, newname);
+}
+
+void wrap_symlink(
+    fuse_req_t req, const char *link, fuse_ino_t parent, const char *name)
+{
+    LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(link)
+                << LOG_FARG(parent) << LOG_FARG(name);
+
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.symlink");
+    wrap(&fslogic::Composite::symlink,
+        [req, timer = std::move(timer), name = folly::fbstring(name)](
+            const struct fuse_entry_param &entry) {
+            LOG_DBG(2) << "Created symbolic link " << name;
+            fuse_reply_entry(req, &entry);
+        },
+        req, parent, name, link);
+}
+
+void wrap_readlink(fuse_req_t req, fuse_ino_t ino)
+{
+    LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino);
+
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.readlink");
+    wrap(&fslogic::Composite::readlink,
+        [req, timer = std::move(timer)](const folly::fbstring &link) {
+            LOG_DBG(2) << "Read symbolic link: " << link;
+            fuse_reply_readlink(req, link.c_str());
+        },
+        req, ino);
+}
+
 void wrap_unlink(fuse_req_t req, fuse_ino_t parent, const char *name)
 {
     LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(parent)
@@ -726,6 +771,9 @@ struct fuse_lowlevel_ops fuseOperations()
     operations.lookup = wrap_lookup;
     operations.mkdir = wrap_mkdir;
     operations.mknod = wrap_mknod;
+    operations.link = wrap_link;
+    operations.symlink = wrap_symlink;
+    operations.readlink = wrap_readlink;
     operations.open = wrap_open;
     operations.read = wrap_read;
     operations.readdir = wrap_readdir;

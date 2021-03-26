@@ -18,9 +18,10 @@ namespace messages {
 namespace fuse {
 
 GetFileAttr::GetFileAttr(
-    folly::fbstring uuid, folly::Optional<bool> includeReplicationStatus)
+    folly::fbstring uuid, bool includeReplicationStatus, bool includeLinkCount)
     : FileRequest{uuid.toStdString()}
-    , m_includeReplicationStatus{std::move(includeReplicationStatus)}
+    , m_includeReplicationStatus{includeReplicationStatus}
+    , m_includeLinkCount{includeLinkCount}
 {
 }
 
@@ -30,7 +31,10 @@ std::string GetFileAttr::toString() const
     stream << "type: 'GetFileAttr', uuid: " << m_contextGuid;
 
     if (m_includeReplicationStatus)
-        stream << ", includeReplicationStatus: " << *m_includeReplicationStatus;
+        stream << ", includeReplicationStatus: " << m_includeReplicationStatus;
+
+    if (m_includeLinkCount)
+        stream << ", includeLinkCount: " << m_includeLinkCount;
 
     return stream.str();
 }
@@ -46,7 +50,13 @@ std::unique_ptr<ProtocolClientMessage> GetFileAttr::serializeAndDestroy()
         msg->mutable_fuse_request()
             ->mutable_file_request()
             ->mutable_get_file_attr()
-            ->set_include_replication_status(*m_includeReplicationStatus);
+            ->set_include_replication_status(m_includeReplicationStatus);
+
+    if (m_includeLinkCount)
+        msg->mutable_fuse_request()
+            ->mutable_file_request()
+            ->mutable_get_file_attr()
+            ->set_include_link_count(m_includeLinkCount);
 
     return msg;
 }

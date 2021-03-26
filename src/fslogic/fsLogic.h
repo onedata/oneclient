@@ -191,6 +191,26 @@ public:
         const folly::fbstring &name, const mode_t mode);
 
     /**
+     * FUSE @c link callback.
+     * @see https://libfuse.github.io/doxygen/structfuse__lowlevel__ops.html
+     */
+    FileAttrPtr link(const folly::fbstring &uuid,
+        const folly::fbstring &newParentUuid, const folly::fbstring &newName);
+
+    /**
+     * FUSE @c link callback.
+     * @see https://libfuse.github.io/doxygen/structfuse__lowlevel__ops.html
+     */
+    FileAttrPtr symlink(const folly::fbstring &parentUuid,
+        const folly::fbstring &name, const folly::fbstring &link);
+
+    /**
+     * FUSE @c link callback.
+     * @see https://libfuse.github.io/doxygen/structfuse__lowlevel__ops.html
+     */
+    folly::fbstring readlink(const folly::fbstring &uuid);
+
+    /**
      * FUSE @c unlink callback.
      * @see https://libfuse.github.io/doxygen/structfuse__lowlevel__ops.html
      */
@@ -394,6 +414,7 @@ private:
     const bool m_clusterPrefetchThresholdRandom;
     const bool m_showOnlyFullReplicas;
     const bool m_showSpaceIdsNotNames;
+    const bool m_showHardLinkCount;
     const bool m_ioTraceLoggerEnabled;
     const boost::optional<std::pair<std::string, std::string>> m_tagOnCreate;
     const boost::optional<std::pair<std::string, std::string>> m_tagOnModify;
