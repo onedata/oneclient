@@ -94,6 +94,10 @@ namespace fslogic {
 
 using namespace std::literals;
 
+namespace {
+const std::string kAbsLinkPrefix = "<__onedata_space_id:";
+} // namespace
+
 /**
  * Filters given flags set to one of RDONLY, WRONLY or RDWR.
  * Returns RDONLY if flag value is zero.
@@ -1533,7 +1537,65 @@ FileAttrPtr FsLogic::symlink(const folly::fbstring &parentUuid,
 
     IOTRACE_START()
 
-    messages::fuse::MakeSymLink msg{parentUuid, name, link};
+    folly::fbstring effectiveLink{link};
+    if (!effectiveLink.empty() && (effectiveLink[0] == '/')) {
+        try {
+            auto mountPoint = boost::filesystem::absolute(
+                m_context->options()->getMountpoint(), "/");
+
+            if (effectiveLink.back() == '/')
+                effectiveLink.pop_back();
+
+            if (effectiveLink.find(mountPoint.string()) == 0) {
+                // Get space name from the path
+                auto pathRelativeToMountpoint = boost::filesystem::path{
+                    effectiveLink.substr(mountPoint.size()).toStdString()};
+
+                if (pathRelativeToMountpoint.size() > 1) {
+                    auto spaceName =
+                        *pathRelativeToMountpoint.relative_path().begin();
+
+                    auto attr =
+                        m_metadataCache.getAttr(m_rootUuid, spaceName.string());
+
+                    auto spacePath = mountPoint.string();
+                    if (spacePath.back() == '/')
+                        spacePath += spaceName.string();
+                    else
+                        spacePath += std::string("/") + spaceName.string();
+
+                    auto spaceRelativePath =
+                        effectiveLink.substr(spacePath.size());
+
+                    if (!spaceRelativePath.empty()) {
+                        if (spaceRelativePath[0] == '/')
+                            spaceRelativePath.erase(spaceRelativePath.begin());
+
+                        effectiveLink = fmt::format("{}{}>/{}", kAbsLinkPrefix,
+                            util::uuid::uuidToSpaceId(attr->uuid())
+                                .toStdString(),
+                            spaceRelativePath);
+                    }
+                    else
+                        effectiveLink = fmt::format("{}{}>", kAbsLinkPrefix,
+                            util::uuid::uuidToSpaceId(attr->uuid())
+                                .toStdString());
+
+                    LOG_DBG(2) << "Creating space-relative absolute symlink: "
+                               << effectiveLink;
+                }
+            }
+        }
+        catch (boost::filesystem::filesystem_error &e) {
+            effectiveLink = link;
+        }
+        catch (std::system_error &e) {
+            if (e.code().value() != ENOENT)
+                throw;
+        }
+    }
+
+    messages::fuse::MakeSymLink msg{parentUuid, name, effectiveLink};
     auto attr = communicate<FileAttr>(std::move(msg), m_providerTimeout);
     auto sharedAttr = std::make_shared<FileAttr>(std::move(attr));
 
@@ -1556,6 +1618,50 @@ folly::fbstring FsLogic::readlink(const folly::fbstring &uuid)
     messages::fuse::ReadSymLink msg{uuid};
     auto symlink = communicate<one::messages::fuse::SymLink>(
         std::move(msg), m_providerTimeout);
+
+    if (symlink.link().find(kAbsLinkPrefix) == 0) {
+        // This is space-relative absolute symlink
+        auto spaceId = symlink.link().substr(kAbsLinkPrefix.size());
+        if (spaceId.find('>') == std::string::npos)
+            return symlink.link();
+
+        auto prefixEnd = spaceId.find('>', 0);
+        auto relativePath = spaceId.substr(prefixEnd + 1);
+        if (!relativePath.empty() && relativePath[0] != '/')
+            relativePath = "/" + relativePath;
+        spaceId = spaceId.substr(0, spaceId.find('>', 0));
+
+        auto spaceUuid = util::uuid::spaceIdToSpaceUUID(spaceId);
+
+        try {
+            auto attr = m_metadataCache.getAttr(spaceUuid);
+            auto mountPoint = boost::filesystem::absolute(
+                m_context->options()->getMountpoint(), "/");
+
+            auto mountPointString = mountPoint.string();
+            if (mountPointString.back() == '/')
+                mountPointString.pop_back();
+
+            if (m_showSpaceIdsNotNames)
+                return fmt::format(
+                    "{}/{}{}", mountPointString, spaceId, relativePath);
+
+            auto absLink = fmt::format(
+                "{}/{}{}", mountPointString, attr->name(), relativePath);
+
+            LOG_DBG(2) << "Return space-relative absolute link: " << absLink;
+
+            return absLink;
+        }
+        catch (boost::filesystem::filesystem_error &e) {
+            return symlink.link();
+        }
+        catch (std::system_error &e) {
+            if (e.code().value() == ENOENT)
+                return symlink.link();
+            throw;
+        }
+    }
 
     return symlink.link();
 }
