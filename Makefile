@@ -48,6 +48,12 @@ ifeq ($(strip $(ONECLIENT_BASE_IMAGE)),)
 ONECLIENT_BASE_IMAGE    := ID-$(shell git rev-parse HEAD | cut -c1-10)
 endif
 
+# Detect compilation on CentOS using Software Collections environment
+ifeq ($(shell awk -F= '/^ID=/{print $$2}' /etc/os-release), "centos")
+		OPENSSL_ROOT_DIR ?= /opt/onedata/onedata2102/root/usr
+		TBB_INSTALL_DIR ?= /opt/onedata/onedata2102/root/usr
+endif
+
 .PHONY: all
 all: debug test
 
@@ -67,9 +73,9 @@ all: debug test
 	                       -DWITH_WEBDAV=${WITH_WEBDAV} \
 	                       -DWITH_XROOTD=${WITH_XROOTD} \
 	                       -DWITH_ONEDATAFS=${WITH_ONEDATAFS} \
-	                       -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR} \
 	                       -DCMAKE_INSTALL_PREFIX=${PWD}/debug/PREFIX \
-	                       -DOPENSSL_LIBRARIES=${OPENSSL_LIBRARIES} ..
+	                       -DTBB_INSTALL_DIR=${TBB_INSTALL_DIR} \
+	                       -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR} ..
 	touch $@
 
 ##

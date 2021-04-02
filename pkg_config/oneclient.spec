@@ -22,6 +22,7 @@ Requires: xrootd-libs >= %{xrootd_version}
 Requires: xrootd-client-libs >= %{xrootd_version}
 Requires: xrootd-server-libs >= %{xrootd_version}
 Requires: scl-utils
+Requires: %scl_require_package %{scl} openssl >= 1.1.0
 Requires: %scl_require_package %{scl} tbb >= 2018.5~
 BuildRequires: %scl_require_package %{scl} aws-c-common >= 0.4.49
 BuildRequires: %scl_require_package %{scl} aws-checksums >= 0.1.7
@@ -38,6 +39,8 @@ BuildRequires: %scl_require_package %{scl} glusterfs-api-devel >= 3.12.15
 BuildRequires: %scl_require_package %{scl} librados-devel
 BuildRequires: %scl_require_package %{scl} libradospp-devel
 BuildRequires: %scl_require_package %{scl} libradosstriper-devel
+BuildRequires: %scl_require_package %{scl} openssl-devel >= 1.1.0
+BuildRequires: %scl_require_package %{scl} openssl-libs >= 1.1.0
 BuildRequires: %scl_require_package %{scl} poco-devel
 BuildRequires: %scl_require_package %{scl} poco-foundation
 BuildRequires: %scl_require_package %{scl} poco-netssl
@@ -69,8 +72,6 @@ BuildRequires: libtool-ltdl
 BuildRequires: libtool-ltdl-devel
 BuildRequires: nspr-devel
 BuildRequires: nss-devel
-BuildRequires: openssl >= 1.0.0
-BuildRequires: openssl-devel >= 1.0.0
 BuildRequires: xrootd-private-devel >= %{xrootd_version}
 BuildRequires: xrootd-server-devel >= %{xrootd_version}
 BuildRequires: xrootd-client-devel >= %{xrootd_version}
