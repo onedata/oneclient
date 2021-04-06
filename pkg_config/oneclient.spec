@@ -39,6 +39,7 @@ BuildRequires: %scl_require_package %{scl} glusterfs-api-devel >= 3.12.15
 BuildRequires: %scl_require_package %{scl} librados-devel
 BuildRequires: %scl_require_package %{scl} libradospp-devel
 BuildRequires: %scl_require_package %{scl} libradosstriper-devel
+BuildRequires: %scl_require_package %{scl} openssl >= 1.1.0
 BuildRequires: %scl_require_package %{scl} openssl-devel >= 1.1.0
 BuildRequires: %scl_require_package %{scl} openssl-libs >= 1.1.0
 BuildRequires: %scl_require_package %{scl} poco-devel
