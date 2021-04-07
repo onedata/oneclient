@@ -481,7 +481,17 @@ FileAttrPtr FsLogic::getattr(const folly::fbstring &uuid)
 
     assertInFiber();
 
-    return m_metadataCache.getAttr(uuid);
+    auto attr = m_metadataCache.getAttr(uuid);
+
+    if (attr->type() == FileAttr::FileType::symlink) {
+        // If this is a symlink, return an attr with the size set to a
+        // length of a resolved symlink
+        auto symlinkAttr = std::make_shared<FileAttr>(*attr);
+        symlinkAttr->size(readlink(uuid).size());
+        return symlinkAttr;
+    }
+
+    return attr;
 }
 
 std::uint64_t FsLogic::opendir(const folly::fbstring &uuid)
