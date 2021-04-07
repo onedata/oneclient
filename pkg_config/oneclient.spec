@@ -144,6 +144,7 @@ cmake3 . -DLIB_INSTALL_DIR=lib64 \
          -DOPENSSL_ROOT_DIR=/opt/onedata/%{scl}/root/usr \
          -DWITH_CEPH=ON -DWITH_GLUSTERFS=ON -DWITH_SWIFT=ON -DWITH_WEBDAV=ON -DWITH_XROOTD=ON \
          -DCMAKE_BUILD_TYPE=Release -DBUILD_INTEGRATION_TESTS=OFF -DBUILD_SHARED_LIBS=ON \
+         -DPYTHON3_LDFLAGS="-lpython3.6m -lpthread -ldl  -lutil -lm  -Xlinker -export-dynamic" \
          -DSTATIC_LIBSTDCPP=ON -DSTATIC_BOOST=OFF -DSTATIC_PROTOBUF=ON
 make %{_smp_mflags} oneclient
 make %{_smp_mflags} onebench

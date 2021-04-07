@@ -9,8 +9,10 @@ find_program(PYTHON3_CONFIG NAMES "python3-config")
 if(PYTHON3_CONFIG)
     set(PYTHON3_FOUND ON)
 
-    execute_process(COMMAND python3-config --ldflags OUTPUT_VARIABLE PYTHON3_LDFLAGS)
-    string(STRIP "${PYTHON3_LDFLAGS}" PYTHON3_LDFLAGS)
+    if(NOT PYTHON3_LDFLAGS) # Hack for CentOS SCL to allow custom ldflags in oneclient.spec
+        execute_process(COMMAND python3-config --ldflags OUTPUT_VARIABLE PYTHON3_LDFLAGS)
+        string(STRIP "${PYTHON3_LDFLAGS}" PYTHON3_LDFLAGS)
+    endif(NOT PYTHON3_LDFLAGS)
 
     execute_process(COMMAND python3-config --includes OUTPUT_VARIABLE PYTHON3_CFLAGS)
     string(STRIP "${PYTHON3_CFLAGS}" PYTHON3_CFLAGS)
