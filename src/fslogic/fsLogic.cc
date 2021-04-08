@@ -2250,9 +2250,10 @@ folly::fbstring FsLogic::createSpaceRelativeSymlink(const folly::fbstring &link)
                         util::uuid::uuidToSpaceId(attr->uuid()).toStdString(),
                         spaceRelativePath);
                 }
-
-                effectiveLink = fmt::format("{}{}>", kAbsLinkPrefix,
-                    util::uuid::uuidToSpaceId(attr->uuid()).toStdString());
+                else {
+                    effectiveLink = fmt::format("{}{}>", kAbsLinkPrefix,
+                        util::uuid::uuidToSpaceId(attr->uuid()).toStdString());
+                }
             }
         }
     }
