@@ -4,6 +4,8 @@ Release notes for project oneclient
 CHANGELOG
 ---------
 
+### 20.02.8
+
 ### 20.02.7
 
 -   **VFS-7276** Improved handling of startup errors in Oneclient,
