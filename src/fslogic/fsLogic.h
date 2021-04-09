@@ -371,6 +371,25 @@ private:
      */
     void pruneExpiredDirectories(const std::chrono::seconds delay);
 
+    /**
+     * Creates a space-relative path from a absolute path pointing to
+     * an active oneclient mountpoint in the format:
+     *   <__onedata_space_id:SPACE_ID>/dir1/dir2/file.txt
+     *
+     *  @param link The original absolute link passed to FsLogic
+     *  @returns Space-relative link or original link if conversion fails
+     */
+    folly::fbstring createSpaceRelativeSymlink(const folly::fbstring &link);
+
+    /**
+     * Resolve a space-relative path to an absolute path starting with the
+     * current oneclient mountpoint.
+     *
+     * @param link Space-relative link
+     * @returns Oneclient mountpoint absolute path
+     */
+    folly::fbstring resolveSpaceRelativeSymlink(const folly::fbstring &link);
+
     std::shared_ptr<Context> m_context;
     events::Manager m_eventManager{m_context};
     cache::OpenFileMetadataCache m_metadataCache;
