@@ -4,6 +4,14 @@ Release notes for project oneclient
 CHANGELOG
 ---------
 
+### 21.02.0-alpha7
+
+-   **VFS-7509** Added support for absolute symlinks relative to
+    Oneclient mountpoint, i.e. always pointing to the same file in a
+    space, regardless of actual Oneclient mountpoint path.
+-   **VFS-7360** Added support for hardlinks and symlinks through
+    Oneclient POSIX interface.
+
 ### 21.02.0-alpha6
 
 -   **VFS-7486** Added option to nulldevice helper allowing control of
