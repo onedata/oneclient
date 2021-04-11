@@ -2225,9 +2225,9 @@ folly::fbstring FsLogic::createSpaceRelativeSymlink(const folly::fbstring &link)
         if (effectiveLink.find(mountPoint.string()) == 0) {
             // Get space name from the path
             auto pathRelativeToMountpoint = boost::filesystem::path{
-                effectiveLink.substr(mountPoint.size()).toStdString()};
+                effectiveLink.substr(mountPoint.string().size()).toStdString()};
 
-            if (pathRelativeToMountpoint.size() > 1) {
+            if (pathRelativeToMountpoint.string().size() > 1) {
                 auto spaceName =
                     *pathRelativeToMountpoint.relative_path().begin();
 
