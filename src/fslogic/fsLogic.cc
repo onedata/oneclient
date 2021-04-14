@@ -2046,6 +2046,12 @@ void FsLogic::sync(const folly::fbstring &uuid,
     auto fileLocationUpdate = communicate<messages::fuse::FileLocationChanged>(
         std::move(request), m_providerTimeout);
 
+    if (fileLocationUpdate.fileLocation().uuid() != uuid) {
+        LOG(ERROR) << "Synchronize block request for file " << uuid
+                   << "returned file location for different uuid "
+                   << fileLocationUpdate.fileLocation().uuid();
+    }
+
     if (fileLocationUpdate.changeStartOffset() &&
         fileLocationUpdate.changeEndOffset())
         m_metadataCache.updateLocation(
