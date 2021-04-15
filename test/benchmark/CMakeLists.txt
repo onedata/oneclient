@@ -1,12 +1,14 @@
 add_custom_target(benchmark)
 
-find_library(FOLLY_BENCHMARK_LIBRARIES follybenchmark)
+find_library(FOLLY_BENCHMARK_LIBRARIES NAMES libfollybenchmark.a)
+find_library(GFLAGS_LIBRARY gflags)
 
 set(CLIENT_BENCHMARK_LIBRARIES
     libmacaroons-cpp
     ${PLATFORM_EXTRA_LIBS}
     ${FOLLY_LIBRARIES}
-    ${GLOG_LIBRARIES}
+    ${GLOG_LIBRARY}
+    ${GFLAGS_LIBRARY}
     ${FUSE_LIBRARIES}
     ${Boost_LIBRARIES}
     ${CLPROTO_LIBRARIES}
@@ -14,7 +16,9 @@ set(CLIENT_BENCHMARK_LIBRARIES
     ${SODIUM_LIBRARIES}
     ${PROTOBUF_LIBRARIES}
     ${NSS_LIBRARIES}
-    ${OPENSSL_LIBRARIES})
+    ${OPENSSL_LIBRARIES}
+    ${FOLLY_BENCHMARK_LIBRARIES}
+    )
 
 add_library(clientBenchmarkShared SHARED ${CLIENT_SOURCES})
 
@@ -55,8 +59,7 @@ foreach(TEST_SRC ${TEST_SOURCES})
 	    ${TEST_SRC}
 	    ${TEST_HEADERS})
     target_link_libraries(${TEST_NAME} PRIVATE
-	    clientBenchmarkShared
-        ${FOLLY_BENCHMARK_LIBRARIES})
+        clientBenchmarkShared)
     add_custom_target(${TEST_NAME}_runbenchmark
         COMMAND ${TEST_NAME}
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
