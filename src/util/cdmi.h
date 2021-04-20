@@ -54,6 +54,8 @@ std::string uuidToObjectId(const std::string &input)
      * +----------+------------+-----------+--------+-------+-----------+
      */
     std::vector<uint8_t> objectId;
+    objectId.reserve(40);
+
     // Reserved
     objectId.push_back(0);
 
