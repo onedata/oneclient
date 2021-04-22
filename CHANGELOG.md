@@ -4,6 +4,8 @@ Release notes for project oneclient
 CHANGELOG
 ---------
 
+### 21.02.0-alpha8
+
 ### 21.02.0-alpha7
 
 -   **VFS-7509** Added support for absolute symlinks relative to
