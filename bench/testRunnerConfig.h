@@ -31,6 +31,7 @@ struct TestRunnerConfig {
     bool keepTestFiles;
     bool flush;
     folly::fbstring fileIndexPath;
+    bool archiveStorage;
 
 private:
     friend std::ostream &operator<<(

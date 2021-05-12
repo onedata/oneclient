@@ -28,6 +28,7 @@ std::ostream &operator<<(
     stream << "  Keep test files: " << (c.keepTestFiles ? "yes" : "no") << '\n';
     stream << "  Force flush: " << (c.flush ? "yes" : "no") << '\n';
     stream << "  File index path: " << c.fileIndexPath << '\n';
+    stream << "  Is archive storage: " << c.archiveStorage << '\n';
 
     return stream;
 }
