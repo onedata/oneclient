@@ -38,6 +38,8 @@ public:
     {
     }
 
+    virtual ~TestWorkerRndWr() = default;
+
     virtual void operator()() override
     {
         auto fileCount = m_fileIds.size();
