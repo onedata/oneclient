@@ -48,6 +48,8 @@ public:
     {
     }
 
+    virtual ~TestWorker() = default;
+
     void postResult(TestResult &&result)
     {
         m_resultsQueue.blockingWrite(std::forward<TestResult>(result));
