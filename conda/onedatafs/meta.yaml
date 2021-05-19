@@ -37,7 +37,7 @@ requirements:
     - swift-sdk-cpp
     - gflags
     - git
-    - glog
+    - glog =0.4.0
     - glusterfs-client
     - gperf
     - jemalloc
@@ -68,7 +68,7 @@ requirements:
     - ceph-client =14.2.2
     - folly
     - gflags
-    - glog
+    - glog =0.4.0
     - glusterfs-client
     - libfuse =2.9.9
     - libgcc-ng
