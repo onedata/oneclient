@@ -25,6 +25,9 @@
 #include "xrootdHelper.h"
 #endif
 
+#include "bufferedStorageHelper.h"
+#include "storageRouterHelper.h"
+
 #include <folly/Function.h>
 
 #include <fstream>
@@ -117,16 +120,63 @@ void TestRunner::initialize()
     // Create the helper pool
     m_helperPool.reserve(m_config.helperCount);
     for (auto i = 0; i < m_config.helperCount; i++) {
-        auto helperPtr = helperFactory->createStorageHelper(
-            m_config.helperParams, one::helpers::ExecutionContext::ONECLIENT);
-        m_helperPool.emplace_back(std::move(helperPtr));
+        if (!m_config.archiveStorage) {
+            auto helperPtr =
+                helperFactory->createStorageHelper(m_config.helperParams,
+                    one::helpers::ExecutionContext::ONECLIENT);
+            m_helperPool.emplace_back(std::move(helperPtr));
+        }
+        else {
+            const auto kDefaultBufferStorageBlockSizeMultiplier = 5UL;
+            const auto &args = m_config.helperParams;
+            auto bufferArgs{args};
+            auto mainArgs{args};
+            auto bufferedArgs{args};
+            bufferArgs["blockSize"] =
+                std::to_string(kDefaultBufferStorageBlockSizeMultiplier *
+                    std::stoull(args.at("blockSize").c_str()));
+            mainArgs["storagePathType"] = "canonical";
+            bufferedArgs["bufferPath"] = ".__onedata_buffer";
+            bufferedArgs["bufferDepth"] = "2";
+
+            auto bufferHelper =
+                one::helpers::S3HelperFactory{m_service}.createStorageHelper(
+                    bufferArgs, one::helpers::ExecutionContext::ONECLIENT);
+            auto mainHelper =
+                one::helpers::S3HelperFactory{m_service}.createStorageHelper(
+                    mainArgs, one::helpers::ExecutionContext::ONECLIENT);
+            auto bufferedHelper =
+                one::helpers::BufferedStorageHelperFactory{}
+                    .createStorageHelper(std::move(bufferHelper),
+                        std::move(mainHelper), bufferedArgs,
+                        one::helpers::ExecutionContext::ONECLIENT);
+
+            std::map<folly::fbstring, one::helpers::StorageHelperPtr> routes;
+            routes["/.__onedata_archive"] = std::move(bufferedHelper);
+            routes["/"] =
+                one::helpers::S3HelperFactory{m_service}.createStorageHelper(
+                    args, one::helpers::ExecutionContext::ONECLIENT);
+
+            auto helperPtr =
+                std::make_shared<one::helpers::StorageRouterHelper>(
+                    std::move(routes),
+                    one::helpers::ExecutionContext::ONECLIENT);
+
+            m_helperPool.emplace_back(std::move(helperPtr));
+        }
     }
 
     if (m_config.fileIndexPath.empty()) {
         // Prepare unique file names
         for (auto i = 0u; i < m_config.fileCount; i++) {
-            m_fileIds.emplace_back(folly::fbstring(ONEBENCH_FILE_PREFIX) +
-                randStr(ONEBENCH_FILEID_LENGTH));
+            if (m_config.archiveStorage)
+                m_fileIds.emplace_back(
+                    folly::fbstring("/space1/.__onedata_archive/") +
+                    folly::fbstring(ONEBENCH_FILE_PREFIX) +
+                    randStr(ONEBENCH_FILEID_LENGTH));
+            else
+                m_fileIds.emplace_back(folly::fbstring(ONEBENCH_FILE_PREFIX) +
+                    randStr(ONEBENCH_FILEID_LENGTH));
         }
 
         createTestFiles();
@@ -272,7 +322,8 @@ void TestRunner::createTestFiles()
 
     auto helper = m_helperPool[0];
     for (auto &testFile : m_fileIds) {
-        helper->mknod(testFile, S_IFREG, {}, 0).get();
+        helper->mknod(testFile, 0644, one::helpers::maskToFlags(S_IFREG), 0)
+            .get();
         helper->truncate(testFile, m_config.fileSize, 0).get();
     }
 }

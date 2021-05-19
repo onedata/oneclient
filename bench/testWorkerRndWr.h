@@ -95,7 +95,17 @@ public:
                                     return folly::makeFuture();
                                 }));
                 }
-                folly::collectAll(futs.begin(), futs.end()).get();
+
+                folly::collectAll(futs.begin(), futs.end())
+                    .then([this, handles, fileSize](auto && /*f*/) {
+                        folly::fbvector<folly::Future<folly::Unit>> futs;
+                        for (auto &h : handles) {
+                            futs.emplace_back(
+                                m_helper->flushBuffer(h->fileId(), fileSize));
+                        }
+                        return folly::collectAll(futs.begin(), futs.end());
+                    })
+                    .get();
             }
         };
 
