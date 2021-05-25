@@ -1,6 +1,13 @@
-# Release notes for project oneclient
+Release notes for project oneclient
+===================================
 
-## CHANGELOG
+CHANGELOG
+---------
+
+### 21.02.0-alpha11
+
+-   **VFS-7589** Added StorageRouter and BufferedStorage helpers to
+    handling of aggregate storages such as archive storage.
 
 ### 21.02.0-alpha10
 
