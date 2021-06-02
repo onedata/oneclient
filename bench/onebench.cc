@@ -36,7 +36,7 @@ DEFINE_int32(helper_threads, 8, "Specify number of helper worker threads");
 DEFINE_int32(test_threads, 8, "Specify number of test worker threads");
 
 DEFINE_int32(file_count, 1, "Specify number of test files");
-DEFINE_int32(file_size, 1024 * 1024, "Specify maximum size of each file");
+DEFINE_int64(file_size, 1024 * 1024, "Specify maximum size of each file");
 DEFINE_int32(block_size, 4096, "Specify the block size used for requests");
 DEFINE_bool(block_aligned, false,
     "Specify whether the read and write operations should be aligned to "
