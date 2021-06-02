@@ -4,6 +4,12 @@ Release notes for project oneclient
 CHANGELOG
 ---------
 
+### 21.02.0-alpha13
+
+-   **VFS-7733** Added block\_aligned flag to onebench storage
+    benchmarking tool, enforcing read and writes aligned to block\_size
+    boundary only.
+
 ### 21.02.0-alpha12
 
 ### 21.02.0-alpha11
