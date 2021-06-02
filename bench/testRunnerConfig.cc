@@ -23,6 +23,7 @@ std::ostream &operator<<(
     stream << "  File count: " << c.fileCount << '\n';
     stream << "  File size: " << c.fileSize << '\n';
     stream << "  Block size: " << c.blockSize << '\n';
+    stream << "  Block aligned: " << c.blockAligned << '\n';
     stream << "  Report interval: " << c.reportInterval << '\n';
     stream << "  Async batch size: " << c.asyncBatchSize << '\n';
     stream << "  Keep test files: " << (c.keepTestFiles ? "yes" : "no") << '\n';

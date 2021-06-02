@@ -13,6 +13,8 @@
 #include "testRunnerConfig.h"
 #include "testWorker.h"
 
+#undef signal_set
+
 #include <asio.hpp>
 #include <folly/FBVector.h>
 #include <folly/MPMCQueue.h>

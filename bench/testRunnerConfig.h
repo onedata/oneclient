@@ -25,6 +25,7 @@ struct TestRunnerConfig {
     size_t fileCount;
     size_t fileSize;
     size_t blockSize;
+    bool blockAligned;
     one::helpers::Params helperParams;
     int reportInterval;
     int asyncBatchSize;

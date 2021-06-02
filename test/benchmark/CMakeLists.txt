@@ -1,6 +1,11 @@
 add_custom_target(benchmark)
 
-find_library(FOLLY_BENCHMARK_LIBRARIES NAMES libfollybenchmark.a)
+if(FOLLY_SHARED)
+    find_library(FOLLY_BENCHMARK_LIBRARIES NAMES libfollybenchmark.so)
+else(FOLLY_SHARED)
+    find_library(FOLLY_BENCHMARK_LIBRARIES NAMES libfollybenchmark.a)
+endif(FOLLY_SHARED)
+
 find_library(GFLAGS_LIBRARY gflags)
 
 set(CLIENT_BENCHMARK_LIBRARIES
