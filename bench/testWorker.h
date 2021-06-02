@@ -8,7 +8,6 @@
 
 #pragma once
 
-#include "cephHelper.h"
 #include "common.h"
 #include "helpers/storageHelper.h"
 #include "testResult.h"
@@ -32,7 +31,8 @@ public:
         std::shared_ptr<one::helpers::StorageHelper> helper,
         folly::MPMCQueue<TestResult, std::atomic, true> &resultsQueue,
         const folly::fbvector<folly::fbstring> &fileIds, size_t fileSize,
-        size_t blockSize, int eventCount, int asyncBatchSize, bool flush)
+        size_t blockSize, bool blockAligned, int eventCount, int asyncBatchSize,
+        bool flush)
         : m_id{id}
         , m_executor{executor}
         , m_startBarrier{startBarrier}
@@ -41,6 +41,7 @@ public:
         , m_fileIds{fileIds}
         , m_fileSize{fileSize}
         , m_blockSize{blockSize}
+        , m_blockAligned{blockAligned}
         , m_eventCount{eventCount}
         , m_asyncBatchSize{asyncBatchSize}
         , m_flush{flush}
@@ -58,6 +59,21 @@ public:
     virtual void operator()() = 0;
 
 protected:
+    inline off_t getRandomOffset(
+        const size_t fileSize, const size_t blockSize, const bool blockAligned)
+    {
+        if (blockAligned) {
+            if (blockSize == 0)
+                throw std::runtime_error(
+                    "block_size 0 cannot be used with block_aligned flag");
+
+            auto blockNumber = std::rand() % (fileSize / blockSize);
+            return blockNumber * blockSize;
+        }
+
+        return std::rand() % (fileSize - blockSize);
+    }
+
     TestWorkerID m_id;
     folly::IOThreadPoolExecutor &m_executor;
     folly::futures::Barrier &m_startBarrier;
@@ -66,6 +82,7 @@ protected:
     const folly::fbvector<folly::fbstring> &m_fileIds;
     size_t m_fileSize;
     size_t m_blockSize;
+    bool m_blockAligned;
     int m_eventCount;
     int m_asyncBatchSize;
     bool m_flush;

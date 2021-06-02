@@ -36,11 +36,16 @@ DEFINE_int32(helper_threads, 8, "Specify number of helper worker threads");
 DEFINE_int32(test_threads, 8, "Specify number of test worker threads");
 
 DEFINE_int32(file_count, 1, "Specify number of test files");
-DEFINE_int32(file_size, 1024 * 1024, "Specify maximum size of each file");
+DEFINE_int64(file_size, 1024 * 1024, "Specify maximum size of each file");
 DEFINE_int32(block_size, 4096, "Specify the block size used for requests");
+DEFINE_bool(block_aligned, false,
+    "Specify whether the read and write operations should be aligned to "
+    "block_size boundary");
 DEFINE_int32(events, 1000, "Specify number of IO requests");
 DEFINE_int32(report_interval, 10, "Specify report interval in seconds");
 DEFINE_int32(async_batch_size, 1, "Specify request batch size for each worker");
+DEFINE_bool(
+    create_test_files, true, "Create test files before running benchmark");
 DEFINE_bool(keep_test_files, false,
     "Keep created temporary test files after test completes");
 DEFINE_bool(flush, false, "Force flush after each IO request");
@@ -191,9 +196,11 @@ one::bench::TestRunnerConfig makeTestRunnerConfig()
     config.fileCount = FLAGS_file_count;
     config.fileSize = FLAGS_file_size;
     config.blockSize = FLAGS_block_size;
+    config.blockAligned = FLAGS_block_aligned;
     config.testType = FLAGS_test;
     config.reportInterval = FLAGS_report_interval;
     config.asyncBatchSize = FLAGS_async_batch_size;
+    config.createTestFiles = FLAGS_create_test_files;
     config.keepTestFiles = FLAGS_keep_test_files;
     config.flush = FLAGS_flush;
     config.fileIndexPath = FLAGS_file_index_path;
