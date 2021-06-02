@@ -29,6 +29,7 @@ struct TestRunnerConfig {
     one::helpers::Params helperParams;
     int reportInterval;
     int asyncBatchSize;
+    bool createTestFiles;
     bool keepTestFiles;
     bool flush;
     folly::fbstring fileIndexPath;

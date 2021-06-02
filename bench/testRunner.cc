@@ -183,7 +183,8 @@ void TestRunner::initialize()
                     randStr(ONEBENCH_FILEID_LENGTH));
         }
 
-        createTestFiles();
+        if (m_config.createTestFiles)
+            createTestFiles();
     }
     else {
         // Load the file paths from the file

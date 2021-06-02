@@ -44,6 +44,8 @@ DEFINE_bool(block_aligned, false,
 DEFINE_int32(events, 1000, "Specify number of IO requests");
 DEFINE_int32(report_interval, 10, "Specify report interval in seconds");
 DEFINE_int32(async_batch_size, 1, "Specify request batch size for each worker");
+DEFINE_bool(
+    create_test_files, true, "Create test files before running benchmark");
 DEFINE_bool(keep_test_files, false,
     "Keep created temporary test files after test completes");
 DEFINE_bool(flush, false, "Force flush after each IO request");
@@ -198,6 +200,7 @@ one::bench::TestRunnerConfig makeTestRunnerConfig()
     config.testType = FLAGS_test;
     config.reportInterval = FLAGS_report_interval;
     config.asyncBatchSize = FLAGS_async_batch_size;
+    config.createTestFiles = FLAGS_create_test_files;
     config.keepTestFiles = FLAGS_keep_test_files;
     config.flush = FLAGS_flush;
     config.fileIndexPath = FLAGS_file_index_path;
