@@ -39,6 +39,12 @@ folly::fbstring IOTraceLogger::toString(const IOTraceLogger::OpType &op)
             return "mkdir";
         case IOTraceLogger::OpType::MKNOD:
             return "mknod";
+        case IOTraceLogger::OpType::LINK:
+            return "link";
+        case IOTraceLogger::OpType::SYMLINK:
+            return "symlink";
+        case IOTraceLogger::OpType::READLINK:
+            return "readlink";
         case IOTraceLogger::OpType::UNLINK:
             return "unlink";
         case IOTraceLogger::OpType::RENAME:

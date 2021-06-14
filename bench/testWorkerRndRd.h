@@ -30,12 +30,15 @@ public:
         std::shared_ptr<one::helpers::StorageHelper> helper,
         folly::MPMCQueue<TestResult, std::atomic, true> &resultsQueue,
         const folly::fbvector<folly::fbstring> &fileIds, size_t fileSize,
-        size_t blockSize, int eventCount, int asyncBatchSize, bool flush)
+        size_t blockSize, bool blockAligned, int eventCount, int asyncBatchSize,
+        bool flush)
         : TestWorker(id, executor, startBarrier, stopBarrier, std::move(helper),
-              resultsQueue, fileIds, fileSize, blockSize, eventCount,
-              asyncBatchSize, flush)
+              resultsQueue, fileIds, fileSize, blockSize, blockAligned,
+              eventCount, asyncBatchSize, flush)
     {
     }
+
+    virtual ~TestWorkerRndRd() = default;
 
     virtual void operator()() override
     {
@@ -53,7 +56,8 @@ public:
         m_startBarrier.wait().get();
 
         auto f = [this, id = m_id, fileCount, fileSize = m_fileSize,
-                     blockSize = m_blockSize, eventCount = m_eventCount,
+                     blockSize = m_blockSize, blockAligned = m_blockAligned,
+                     eventCount = m_eventCount,
                      asyncBatchSize = m_asyncBatchSize, flush = m_flush,
                      handles = std::move(handles)]() {
             for (int k = 0; k < eventCount; k += asyncBatchSize) {
@@ -63,7 +67,8 @@ public:
 
                 for (int l = 0; l < asyncBatchSize; l++) {
                     auto fileIndex = std::rand() % fileCount;
-                    auto offset = std::rand() % (fileSize - blockSize);
+                    auto offset =
+                        getRandomOffset(fileSize, blockSize, blockAligned);
 
                     auto start = Clock::now();
 

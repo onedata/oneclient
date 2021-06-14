@@ -18,17 +18,27 @@ namespace messages {
 namespace fuse {
 
 GetChildAttr::GetChildAttr(folly::fbstring uuid, folly::fbstring name,
-    folly::Optional<bool> includeReplicationStatus)
+    bool includeReplicationStatus, bool includeLinkCount)
     : FileRequest{uuid.toStdString()}
     , m_name{std::move(name)}
-    , m_includeReplicationStatus{std::move(includeReplicationStatus)}
+    , m_includeReplicationStatus{includeReplicationStatus}
+    , m_includeLinkCount{includeLinkCount}
 {
 }
 
 std::string GetChildAttr::toString() const
 {
-    return "type: 'GetChildAttr', uuid: '" + m_contextGuid + "', name: '" +
-        m_name.toStdString() + '"';
+    std::stringstream stream;
+    stream << "type: 'GetChildAttr', uuid: " << m_contextGuid;
+    stream << ", name: " << m_name;
+
+    if (m_includeReplicationStatus)
+        stream << ", includeReplicationStatus: " << m_includeReplicationStatus;
+
+    if (m_includeLinkCount)
+        stream << ", includeLinkCount: " << m_includeLinkCount;
+
+    return stream.str();
 }
 
 std::unique_ptr<ProtocolClientMessage> GetChildAttr::serializeAndDestroy()
@@ -43,7 +53,13 @@ std::unique_ptr<ProtocolClientMessage> GetChildAttr::serializeAndDestroy()
         msg->mutable_fuse_request()
             ->mutable_file_request()
             ->mutable_get_child_attr()
-            ->set_include_replication_status(*m_includeReplicationStatus);
+            ->set_include_replication_status(m_includeReplicationStatus);
+
+    if (m_includeLinkCount)
+        msg->mutable_fuse_request()
+            ->mutable_file_request()
+            ->mutable_get_child_attr()
+            ->set_include_link_count(m_includeLinkCount);
 
     return msg;
 }

@@ -239,6 +239,19 @@ def prepare_attr_response_mode(uuid, filetype, mode, parent_uuid=None):
 
     return server_response
 
+
+def prepare_readlink_response(uuid, link):
+    repl = fuse_messages_pb2.Symlink()
+
+    repl.link = link
+
+    server_response = messages_pb2.ServerMessage()
+    server_response.fuse_response.symlink.CopyFrom(repl)
+    server_response.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    return server_response
+
+
 def prepare_fsstat_response(uuid, space_id, storage_count=1, size=1024*1024, occupied=1024):
     repl = fuse_messages_pb2.FSStats()
     repl.space_id = space_id
@@ -1727,6 +1740,58 @@ def test_metadatacache_should_prune_when_size_exceeded(appmock_client, endpoint,
     assert fl_dircache.metadata_cache_contains(repl2.child_attrs[0].uuid)
 
     assert fl_dircache.metadata_cache_size() == 11
+
+
+def test_link_should_create_hard_link(appmock_client, endpoint, fl, uuid, parentUuid):
+    name = random_str()
+    attr_response = prepare_attr_response(
+                    uuid, fuse_messages_pb2.LNK, size=0,
+                    parent_uuid=parentUuid, name=name)
+
+    with reply(endpoint, attr_response) as queue:
+        fl.link(uuid, parentUuid, name)
+        client_message = queue.get()
+
+    assert client_message.HasField('fuse_request')
+    assert client_message.fuse_request.HasField('file_request')
+
+    file_request = client_message.fuse_request.file_request
+    assert file_request.HasField('make_link')
+
+
+def test_symlink_should_create_symbolic_link(appmock_client, endpoint, fl, uuid, parentUuid):
+    name = random_str()
+    link = random_str()
+    attr_response = prepare_attr_response(
+                    uuid, fuse_messages_pb2.SYMLNK, size=len(link),
+                    parent_uuid=parentUuid, name=name)
+
+    with reply(endpoint, attr_response) as queue:
+        fl.symlink(parentUuid, name, link)
+        client_message = queue.get()
+
+    assert client_message.HasField('fuse_request')
+    assert client_message.fuse_request.HasField('file_request')
+
+    file_request = client_message.fuse_request.file_request
+    assert file_request.HasField('make_symlink')
+
+
+def test_readlink_should_read_symbolic_link(appmock_client, endpoint, fl, uuid):
+    link = random_str()
+    readlink_response = prepare_readlink_response(uuid, link)
+
+    with reply(endpoint, readlink_response) as queue:
+        link_result = fl.readlink(uuid)
+        client_message = queue.get()
+
+    assert client_message.HasField('fuse_request')
+    assert client_message.fuse_request.HasField('file_request')
+
+    file_request = client_message.fuse_request.file_request
+    assert file_request.HasField('read_symlink')
+
+    assert(link == link_result)
 
 
 def test_mknod_should_create_multiple_files(appmock_client, endpoint, fl, uuid, parentUuid, parentStat):

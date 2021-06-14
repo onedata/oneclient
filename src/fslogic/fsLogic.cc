@@ -38,11 +38,15 @@
 #include "messages/fuse/helperParams.h"
 #include "messages/fuse/listXAttr.h"
 #include "messages/fuse/makeFile.h"
+#include "messages/fuse/makeLink.h"
+#include "messages/fuse/makeSymLink.h"
 #include "messages/fuse/openFile.h"
+#include "messages/fuse/readSymLink.h"
 #include "messages/fuse/release.h"
 #include "messages/fuse/removeXAttr.h"
 #include "messages/fuse/rename.h"
 #include "messages/fuse/setXAttr.h"
+#include "messages/fuse/symLink.h"
 #include "messages/fuse/syncResponse.h"
 #include "messages/fuse/synchronizeBlock.h"
 #include "messages/fuse/synchronizeBlockAndComputeChecksum.h"
@@ -52,6 +56,7 @@
 #include "messages/fuse/xattrList.h"
 #include "monitoring/monitoring.h"
 #include "util/cdmi.h"
+#include "util/uuid.h"
 #include "util/xattrHelper.h"
 
 #include <boost/icl/interval_set.hpp>
@@ -88,6 +93,10 @@ namespace client {
 namespace fslogic {
 
 using namespace std::literals;
+
+namespace {
+const std::string kAbsLinkPrefix = "<__onedata_space_id:";
+} // namespace
 
 /**
  * Filters given flags set to one of RDONLY, WRONLY or RDWR.
@@ -126,7 +135,10 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     , m_metadataCache{*m_context->communicator(), metadataCacheSize,
           providerTimeout, directoryCacheDropAfter, configuration->rootUuid(),
           m_context->options()->getSpaceNames(),
-          m_context->options()->getSpaceIds()}
+          m_context->options()->getSpaceIds(),
+          m_context->options()->showOnlyFullReplicas(),
+          m_context->options()->showHardLinkCount(),
+          m_context->options()->showSpaceIds()}
     , m_helpersCache{std::move(helpersCache)}
     , m_virtualFsHelpersCache{std::make_shared<
           virtualfs::VirtualFsHelpersCache>(*this)}
@@ -159,6 +171,8 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     , m_clusterPrefetchThresholdRandom{m_context->options()
           ->isClusterPrefetchThresholdRandom()}
     , m_showOnlyFullReplicas{m_context->options()->showOnlyFullReplicas()}
+    , m_showSpaceIdsNotNames{m_context->options()->showSpaceIds()}
+    , m_showHardLinkCount{m_context->options()->showHardLinkCount()}
     , m_ioTraceLoggerEnabled{m_context->options()->isIOTraceLoggerEnabled()}
     , m_tagOnCreate{m_context->options()->getOnCreateTag()}
     , m_tagOnModify{m_context->options()->getOnModifyTag()}
@@ -467,7 +481,17 @@ FileAttrPtr FsLogic::getattr(const folly::fbstring &uuid)
 
     assertInFiber();
 
-    return m_metadataCache.getAttr(uuid);
+    auto attr = m_metadataCache.getAttr(uuid);
+
+    if (attr->type() == FileAttr::FileType::symlink) {
+        // If this is a symlink, return an attr with the size set to a
+        // length of a resolved symlink
+        auto symlinkAttr = std::make_shared<FileAttr>(*attr);
+        symlinkAttr->size(readlink(uuid).size());
+        return symlinkAttr;
+    }
+
+    return attr;
 }
 
 std::uint64_t FsLogic::opendir(const folly::fbstring &uuid)
@@ -509,8 +533,8 @@ folly::fbvector<folly::fbstring> FsLogic::readdir(
 
     assertInFiber();
 
-    auto entries =
-        m_readdirCache->readdir(uuid, off, maxSize, m_showOnlyFullReplicas);
+    auto entries = m_readdirCache->readdir(
+        uuid, off, maxSize, m_showOnlyFullReplicas, m_showHardLinkCount);
 
     IOTRACE_END(IOTraceReadDir, IOTraceLogger::OpType::READDIR, uuid, 0,
         maxSize, off, entries.size())
@@ -1492,6 +1516,77 @@ FileAttrPtr FsLogic::mknod(const folly::fbstring &parentUuid,
     return sharedAttr;
 }
 
+FileAttrPtr FsLogic::link(const folly::fbstring &uuid,
+    const folly::fbstring &newParentUuid, const folly::fbstring &newName)
+{
+    LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(newParentUuid)
+                << LOG_FARG(newName);
+
+    IOTRACE_START()
+
+    assertInFiber();
+
+    messages::fuse::MakeLink msg{uuid, newParentUuid, newName};
+    auto attr = communicate<FileAttr>(std::move(msg), m_providerTimeout);
+    auto sharedAttr = std::make_shared<FileAttr>(std::move(attr));
+
+    m_metadataCache.putAttr(sharedAttr);
+
+    IOTRACE_END(IOTraceLink, IOTraceLogger::OpType::LINK, uuid, 0,
+        newParentUuid, newName)
+
+    return sharedAttr;
+}
+
+FileAttrPtr FsLogic::symlink(const folly::fbstring &parentUuid,
+    const folly::fbstring &name, const folly::fbstring &link)
+{
+    LOG_FCALL() << LOG_FARG(link) << LOG_FARG(parentUuid) << LOG_FARG(name);
+
+    assertInFiber();
+
+    IOTRACE_START()
+
+    folly::fbstring effectiveLink{link};
+    if (!effectiveLink.empty() && (effectiveLink[0] == '/')) {
+        effectiveLink = createSpaceRelativeSymlink(effectiveLink);
+
+        LOG_DBG(2) << "Creating space-relative absolute symlink: "
+                   << effectiveLink;
+    }
+
+    messages::fuse::MakeSymLink msg{parentUuid, name, effectiveLink};
+    auto attr = communicate<FileAttr>(std::move(msg), m_providerTimeout);
+    auto sharedAttr = std::make_shared<FileAttr>(std::move(attr));
+
+    m_metadataCache.putAttr(sharedAttr);
+
+    IOTRACE_END(
+        IOTraceLink, IOTraceLogger::OpType::SYMLINK, parentUuid, 0, name, link)
+
+    return sharedAttr;
+}
+
+folly::fbstring FsLogic::readlink(const folly::fbstring &uuid)
+{
+    LOG_FCALL() << LOG_FARG(uuid);
+
+    assertInFiber();
+
+    IOTRACE_GUARD(IOTraceReadLink, IOTraceLogger::OpType::READLINK, uuid, 0)
+
+    messages::fuse::ReadSymLink msg{uuid};
+    auto symlink = communicate<one::messages::fuse::SymLink>(
+        std::move(msg), m_providerTimeout);
+
+    if (symlink.link().find(kAbsLinkPrefix) == 0) {
+        // This is space-relative absolute symlink
+        return resolveSpaceRelativeSymlink(symlink.link());
+    }
+
+    return symlink.link();
+}
+
 std::pair<FileAttrPtr, std::uint64_t> FsLogic::create(
     const folly::fbstring &parentUuid, const folly::fbstring &name,
     const mode_t mode, const int flags)
@@ -1765,7 +1860,8 @@ folly::fbstring FsLogic::getxattr(
     }
 
     if (name == ONE_XATTR("space_id")) {
-        return folly::sformat("\"{}\"", m_metadataCache.getSpaceId(uuid));
+        return folly::sformat(
+            "\"{}\"", util::uuid::uuidToSpaceId(uuid).toStdString());
     }
 
     if (name == ONE_XATTR("access_type")) {
@@ -1885,8 +1981,11 @@ folly::fbvector<folly::fbstring> FsLogic::listxattr(const folly::fbstring &uuid)
 
     result.push_back(ONE_XATTR("guid"));
     result.push_back(ONE_XATTR("file_id"));
-    if (m_metadataCache.getAttr(uuid)->type() == FileAttr::FileType::regular) {
-        result.push_back(ONE_XATTR("space_id"));
+    result.push_back(ONE_XATTR("space_id"));
+
+    auto fileType = m_metadataCache.getAttr(uuid)->type();
+    if ((fileType == FileAttr::FileType::regular) ||
+        (fileType == FileAttr::FileType::link)) {
         result.push_back(ONE_XATTR("storage_id"));
         result.push_back(ONE_XATTR("storage_file_id"));
         result.push_back(ONE_XATTR("access_type"));
@@ -1946,6 +2045,12 @@ void FsLogic::sync(const folly::fbstring &uuid,
         uuid.toStdString(), range, SYNCHRONIZE_BLOCK_PRIORITY_IMMEDIATE, false};
     auto fileLocationUpdate = communicate<messages::fuse::FileLocationChanged>(
         std::move(request), m_providerTimeout);
+
+    if (fileLocationUpdate.fileLocation().uuid() != uuid) {
+        LOG(ERROR) << "Synchronize block request for file " << uuid
+                   << "returned file location for different uuid "
+                   << fileLocationUpdate.fileLocation().uuid();
+    }
 
     if (fileLocationUpdate.changeStartOffset() &&
         fileLocationUpdate.changeEndOffset())
@@ -2068,6 +2173,105 @@ std::shared_ptr<IOTraceLogger> FsLogic::createIOTraceLogger()
     return IOTraceLogger::make(traceFilePath.native());
 }
 
+folly::fbstring FsLogic::resolveSpaceRelativeSymlink(
+    const folly::fbstring &link)
+{
+    auto spaceId = link.substr(kAbsLinkPrefix.size());
+    if (spaceId.find('>') == std::string::npos)
+        return link;
+
+    auto prefixEnd = spaceId.find('>', 0);
+    auto relativePath = spaceId.substr(prefixEnd + 1);
+    if (!relativePath.empty() && relativePath[0] != '/')
+        relativePath = "/" + relativePath;
+    spaceId = spaceId.substr(0, spaceId.find('>', 0));
+
+    auto spaceUuid = util::uuid::spaceIdToSpaceUUID(spaceId);
+
+    try {
+        auto attr = m_metadataCache.getAttr(spaceUuid);
+        auto mountPoint = boost::filesystem::absolute(
+            m_context->options()->getMountpoint(), "/");
+
+        auto mountPointString = mountPoint.string();
+        if (mountPointString.back() == '/')
+            mountPointString.pop_back();
+
+        if (m_showSpaceIdsNotNames)
+            return fmt::format(
+                "{}/{}{}", mountPointString, spaceId, relativePath);
+
+        auto absLink = fmt::format(
+            "{}/{}{}", mountPointString, attr->name(), relativePath);
+
+        LOG_DBG(2) << "Return space-relative absolute link: " << absLink;
+
+        return absLink;
+    }
+    catch (boost::filesystem::filesystem_error &e) {
+        return link;
+    }
+    catch (std::system_error &e) {
+        if (e.code().value() == ENOENT)
+            return link;
+        throw;
+    }
+}
+
+folly::fbstring FsLogic::createSpaceRelativeSymlink(const folly::fbstring &link)
+{
+    folly::fbstring effectiveLink{link};
+    try {
+        auto mountPoint = boost::filesystem::absolute(
+            m_context->options()->getMountpoint(), "/");
+
+        if (effectiveLink.back() == '/')
+            effectiveLink.pop_back();
+
+        if (effectiveLink.find(mountPoint.string()) == 0) {
+            // Get space name from the path
+            auto pathRelativeToMountpoint = boost::filesystem::path{
+                effectiveLink.substr(mountPoint.string().size()).toStdString()};
+
+            if (pathRelativeToMountpoint.string().size() > 1) {
+                auto spaceName =
+                    *pathRelativeToMountpoint.relative_path().begin();
+
+                auto attr =
+                    m_metadataCache.getAttr(m_rootUuid, spaceName.string());
+
+                auto spacePath = mountPoint.string();
+                if (spacePath.back() == '/')
+                    spacePath += spaceName.string();
+                else
+                    spacePath += std::string("/") + spaceName.string();
+
+                auto spaceRelativePath = effectiveLink.substr(spacePath.size());
+
+                if (!spaceRelativePath.empty()) {
+                    if (spaceRelativePath[0] == '/')
+                        spaceRelativePath.erase(spaceRelativePath.begin());
+
+                    effectiveLink = fmt::format("{}{}>/{}", kAbsLinkPrefix,
+                        util::uuid::uuidToSpaceId(attr->uuid()).toStdString(),
+                        spaceRelativePath);
+                }
+                else {
+                    effectiveLink = fmt::format("{}{}>", kAbsLinkPrefix,
+                        util::uuid::uuidToSpaceId(attr->uuid()).toStdString());
+                }
+            }
+        }
+    }
+    catch (boost::filesystem::filesystem_error &e) {
+    }
+    catch (std::system_error &e) {
+        if (e.code().value() != ENOENT)
+            throw;
+    }
+
+    return effectiveLink;
+}
 } // namespace fslogic
 } // namespace client
 } // namespace one

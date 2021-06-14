@@ -4,6 +4,66 @@ Release notes for project oneclient
 CHANGELOG
 ---------
 
+### 21.02.0-alpha13
+
+-   **VFS-7733** Added block\_aligned flag to onebench storage
+    benchmarking tool, enforcing read and writes aligned to block\_size
+    boundary only.
+
+### 21.02.0-alpha12
+
+### 21.02.0-alpha11
+
+-   **VFS-7589** Added StorageRouter and BufferedStorage helpers to
+    handling of aggregate storages such as archive storage.
+
+### 21.02.0-alpha10
+
+### 21.02.0-alpha9
+
+### 21.02.0-alpha8
+
+### 21.02.0-alpha7
+
+-   **VFS-7509** Added support for absolute symlinks relative to
+    Oneclient mountpoint, i.e. always pointing to the same file in a
+    space, regardless of actual Oneclient mountpoint path.
+-   **VFS-7360** Added support for hardlinks and symlinks through
+    Oneclient POSIX interface.
+
+### 21.02.0-alpha6
+
+-   **VFS-7486** Added option to nulldevice helper allowing control of
+    file size returned by getattr in simulated file systems.
+
+### 21.02.0-alpha5
+
+-   **VFS-7358** Added support for accessing open data shares in
+    oneclient with \--open-shares-mode option.
+
+### 21.02.0-alpha4
+
+-   **VFS-7397** Added new option to oneclient \`\--show-space-ids\`
+    which allows to list spaces using their space Id\'s instead of names
+    in the top level oneclient mount directory.
+
+### 21.02.0-alpha3
+
+-   **VFS-7275** Improved Oneclient exception handling, including
+    connection errors and invalid tokens.
+
+### 21.02.0-alpha2
+
+-   **VFS-7276** Improved handling of startup errors in Oneclient,
+    including more graceful handling of various exceptions and more
+    informative error messages including Oneclient and Oneprovider
+    compatibility and invalid token issues.
+-   **VFS-7274** Added SIGTERM and SIGINT handlers to Oneclient,
+    ensuring that after the oneclient process is stopped by some other
+    process, the mountpoint is properly released.
+-   **VFS-7256** Fixed OnedataFS token refresh, which caused
+    disconnection from Oneprovider after the token expired.
+
 ### 20.02.10
 
 ### 20.02.9
@@ -23,7 +83,6 @@ CHANGELOG
     process, the mountpoint is properly released.
 -   **VFS-7256** Fixed OnedataFS token refresh, which caused
     disconnection from Oneprovider after the token expired.
-
 
 ### 20.02.6
 

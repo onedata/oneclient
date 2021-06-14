@@ -31,12 +31,15 @@ public:
         std::shared_ptr<one::helpers::StorageHelper> helper,
         folly::MPMCQueue<TestResult, std::atomic, true> &resultsQueue,
         const folly::fbvector<folly::fbstring> &fileIds, size_t fileSize,
-        size_t blockSize, int eventCount, int asyncBatchSize, bool flush)
+        size_t blockSize, bool blockAligned, int eventCount, int asyncBatchSize,
+        bool flush)
         : TestWorker(id, executor, startBarrier, stopBarrier, std::move(helper),
-              resultsQueue, fileIds, fileSize, blockSize, eventCount,
-              asyncBatchSize, flush)
+              resultsQueue, fileIds, fileSize, blockSize, blockAligned,
+              eventCount, asyncBatchSize, flush)
     {
     }
+
+    virtual ~TestWorkerRndWr() = default;
 
     virtual void operator()() override
     {
@@ -57,7 +60,8 @@ public:
         m_startBarrier.wait().get();
 
         auto f = [this, id = m_id, fileCount, fileSize = m_fileSize,
-                     blockSize = m_blockSize, eventCount = m_eventCount,
+                     blockSize = m_blockSize, blockAligned = m_blockAligned,
+                     eventCount = m_eventCount,
                      asyncBatchSize = m_asyncBatchSize, flush = m_flush,
                      data = std::move(data), handles = std::move(handles)]() {
             for (int k = 0; k < eventCount; k += asyncBatchSize) {
@@ -67,7 +71,8 @@ public:
 
                 for (int l = 0; l < asyncBatchSize; l++) {
                     auto fileIndex = std::rand() % fileCount;
-                    auto offset = std::rand() % (fileSize - blockSize);
+                    auto offset =
+                        getRandomOffset(fileSize, blockSize, blockAligned);
 
                     folly::IOBufQueue buf{
                         folly::IOBufQueue::cacheChainLength()};
@@ -95,7 +100,17 @@ public:
                                     return folly::makeFuture();
                                 }));
                 }
-                folly::collectAll(futs.begin(), futs.end()).get();
+
+                folly::collectAll(futs.begin(), futs.end())
+                    .then([this, handles, fileSize](auto && /*f*/) {
+                        folly::fbvector<folly::Future<folly::Unit>> futs;
+                        for (auto &h : handles) {
+                            futs.emplace_back(
+                                m_helper->flushBuffer(h->fileId(), fileSize));
+                        }
+                        return folly::collectAll(futs.begin(), futs.end());
+                    })
+                    .get();
             }
         };
 
