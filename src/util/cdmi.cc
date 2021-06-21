@@ -29,9 +29,10 @@ std::string hexstr2str(const std::string &hexstr)
     auto len = hexstr.length();
     std::string out;
     out.reserve(len / 2);
+    constexpr auto kHexBase = 16U;
     for (auto i = 0UL; i < len; i += 2) {
         std::string hexByte = hexstr.substr(i, 2);
-        out.push_back((char)stoi(hexByte, 0, 16));
+        out.push_back(static_cast<char>(stoi(hexByte, nullptr, kHexBase)));
     }
     return out;
 }
@@ -54,6 +55,7 @@ std::string uuidToObjectId(const std::string &input)
     base64::base64_decode(input, decodedUuid);
 
     const uint32_t enterpriseNumber = 0;
+    const auto kCDMIObjectIDSize = 64;
 
     /*
      * Build an object ID given an enterprise number and data as a
@@ -68,20 +70,20 @@ std::string uuidToObjectId(const std::string &input)
      * +----------+------------+-----------+--------+-------+-----------+
      */
     std::vector<uint8_t> objectId;
-    objectId.reserve(40);
+    objectId.reserve(kCDMIObjectIDSize);
 
     // Reserved
     objectId.push_back(0);
 
     // Enterprise number
-    objectId.push_back((0x00FFFFFF & enterpriseNumber) >> 16);
-    objectId.push_back((0x0000FFFF & enterpriseNumber) >> 8);
-    objectId.push_back(0x0000FF & enterpriseNumber);
+    objectId.push_back((0x00FFFFFF & enterpriseNumber) >> 16); // NOLINT
+    objectId.push_back((0x0000FFFF & enterpriseNumber) >> 8); // NOLINT
+    objectId.push_back(0x0000FF & enterpriseNumber); // NOLINT
 
     // Reserved
     objectId.push_back(0);
 
-    if (decodedUuid.size() > 255)
+    if (decodedUuid.size() > 255) // NOLINT
         throw std::runtime_error(
             "Input too long to encode as CDMI Object ID: " + decodedUuid);
 
@@ -90,12 +92,12 @@ std::string uuidToObjectId(const std::string &input)
 
     // CRC
     // At first set to 0x0000 - then replace with CRC of entire message
-    objectId.push_back((uint8_t)(0));
-    objectId.push_back((uint8_t)(0));
+    objectId.push_back(static_cast<uint8_t>(0));
+    objectId.push_back(static_cast<uint8_t>(0));
 
     // Opaque data
     for (char &c : decodedUuid)
-        objectId.push_back((uint8_t)c);
+        objectId.push_back(static_cast<uint8_t>(c));
 
     // The CDMI specification requires a CRC field as part of the object
     // ID. The CRC algorithim specified has the following parameters:
@@ -107,10 +109,12 @@ std::string uuidToObjectId(const std::string &input)
     // -- RefOut: True
     // -- XorOut: 0x0000
     // -- Check: 0xBB3D
-    boost::crc_optimal<16, 0x8005, 0, 0, true, true> crc16;
+    const auto kCRCWidth = 16U;
+    const auto kCRCPoly = 0x8005;
+    boost::crc_optimal<kCRCWidth, kCRCPoly, 0, 0, true, true> crc16;
     crc16.process_bytes(objectId.data(), objectId.size());
-    objectId[6] = (uint8_t)(crc16.checksum() >> 8);
-    objectId[7] = (uint8_t)(crc16.checksum() & 0xFF);
+    objectId[6] = static_cast<uint8_t>(crc16.checksum() >> 8); // NOLINT
+    objectId[7] = static_cast<uint8_t>(crc16.checksum() & 0xFF); // NOLINT
 
     // Convert to Base 16
     std::stringstream ss;
@@ -119,7 +123,7 @@ std::string uuidToObjectId(const std::string &input)
 
     return ss.str();
 }
-}
-}
-}
-}
+} // namespace cdmi
+} // namespace util
+} // namespace client
+} // namespace one
