@@ -33,6 +33,7 @@
 #include "options/options.h"
 #include "scheduler.h"
 #include "scopeExit.h"
+#include "util/cdmi.h"
 #include "version.h"
 
 #include <boost/filesystem.hpp>
@@ -699,8 +700,16 @@ private:
 
     std::string uuidFromPath(const std::string &path)
     {
+        using one::client::fslogic::ONEDATA_FILEID_ACCESS_PREFIX;
+
         if (path.empty() || path == "/")
             return m_rootUuid;
+
+        if (path.find(ONEDATA_FILEID_ACCESS_PREFIX) != std::string::npos) {
+            return util::cdmi::objectIdToUUID(
+                path.substr(path.find(ONEDATA_FILEID_ACCESS_PREFIX) +
+                    strlen(ONEDATA_FILEID_ACCESS_PREFIX)));
+        }
 
         auto parentUuid = m_rootUuid;
         FileAttrPtr fileAttrPtr;

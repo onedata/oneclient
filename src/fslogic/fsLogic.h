@@ -63,6 +63,8 @@ constexpr auto SYNCHRONIZE_BLOCK_PRIORITY_IMMEDIATE = 32;
 constexpr auto SYNCHRONIZE_BLOCK_PRIORITY_LINEAR_PREFETCH = 96;
 constexpr auto SYNCHRONIZE_BLOCK_PRIORITY_CLUSTER_PREFETCH = 160;
 
+const auto ONEDATA_FILEID_ACCESS_PREFIX = ".__onedata__file_id__";
+
 /**
  * The FsLogic main class.
  * This class contains FUSE all callbacks, so it basically is an heart of the
@@ -338,6 +340,8 @@ private:
         const boost::icl::discrete_interval<off_t> &wantedRange);
 
     folly::fbstring computeHash(const folly::IOBufQueue &buf);
+
+    folly::fbstring getFileIdFromFilename(const folly::fbstring &name);
 
     FileAttrPtr makeFile(const folly::fbstring &parentUuid,
         const folly::fbstring &name, const mode_t mode,

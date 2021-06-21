@@ -444,10 +444,14 @@ FileAttrPtr FsLogic::lookup(
 
     assertInFiber();
 
+    auto fileNameUUID = getFileIdFromFilename(name);
     FileAttrPtr attr{};
 
     try {
-        attr = m_metadataCache.getAttr(uuid, name);
+        if (fileNameUUID.empty())
+            attr = m_metadataCache.getAttr(uuid, name);
+        else
+            attr = m_metadataCache.getAttr(fileNameUUID);
     }
     catch (std::system_error &e) {
         if (m_metadataCache.getAttr(uuid)->isVirtual()) {
@@ -1667,7 +1671,13 @@ void FsLogic::unlink(
     assertInFiber();
 
     // TODO: directly order provider to delete {parentUuid, name}
-    auto attr = m_metadataCache.getAttr(parentUuid, name);
+    FileAttrPtr attr{};
+    auto fileNameUUID = getFileIdFromFilename(name);
+    if (fileNameUUID.empty())
+        attr = m_metadataCache.getAttr(parentUuid, name);
+    else
+        attr = m_metadataCache.getAttr(fileNameUUID);
+
     try {
         communicate(messages::fuse::DeleteFile{attr->uuid().toStdString()},
             m_providerTimeout);
@@ -1703,7 +1713,13 @@ void FsLogic::rename(const folly::fbstring &parentUuid,
     assertInFiber();
 
     // TODO: directly order provider to rename {parentUuid, name}
-    auto attr = m_metadataCache.getAttr(parentUuid, name);
+    FileAttrPtr attr{};
+    auto fileNameUUID = getFileIdFromFilename(name);
+    if (fileNameUUID.empty())
+        attr = m_metadataCache.getAttr(parentUuid, name);
+    else
+        attr = m_metadataCache.getAttr(fileNameUUID);
+
     auto oldUuid = attr->uuid();
 
     auto renamed = communicate<messages::fuse::FileRenamed>(
@@ -2110,6 +2126,16 @@ folly::fbstring FsLogic::computeHash(const folly::IOBufQueue &buf)
                 promise.setValue(std::move(hash));
             });
         });
+}
+
+folly::fbstring FsLogic::getFileIdFromFilename(const folly::fbstring &name)
+{
+    if (name.find(ONEDATA_FILEID_ACCESS_PREFIX) == 0) {
+        return util::cdmi::objectIdToUUID(
+            name.substr(strlen(ONEDATA_FILEID_ACCESS_PREFIX)).toStdString());
+    }
+
+    return {};
 }
 
 bool FsLogic::isSpaceDisabled(const folly::fbstring &spaceId)
