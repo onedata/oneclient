@@ -82,7 +82,7 @@ class HelpersCacheProxy {
 public:
     HelpersCacheProxy(std::shared_ptr<Context> context)
         : m_helpersCache{std::make_shared<HelpersCache>(
-              *context->communicator(), *context->scheduler(),
+              *context->communicator(), context->scheduler(),
               *context->options())}
         , m_context{context}
     {
@@ -106,7 +106,7 @@ public:
         auto handle =
             m_helpersCache
                 ->get(fileUuid, spaceId, storageId, forceProxyIO, false)
-                .then([fileUuid](auto &helperPtr) {
+                .then([fileUuid](std::shared_ptr<StorageHelper> helperPtr) {
                     return helperPtr->open(fileUuid, O_RDWR | O_CREAT, {});
                 })
                 .get();

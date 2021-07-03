@@ -849,7 +849,7 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(
     communicator->connect();
 
     auto helpersCache = std::make_unique<cache::HelpersCache>(
-        *communicator, *context->scheduler(), *options);
+        *communicator, context->scheduler(), *options);
 
     const auto &rootUuid = configuration->rootUuid();
 

@@ -87,6 +87,8 @@ public:
      */
     std::string hostname() const { return m_hostname; }
 
+    virtual void scheduleRefresh(const std::chrono::seconds after) = 0;
+
 protected:
     std::weak_ptr<Context> m_context;
     std::string m_hostname;
@@ -121,9 +123,9 @@ public:
 
     void cleanup() override;
 
+    void scheduleRefresh(const std::chrono::seconds after) override;
 private:
     void refreshMacaroon();
-    void scheduleRefresh(const std::chrono::seconds after);
 
     MacaroonHandler m_macaroonHandler;
     std::function<void()> m_cancelRefresh = [] {};

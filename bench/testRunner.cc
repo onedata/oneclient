@@ -42,7 +42,6 @@ TestRunner::TestRunner(TestRunnerConfig config)
     : m_config{config}
     , m_workerPool{1}
     , m_resultsQueue{10000}
-    , m_idleWork{asio::make_work_guard(m_service)}
     , m_startBarrier{static_cast<uint32_t>(m_config.testThreadCount + 1)}
     , m_stopBarrier{static_cast<uint32_t>(m_config.testThreadCount + 1)}
     , m_stopped{true}
@@ -60,36 +59,27 @@ void TestRunner::initialize()
     std::shared_ptr<one::helpers::StorageHelperFactory> helperFactory;
 
     // Start helper worker threads
-    if (m_config.storageType == "http" || m_config.storageType == "webdav" ||
-        m_config.storageType == "xrootd") {
-        m_ioExecutor = std::make_shared<folly::IOThreadPoolExecutor>(
-            m_config.helperThreadCount);
-    }
-    else {
-        for (int i = 0; i < m_config.helperThreadCount; i++) {
-            m_serviceThreads.emplace_back(
-                std::thread{[&, this] { m_service.run(); }});
-        }
-    }
+    m_ioExecutor = std::make_shared<folly::IOThreadPoolExecutor>(
+        m_config.helperThreadCount);
 
     if (m_config.storageType == "null") {
         helperFactory =
-            std::make_shared<one::helpers::NullDeviceHelperFactory>(m_service);
+            std::make_shared<one::helpers::NullDeviceHelperFactory>(m_ioExecutor);
     }
 #if WITH_CEPH
     else if (m_config.storageType == "ceph") {
         helperFactory =
-            std::make_shared<one::helpers::CephHelperFactory>(m_service);
+            std::make_shared<one::helpers::CephHelperFactory>(m_ioExecutor);
     }
     else if (m_config.storageType == "cephrados") {
         helperFactory =
-            std::make_shared<one::helpers::CephRadosHelperFactory>(m_service);
+            std::make_shared<one::helpers::CephRadosHelperFactory>(m_ioExecutor);
     }
 #endif
 #if WITH_S3
     else if (m_config.storageType == "s3") {
         helperFactory =
-            std::make_shared<one::helpers::S3HelperFactory>(m_service);
+            std::make_shared<one::helpers::S3HelperFactory>(m_ioExecutor);
     }
 #endif
 #if WITH_WEBDAV
@@ -110,7 +100,7 @@ void TestRunner::initialize()
 #endif
     else if (m_config.storageType == "posix") {
         helperFactory =
-            std::make_shared<one::helpers::PosixHelperFactory>(m_service);
+            std::make_shared<one::helpers::PosixHelperFactory>(m_ioExecutor);
     }
     else {
         throw std::invalid_argument(
@@ -144,10 +134,10 @@ void TestRunner::initialize()
             bufferedArgs["bufferDepth"] = "2";
 
             auto bufferHelper =
-                one::helpers::S3HelperFactory{m_service}.createStorageHelper(
+                one::helpers::S3HelperFactory{m_ioExecutor}.createStorageHelper(
                     bufferArgs, one::helpers::ExecutionContext::ONECLIENT);
             auto mainHelper =
-                one::helpers::S3HelperFactory{m_service}.createStorageHelper(
+                one::helpers::S3HelperFactory{m_ioExecutor}.createStorageHelper(
                     mainArgs, one::helpers::ExecutionContext::ONECLIENT);
             auto bufferedHelper =
                 one::helpers::BufferedStorageHelperFactory{}
@@ -158,7 +148,7 @@ void TestRunner::initialize()
             std::map<folly::fbstring, one::helpers::StorageHelperPtr> routes;
             routes["/.__onedata_archive"] = std::move(bufferedHelper);
             routes["/"] =
-                one::helpers::S3HelperFactory{m_service}.createStorageHelper(
+                one::helpers::S3HelperFactory{m_ioExecutor}.createStorageHelper(
                     args, one::helpers::ExecutionContext::ONECLIENT);
 
             auto helperPtr =
@@ -317,10 +307,6 @@ void TestRunner::stop()
         removeTestFiles();
 
     std::cout << "== Stopping TestRunner ===" << std::endl;
-
-    m_service.stop();
-    for (auto &t : m_serviceThreads)
-        t.join();
 }
 
 void TestRunner::createTestFiles()
