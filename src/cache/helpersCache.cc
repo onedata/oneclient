@@ -74,8 +74,6 @@ HelpersCache::HelpersCache(communication::Communicator &communicator,
 {
 }
 
-HelpersCache::~HelpersCache() {}
-
 HelpersCache::AccessType HelpersCache::getAccessType(
     const folly::fbstring &storageId)
 {
@@ -437,7 +435,7 @@ HelpersCache::HelperPtr HelpersCache::handleStorageTestFile(
     try {
         auto helper =
             m_storageAccessManager.verifyStorageTestFile(storageId, *testFile);
-        auto attempts = m_maxAttempts;
+        auto attempts = maxAttempts;
 
         while (!helper && (attempts-- > 0)) {
             std::this_thread::sleep_for(VERIFY_TEST_FILE_DELAY);

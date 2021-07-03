@@ -101,7 +101,7 @@ public:
     /**
      * Destructor.
      */
-    virtual ~HelpersCache();
+    virtual ~HelpersCache() = default;
 
     /**
      * Retrieves a helper instance.
