@@ -63,8 +63,8 @@ void TestRunner::initialize()
         m_config.helperThreadCount);
 
     if (m_config.storageType == "null") {
-        helperFactory =
-            std::make_shared<one::helpers::NullDeviceHelperFactory>(m_ioExecutor);
+        helperFactory = std::make_shared<one::helpers::NullDeviceHelperFactory>(
+            m_ioExecutor);
     }
 #if WITH_CEPH
     else if (m_config.storageType == "ceph") {
@@ -72,8 +72,8 @@ void TestRunner::initialize()
             std::make_shared<one::helpers::CephHelperFactory>(m_ioExecutor);
     }
     else if (m_config.storageType == "cephrados") {
-        helperFactory =
-            std::make_shared<one::helpers::CephRadosHelperFactory>(m_ioExecutor);
+        helperFactory = std::make_shared<one::helpers::CephRadosHelperFactory>(
+            m_ioExecutor);
     }
 #endif
 #if WITH_S3

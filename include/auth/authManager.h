@@ -124,6 +124,7 @@ public:
     void cleanup() override;
 
     void scheduleRefresh(const std::chrono::seconds after) override;
+
 private:
     void refreshMacaroon();
 
