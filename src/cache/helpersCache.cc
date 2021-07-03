@@ -27,7 +27,8 @@ namespace client {
 namespace cache {
 
 HelpersCache::HelpersCache(communication::Communicator &communicator,
-    std::shared_ptr<Scheduler> scheduler, const options::Options &options)
+    std::shared_ptr<Scheduler> scheduler, const options::Options &options,
+    int maxAttempts)
     : m_communicator{communicator}
     , m_scheduler{std::move(scheduler)}
     , m_options{options}
@@ -69,7 +70,7 @@ HelpersCache::HelpersCache(communication::Communicator &communicator,
         helpers::ExecutionContext::ONECLIENT
 }
 , m_storageAccessManager{m_helperFactory, m_options},
-    m_providerTimeout{options.getProviderTimeout()}
+    m_providerTimeout{options.getProviderTimeout()}, m_maxAttempts{maxAttempts}
 {
 }
 
@@ -279,8 +280,8 @@ HelpersCache::HelperPtr HelpersCache::performAutoIOStorageDetection(
                           "fallback";
             m_scheduler->post([this, fileUuid, storageId,
                                   storageType = params.name()] {
-                auto directIOHelper =
-                    requestStorageTestFileCreation(fileUuid, storageId);
+                auto directIOHelper = requestStorageTestFileCreation(
+                    fileUuid, storageId, m_maxAttempts);
                 if (directIOHelper) {
                     LOG_DBG(2) << "Found direct access to " << storageType
                                << " storage " << storageId
@@ -370,7 +371,8 @@ HelpersCache::HelperPtr HelpersCache::performForcedDirectIOStorageDetection(
                          "attempting storage mountpoint detection in local "
                          "filesystem";
 
-            return requestStorageTestFileCreation(fileUuid, storageId);
+            return requestStorageTestFileCreation(
+                fileUuid, storageId, m_maxAttempts);
         }
 
         LOG_DBG(1) << "Got storage helper params for file " << fileUuid
@@ -435,7 +437,7 @@ HelpersCache::HelperPtr HelpersCache::handleStorageTestFile(
     try {
         auto helper =
             m_storageAccessManager.verifyStorageTestFile(storageId, *testFile);
-        auto attempts = maxAttempts;
+        auto attempts = m_maxAttempts;
 
         while (!helper && (attempts-- > 0)) {
             std::this_thread::sleep_for(VERIFY_TEST_FILE_DELAY);
@@ -447,7 +449,7 @@ HelpersCache::HelperPtr HelpersCache::handleStorageTestFile(
             LOG(INFO) << "Storage '" << storageId
                       << "' is not directly accessible to the client. Test "
                          "file verification attempts limit ("
-                      << maxAttempts << ") exceeded.";
+                      << m_maxAttempts << ") exceeded.";
 
             std::lock_guard<std::mutex> guard(m_accessTypeMutex);
             m_accessType[storageId] = AccessType::PROXY;

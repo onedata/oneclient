@@ -83,7 +83,7 @@ public:
     HelpersCacheProxy(std::shared_ptr<Context> context)
         : m_helpersCache{std::make_shared<HelpersCache>(
               *context->communicator(), context->scheduler(),
-              *context->options())}
+              *context->options(), 1)}
         , m_context{context}
     {
     }
@@ -94,8 +94,9 @@ public:
         bool forceProxyIO)
     {
         m_helpersCache->get(fileUuid, spaceId, storageId, forceProxyIO, false)
-            .then([fileUuid](auto &helperPtr) {
-                helperPtr->mknod(fileUuid, S_IFREG | 0666, {}, 0);
+            .then([fileUuid](std::shared_ptr<StorageHelper> helperPtr) {
+                helperPtr->mknod(fileUuid, S_IFREG | 0666, {}, 0)
+                    .then([helperPtr]() {});
             })
             .get();
     }
@@ -107,7 +108,9 @@ public:
             m_helpersCache
                 ->get(fileUuid, spaceId, storageId, forceProxyIO, false)
                 .then([fileUuid](std::shared_ptr<StorageHelper> helperPtr) {
-                    return helperPtr->open(fileUuid, O_RDWR | O_CREAT, {});
+                    return helperPtr->open(fileUuid, O_RDWR | O_CREAT, {})
+                        .then([helperPtr, fileUuid](
+                                  auto &&handle) { return handle; });
                 })
                 .get();
 

@@ -95,7 +95,8 @@ public:
      * @param options Options instance used to configure buffer limits.
      */
     HelpersCache(communication::Communicator &communicator,
-        std::shared_ptr<Scheduler> scheduler, const options::Options &options);
+        std::shared_ptr<Scheduler> scheduler, const options::Options &options,
+        int maxAttempts = VERIFY_TEST_FILE_ATTEMPTS);
 
     /**
      * Destructor.
@@ -130,12 +131,11 @@ public:
 private:
     HelpersCache::HelperPtr requestStorageTestFileCreation(
         const folly::fbstring &fileUuid, const folly::fbstring &storageId,
-        const int maxAttempts = VERIFY_TEST_FILE_ATTEMPTS);
+        const int maxAttempts);
 
     HelpersCache::HelperPtr handleStorageTestFile(
         std::shared_ptr<messages::fuse::StorageTestFile> testFile,
-        const folly::fbstring &storageId,
-        const int maxAttempts = VERIFY_TEST_FILE_ATTEMPTS);
+        const folly::fbstring &storageId, const int maxAttempts);
 
     void requestStorageTestFileVerification(
         const messages::fuse::StorageTestFile &testFile,
@@ -191,6 +191,8 @@ private:
 
     // Timeout for Oneprovider responses
     std::chrono::milliseconds m_providerTimeout;
+
+    int m_maxAttempts;
 };
 
 } // namespace cache
