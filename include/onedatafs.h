@@ -275,8 +275,7 @@ public:
             throw one::helpers::makePosixException(EBADF);
 
         std::shared_ptr<folly::IOBuf> buf{
-            folly::IOBufQueue::cacheChainLength()};
-        buf.wrapBuffer(data.data(), data.size());
+            folly::IOBuf::copyBuffer(data.data(), data.length())};
 
         return m_fiberManager
             .addTaskRemoteFuture(
@@ -284,7 +283,6 @@ public:
                     return m_fsLogic->write(
                         m_uuid, m_fileHandleId, offset, std::move(buf));
                 })
-            .then([data = std::move(data)](size_t written) { return written; })
             .get();
     }
 
