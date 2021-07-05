@@ -76,7 +76,7 @@ public:
 
                     folly::IOBufQueue buf{
                         folly::IOBufQueue::cacheChainLength()};
-                    buf.append(data);
+                    buf.wrapBuffer(data.data(), data.size(), m_helper->blockSize());
 
                     auto start = Clock::now();
 
