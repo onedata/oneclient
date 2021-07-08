@@ -77,8 +77,8 @@ std::string uuidToObjectId(const std::string &input)
 
     // Enterprise number
     objectId.push_back((0x00FFFFFF & enterpriseNumber) >> 16); // NOLINT
-    objectId.push_back((0x0000FFFF & enterpriseNumber) >> 8); // NOLINT
-    objectId.push_back(0x0000FF & enterpriseNumber); // NOLINT
+    objectId.push_back((0x0000FFFF & enterpriseNumber) >> 8);  // NOLINT
+    objectId.push_back(0x0000FF & enterpriseNumber);           // NOLINT
 
     // Reserved
     objectId.push_back(0);
@@ -113,7 +113,7 @@ std::string uuidToObjectId(const std::string &input)
     const auto kCRCPoly = 0x8005;
     boost::crc_optimal<kCRCWidth, kCRCPoly, 0, 0, true, true> crc16;
     crc16.process_bytes(objectId.data(), objectId.size());
-    objectId[6] = static_cast<uint8_t>(crc16.checksum() >> 8); // NOLINT
+    objectId[6] = static_cast<uint8_t>(crc16.checksum() >> 8);   // NOLINT
     objectId[7] = static_cast<uint8_t>(crc16.checksum() & 0xFF); // NOLINT
 
     // Convert to Base 16
