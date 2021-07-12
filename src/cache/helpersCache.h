@@ -16,8 +16,6 @@
 #include "scheduler.h"
 #include "storageAccessManager.h"
 
-#include <asio/io_service.hpp>
-#include <asio/ts/executor.hpp>
 #include <folly/FBString.h>
 #include <folly/FBVector.h>
 #include <folly/Hash.h>
@@ -97,13 +95,13 @@ public:
      * @param options Options instance used to configure buffer limits.
      */
     HelpersCache(communication::Communicator &communicator,
-        Scheduler &scheduler, const options::Options &options);
+        std::shared_ptr<Scheduler> scheduler, const options::Options &options,
+        int maxAttempts = VERIFY_TEST_FILE_ATTEMPTS);
 
     /**
      * Destructor.
-     * Stops the @c asio::io_service instance and a worker thread.
      */
-    virtual ~HelpersCache();
+    virtual ~HelpersCache() = default;
 
     /**
      * Retrieves a helper instance.
@@ -133,12 +131,11 @@ public:
 private:
     HelpersCache::HelperPtr requestStorageTestFileCreation(
         const folly::fbstring &fileUuid, const folly::fbstring &storageId,
-        const int maxAttempts = VERIFY_TEST_FILE_ATTEMPTS);
+        const int maxAttempts);
 
     HelpersCache::HelperPtr handleStorageTestFile(
         std::shared_ptr<messages::fuse::StorageTestFile> testFile,
-        const folly::fbstring &storageId,
-        const int maxAttempts = VERIFY_TEST_FILE_ATTEMPTS);
+        const folly::fbstring &storageId, const int maxAttempts);
 
     void requestStorageTestFileVerification(
         const messages::fuse::StorageTestFile &testFile,
@@ -156,13 +153,9 @@ private:
         const folly::fbstring &storageId);
 
     communication::Communicator &m_communicator;
-    Scheduler &m_scheduler;
+    std::shared_ptr<Scheduler> m_scheduler;
     const options::Options &m_options;
 
-    asio::io_service m_helpersIoService;
-    asio::executor_work_guard<asio::io_service::executor_type> m_idleWork{
-        asio::make_work_guard(m_helpersIoService)};
-    folly::fbvector<std::thread> m_helpersWorkers;
     std::shared_ptr<folly::IOThreadPoolExecutor> m_helpersIOExecutor;
 
     // Helper parameter values provided on the Oneclient commandline
@@ -198,6 +191,8 @@ private:
 
     // Timeout for Oneprovider responses
     std::chrono::milliseconds m_providerTimeout;
+
+    int m_maxAttempts;
 };
 
 } // namespace cache

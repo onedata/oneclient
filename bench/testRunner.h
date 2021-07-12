@@ -13,9 +13,6 @@
 #include "testRunnerConfig.h"
 #include "testWorker.h"
 
-#undef signal_set
-
-#include <asio.hpp>
 #include <folly/FBVector.h>
 #include <folly/MPMCQueue.h>
 #include <folly/executors/IOThreadPoolExecutor.h>
@@ -52,9 +49,6 @@ private:
     // from the thread collecting items from the m_resultsQueue
     std::unordered_map<TestWorkerID, folly::fbvector<TestResult>> m_results;
 
-    asio::io_service m_service;
-    folly::fbvector<std::thread> m_serviceThreads;
-    asio::executor_work_guard<asio::io_service::executor_type> m_idleWork;
     // Worker executor pool for WebDAV helper
     std::shared_ptr<folly::IOThreadPoolExecutor> m_ioExecutor;
 
