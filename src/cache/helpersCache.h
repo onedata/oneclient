@@ -86,8 +86,6 @@ class HelpersCache : public HelpersCacheBase {
 public:
     /**
      * Constructor.
-     * Starts an @c asio::io_service instance with one worker thread for
-     * @c helpers::StorageHelperCreator.
      * @param communicator Communicator instance used to fetch helper
      * parameters.
      * @param scheduler Scheduler instance used to execute storage detection

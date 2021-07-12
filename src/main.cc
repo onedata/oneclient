@@ -15,7 +15,6 @@
 #define _XOPEN_SOURCE 700
 #endif
 
-#include "asio.hpp"
 #include "auth/authException.h"
 #include "auth/authManager.h"
 #include "communication/exception.h"

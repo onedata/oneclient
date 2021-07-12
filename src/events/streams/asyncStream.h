@@ -11,12 +11,7 @@
 
 #include "stream.h"
 
-#include <asio/io_service.hpp>
-#include <asio/io_service_strand.hpp>
-#include <asio/post.hpp>
-#include <asio/ts/executor.hpp>
-
-#include <thread>
+#include "folly/executors/IOThreadPoolExecutor.h"
 
 namespace one {
 namespace client {
@@ -38,7 +33,7 @@ public:
     /**
      * Stops IO service and joins worker thread.
      */
-    ~AsyncStream();
+    ~AsyncStream() = default;
 
     /**
      * Forwards call to a wrapped stream managed by a single, dedicated worker
@@ -55,9 +50,7 @@ public:
     void flush() override;
 
 private:
-    asio::io_service m_ioService;
-    asio::executor_work_guard<asio::io_service::executor_type> m_idleWork;
-    std::thread m_worker;
+    std::shared_ptr<folly::IOThreadPoolExecutor> m_executor;
     StreamPtr m_stream;
 };
 
