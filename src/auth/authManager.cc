@@ -9,7 +9,6 @@
 #include "auth/authManager.h"
 #include "auth/authException.h"
 #include "auth/macaroonHandler.h"
-#include "communication/cert/certificateData.h"
 #include "communication/communicator.h"
 #include "context.h"
 #include "environment.h"
