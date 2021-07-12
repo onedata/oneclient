@@ -74,10 +74,13 @@ public:
                     auto offset =
                         getRandomOffset(fileSize, blockSize, blockAligned);
 
+                    auto storageBlockSize = m_helper->blockSize() == 0
+                        ? (1U << 31)
+                        : m_helper->blockSize();
+
                     folly::IOBufQueue buf{
                         folly::IOBufQueue::cacheChainLength()};
-                    buf.wrapBuffer(
-                        data.data(), data.size(), m_helper->blockSize());
+                    buf.wrapBuffer(data.data(), data.size(), storageBlockSize);
 
                     auto start = Clock::now();
 
