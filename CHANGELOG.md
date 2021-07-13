@@ -4,6 +4,12 @@ Release notes for project oneclient
 CHANGELOG
 ---------
 
+### 21.02.0-alpha15
+
+-   **VFS-7892** Improved write performance on object storages by
+    minimizing the number of memory copying from Erlang to C++.
+-   **VFS-7747** Upgrade the codebase to Erlang OTP 24.
+
 ### 21.02.0-alpha14
 
 -   **VFS-7813** Enable access to files directly via their Onedata file
