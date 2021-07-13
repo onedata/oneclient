@@ -4,6 +4,12 @@ Release notes for project oneclient
 CHANGELOG
 ---------
 
+### 21.02.0-alpha14
+
+-   **VFS-7813** Enable access to files directly via their Onedata file
+    id, by opening or performing any other POSIX operation on a file
+    with a name \`.\_\_onedata\_\_file\_id\_\_\<FILEID\>\`.
+
 ### 21.02.0-alpha13
 
 -   **VFS-7733** Added block\_aligned flag to onebench storage

@@ -86,8 +86,6 @@ MacaroonAuthManager::createCommunicator(const unsigned int poolSize,
         },
         std::move(onHandshakeResponse));
 
-    scheduleRefresh(RESTRICTED_MACAROON_REFRESH);
-
     return std::forward_as_tuple(std::move(communicator), std::move(future));
 }
 

@@ -101,7 +101,7 @@ public:
         unsigned int metadataCacheSize = 10000,
         unsigned int dropDirectoryCacheAfter = 60)
         : m_helpersCache{new HelpersCacheProxy(*context->communicator(),
-              *context->scheduler(), *context->options())}
+              context->scheduler(), *context->options())}
         , m_fsLogic{context, std::make_shared<messages::Configuration>(),
               std::unique_ptr<HelpersCacheProxy>{m_helpersCache},
               metadataCacheSize, false, false, 10s,

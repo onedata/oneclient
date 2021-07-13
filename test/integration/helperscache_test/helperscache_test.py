@@ -40,7 +40,6 @@ def hc(endpoint):
             endpoint.ip, endpoint.port,
             '--no-buffer --provider-timeout=2 mountpoint')
     yield cache
-    cache.stop()
 
 
 @pytest.yield_fixture
@@ -49,7 +48,6 @@ def hc_directio(endpoint):
             endpoint.ip, endpoint.port,
             '--no-buffer --provider-timeout=2 --force-direct-io mountpoint')
     yield cache
-    cache.stop()
 
 
 @pytest.yield_fixture
@@ -58,7 +56,6 @@ def hc_proxyio(endpoint):
             endpoint.ip, endpoint.port,
             '--no-buffer --provider-timeout=2 --force-proxy-io mountpoint')
     yield cache
-    cache.stop()
 
 
 @pytest.fixture
