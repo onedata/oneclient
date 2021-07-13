@@ -21,7 +21,6 @@
 #include "ioTraceLogger.h"
 #include "virtualfs/virtualFsRegistry.h"
 
-#include <asio/buffer.hpp>
 #include <boost/icl/discrete_interval.hpp>
 #include <folly/FBString.h>
 #include <folly/FBVector.h>

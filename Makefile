@@ -78,6 +78,30 @@ all: debug test
 	                       -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR} ..
 	touch $@
 
+%/build-native:
+	mkdir -p _build
+	cd _build && cmake -DCMAKE_BUILD_TYPE=$* \
+			-DGIT_VERSION=${PKG_VERSION} \
+			-DCODE_COVERAGE=OFF \
+			-DWITH_CEPH=${WITH_CEPH} \
+			-DWITH_SWIFT=${WITH_SWIFT} \
+			-DWITH_S3=${WITH_S3} \
+			-DWITH_GLUSTERFS=${WITH_GLUSTERFS} \
+			-DWITH_WEBDAV=${WITH_WEBDAV} \
+			-DWITH_XROOTD=${WITH_XROOTD} \
+			-DWITH_ONECLIENT=ON \
+			-DWITH_ONEBENCH=ON \
+			-DWITH_ONEDATAFS=OFF \
+			-DFOLLY_SHARED=ON \
+			-DWITH_LIBDL=ON \
+			-DWITH_LIBRT=ON \
+			-DWITH_TESTS=OFF \
+			-DBoost_NO_BOOST_CMAKE=ON \
+			-DCMAKE_INSTALL_PREFIX=${PREFIX} \
+			.. && \
+	make -j8 oneclient VERBOSE=1 && \
+	make -j8 onebench VERBOSE=1
+
 ##
 ## Submodules
 ##
@@ -474,7 +498,7 @@ docker-dev:
 
 .PHONY: clean
 clean:
-	rm -rf debug release relwithdebinfo doc package package_fpm
+	rm -rf debug release relwithdebinfo doc package package_fpm _build
 
 .PHONY: clang-tidy
 clang-tidy:

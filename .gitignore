@@ -9,6 +9,7 @@ docker-build-report.txt
 integration-tests-results.xml
 oneclient.info
 oneclient.info.cleaned
+/_build
 
 # Compiled Object files
 *.slo
