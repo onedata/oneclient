@@ -36,20 +36,30 @@ DEFINE_int32(helper_threads, 8, "Specify number of helper worker threads");
 DEFINE_int32(test_threads, 8, "Specify number of test worker threads");
 
 DEFINE_int32(file_count, 1, "Specify number of test files");
-DEFINE_int32(file_size, 1024 * 1024, "Specify maximum size of each file");
+DEFINE_int64(file_size, 1024 * 1024, "Specify maximum size of each file");
 DEFINE_int32(block_size, 4096, "Specify the block size used for requests");
+DEFINE_bool(block_aligned, false,
+    "Specify whether the read and write operations should be aligned to "
+    "block_size boundary");
 DEFINE_int32(events, 1000, "Specify number of IO requests");
 DEFINE_int32(report_interval, 10, "Specify report interval in seconds");
 DEFINE_int32(async_batch_size, 1, "Specify request batch size for each worker");
+DEFINE_bool(
+    create_test_files, true, "Create test files before running benchmark");
 DEFINE_bool(keep_test_files, false,
     "Keep created temporary test files after test completes");
 DEFINE_bool(flush, false, "Force flush after each IO request");
 DEFINE_string(file_index_path, "",
     "File containing list of files, one file per line, relative to the "
     "registered storage");
+DEFINE_string(storage_path_type, "canonical",
+    "Specify storage path type: canonical or flat.");
 
 DEFINE_int32(
     timeout_ms, 60 * 1000, "Specify maximum request timeout in milliseconds");
+
+DEFINE_bool(
+    archive_storage, false, "Does storage support long-term preservation.");
 
 DEFINE_string(ceph_mon_host, "", "Specify Ceph monitor host");
 DEFINE_string(ceph_pool, "", "Specify Ceph pool name");
@@ -111,6 +121,7 @@ DEFINE_string(
 one::helpers::Params makeHelperParams()
 {
     one::helpers::Params params;
+    params["storagePathType"] = FLAGS_storage_path_type;
     if (FLAGS_storage == "ceph") {
         params["clusterName"] = "ceph";
         params["monitorHostname"] = FLAGS_ceph_mon_host;
@@ -136,6 +147,7 @@ one::helpers::Params makeHelperParams()
         params["secretKey"] = FLAGS_s3_secretkey;
         params["timeout"] = std::to_string(FLAGS_timeout_ms);
         params["blockSize"] = std::to_string(FLAGS_s3_blocksize);
+        params["archiveStorage"] = std::to_string(FLAGS_archive_storage);
     }
     else if (FLAGS_storage == "webdav") {
         params["endpoint"] = FLAGS_webdav_endpoint;
@@ -184,12 +196,15 @@ one::bench::TestRunnerConfig makeTestRunnerConfig()
     config.fileCount = FLAGS_file_count;
     config.fileSize = FLAGS_file_size;
     config.blockSize = FLAGS_block_size;
+    config.blockAligned = FLAGS_block_aligned;
     config.testType = FLAGS_test;
     config.reportInterval = FLAGS_report_interval;
     config.asyncBatchSize = FLAGS_async_batch_size;
+    config.createTestFiles = FLAGS_create_test_files;
     config.keepTestFiles = FLAGS_keep_test_files;
     config.flush = FLAGS_flush;
     config.fileIndexPath = FLAGS_file_index_path;
+    config.archiveStorage = FLAGS_archive_storage;
 
     if (!config.fileIndexPath.empty()) {
         config.keepTestFiles = true;

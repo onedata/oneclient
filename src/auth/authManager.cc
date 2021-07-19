@@ -9,7 +9,6 @@
 #include "auth/authManager.h"
 #include "auth/authException.h"
 #include "auth/macaroonHandler.h"
-#include "communication/cert/certificateData.h"
 #include "communication/communicator.h"
 #include "context.h"
 #include "environment.h"
@@ -61,23 +60,30 @@ MacaroonAuthManager::createCommunicator(const unsigned int poolSize,
     std::function<std::error_code(messages::HandshakeResponse)>
         onHandshakeResponse)
 {
+    using one::messages::handshake::SessionMode;
+
     m_cancelRefresh();
 
     auto communicator = std::make_shared<communication::Communicator>(poolSize,
         workerCount, m_hostname, m_port, m_checkCertificate, true, true,
         m_providerTimeout);
+    auto sessionMode = SessionMode::normal;
+    auto context = m_context.lock();
+    if (!context)
+        throw std::runtime_error("Application context already released.");
+
+    if (context->options()->isOpenSharesModeEnabled())
+        sessionMode = SessionMode::open_handle;
 
     auto future = communicator->setHandshake(
         [=] {
             one::messages::ClientHandshakeRequest handshake{sessionId,
                 m_macaroonHandler.restrictedMacaroon(), version,
-                compatibleOneproviderVersions};
+                compatibleOneproviderVersions, sessionMode};
 
             return handshake;
         },
         std::move(onHandshakeResponse));
-
-    scheduleRefresh(RESTRICTED_MACAROON_REFRESH);
 
     return std::forward_as_tuple(std::move(communicator), std::move(future));
 }

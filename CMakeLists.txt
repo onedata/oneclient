@@ -65,7 +65,7 @@ find_package(CURL REQUIRED)
 
 # Setup OpenSSL
 message(STATUS "Checking for OpenSSL...")
-find_package(OpenSSL REQUIRED)
+find_package(OpenSSL 1.1.0 REQUIRED)
 
 # Setup NSS
 message(STATUS "Checking for NSS...")

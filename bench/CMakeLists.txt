@@ -43,6 +43,9 @@ add_executable(onebench
     "onebench.cc"
     "testRunner.cc"
     "testRunnerConfig.cc"
+    "testWorkerRndWr.cc"
+    "testWorkerRndRd.cc"
+    "testWorkerRndRdHTTP.cc"
     $<TARGET_OBJECTS:helpers>
     $<TARGET_OBJECTS:clproto>)
 

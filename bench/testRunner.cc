@@ -17,13 +17,18 @@
 #if WITH_S3
 #include "s3Helper.h"
 #endif
+#if WITH_WEBDAV
 #include "httpHelper.h"
-#include "testWorkerRndRd.h"
-#include "testWorkerRndWr.h"
 #include "webDAVHelper.h"
+#endif
 #if WITH_XROOTD
 #include "xrootdHelper.h"
 #endif
+
+#include "bufferedStorageHelper.h"
+#include "storageRouterHelper.h"
+#include "testWorkerRndRd.h"
+#include "testWorkerRndWr.h"
 
 #include <folly/Function.h>
 
@@ -37,7 +42,6 @@ TestRunner::TestRunner(TestRunnerConfig config)
     : m_config{config}
     , m_workerPool{1}
     , m_resultsQueue{10000}
-    , m_idleWork{asio::make_work_guard(m_service)}
     , m_startBarrier{static_cast<uint32_t>(m_config.testThreadCount + 1)}
     , m_stopBarrier{static_cast<uint32_t>(m_config.testThreadCount + 1)}
     , m_stopped{true}
@@ -55,38 +59,30 @@ void TestRunner::initialize()
     std::shared_ptr<one::helpers::StorageHelperFactory> helperFactory;
 
     // Start helper worker threads
-    if (m_config.storageType == "http" || m_config.storageType == "webdav" ||
-        m_config.storageType == "xrootd") {
-        m_ioExecutor = std::make_shared<folly::IOThreadPoolExecutor>(
-            m_config.helperThreadCount);
-    }
-    else {
-        for (int i = 0; i < m_config.helperThreadCount; i++) {
-            m_serviceThreads.emplace_back(
-                std::thread{[&, this] { m_service.run(); }});
-        }
-    }
+    m_ioExecutor = std::make_shared<folly::IOThreadPoolExecutor>(
+        m_config.helperThreadCount);
 
     if (m_config.storageType == "null") {
-        helperFactory =
-            std::make_shared<one::helpers::NullDeviceHelperFactory>(m_service);
+        helperFactory = std::make_shared<one::helpers::NullDeviceHelperFactory>(
+            m_ioExecutor);
     }
 #if WITH_CEPH
     else if (m_config.storageType == "ceph") {
         helperFactory =
-            std::make_shared<one::helpers::CephHelperFactory>(m_service);
+            std::make_shared<one::helpers::CephHelperFactory>(m_ioExecutor);
     }
     else if (m_config.storageType == "cephrados") {
-        helperFactory =
-            std::make_shared<one::helpers::CephRadosHelperFactory>(m_service);
+        helperFactory = std::make_shared<one::helpers::CephRadosHelperFactory>(
+            m_ioExecutor);
     }
 #endif
 #if WITH_S3
     else if (m_config.storageType == "s3") {
         helperFactory =
-            std::make_shared<one::helpers::S3HelperFactory>(m_service);
+            std::make_shared<one::helpers::S3HelperFactory>(m_ioExecutor);
     }
 #endif
+#if WITH_WEBDAV
     else if (m_config.storageType == "webdav") {
         helperFactory =
             std::make_shared<one::helpers::WebDAVHelperFactory>(m_ioExecutor);
@@ -95,6 +91,7 @@ void TestRunner::initialize()
         helperFactory =
             std::make_shared<one::helpers::HTTPHelperFactory>(m_ioExecutor);
     }
+#endif
 #if WITH_XROOTD
     else if (m_config.storageType == "xrootd") {
         helperFactory =
@@ -103,7 +100,7 @@ void TestRunner::initialize()
 #endif
     else if (m_config.storageType == "posix") {
         helperFactory =
-            std::make_shared<one::helpers::PosixHelperFactory>(m_service);
+            std::make_shared<one::helpers::PosixHelperFactory>(m_ioExecutor);
     }
     else {
         throw std::invalid_argument(
@@ -117,19 +114,67 @@ void TestRunner::initialize()
     // Create the helper pool
     m_helperPool.reserve(m_config.helperCount);
     for (auto i = 0; i < m_config.helperCount; i++) {
-        auto helperPtr = helperFactory->createStorageHelper(
-            m_config.helperParams, one::helpers::ExecutionContext::ONECLIENT);
-        m_helperPool.emplace_back(std::move(helperPtr));
+        if (!m_config.archiveStorage) {
+            auto helperPtr =
+                helperFactory->createStorageHelper(m_config.helperParams,
+                    one::helpers::ExecutionContext::ONECLIENT);
+            m_helperPool.emplace_back(std::move(helperPtr));
+        }
+        else {
+            const auto kDefaultBufferStorageBlockSizeMultiplier = 5UL;
+            const auto &args = m_config.helperParams;
+            auto bufferArgs{args};
+            auto mainArgs{args};
+            auto bufferedArgs{args};
+            bufferArgs["blockSize"] =
+                std::to_string(kDefaultBufferStorageBlockSizeMultiplier *
+                    std::stoull(args.at("blockSize").c_str()));
+            mainArgs["storagePathType"] = "canonical";
+            bufferedArgs["bufferPath"] = ".__onedata_buffer";
+            bufferedArgs["bufferDepth"] = "2";
+
+            auto bufferHelper =
+                one::helpers::S3HelperFactory{m_ioExecutor}.createStorageHelper(
+                    bufferArgs, one::helpers::ExecutionContext::ONECLIENT);
+            auto mainHelper =
+                one::helpers::S3HelperFactory{m_ioExecutor}.createStorageHelper(
+                    mainArgs, one::helpers::ExecutionContext::ONECLIENT);
+            auto bufferedHelper =
+                one::helpers::BufferedStorageHelperFactory{}
+                    .createStorageHelper(std::move(bufferHelper),
+                        std::move(mainHelper), bufferedArgs,
+                        one::helpers::ExecutionContext::ONECLIENT);
+
+            std::map<folly::fbstring, one::helpers::StorageHelperPtr> routes;
+            routes["/.__onedata_archive"] = std::move(bufferedHelper);
+            routes["/"] =
+                one::helpers::S3HelperFactory{m_ioExecutor}.createStorageHelper(
+                    args, one::helpers::ExecutionContext::ONECLIENT);
+
+            auto helperPtr =
+                std::make_shared<one::helpers::StorageRouterHelper>(
+                    std::move(routes),
+                    one::helpers::ExecutionContext::ONECLIENT);
+
+            m_helperPool.emplace_back(std::move(helperPtr));
+        }
     }
 
     if (m_config.fileIndexPath.empty()) {
         // Prepare unique file names
         for (auto i = 0u; i < m_config.fileCount; i++) {
-            m_fileIds.emplace_back(folly::fbstring(ONEBENCH_FILE_PREFIX) +
-                randStr(ONEBENCH_FILEID_LENGTH));
+            if (m_config.archiveStorage)
+                m_fileIds.emplace_back(
+                    folly::fbstring("/space1/.__onedata_archive/") +
+                    folly::fbstring(ONEBENCH_FILE_PREFIX) +
+                    randStr(ONEBENCH_FILEID_LENGTH));
+            else
+                m_fileIds.emplace_back(folly::fbstring(ONEBENCH_FILE_PREFIX) +
+                    randStr(ONEBENCH_FILEID_LENGTH));
         }
 
-        createTestFiles();
+        if (m_config.createTestFiles)
+            createTestFiles();
     }
     else {
         // Load the file paths from the file
@@ -163,6 +208,7 @@ void TestRunner::start()
                 TestWorkerRndWr(i, m_workerPool, m_startBarrier, m_stopBarrier,
                     m_helperPool[i % m_helperPool.size()], m_resultsQueue,
                     m_fileIds, m_config.fileSize, m_config.blockSize,
+                    m_config.blockAligned,
                     m_config.events / m_config.testThreadCount,
                     m_config.asyncBatchSize, m_config.flush);
             m_workerPool.add(std::move(testWorker));
@@ -172,6 +218,7 @@ void TestRunner::start()
                 TestWorkerRndRd(i, m_workerPool, m_startBarrier, m_stopBarrier,
                     m_helperPool[i % m_helperPool.size()], m_resultsQueue,
                     m_fileIds, m_config.fileSize, m_config.blockSize,
+                    m_config.blockAligned,
                     m_config.events / m_config.testThreadCount,
                     m_config.asyncBatchSize, m_config.flush);
             m_workerPool.add(std::move(testWorker));
@@ -260,10 +307,6 @@ void TestRunner::stop()
         removeTestFiles();
 
     std::cout << "== Stopping TestRunner ===" << std::endl;
-
-    m_service.stop();
-    for (auto &t : m_serviceThreads)
-        t.join();
 }
 
 void TestRunner::createTestFiles()
@@ -272,7 +315,8 @@ void TestRunner::createTestFiles()
 
     auto helper = m_helperPool[0];
     for (auto &testFile : m_fileIds) {
-        helper->mknod(testFile, S_IFREG, {}, 0).get();
+        helper->mknod(testFile, 0644, one::helpers::maskToFlags(S_IFREG), 0)
+            .get();
         helper->truncate(testFile, m_config.fileSize, 0).get();
     }
 }

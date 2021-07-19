@@ -15,7 +15,6 @@
 #define _XOPEN_SOURCE 700
 #endif
 
-#include "asio.hpp"
 #include "auth/authException.h"
 #include "auth/authManager.h"
 #include "communication/exception.h"
@@ -231,8 +230,9 @@ int main(int argc, char *argv[])
             if (res != -1)
                 res = fuse_set_signal_handlers(fuse);
 
-            if (res == -1)
+            if (res == -1) {
                 return EXIT_FAILURE;
+            }
 
             folly::SingletonVault::singleton()->reenableInstances();
             context->scheduler()->restartAfterDaemonize();
@@ -244,9 +244,11 @@ int main(int argc, char *argv[])
         auto communicator = getCommunicator(sessionId, authManager, context);
         context->setCommunicator(communicator);
         communicator->connect();
+        communicator->schedulePeriodicMessageRequest();
+        authManager->scheduleRefresh(auth::RESTRICTED_MACAROON_REFRESH);
 
         auto helpersCache = std::make_unique<cache::HelpersCache>(
-            *communicator, *context->scheduler(), *options);
+            *communicator, context->scheduler(), *options);
 
         const auto &rootUuid = configuration->rootUuid();
         fsLogic = std::make_unique<fslogic::Composite>(rootUuid,

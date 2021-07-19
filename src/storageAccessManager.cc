@@ -184,8 +184,11 @@ StorageAccessManager::verifyStorageTestFile(const folly::fbstring &storageId,
             }
         }
     }
-    else if ((helperParams.name() == helpers::NULL_DEVICE_HELPER_NAME) ||
-        (helperParams.name() == helpers::HTTP_HELPER_NAME)) {
+    else if ((helperParams.name() == helpers::NULL_DEVICE_HELPER_NAME)
+#if WITH_WEBDAV
+        || (helperParams.name() == helpers::HTTP_HELPER_NAME)
+#endif
+    ) {
         return m_helperFactory.getStorageHelper(helperParams.name(),
             helperParams.args(), m_options.isIOBuffered(), overrideParams);
     }

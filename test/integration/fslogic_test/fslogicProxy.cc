@@ -101,7 +101,7 @@ public:
         unsigned int metadataCacheSize = 10000,
         unsigned int dropDirectoryCacheAfter = 60)
         : m_helpersCache{new HelpersCacheProxy(*context->communicator(),
-              *context->scheduler(), *context->options())}
+              context->scheduler(), *context->options())}
         , m_fsLogic{context, std::make_shared<messages::Configuration>(),
               std::unique_ptr<HelpersCacheProxy>{m_helpersCache},
               metadataCacheSize, false, false, 10s,
@@ -330,6 +330,36 @@ public:
         m_fiberManager
             .addTaskRemoteFuture([this, parentUuid, name, mode]() {
                 m_fsLogic.mknod(parentUuid, name, mode);
+            })
+            .get();
+    }
+
+    void link(std::string uuid, std::string parentUuid, std::string name)
+    {
+        ReleaseGIL guard;
+        m_fiberManager
+            .addTaskRemoteFuture([this, uuid, parentUuid, name]() {
+                m_fsLogic.link(uuid, parentUuid, name);
+            })
+            .get();
+    }
+
+    void symlink(std::string parentUuid, std::string name, std::string link)
+    {
+        ReleaseGIL guard;
+        m_fiberManager
+            .addTaskRemoteFuture([this, parentUuid, name, link]() {
+                m_fsLogic.symlink(parentUuid, name, link);
+            })
+            .get();
+    }
+
+    std::string readlink(std::string uuid)
+    {
+        ReleaseGIL guard;
+        return m_fiberManager
+            .addTaskRemoteFuture([this, uuid]() {
+                return m_fsLogic.readlink(uuid).toStdString();
             })
             .get();
     }
@@ -618,6 +648,9 @@ BOOST_PYTHON_MODULE(fslogic)
         .def("releasedir", &FsLogicProxy::releasedir)
         .def("readdir", &FsLogicProxy::readdir)
         .def("mknod", &FsLogicProxy::mknod)
+        .def("link", &FsLogicProxy::link)
+        .def("symlink", &FsLogicProxy::symlink)
+        .def("readlink", &FsLogicProxy::readlink)
         .def("open", &FsLogicProxy::open)
         .def("read", &FsLogicProxy::read)
         .def("write", &FsLogicProxy::write)

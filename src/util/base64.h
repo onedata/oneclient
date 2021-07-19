@@ -9,6 +9,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 namespace one {
 namespace client {
@@ -94,6 +95,85 @@ bool base64_decode(const T &b64data, V &retval)
         if (bits_collected >= 8) {
             bits_collected -= 8;
             retval += (char)((accumulator >> bits_collected) & 0xffu);
+        }
+    }
+    return true;
+}
+
+/**
+ * Encodes any string to URL safe b64
+ *
+ * @param bindata Binary data
+ * @param result Output B64 result, if return value is true.
+ *
+ * @return Encoding status
+ */
+template <typename T, typename V = T>
+bool base64_url_encode(const T &indata, V &retval)
+{
+    static const char base64_url_alphabet[] = {'A', 'B', 'C', 'D', 'E', 'F',
+        'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
+        'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
+        'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v',
+        'w', 'x', 'y', 'z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+        '-', '_'};
+
+    retval.clear();
+
+    int val = 0, valb = -6;
+    size_t len = indata.length();
+    unsigned int i = 0;
+    for (i = 0; i < len; i++) {
+        unsigned char c = indata[i];
+        val = (val << 8) + c;
+        valb += 8;
+        while (valb >= 0) {
+            retval.push_back(base64_url_alphabet[(val >> valb) & 0x3F]);
+            valb -= 6;
+        }
+    }
+    if (valb > -6) {
+        retval.push_back(
+            base64_url_alphabet[((val << 8) >> (valb + 8)) & 0x3F]);
+    }
+    return true;
+}
+
+/**
+ * Decodes any b64 URL safe encoded string to binary data
+ *
+ * @param result Output B64 result, if return value is true.
+ * @param bindata Result binary data
+ *
+ * @return Decoding status
+ */
+template <typename T, typename V = T>
+bool base64_url_decode(const T &indata, V &retval)
+{
+    static const char base64_url_alphabet[] = {'A', 'B', 'C', 'D', 'E', 'F',
+        'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
+        'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
+        'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v',
+        'w', 'x', 'y', 'z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+        '-', '_'};
+
+    retval.clear();
+
+    std::vector<int> t(256, -1);
+    unsigned int i;
+    for (i = 0; i < 64; i++)
+        t[base64_url_alphabet[i]] = i;
+
+    int val = 0, valb = -8;
+    for (i = 0; i < indata.length(); i++) {
+        unsigned char c = indata[i];
+        if (t[c] == -1)
+            break;
+        val = (val << 6) + t[c];
+        valb += 6;
+        if (valb >= 0) {
+            retval.push_back(char((val >> valb) & 0xFF));
+            valb -= 8;
         }
     }
     return true;

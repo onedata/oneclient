@@ -28,9 +28,11 @@ OpenFileMetadataCache::OpenFileMetadataCache(
     const std::chrono::seconds providerTimeout,
     const std::chrono::seconds directoryCacheDropAfter,
     const folly::fbstring &rootUuid, const std::vector<std::string> &spaceNames,
-    const std::vector<std::string> &spaceIds)
+    const std::vector<std::string> &spaceIds, const bool showOnlyFullReplicas,
+    const bool showHardLinkCount, const bool showSpaceIdsNotNames)
     : MetadataCache{communicator, providerTimeout, rootUuid, spaceNames,
-          spaceIds}
+          spaceIds, showOnlyFullReplicas, showHardLinkCount,
+          showSpaceIdsNotNames}
     , m_targetSize{targetSize}
     , m_directoryCacheDropAfter{directoryCacheDropAfter}
 {
@@ -113,7 +115,7 @@ void OpenFileMetadataCache::releasedir(const folly::fbstring &uuid)
 
 folly::fbvector<folly::fbstring> OpenFileMetadataCache::readdir(
     const folly::fbstring &uuid, off_t off, std::size_t chunkSize,
-    bool includeVirtual, bool onlyFullReplicas)
+    bool includeVirtual, bool onlyFullReplicas, bool includeHardLinkCount)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(off) << LOG_FARG(chunkSize);
 
@@ -121,8 +123,8 @@ folly::fbvector<folly::fbstring> OpenFileMetadataCache::readdir(
 
     noteDirectoryActivity(uuid);
 
-    return MetadataCache::readdir(
-        uuid, off, chunkSize, includeVirtual, onlyFullReplicas);
+    return MetadataCache::readdir(uuid, off, chunkSize, includeVirtual,
+        onlyFullReplicas, includeHardLinkCount);
 }
 
 void OpenFileMetadataCache::pinFile(const folly::fbstring &uuid)
@@ -763,12 +765,13 @@ const std::string &OpenFileMetadataCache::getSpaceId(
     return location->spaceId();
 }
 
-bool OpenFileMetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr)
+bool OpenFileMetadataCache::updateAttr(
+    std::shared_ptr<FileAttr> newAttr, bool force)
 {
     assertInFiber();
 
     try {
-        if (MetadataCache::updateAttr(newAttr))
+        if (MetadataCache::updateAttr(newAttr, force) && !force)
             return true;
     }
     catch (std::system_error &e) {

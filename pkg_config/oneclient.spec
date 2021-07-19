@@ -22,6 +22,7 @@ Requires: xrootd-libs >= %{xrootd_version}
 Requires: xrootd-client-libs >= %{xrootd_version}
 Requires: xrootd-server-libs >= %{xrootd_version}
 Requires: scl-utils
+Requires: %scl_require_package %{scl} openssl >= 1.1.0
 Requires: %scl_require_package %{scl} tbb >= 2018.5~
 BuildRequires: %scl_require_package %{scl} aws-c-common >= 0.4.49
 BuildRequires: %scl_require_package %{scl} aws-checksums >= 0.1.7
@@ -38,6 +39,9 @@ BuildRequires: %scl_require_package %{scl} glusterfs-api-devel >= 3.12.15
 BuildRequires: %scl_require_package %{scl} librados-devel
 BuildRequires: %scl_require_package %{scl} libradospp-devel
 BuildRequires: %scl_require_package %{scl} libradosstriper-devel
+BuildRequires: %scl_require_package %{scl} openssl >= 1.1.0
+BuildRequires: %scl_require_package %{scl} openssl-devel >= 1.1.0
+BuildRequires: %scl_require_package %{scl} openssl-libs >= 1.1.0
 BuildRequires: %scl_require_package %{scl} poco-devel
 BuildRequires: %scl_require_package %{scl} poco-foundation
 BuildRequires: %scl_require_package %{scl} poco-netssl
@@ -69,8 +73,6 @@ BuildRequires: libtool-ltdl
 BuildRequires: libtool-ltdl-devel
 BuildRequires: nspr-devel
 BuildRequires: nss-devel
-BuildRequires: openssl >= 1.0.0
-BuildRequires: openssl-devel >= 1.0.0
 BuildRequires: xrootd-private-devel >= %{xrootd_version}
 BuildRequires: xrootd-server-devel >= %{xrootd_version}
 BuildRequires: xrootd-client-devel >= %{xrootd_version}
@@ -92,6 +94,7 @@ Requires: scl-utils
 Requires: xrootd-server-libs >= %{xrootd_version}
 Requires: xrootd-client-libs >= %{xrootd_version}
 Requires: xrootd-libs >= %{xrootd_version}
+Requires: %scl_require_package %{scl} openssl >= 1.1.0
 Requires: %scl_require_package %{scl} tbb >= 2018.5~
 Requires: %scl_require_package %{scl} boost-python
 
@@ -107,6 +110,7 @@ Requires: scl-utils
 Requires: xrootd-server-libs >= %{xrootd_version}
 Requires: xrootd-client-libs >= %{xrootd_version}
 Requires: xrootd-libs >= %{xrootd_version}
+Requires: %scl_require_package %{scl} openssl >= 1.1.0
 Requires: %scl_require_package %{scl} tbb >= 2018.5~
 Requires: %scl_require_package %{scl} boost-python3
 
@@ -137,8 +141,10 @@ cmake3 . -DLIB_INSTALL_DIR=lib64 \
          -DWANGLE_INCLUDE_DIR=/opt/onedata/%{scl}/root/usr/include \
          -DBOOST_ROOT=/opt/onedata/%{scl}/root/usr \
          -DProtobuf_INCLUDE_DIR=/opt/onedata/%{scl}/root/usr/include \
+         -DOPENSSL_ROOT_DIR=/opt/onedata/%{scl}/root/usr \
          -DWITH_CEPH=ON -DWITH_GLUSTERFS=ON -DWITH_SWIFT=ON -DWITH_WEBDAV=ON -DWITH_XROOTD=ON \
          -DCMAKE_BUILD_TYPE=Release -DBUILD_INTEGRATION_TESTS=OFF -DBUILD_SHARED_LIBS=ON \
+         -DPYTHON3_LDFLAGS="-lpython3.6m -lpthread -ldl  -lutil -lm  -Xlinker -export-dynamic" \
          -DSTATIC_LIBSTDCPP=ON -DSTATIC_BOOST=OFF -DSTATIC_PROTOBUF=ON
 make %{_smp_mflags} oneclient
 make %{_smp_mflags} onebench

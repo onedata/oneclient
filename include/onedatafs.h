@@ -33,6 +33,7 @@
 #include "options/options.h"
 #include "scheduler.h"
 #include "scopeExit.h"
+#include "util/cdmi.h"
 #include "version.h"
 
 #include <boost/filesystem.hpp>
@@ -136,9 +137,10 @@ struct stat toStatbuf(const FileAttrPtr &attr)
             // Remove sticky bit for nfs compatibility
             statbuf.st_mode &= ~S_ISVTX;
             break;
-        case messages::fuse::FileAttr::FileType::link:
+        case messages::fuse::FileAttr::FileType::symlink:
             statbuf.st_mode |= S_IFLNK;
             break;
+        case messages::fuse::FileAttr::FileType::link:
         case messages::fuse::FileAttr::FileType::regular:
             statbuf.st_mode |= S_IFREG;
             break;
@@ -698,8 +700,16 @@ private:
 
     std::string uuidFromPath(const std::string &path)
     {
+        using one::client::fslogic::ONEDATA_FILEID_ACCESS_PREFIX;
+
         if (path.empty() || path == "/")
             return m_rootUuid;
+
+        if (path.find(ONEDATA_FILEID_ACCESS_PREFIX) != std::string::npos) {
+            return util::cdmi::objectIdToUUID(
+                path.substr(path.find(ONEDATA_FILEID_ACCESS_PREFIX) +
+                    strlen(ONEDATA_FILEID_ACCESS_PREFIX)));
+        }
 
         auto parentUuid = m_rootUuid;
         FileAttrPtr fileAttrPtr;
@@ -839,7 +849,7 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(
     communicator->connect();
 
     auto helpersCache = std::make_unique<cache::HelpersCache>(
-        *communicator, *context->scheduler(), *options);
+        *communicator, context->scheduler(), *options);
 
     const auto &rootUuid = configuration->rootUuid();
 

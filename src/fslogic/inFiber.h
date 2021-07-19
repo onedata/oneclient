@@ -87,6 +87,10 @@ public:
     WRAP(release, (const fuse_ino_t)(const std::uint64_t))
     WRAP(mkdir, (const fuse_ino_t)(const folly::fbstring &)(const mode_t))
     WRAP(mknod, (const fuse_ino_t)(const folly::fbstring &)(const mode_t))
+    WRAP(link, (const fuse_ino_t)(const fuse_ino_t)(const folly::fbstring &))
+    WRAP(symlink,
+        (const fuse_ino_t)(const folly::fbstring &)(const folly::fbstring &))
+    WRAP(readlink, (const fuse_ino_t))
     WRAP(unlink, (const fuse_ino_t)(const folly::fbstring &))
     WRAP(forget, (const fuse_ino_t)(const std::size_t))
     WRAP(setattr, (const fuse_ino_t)(const struct stat &)(const int))
