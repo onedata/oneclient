@@ -17,7 +17,6 @@
 #include "util/xattrHelper.h"
 
 #include <boost/algorithm/string/predicate.hpp>
-#include <boost/asio/buffer.hpp>
 #include <folly/Enumerate.h>
 #include <folly/FBString.h>
 #include <folly/Range.h>

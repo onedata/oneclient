@@ -4,10 +4,18 @@ Release notes for project oneclient
 CHANGELOG
 ---------
 
-### 21.02.0-alpha15
+### 21.02.0-alpha16
 
+-   **VFS-7982** Fixed handling of HTTP servers, which do not
+    automatically close the HTTP session connection after reaching max
+    requests per session.
+-   **VFS-7976** Ported oneclient communicator async event stream
+    implementation from asio to folly IOThreadPoolExecutor.
 -   **VFS-7892** Improved write performance on object storages by
     minimizing the number of memory copying from Erlang to C++.
+
+### 21.02.0-alpha15
+
 -   **VFS-7747** Upgrade the codebase to Erlang OTP 24.
 
 ### 21.02.0-alpha14
