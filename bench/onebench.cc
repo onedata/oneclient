@@ -118,6 +118,15 @@ DEFINE_string(
 DEFINE_string(
     posix_gid, std::to_string(getgid()), "Specify user GID for created files");
 
+DEFINE_string(
+    null_latency_min, "0", "Specify null helper minimum simulated latency");
+DEFINE_string(
+    null_latency_max, "0", "Specify null helper maximum simulated latency");
+DEFINE_string(
+    null_timeout_probability, "0.0", "Specify null helper timeout probabilty");
+DEFINE_string(
+    null_apply_issues_to, "*", "Specify null helper issues operation filter");
+
 one::helpers::Params makeHelperParams()
 {
     one::helpers::Params params;
@@ -179,6 +188,10 @@ one::helpers::Params makeHelperParams()
         params["gid"] = FLAGS_posix_gid;
     }
     else if (FLAGS_storage == "null") {
+        params["latencyMin"] = FLAGS_null_latency_min;
+        params["latencyMax"] = FLAGS_null_latency_max;
+        params["timeoutProbability"] = FLAGS_null_timeout_probability;
+        params["filter"] = FLAGS_null_apply_issues_to;
     }
     return params;
 }
