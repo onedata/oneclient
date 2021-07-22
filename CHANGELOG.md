@@ -4,6 +4,11 @@ Release notes for project oneclient
 CHANGELOG
 ---------
 
+### 21.02.0-alpha18
+
+-   **VFS-7736** Fixed latency and timeout simulation in nulldevice
+    storage helper.
+
 ### 21.02.0-alpha17
 
 -   **VFS-8018** Added HTTP storage driver option to limit on the client
