@@ -4,6 +4,8 @@ Release notes for project oneclient
 CHANGELOG
 ---------
 
+### 21.02.0-alpha19
+
 ### 21.02.0-alpha18
 
 -   **VFS-7736** Fixed latency and timeout simulation in nulldevice
