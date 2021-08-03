@@ -115,7 +115,6 @@ void ReaddirCache::fetch(const folly::fbstring &uuid,
         } while (!isLast && fetchedSize > 0);
 
         folly::collectAll(futs)
-            //.via(m_context.lock()->scheduler()->executor().get())
             .via(folly::getGlobalCPUExecutor().get())
             .thenValue([this, p, uuid](
                            std::vector<folly::Try<folly::Unit>> && /*unused*/) {

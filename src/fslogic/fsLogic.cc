@@ -636,9 +636,8 @@ void FsLogic::release(
         releaseFutures.emplace_back(helperHandle->release());
 
     auto releaseExceptionFuture =
-        // TODO:  check executor
         folly::collectAll(releaseFutures)
-            .via(folly::getIOExecutor().get())
+            .via(folly::getCPUExecutor().get())
             .thenValue([](std::vector<folly::Try<folly::Unit>> &&tries) {
                 for (auto &t : tries)
                     t.value();
@@ -646,12 +645,12 @@ void FsLogic::release(
 
     std::exception_ptr releaseException;
     try {
-        LOG(ERROR) << "Releasing local file handles for " << uuid;
+        LOG_DBG(2) << "Releasing local file handles for " << uuid;
 
         communication::wait(
             std::move(releaseExceptionFuture), m_providerTimeout);
 
-        LOG(ERROR) << "Sending file release message for " << uuid;
+        LOG_DBG(2) << "Sending file release message for " << uuid;
 
         // If the file is not a virtual file, send release message to
         // the Oneprovider
@@ -662,7 +661,7 @@ void FsLogic::release(
     }
     catch (const std::system_error &e) {
         if (e.code().value() == ENOENT)
-            LOG(ERROR) << "File release request ignore as the file " << uuid
+            LOG_DBG(1) << "File release request ignore as the file " << uuid
                        << " is already deleted";
         else
             releaseException = std::current_exception();
