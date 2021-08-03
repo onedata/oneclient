@@ -11,12 +11,12 @@
 #include <boost/preprocessor.hpp>
 #include <folly/FBString.h>
 #include <folly/Function.h>
-#include <folly/ThreadName.h>
 #include <folly/fibers/FiberManager.h>
 #include <folly/fibers/FiberManagerMap.h>
 #include <folly/futures/Future.h>
 #include <folly/io/IOBufQueue.h>
 #include <folly/io/async/EventBase.h>
+#include <folly/system/ThreadName.h>
 
 #define MAKE_DECL_PARAMS(r, data, i, type) BOOST_PP_COMMA_IF(i) type arg##i
 #define DECL_PARAMS(args) BOOST_PP_SEQ_FOR_EACH_I(MAKE_DECL_PARAMS, _, args)

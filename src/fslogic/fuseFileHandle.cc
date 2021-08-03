@@ -75,7 +75,7 @@ helpers::FileHandlePtr FuseFileHandle::getHelperHandle(
     const auto filteredFlags = m_flags & (~O_CREAT) & (~O_APPEND);
 
     auto handle = communication::wait(
-        helper->open(fileId, filteredFlags, makeParameters(uuid)),
+        std::move(helper->open(fileId, filteredFlags, makeParameters(uuid))),
         m_providerTimeout);
 
     m_helperHandles[key] = handle;

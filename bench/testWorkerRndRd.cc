@@ -62,13 +62,14 @@ void TestWorkerRndRd::operator()()
                 futs.emplace_back(
                     handles[fileIndex]
                         ->read(offset, blockSize)
-                        .then([this, start, blockSize, id, resultID = k + l](
-                                  folly::IOBufQueue &&buf) {
-                            postResult({id, resultID, start, Clock::now(), 1,
-                                buf.chainLength()});
+                        .thenValue(
+                            [this, start, blockSize, id, resultID = k + l](
+                                folly::IOBufQueue &&buf) {
+                                postResult({id, resultID, start, Clock::now(),
+                                    1, buf.chainLength()});
 
-                            return folly::makeFuture();
-                        }));
+                                return folly::makeFuture();
+                            }));
             }
             folly::collectAll(futs.begin(), futs.end()).get();
         }

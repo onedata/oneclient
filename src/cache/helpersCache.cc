@@ -16,7 +16,7 @@
 #include "messages/fuse/storageTestFile.h"
 #include "messages/fuse/verifyStorageTestFile.h"
 
-#include <folly/ThreadName.h>
+#include <folly/system/ThreadName.h>
 
 #include <algorithm>
 #include <chrono>
@@ -104,27 +104,28 @@ folly::Future<folly::Unit> HelpersCache::refreshHelperParameters(
     }
 
     // Invalidate helper parameters and obtain a new parameters promise
-    return helperPromiseIt->second->getFuture().then([this, storageId, spaceId](
-                                                         HelpersCache::HelperPtr
-                                                             helper) {
-        auto params = communication::wait(
-            m_communicator.communicate<messages::fuse::HelperParams>(
-                messages::fuse::GetHelperParams{storageId.toStdString(),
-                    spaceId.toStdString(),
-                    messages::fuse::GetHelperParams::HelperMode::directMode}),
-            m_providerTimeout);
+    return helperPromiseIt->second->getFuture().thenValue(
+        [this, storageId, spaceId](HelpersCache::HelperPtr &&helper) {
+            auto params = communication::wait(
+                m_communicator.communicate<messages::fuse::HelperParams>(
+                    messages::fuse::GetHelperParams{storageId.toStdString(),
+                        spaceId.toStdString(),
+                        messages::fuse::GetHelperParams::HelperMode::
+                            directMode}),
+                m_providerTimeout);
 
-        auto helperParams =
-            helpers::StorageHelperParams::create(params.name(), params.args());
+            auto helperParams = helpers::StorageHelperParams::create(
+                params.name(), params.args());
 
-        auto bufferedHelper =
-            std::dynamic_pointer_cast<helpers::buffering::BufferAgent>(helper);
-        if (bufferedHelper)
-            return bufferedHelper->helper()->refreshParams(
-                std::move(helperParams));
+            auto bufferedHelper =
+                std::dynamic_pointer_cast<helpers::buffering::BufferAgent>(
+                    helper);
+            if (bufferedHelper)
+                return bufferedHelper->helper()->refreshParams(
+                    std::move(helperParams));
 
-        return helper->refreshParams(std::move(helperParams));
-    });
+            return helper->refreshParams(std::move(helperParams));
+        });
 }
 
 folly::Future<HelpersCache::HelperPtr> HelpersCache::get(

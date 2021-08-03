@@ -246,7 +246,7 @@ public:
                            return m_fsLogic->read(
                                m_uuid, m_fileHandleId, offset, size, {});
                        })
-                       .then([](folly::IOBufQueue &&buf) {
+                       .thenValue([](folly::IOBufQueue &&buf) {
                            std::string data;
                            buf.appendToString(data);
                            return data;
@@ -325,7 +325,7 @@ public:
             .addTaskRemoteFuture([this]() mutable {
                 return m_fsLogic->fsync(m_uuid, m_fileHandleId, false);
             })
-            .then([this]() mutable {
+            .thenValue([this](auto && /*unit*/) mutable {
                 return m_fsLogic->release(m_uuid, m_fileHandleId);
             })
             .get();
@@ -435,7 +435,7 @@ public:
                 [this, path = std::move(path), maxSize, off]() mutable {
                     return m_fsLogic->readdir(uuidFromPath(path), maxSize, off);
                 })
-            .then([](folly::fbvector<folly::fbstring> &&entries) {
+            .thenValue([](folly::fbvector<folly::fbstring> &&entries) {
                 std::vector<std::string> result;
                 for (const auto &entry : entries) {
                     if (entry == "." || entry == "..")
@@ -473,29 +473,30 @@ public:
             .addTaskRemoteFuture(
                 [this, path]() mutable { return uuidFromPath(path); })
             // If not, create it if 'flags' allow it
-            .onError([this, path, flags](const std::system_error &e) {
-                if ((e.code().value() == ENOENT) && (flags & O_CREAT)) {
-                    return m_fiberManager.addTaskRemoteFuture(
-                        [this, path]() mutable {
-                            auto parentPair = splitToParentName(path);
-                            auto res = m_fsLogic->create(
-                                uuidFromPath(parentPair.first),
-                                parentPair.second, S_IFREG | 0644, 0);
-                            return uuidFromPath(path);
-                        });
-                }
-                else
-                    throw e;
-            })
+            .thenError(folly::tag_t<std::system_error>{},
+                [this, path, flags](auto &&e) {
+                    if ((e.code().value() == ENOENT) && (flags & O_CREAT)) {
+                        return m_fiberManager.addTaskRemoteFuture(
+                            [this, path]() mutable {
+                                auto parentPair = splitToParentName(path);
+                                auto res = m_fsLogic->create(
+                                    uuidFromPath(parentPair.first),
+                                    parentPair.second, S_IFREG | 0644, 0);
+                                return uuidFromPath(path);
+                            });
+                    }
+                    else
+                        throw e;
+                })
             // Now try to open the file
-            .then([this, flags](std::string &&uuid) {
+            .thenValue([this, flags](std::string &&uuid) {
                 return m_fiberManager.addTaskRemoteFuture(
                     [this, uuid = std::move(uuid), flags]() mutable {
                         return m_fsLogic->open(uuid, flags);
                     });
             })
             // Finally create a handle instance for this file
-            .then([this, path](std::uint64_t fuseFileHandleId) {
+            .thenValue([this, path](std::uint64_t &&fuseFileHandleId) {
                 return boost::make_shared<OnedataFileHandle>(m_fsLogic,
                     fuseFileHandleId, uuidFromPath(path), m_fiberManager);
             })
@@ -656,7 +657,7 @@ public:
             .addTaskRemoteFuture([this, path = std::move(path)]() mutable {
                 return m_fsLogic->listxattr(uuidFromPath(path));
             })
-            .then([](folly::fbvector<folly::fbstring> &&xattrs) mutable {
+            .thenValue([](folly::fbvector<folly::fbstring> &&xattrs) mutable {
                 std::vector<std::string> result;
                 for (const auto &xattr : xattrs)
                     result.emplace_back(xattr.toStdString());
@@ -673,9 +674,10 @@ public:
             .addTaskRemoteFuture([this, path = std::move(path)]() mutable {
                 return m_fsLogic->getFileLocalBlocks(uuidFromPath(path));
             })
-            .then([](std::map<folly::fbstring,
-                      folly::fbvector<std::pair<off_t, off_t>>> &&
-                          location) mutable { return toPythonDict(location); })
+            .thenValue(
+                [](std::map<folly::fbstring,
+                    folly::fbvector<std::pair<off_t, off_t>>>
+                        &&location) mutable { return toPythonDict(location); })
             .get();
     }
 

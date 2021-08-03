@@ -55,7 +55,7 @@ std::shared_ptr<communication::Communicator> handshake(
     testCommunicator->setScheduler(context->scheduler());
     testCommunicator->connect();
     communication::wait(
-        std::get<folly::Future<folly::Unit>>(testCommunicatorTuple),
+        std::move(std::get<folly::Future<folly::Unit>>(testCommunicatorTuple)),
         context->options()->getProviderTimeout());
 
     return testCommunicator;
@@ -91,7 +91,7 @@ std::shared_ptr<messages::Configuration> getConfiguration(
     auto future = communicator->communicate<messages::Configuration>(
         messages::GetConfiguration{});
     auto configuration =
-        communication::wait(future, options->getProviderTimeout());
+        communication::wait(std::move(future), options->getProviderTimeout());
 
     communicator->stop();
 
