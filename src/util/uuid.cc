@@ -36,6 +36,25 @@ folly::fbstring uuidToSpaceId(const folly::fbstring &uuid)
     throw std::invalid_argument("Base64 decoding of Onedata uuid failed.");
 }
 
+folly::fbstring uuidToGuid(const folly::fbstring &uuid)
+{
+    folly::fbstring result;
+    folly::fbstring decodedUuid;
+    auto status = util::base64::base64_url_decode(uuid, decodedUuid);
+
+    if (status) {
+        std::vector<folly::StringPiece> v;
+        folly::split("#", decodedUuid, v);
+
+        if ((v.size() < 3) || (v[0] != "guid" && v[0] != "shareGuid"))
+            throw std::invalid_argument("Invalid Onedata uuid format.");
+
+        return v[1].toString();
+    }
+
+    throw std::invalid_argument("Base64 decoding of Onedata uuid failed.");
+}
+
 folly::fbstring spaceIdToSpaceUUID(const folly::fbstring &spaceId)
 {
     folly::fbstring result;

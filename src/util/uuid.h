@@ -23,6 +23,12 @@ namespace uuid {
 folly::fbstring uuidToSpaceId(const folly::fbstring &uuid);
 
 /**
+ * Extracts file Id from Onedata UUID.
+ * @param uuid Onedata uuid Based64 encoded Onedata uuid.
+ */
+folly::fbstring uuidToGuid(const folly::fbstring &uuid);
+
+/**
  * Generates space UUID from spaceId, which is in the format:
  *    guid#space_<spaceId>#<spaceId>
  * < and > are omitted
