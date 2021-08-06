@@ -101,6 +101,8 @@ CHANGELOG
 -   **VFS-7256** Fixed OnedataFS token refresh, which caused
     disconnection from Oneprovider after the token expired.
 
+### 20.02.12
+
 ### 20.02.11
 
 ### 20.02.10
