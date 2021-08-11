@@ -160,9 +160,9 @@ int main(int argc, char *argv[])
     try {
         auto fuse_oper = fuseOperations();
         auto args = options->getFuseArgs(argv[0]);
-        char *mountpoint;
-        int multithreaded;
-        int foreground;
+        char *mountpoint{nullptr};
+        int multithreaded{0};
+        int foreground{0};
 
         res =
             fuse_parse_cmdline(&args, &mountpoint, &multithreaded, &foreground);
