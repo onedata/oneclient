@@ -22,6 +22,7 @@ Requires: xrootd-libs >= %{xrootd_version}
 Requires: xrootd-client-libs >= %{xrootd_version}
 Requires: xrootd-server-libs >= %{xrootd_version}
 Requires: scl-utils
+Requires: %scl_require_package %{scl} folly = %{folly_version}
 Requires: %scl_require_package %{scl} openssl >= 1.1.0
 Requires: %scl_require_package %{scl} tbb >= 2018.5~
 BuildRequires: %scl_require_package %{scl} aws-c-common >= 0.4.49
