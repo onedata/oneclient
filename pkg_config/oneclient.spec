@@ -22,7 +22,7 @@ Requires: xrootd-libs >= %{xrootd_version}
 Requires: xrootd-client-libs >= %{xrootd_version}
 Requires: xrootd-server-libs >= %{xrootd_version}
 Requires: scl-utils
-Requires: %scl_require_package %{scl} folly = %{folly_version}
+Requires: %scl_require_package %{scl} folly >= %{folly_version}
 Requires: %scl_require_package %{scl} openssl >= 1.1.0
 Requires: %scl_require_package %{scl} tbb >= 2018.5~
 BuildRequires: %scl_require_package %{scl} aws-c-common >= 0.4.49
@@ -32,9 +32,9 @@ BuildRequires: %scl_require_package %{scl} aws-sdk-cpp-s3 >= 1.8.7
 BuildRequires: %scl_require_package %{scl} boost-devel >= 1.58.0
 BuildRequires: %scl_require_package %{scl} boost-python >= 1.58.0
 BuildRequires: %scl_require_package %{scl} boost-python3 >= 1.58.0
-BuildRequires: %scl_require_package %{scl} folly-devel = %{folly_version}
-BuildRequires: %scl_require_package %{scl} fizz-devel = %{folly_version}
-BuildRequires: %scl_require_package %{scl} fizz-static = %{folly_version}
+BuildRequires: %scl_require_package %{scl} folly-devel >= %{folly_version}
+BuildRequires: %scl_require_package %{scl} fizz-devel >= %{folly_version}
+BuildRequires: %scl_require_package %{scl} fizz-static >= %{folly_version}
 BuildRequires: %scl_require_package %{scl} gflags-devel >= 2.1.2
 BuildRequires: %scl_require_package %{scl} glog-devel >= 0.3.4
 BuildRequires: %scl_require_package %{scl} glusterfs-api-devel >= 3.12.15
@@ -52,12 +52,12 @@ BuildRequires: %scl_require_package %{scl} poco-xml
 BuildRequires: %scl_require_package %{scl} protobuf-compiler >= 3.4.1
 BuildRequires: %scl_require_package %{scl} protobuf-devel >= 3.4.1
 BuildRequires: %scl_require_package %{scl} protobuf-static >= 3.4.1
-BuildRequires: %scl_require_package %{scl} proxygen-devel = %{folly_version}
-BuildRequires: %scl_require_package %{scl} proxygen-static = %{folly_version}
+BuildRequires: %scl_require_package %{scl} proxygen-devel >= %{folly_version}
+BuildRequires: %scl_require_package %{scl} proxygen-static >= %{folly_version}
 BuildRequires: %scl_require_package %{scl} swift-sdk-cpp >= 1.0.0
 BuildRequires: %scl_require_package %{scl} tbb-devel >= 2018.5~
-BuildRequires: %scl_require_package %{scl} wangle-devel = %{folly_version}
-BuildRequires: %scl_require_package %{scl} wangle-static = %{folly_version}
+BuildRequires: %scl_require_package %{scl} wangle-devel >= %{folly_version}
+BuildRequires: %scl_require_package %{scl} wangle-static >= %{folly_version}
 BuildRequires: %scl_require_package %{scl} fmt-devel = 7.0.1
 BuildRequires: %scl_require_package %{scl} spdlog-devel = 1.7.0
 BuildRequires: %scl_require_package devtoolset-7 gcc-c++
@@ -96,6 +96,7 @@ Requires: scl-utils
 Requires: xrootd-server-libs >= %{xrootd_version}
 Requires: xrootd-client-libs >= %{xrootd_version}
 Requires: xrootd-libs >= %{xrootd_version}
+Requires: %scl_require_package %{scl} folly >= %{folly_version}
 Requires: %scl_require_package %{scl} openssl >= 1.1.0
 Requires: %scl_require_package %{scl} tbb >= 2018.5~
 Requires: %scl_require_package %{scl} boost-python
@@ -112,6 +113,7 @@ Requires: scl-utils
 Requires: xrootd-server-libs >= %{xrootd_version}
 Requires: xrootd-client-libs >= %{xrootd_version}
 Requires: xrootd-libs >= %{xrootd_version}
+Requires: %scl_require_package %{scl} folly >= %{folly_version}
 Requires: %scl_require_package %{scl} openssl >= 1.1.0
 Requires: %scl_require_package %{scl} tbb >= 2018.5~
 Requires: %scl_require_package %{scl} boost-python3
