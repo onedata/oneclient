@@ -4,7 +4,7 @@
 %{!?scl:%global pkg_name %{name}}
 
 %global version {{version}}
-%global folly_version 2017.10.02.00
+%global folly_version 2021.01.04.00
 %global xrootd_version 20200703
 
 Name:		%{?scl_prefix}oneclient-base
@@ -32,7 +32,7 @@ BuildRequires: %scl_require_package %{scl} boost-devel >= 1.58.0
 BuildRequires: %scl_require_package %{scl} boost-python >= 1.58.0
 BuildRequires: %scl_require_package %{scl} boost-python3 >= 1.58.0
 BuildRequires: %scl_require_package %{scl} folly-devel = %{folly_version}
-BuildRequires: %scl_require_package %{scl} folly-static = %{folly_version}
+BuildRequires: %scl_require_package %{scl} fizz-devel = %{folly_version}
 BuildRequires: %scl_require_package %{scl} gflags-devel >= 2.1.2
 BuildRequires: %scl_require_package %{scl} glog-devel >= 0.3.4
 BuildRequires: %scl_require_package %{scl} glusterfs-api-devel >= 3.12.15
