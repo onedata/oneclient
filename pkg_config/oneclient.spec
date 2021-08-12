@@ -33,6 +33,7 @@ BuildRequires: %scl_require_package %{scl} boost-python >= 1.58.0
 BuildRequires: %scl_require_package %{scl} boost-python3 >= 1.58.0
 BuildRequires: %scl_require_package %{scl} folly-devel = %{folly_version}
 BuildRequires: %scl_require_package %{scl} fizz-devel = %{folly_version}
+BuildRequires: %scl_require_package %{scl} fizz-static = %{folly_version}
 BuildRequires: %scl_require_package %{scl} gflags-devel >= 2.1.2
 BuildRequires: %scl_require_package %{scl} glog-devel >= 0.3.4
 BuildRequires: %scl_require_package %{scl} glusterfs-api-devel >= 3.12.15
