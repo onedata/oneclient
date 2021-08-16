@@ -229,8 +229,8 @@ FileAttrPtr MetadataCache::getAttr(
                 ->effectiveName(parentUuid);
 
     auto &index = bmi::get<ByParentName>(m_cache);
-    auto it = index.find(
-        std::make_tuple(effectiveParentUuid, effectiveName.toFbstring()));
+    auto it =
+        index.find(std::make_tuple(effectiveParentUuid, effectiveName.str()));
 
     // Check if the requested entry 'name' matches a name pattern of
     // any of the registered virtual filesystem adapters
@@ -271,8 +271,7 @@ FileAttrPtr MetadataCache::getAttr(
                << " not found in cache - retrieving from server";
 
     auto fetchedIt = fetchAttr(messages::fuse::GetChildAttr{effectiveParentUuid,
-        effectiveName.toFbstring(), m_showOnlyFullReplicas,
-        m_showHardLinkCount});
+        effectiveName.str(), m_showOnlyFullReplicas, m_showHardLinkCount});
 
     if (effectiveParentUuid == m_rootUuid &&
         !isSpaceWhitelisted(*fetchedIt->attr)) {

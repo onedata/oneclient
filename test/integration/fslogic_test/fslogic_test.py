@@ -761,11 +761,14 @@ def test_rename_should_rename_directory(appmock_client, endpoint, fl, uuid):
         prepare_attr_response('parentUuid', fuse_messages_pb2.DIR)
     getattr_newparent_response = \
         prepare_attr_response('newParentUuid', fuse_messages_pb2.DIR)
+    getattr_newattr_response = \
+        prepare_attr_response(uuid, fuse_messages_pb2.DIR, 1234, 'parentUuid', 'name')
     rename_response = prepare_rename_response('newUuid')
 
     with reply(endpoint, [getattr_response,
                           getattr_parent_response,
-                          rename_response ]) as queue:
+                          rename_response,
+                          getattr_newattr_response]) as queue:
         fl.rename('parentUuid', 'name', 'newParentUuid', 'newName')
         queue.get()
         queue.get()
@@ -798,6 +801,8 @@ def test_rename_event_should_ignore_uncached_files(appmock_client, endpoint, fl,
 def test_rename_event_should_update_old_file_parent_cache(appmock_client, endpoint, fl):
     parentUuid = 'parentUuid'
     getattr_reponse = prepare_attr_response(parentUuid, fuse_messages_pb2.DIR)
+    getattr_newattr_response = \
+        prepare_attr_response('newUuid', fuse_messages_pb2.DIR, 1234, 'parentUuid', 'name')
 
     #
     # Prepare first response with 3 files
@@ -837,7 +842,9 @@ def test_rename_event_should_update_old_file_parent_cache(appmock_client, endpoi
     assert not fl.metadata_cache_contains('newUuid')
     assert not fl.metadata_cache_contains('newParentUuid')
 
-    children_chunk = fl.readdir(parentUuid, chunk_size, offset)
+    children_chunk = []
+    with reply(endpoint, [getattr_newattr_response]) as queue:
+        children_chunk = fl.readdir(parentUuid, chunk_size, offset)
 
     assert len(children_chunk) == len(['.', '..']) + dir_size - 1
 
@@ -1979,7 +1986,7 @@ def test_truncate_should_truncate_open_file(appmock_client, endpoint, fl, uuid):
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.ok
 
-    with reply(endpoint, [response, response, response]) as queue:
+    with reply(endpoint, [response, response]) as queue:
         fl.truncate(uuid, 0)
         client_message = queue.get()
 
@@ -2295,6 +2302,8 @@ def test_release_should_send_fsync_message(appmock_client, endpoint, fl, uuid):
 def test_fslogic_should_handle_processing_status_message(appmock_client, endpoint, fl, uuid):
     getattr_response = \
         prepare_attr_response(uuid, fuse_messages_pb2.DIR, 0, 'parentUuid', 'name')
+    getattr_newuuid_response = \
+        prepare_attr_response('newUuid', fuse_messages_pb2.DIR, 0, 'parentUuid', 'name')
     getattr_parent_response = \
         prepare_attr_response('parentUuid', fuse_messages_pb2.DIR)
     getattr_newparent_response = \
@@ -2307,6 +2316,7 @@ def test_fslogic_should_handle_processing_status_message(appmock_client, endpoin
     responses = [getattr_response, getattr_parent_response]
     responses.extend(processing_status_responses)
     responses.append(rename_response)
+    responses.append(getattr_newuuid_response)
 
     with reply(endpoint, responses) as queue:
         fl.rename('parentUuid', 'name', 'newParentUuid', 'newName')

@@ -57,7 +57,7 @@ public:
     {
         ReleaseGIL guard;
         return m_fileHandle->read(offset, size)
-            .then([](folly::IOBufQueue &&buf) {
+            .thenValue([](folly::IOBufQueue &&buf) {
                 std::string data;
                 buf.appendToString(data);
                 return data;
@@ -94,9 +94,9 @@ public:
         bool forceProxyIO)
     {
         m_helpersCache->get(fileUuid, spaceId, storageId, forceProxyIO, false)
-            .then([fileUuid](std::shared_ptr<StorageHelper> helperPtr) {
+            .thenValue([fileUuid](std::shared_ptr<StorageHelper> &&helperPtr) {
                 helperPtr->mknod(fileUuid, S_IFREG | 0666, {}, 0)
-                    .then([helperPtr]() {});
+                    .thenValue([helperPtr](auto && /*unit*/) {});
             })
             .get();
     }
@@ -107,11 +107,12 @@ public:
         auto handle =
             m_helpersCache
                 ->get(fileUuid, spaceId, storageId, forceProxyIO, false)
-                .then([fileUuid](std::shared_ptr<StorageHelper> helperPtr) {
-                    return helperPtr->open(fileUuid, O_RDWR | O_CREAT, {})
-                        .then([helperPtr, fileUuid](
-                                  auto &&handle) { return handle; });
-                })
+                .thenValue(
+                    [fileUuid](std::shared_ptr<StorageHelper> &&helperPtr) {
+                        return helperPtr->open(fileUuid, O_RDWR | O_CREAT, {})
+                            .thenValue([helperPtr, fileUuid](
+                                           auto &&handle) { return handle; });
+                    })
                 .get();
 
         return boost::make_shared<FileHandleProxy>(std::move(handle));

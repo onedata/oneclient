@@ -130,7 +130,7 @@ public:
                     stopped.setValue();
                 });
 
-            stoppedFuture.get();
+            std::move(stoppedFuture).get();
         }
     }
 
@@ -550,7 +550,7 @@ boost::shared_ptr<FsLogicProxy> create(std::string ip, int port,
     FLAGS_minloglevel = 1;
 
     auto communicator = std::make_shared<Communicator>(/*connections*/ 10,
-        /*threads*/ 2, ip, port,
+        /*threads*/ 1, ip, port,
         /*verifyServerCertificate*/ false, /*upgrade to clproto*/ true,
         /*perform handshake*/ false);
 

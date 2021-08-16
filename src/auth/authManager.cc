@@ -93,11 +93,11 @@ void MacaroonAuthManager::refreshMacaroon()
     LOG_FCALL();
     LOG_DBG(1) << "Sending a refreshed macaroon";
 
-    auto future = m_context.lock()->communicator()->send(
-        one::messages::Macaroon{m_macaroonHandler.refreshRestrictedMacaroon()});
-
     try {
-        communication::wait(future, m_providerTimeout);
+        communication::wait(
+            m_context.lock()->communicator()->send(one::messages::Macaroon{
+                m_macaroonHandler.refreshRestrictedMacaroon()}),
+            m_providerTimeout);
         scheduleRefresh(RESTRICTED_MACAROON_REFRESH);
     }
     catch (const std::exception &e) {

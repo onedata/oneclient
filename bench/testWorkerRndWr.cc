@@ -69,31 +69,33 @@ void TestWorkerRndWr::operator()()
                 futs.emplace_back(
                     handles[fileIndex]
                         ->write(offset, std::move(buf), {})
-                        .then(folly::getIOExecutor().get(),
+                        .thenValue(
                             [this, handle = handles[fileIndex], flush,
-                                resultID = k + l](std::size_t written) {
+                                resultID = k + l](std::size_t &&written) {
                                 if (flush)
                                     return handle->flush();
                                 else
                                     return folly::makeFuture();
                             })
-                        .then(folly::getIOExecutor().get(),
-                            [this, start, blockSize, id, resultID = k + l]() {
-                                postResult({id, resultID, start, Clock::now(),
-                                    1, blockSize});
+                        .thenValue([this, start, blockSize, id,
+                                       resultID = k + l](auto && /*unit*/) {
+                            postResult({id, resultID, start, Clock::now(), 1,
+                                blockSize});
 
-                                return folly::makeFuture();
-                            }));
+                            return folly::makeFuture();
+                        }));
             }
 
             folly::collectAll(futs.begin(), futs.end())
-                .then([this, handles, fileSize](auto && /*f*/) {
+                .via(folly::getIOExecutor().get())
+                .thenValue([this, handles, fileSize](auto && /*f*/) {
                     folly::fbvector<folly::Future<folly::Unit>> futs;
                     for (auto &h : handles) {
                         futs.emplace_back(
                             m_helper->flushBuffer(h->fileId(), fileSize));
                     }
-                    return folly::collectAll(futs.begin(), futs.end());
+                    return folly::collectAll(futs.begin(), futs.end())
+                        .via(folly::getIOExecutor().get());
                 })
                 .get();
         }

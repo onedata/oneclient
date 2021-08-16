@@ -183,7 +183,7 @@ boost::shared_ptr<ManagerProxy> create(
     FLAGS_minloglevel = 1;
 
     auto communicator = std::make_shared<Communicator>(/*connections*/ 10,
-        /*threads*/ 2, std::move(ip), port,
+        /*threads*/ 1, std::move(ip), port,
         /*verifyServerCertificate*/ false, /*upgrade to clproto*/ true,
         /*perform handshake*/ false);
 

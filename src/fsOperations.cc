@@ -17,10 +17,10 @@
 #include "util/xattrHelper.h"
 
 #include <boost/algorithm/string/predicate.hpp>
-#include <folly/Enumerate.h>
 #include <folly/FBString.h>
 #include <folly/Range.h>
-#include <folly/futures/FutureException.h>
+#include <folly/container/Enumerate.h>
+#include <folly/futures/Future.h>
 #include <folly/io/IOBufQueue.h>
 #include <fuse.h>
 
@@ -67,38 +67,44 @@ void wrap(Fun &&fun, Cb &&callback, fuse_req_t req, Args &&... args)
 
     callFslogic(std::forward<Fun>(fun), fuse_req_userdata(req),
         std::forward<Args>(args)...)
-        .then(std::forward<Cb>(callback))
-        .onError([req](const std::errc errc) {
-            LOG(ERROR) << "Fuse error exception: "
-                       << std::make_error_code(errc).message();
-            fuse_reply_err(req, std::make_error_code(errc).value());
-        })
-        .onError([req](const std::system_error &e) {
-            LOG_DBG(1) << "System error exception: " << e.what() << " ("
-                       << e.code().value() << ")";
-            fuse_reply_err(req, e.code().value());
-        })
-        .onError([req](const one::communication::TimeoutExceeded & /*unused*/) {
-            LOG(ERROR) << "Provider connection timed out";
-            fuse_reply_err(
-                req, std::make_error_code(std::errc::timed_out).value());
-        })
-        .onError([req](const one::communication::Exception &t) {
-            LOG(ERROR) << "Communication exception: " << t.what();
-            fuse_reply_err(
-                req, std::make_error_code(std::errc::io_error).value());
-        })
-        .onError([req](const one::client::OneException &e) {
-            LOG(ERROR) << "OneException: " << e.what();
-            fuse_reply_err(
-                req, std::make_error_code(std::errc::io_error).value());
-        })
-        .onError([req](const folly::TimedOut & /*unused*/) {
-            LOG(ERROR) << "Fuse operation timed out";
-            fuse_reply_err(
-                req, std::make_error_code(std::errc::timed_out).value());
-        })
-        .onError([req](folly::exception_wrapper ew) {
+        .thenValue(std::forward<Cb>(callback))
+        .thenError(folly::tag_t<std::errc>{},
+            [req](auto &&errc) {
+                LOG(ERROR) << "Fuse error exception: "
+                           << std::make_error_code(errc).message();
+                fuse_reply_err(req, std::make_error_code(errc).value());
+            })
+        .thenError(folly::tag_t<std::system_error>{},
+            [req](auto &&e) {
+                LOG_DBG(1) << "System error exception: " << e.what() << " ("
+                           << e.code().value() << ")";
+                fuse_reply_err(req, e.code().value());
+            })
+        .thenError(folly::tag_t<one::communication::TimeoutExceeded>{},
+            [req](auto && /*unused*/) {
+                LOG(ERROR) << "Provider connection timed out";
+                fuse_reply_err(
+                    req, std::make_error_code(std::errc::timed_out).value());
+            })
+        .thenError(folly::tag_t<one::communication::Exception>{},
+            [req](auto &&t) {
+                LOG(ERROR) << "Communication exception: " << t.what();
+                fuse_reply_err(
+                    req, std::make_error_code(std::errc::io_error).value());
+            })
+        .thenError(folly::tag_t<one::client::OneException>{},
+            [req](auto &&e) {
+                LOG(ERROR) << "OneException: " << e.what();
+                fuse_reply_err(
+                    req, std::make_error_code(std::errc::io_error).value());
+            })
+        .thenError(folly::tag_t<folly::FutureTimeout>{},
+            [req](auto && /*unused*/) {
+                LOG(ERROR) << "Fuse operation timed out";
+                fuse_reply_err(
+                    req, std::make_error_code(std::errc::timed_out).value());
+            })
+        .thenError(folly::tag_t<folly::exception_wrapper>{}, [req](auto &&ew) {
             try {
                 try {
                     ew.throw_exception();
@@ -170,8 +176,9 @@ void wrap_releasedir(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
     auto timer =
         ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.releasedir");
     wrap(&fslogic::Composite::releasedir,
-        [req, timer = std::move(timer)]() { fuse_reply_err(req, 0); }, req, ino,
-        fi->fh);
+        [req, timer = std::move(timer)](
+            auto && /*unit*/) { fuse_reply_err(req, 0); },
+        req, ino, fi->fh);
 }
 
 void wrap_readdir(fuse_req_t req, fuse_ino_t ino, size_t maxSize, off_t off,
@@ -253,8 +260,9 @@ void wrap_release(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.release");
     wrap(&fslogic::Composite::release,
-        [&, req, timer = std::move(timer)]() { fuse_reply_err(req, 0); }, req,
-        ino, fi->fh);
+        [&, req, timer = std::move(timer)](
+            auto && /*unit*/) { fuse_reply_err(req, 0); },
+        req, ino, fi->fh);
 }
 
 void wrap_read(fuse_req_t req, fuse_ino_t ino, size_t size, off_t off,
@@ -410,7 +418,8 @@ void wrap_unlink(fuse_req_t req, fuse_ino_t parent, const char *name)
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.unlink");
     wrap(&fslogic::Composite::unlink,
-        [req, timer = std::move(timer), sname = std::string(name)] {
+        [req, timer = std::move(timer), sname = std::string(name)](
+            auto && /*unit*/) {
             LOG_DBG(2) << "Unlinked file " << sname;
             fuse_reply_err(req, 0);
         },
@@ -426,7 +435,8 @@ void wrap_rename(fuse_req_t req, fuse_ino_t parent, const char *name,
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.rename");
     wrap(&fslogic::Composite::rename,
         [req, timer = std::move(timer), parent, newparent,
-            sname = std::string(name), snewname = std::string(newname)] {
+            sname = std::string(name),
+            snewname = std::string(newname)](auto && /*unit*/) {
             LOG_DBG(2) << "Renamed " << parent << ":" << sname << " to "
                        << newparent << ":" << snewname;
             fuse_reply_err(req, 0);
@@ -441,7 +451,7 @@ void wrap_forget(fuse_req_t req, fuse_ino_t ino, uint64_t nlookup)
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.forget");
     wrap(&fslogic::Composite::forget,
-        [req, timer = std::move(timer), ino] {
+        [req, timer = std::move(timer), ino](auto && /*unit*/) {
             LOG_DBG(2) << "Forgotten inode " << ino;
             fuse_reply_none(req);
         },
@@ -502,8 +512,9 @@ void wrap_flush(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.flush");
     wrap(&fslogic::Composite::flush,
-        [req, timer = std::move(timer)] { fuse_reply_err(req, 0); }, req, ino,
-        fi->fh);
+        [req, timer = std::move(timer)](
+            auto && /*unit*/) { fuse_reply_err(req, 0); },
+        req, ino, fi->fh);
 }
 
 void wrap_fsync(
@@ -514,8 +525,9 @@ void wrap_fsync(
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.fsync");
     wrap(&fslogic::Composite::fsync,
-        [req, timer = std::move(timer)] { fuse_reply_err(req, 0); }, req, ino,
-        fi->fh, dataSync);
+        [req, timer = std::move(timer)](
+            auto && /*unit*/) { fuse_reply_err(req, 0); },
+        req, ino, fi->fh, dataSync);
 }
 
 void wrap_getxattr(fuse_req_t req, fuse_ino_t ino, const char *attr, size_t size
@@ -667,8 +679,9 @@ void wrap_setxattr(fuse_req_t req, fuse_ino_t ino, const char *attr,
                << " XATTR_REPLACE=" << std::to_string(flags & XATTR_REPLACE);
 
     wrap(&fslogic::Composite::setxattr,
-        [req, timer = std::move(timer)] { fuse_reply_err(req, 0); }, req, ino,
-        xattrJsonName, xattrJsonValue, flags & XATTR_CREATE,
+        [req, timer = std::move(timer)](
+            auto && /*unit*/) { fuse_reply_err(req, 0); },
+        req, ino, xattrJsonName, xattrJsonValue, flags & XATTR_CREATE,
         flags & XATTR_REPLACE);
 }
 
@@ -703,8 +716,9 @@ void wrap_removexattr(fuse_req_t req, fuse_ino_t ino, const char *attr)
                << "' for file " << ino;
 
     wrap(&fslogic::Composite::removexattr,
-        [req, timer = std::move(timer)] { fuse_reply_err(req, 0); }, req, ino,
-        xattrJsonName);
+        [req, timer = std::move(timer)](
+            auto && /*unit*/) { fuse_reply_err(req, 0); },
+        req, ino, xattrJsonName);
 }
 
 void wrap_listxattr(fuse_req_t req, fuse_ino_t ino, size_t size)

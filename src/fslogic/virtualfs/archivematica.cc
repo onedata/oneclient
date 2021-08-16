@@ -374,7 +374,7 @@ folly::fbstring ArchivematicaVirtualFsAdapter::effectiveName(
 {
     folly::StringPiece d{direntry};
     d.removeSuffix(".__onedata_archivematica");
-    return d.toFbstring();
+    return d.str();
 }
 
 folly::Future<FileHandlePtr> ArchivematicaVirtualFsAdapter::open(

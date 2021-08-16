@@ -16,10 +16,10 @@
 #include "messages/fuse/getFileChildrenAttrs.h"
 #include "options/options.h"
 
-#include <folly/Enumerate.h>
 #include <folly/FBString.h>
 #include <folly/Optional.h>
 #include <folly/Range.h>
+#include <folly/container/Enumerate.h>
 #include <fuse/fuse_lowlevel.h>
 
 #include <memory>
@@ -115,8 +115,9 @@ void ReaddirCache::fetch(const folly::fbstring &uuid,
         } while (!isLast && fetchedSize > 0);
 
         folly::collectAll(futs)
-            .then([this, p, uuid](
-                      const std::vector<folly::Try<folly::Unit>> & /*unused*/) {
+            .via(folly::getGlobalCPUExecutor().get())
+            .thenValue([this, p, uuid](
+                           std::vector<folly::Try<folly::Unit>> && /*unused*/) {
                 // Wait until all directory entries are added to the
                 // metadata cache
                 m_runInFiber([this, p, uuid]() {
@@ -176,12 +177,12 @@ folly::fbvector<folly::fbstring> ReaddirCache::readdir(
                 effectiveUuid, includeReplicationStatus, includeHardLinkCount);
         }
 
-        auto dirEntriesFuture = (*m_cache.find(effectiveUuid)).second;
-        auto f = dirEntriesFuture->getFuture().wait();
+        auto dirEntriesPromise = (*m_cache.find(effectiveUuid)).second;
+        auto f = dirEntriesPromise->getFuture().wait();
 
         if (f.hasException()) {
             m_cache.erase(effectiveUuid);
-            f.get();
+            std::move(f).get();
         }
     }
 

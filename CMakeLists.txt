@@ -72,10 +72,11 @@ message(STATUS "Checking for NSS...")
 find_package(NSS REQUIRED)
 
 # Setup Folly
-option(FOLLY_SHARED "Link folly shared library" OFF)
+option(FOLLY_SHARED "Link folly shared library" ON)
 message(STATUS "Checking for Folly...")
 find_package(Folly REQUIRED)
 find_package(Wangle REQUIRED)
+find_package(Fizz REQUIRED)
 find_library(LIBEVENT_LIBRARY event)
 find_library(IBERTY_LIBRARY iberty)
 find_library(DOUBLE_CONVERSION_LIBRARY double-conversion)
@@ -84,6 +85,7 @@ set(FOLLY_LIBRARIES
     ${WANGLE_LIBRARIES}
     ${LIBEVENT_LIBRARY}
     ${IBERTY_LIBRARY}
+    ${FIZZ_LIBRARY}
     ${DOUBLE_CONVERSION_LIBRARY})
 
 # Setup Boost
@@ -197,7 +199,7 @@ endif(WITH_GLUSTERFS)
 
 # WebDAV libraries
 if(WITH_WEBDAV)
-    find_library(PROXYGEN_LIBRARY proxygenlib REQUIRED)
+    find_library(PROXYGEN_LIBRARY proxygen REQUIRED)
     add_definitions(-DWITH_WEBDAV=1)
 else(WITH_WEBDAV)
     add_definitions(-DWITH_WEBDAV=0)

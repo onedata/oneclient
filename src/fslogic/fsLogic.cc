@@ -61,9 +61,9 @@
 
 #include <boost/icl/interval_set.hpp>
 #include <folly/Demangle.h>
-#include <folly/Enumerate.h>
 #include <folly/Range.h>
 #include <folly/ScopeGuard.h>
+#include <folly/container/Enumerate.h>
 #include <folly/fibers/Baton.h>
 #include <folly/fibers/FiberManager.h>
 #include <folly/fibers/ForEach.h>
@@ -637,7 +637,8 @@ void FsLogic::release(
 
     auto releaseExceptionFuture =
         folly::collectAll(releaseFutures)
-            .then([](const std::vector<folly::Try<folly::Unit>> &tries) {
+            .via(folly::getCPUExecutor().get())
+            .thenValue([](std::vector<folly::Try<folly::Unit>> &&tries) {
                 for (auto &t : tries)
                     t.value();
             });
@@ -646,7 +647,8 @@ void FsLogic::release(
     try {
         LOG_DBG(2) << "Releasing local file handles for " << uuid;
 
-        communication::wait(releaseExceptionFuture, m_providerTimeout);
+        communication::wait(
+            std::move(releaseExceptionFuture), m_providerTimeout);
 
         LOG_DBG(2) << "Sending file release message for " << uuid;
 
@@ -821,6 +823,8 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
     // Even if several "touching" blocks with different helpers are
     // available to read right now, for simplicity we'll only read a single
     // block per a read operation.
+    int ec = 0;
+    folly::exception_wrapper ew;
     try {
         auto locationData = m_metadataCache.getBlock(uuid, offset);
         if (!locationData.hasValue()) {
@@ -994,77 +998,81 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
         return readBuffer;
     }
     catch (const std::system_error &e) {
-        if ((e.code().value() == EKEYEXPIRED) && (retriesLeft >= 0)) {
-            auto defaultBlock = m_metadataCache.getDefaultBlock(uuid);
-            auto storageId = defaultBlock.storageId();
-            auto fileId = defaultBlock.fileId();
-            LOG(INFO) << "Key or token to storage " << storageId
-                      << " expired. Refreshing helper parameters...";
+        // Folly fibers does not allow to recursively call from exception
+        // handler Keep the error data, and retry after the catch block
+        ec = e.code().value();
+        ew = folly::exception_wrapper(std::current_exception(), e);
+    }
 
-            auto spaceId = m_metadataCache.getSpaceId(uuid);
+    // Retry on error or rethrow exception
+    if ((ec == EKEYEXPIRED) && (retriesLeft >= 0)) {
+        auto defaultBlock = m_metadataCache.getDefaultBlock(uuid);
+        auto storageId = defaultBlock.storageId();
+        auto fileId = defaultBlock.fileId();
+        LOG(INFO) << "Key or token to storage " << storageId
+                  << " expired. Refreshing helper parameters...";
 
-            folly::fibers::await(
-                [&](folly::fibers::Promise<folly::Unit> promise) {
-                    promise.setWith([this, storageId, spaceId, fileId,
-                                        fuseFileHandle, uuid]() {
-                        // Invalidate the read cache so that it forgets
-                        // the ekeyexpired exception
-                        return m_helpersCache
-                            ->refreshHelperParameters(storageId, spaceId)
-                            .within(m_providerTimeout)
-                            .get();
-                    });
+        auto spaceId = m_metadataCache.getSpaceId(uuid);
+
+        folly::fibers::await([&](folly::fibers::Promise<folly::Unit> promise) {
+            promise.setWith(
+                [this, storageId, spaceId, fileId, fuseFileHandle, uuid]() {
+                    // Invalidate the read cache so that it forgets
+                    // the ekeyexpired exception
+                    return m_helpersCache
+                        ->refreshHelperParameters(storageId, spaceId)
+                        .within(m_providerTimeout)
+                        .get();
                 });
+        });
 
-            return read(uuid, fileHandleId, offset, size, checksum,
-                retriesLeft - 1, std::move(ioTraceEntry));
-        }
-
-        if ((e.code().value() == ENOENT) && (retriesLeft >= 0) &&
-            !m_forceProxyIOCache.contains(uuid)) {
-            // The file might have been moved on the storage - get the latest
-            // file location
-            fiberRetryDelay(retriesLeft);
-            m_metadataCache.getLocation(uuid, true);
-            return read(uuid, fileHandleId, offset, size, checksum,
-                retriesLeft - 1, std::move(ioTraceEntry));
-        }
-
-        if (((e.code().value() == EAGAIN) || (e.code().value() == ECANCELED)) &&
-            (retriesLeft >= 0)) {
-            LOG_DBG(1) << "Retrying read due to error: " << e.code().value();
-            fiberRetryDelay(retriesLeft);
-            return read(uuid, fileHandleId, offset, size, checksum,
-                retriesLeft - 1, std::move(ioTraceEntry));
-        }
-
-        if ((e.code().value() != EPERM) && (e.code().value() != EACCES)) {
-            LOG_DBG(1) << "Reading from " << uuid
-                       << " failed due to error: " << e.what() << "("
-                       << e.code() << ")";
-            throw;
-        }
-
-        LOG(ERROR) << "Reading from " << uuid
-                   << " failed due to insufficient permissions";
-
-        if (m_forceProxyIOCache.contains(uuid)) {
-            LOG(ERROR) << "Reading from " << uuid
-                       << " failed since proxy mode is forced for this file";
-            throw;
-        }
-
-        LOG_DBG(1) << "Adding file " << uuid
-                   << " to force proxy cache after direct read failed";
-
-        m_forceProxyIOCache.add(uuid, true);
-
-        LOG_DBG(1) << "Rereading requested block for " << uuid
-                   << " via proxy fallback, restarting retry counter";
-
-        return read(uuid, fileHandleId, offset, size, checksum, m_maxRetryCount,
+        return read(uuid, fileHandleId, offset, size, checksum, retriesLeft - 1,
             std::move(ioTraceEntry));
     }
+
+    if ((ec == ENOENT) && (retriesLeft >= 0) &&
+        !m_forceProxyIOCache.contains(uuid)) {
+        // The file might have been moved on the storage - get the latest
+        // file location
+
+        // fiberRetryDelay(retriesLeft);
+        m_metadataCache.getLocation(uuid, true);
+        return read(uuid, fileHandleId, offset, size, checksum, retriesLeft - 1,
+            std::move(ioTraceEntry));
+    }
+
+    if (((ec == EAGAIN) || (ec == ECANCELED)) && (retriesLeft >= 0)) {
+        LOG_DBG(1) << "Retrying read due to error: " << ec;
+        fiberRetryDelay(retriesLeft);
+        return read(uuid, fileHandleId, offset, size, checksum, retriesLeft - 1,
+            std::move(ioTraceEntry));
+    }
+
+    if ((ec != EPERM) && (ec != EACCES)) {
+        LOG_DBG(1) << "Reading from " << uuid
+                   << " failed due to error: " << ew.what() << "(" << ec << ")";
+        ew.throw_exception();
+    }
+
+    LOG(ERROR) << "Reading from " << uuid
+               << " failed due to insufficient permissions";
+
+    if (m_forceProxyIOCache.contains(uuid)) {
+        LOG(ERROR) << "Reading from " << uuid
+                   << " failed since proxy mode is forced for this file";
+        ew.throw_exception();
+    }
+
+    LOG_DBG(1) << "Adding file " << uuid
+               << " to force proxy cache after direct read failed";
+
+    m_forceProxyIOCache.add(uuid, true);
+
+    LOG_DBG(1) << "Rereading requested block for " << uuid
+               << " via proxy fallback, restarting retry counter";
+
+    return read(uuid, fileHandleId, offset, size, checksum, m_maxRetryCount,
+        std::move(ioTraceEntry));
 }
 
 std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
@@ -1333,6 +1341,9 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
     using one::logging::csv::read_write_perf;
 
     size_t bytesWritten = 0;
+
+    int ec = 0;
+    folly::exception_wrapper ew;
     try {
         auto helperHandle = fuseFileHandle->getHelperHandle(
             uuid, spaceId, fileBlock.storageId(), fileBlock.fileId());
@@ -1360,7 +1371,14 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
             buf->length(), timer.stop());
     }
     catch (const std::system_error &e) {
-        if ((e.code().value() == EKEYEXPIRED) && (retriesLeft >= 0)) {
+        // Folly fibers does not allow to recursively call from exception
+        // handler Keep the error data, and retry after the catch block
+        ec = e.code().value();
+        ew = folly::exception_wrapper(std::current_exception(), e);
+    }
+
+    if (ec != 0) {
+        if ((ec == EKEYEXPIRED) && (retriesLeft >= 0)) {
             LOG_DBG(2) << "Key or token to storage " << fileBlock.storageId()
                        << " expired. Refreshing helper parameters...";
 
@@ -1383,7 +1401,7 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
                 retriesLeft - 1, std::move(ioTraceEntry));
         }
 
-        if ((e.code().value() == ENOENT) && (retriesLeft >= 0) &&
+        if ((ec == ENOENT) && (retriesLeft >= 0) &&
             !m_forceProxyIOCache.contains(uuid)) {
             // The file might have been moved on the storage - get the latest
             // file location
@@ -1393,23 +1411,22 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
                 retriesLeft - 1, std::move(ioTraceEntry));
         }
 
-        if ((e.code().value() == EAGAIN || e.code().value() == ETIMEDOUT) &&
-            (retriesLeft >= 0)) {
+        if ((ec == EAGAIN || ec == ETIMEDOUT) && (retriesLeft >= 0)) {
             fiberRetryDelay(retriesLeft);
             return write(uuid, fuseFileHandleId, offset, std::move(buf),
                 retriesLeft - 1, std::move(ioTraceEntry));
         }
 
-        if ((e.code().value() != EPERM) && (e.code().value() != EACCES)) {
+        if ((ec != EPERM) && (ec != EACCES)) {
             LOG(ERROR) << "Writing to " << uuid
-                       << " failed with error code: " << e.what();
-            throw;
+                       << " failed with error code: " << ew.what();
+            ew.throw_exception();
         }
 
         if (m_forceProxyIOCache.contains(uuid)) {
             LOG(ERROR) << "Writing to " << uuid
                        << " failed since proxy mode is forced for this file";
-            throw;
+            ew.throw_exception();
         }
 
         LOG_DBG(1) << "Adding file " << uuid
@@ -2170,6 +2187,8 @@ void FsLogic::pruneExpiredDirectories(const std::chrono::seconds delay)
 
 void FsLogic::fiberRetryDelay(int retriesLeft)
 {
+    assertInFiber();
+
     const auto retryIndex = std::min(
         std::max(0, m_maxRetryCount - retriesLeft), m_maxRetryCount - 1);
 
