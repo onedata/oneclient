@@ -49,7 +49,7 @@ template <class T> EventPtr<T> FalseEmitter<T>::process(EventPtr<T> event)
 
 template <class T> bool FalseEmitter<T>::ready() { return false; }
 
-template <class T> void FalseEmitter<T>::reset() {}
+template <class T> void FalseEmitter<T>::reset() { }
 
 } // namespace events
 } // namespace client
