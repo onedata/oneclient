@@ -59,7 +59,7 @@ public:
      * Starts the fiber worker thread.
      */
     template <typename... Args>
-    InFiber(Args &&... args)
+    InFiber(Args &&...args)
         : m_fsLogic{std::forward<Args>(args)..., makeRunInFiber()}
     {
         m_thread = std::thread{[this] {
@@ -102,21 +102,21 @@ public:
         (const fuse_ino_t)(const folly::fbstring &)(const mode_t)(const int))
 
     WRAP(rename,
-        (const fuse_ino_t)(const folly::fbstring &)(const fuse_ino_t)(
-            const folly::fbstring &))
+        (const fuse_ino_t)(const folly::fbstring
+                &)(const fuse_ino_t)(const folly::fbstring &))
 
     WRAP(read,
         (const fuse_ino_t)(const std::uint64_t)(const off_t)(const std::size_t))
 
     WRAP(write,
-        (const fuse_ino_t)(const std::uint64_t)(const std::size_t)(
-            std::shared_ptr<folly::IOBuf>))
+        (const fuse_ino_t)(const std::uint64_t)(const std::size_t)(std::
+                shared_ptr<folly::IOBuf>))
 
     WRAP(listxattr, (const fuse_ino_t))
     WRAP(getxattr, (const fuse_ino_t)(const folly::fbstring &))
     WRAP(setxattr,
-        (const fuse_ino_t)(
-            const folly::fbstring &)(const folly::fbstring &)(bool)(bool))
+        (const fuse_ino_t)(const folly::fbstring &)(const folly::fbstring
+                &)(bool)(bool))
     WRAP(removexattr, (const fuse_ino_t)(const folly::fbstring &))
 
     bool isFullBlockReadForced() const

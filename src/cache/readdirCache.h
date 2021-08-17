@@ -52,7 +52,7 @@ public:
     /**
      * Destructor
      */
-    virtual ~ReaddirCache() {}
+    virtual ~ReaddirCache() { }
 
     /**
      * Read directory entries from cache or if not available fetch from server.

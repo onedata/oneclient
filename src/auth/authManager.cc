@@ -38,7 +38,7 @@ AuthManager::AuthManager(std::weak_ptr<Context> context,
 {
 }
 
-void AuthManager::cleanup() {}
+void AuthManager::cleanup() { }
 
 MacaroonAuthManager::MacaroonAuthManager(std::weak_ptr<Context> context,
     std::string defaultHostname, const unsigned int port,

@@ -35,7 +35,7 @@ struct stat toStatbuf(const FileAttrPtr &attr, const fuse_ino_t ino);
 template <typename FsLogicT> class WithUuids {
 public:
     template <typename... Args>
-    WithUuids(folly::fbstring rootUuid, Args &&... args)
+    WithUuids(folly::fbstring rootUuid, Args &&...args)
         : m_inodeCache{std::move(rootUuid)}
         , m_generation{std::chrono::system_clock::to_time_t(
               std::chrono::system_clock::now())}
@@ -274,7 +274,7 @@ private:
     template <typename Ret, typename... FunArgs, typename... Args>
     inline constexpr Ret wrap(
         Ret (FsLogicT::*fun)(const folly::fbstring &, FunArgs...),
-        const fuse_ino_t inode, Args &&... args)
+        const fuse_ino_t inode, Args &&...args)
     {
         const auto &uuid = m_inodeCache.at(inode);
         return (m_fsLogic.*fun)(uuid, std::forward<Args>(args)...);

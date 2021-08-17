@@ -149,8 +149,7 @@ folly::fbvector<folly::fbstring> MetadataCache::readdir(
         off_t offCount{0};
         auto it = irange.begin();
         for (; (offCount < off - extraFilesCount) && (it != irange.end());
-             it++, offCount++) {
-        }
+             it++, offCount++) { }
         if (offCount < off - extraFilesCount)
             return result;
 
@@ -183,8 +182,7 @@ folly::fbvector<folly::fbstring> MetadataCache::readdir(
         auto it = whitelistedSpaces.begin();
         for (; (offCount < off - extraFilesCount) &&
              (it != whitelistedSpaces.end());
-             it++, offCount++) {
-        }
+             it++, offCount++) { }
         if (offCount < off - extraFilesCount)
             return result;
 
