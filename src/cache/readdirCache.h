@@ -19,7 +19,6 @@
 #include <folly/Optional.h>
 #include <folly/futures/Future.h>
 #include <folly/futures/SharedPromise.h>
-#include <fuse/fuse_lowlevel.h>
 
 #include <chrono>
 #include <list>

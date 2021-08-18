@@ -4,6 +4,7 @@ project(oneclient C CXX)
 option(CODE_COVERAGE "Enable code coverage (gcc only)." OFF)
 option(STATIC_BOOST "Link Boost statically" Off)
 option(STATIC_LIBSTDCPP "Link libstdc++ statically" Off)
+option(WITH_FUSE_VERSION "Fuse version to compile with (2 or 3)" 3)
 option(WITH_CEPH "Include Ceph direct IO support" ON)
 option(WITH_S3 "Include S3 direct IO support" ON)
 option(WITH_SWIFT "Include Swift direct IO support" ON)
@@ -43,9 +44,23 @@ configure_file(include/version.h.in ${PROJECT_BINARY_DIR}/version/version.h)
 add_subdirectory(deps/libmacaroons)
 add_subdirectory(deps/libmacaroons-cpp)
 
-# Setup fuse
-message(STATUS "Checking for FUSE...")
-find_package(FUSE REQUIRED)
+# Setup fuse, on Linux default required version is >= 3
+# On other platforms it is not yet supported
+if(WITH_FUSE_VERSION EQUAL 2)
+    message(STATUS "Checking for FUSE 2...")
+    find_package(FUSE 2 REQUIRED)
+    set(FUSE_USE_VERSION 30)
+else()
+    message(STATUS "Checking for FUSE 3...")
+    find_package(FUSE 3 REQUIRED)
+    if(FUSE_VERSION_MINOR LESS 10)
+        set(FUSE_USE_VERSION 31)
+    else()
+        set(FUSE_USE_VERSION 34)
+    endif()
+
+endif()
+message(STATUS "Found Fuse version: ${FUSE_VERSION}")
 
 # Setup pthreads
 message(STATUS "Checking for thread support...")
@@ -254,7 +269,7 @@ add_compile_options(${SECTION_FRAGMENTATION_FLAGS} -Wall -Wno-unused-result)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -fdiagnostics-color")
 add_definitions(
     ${FUSE_DEFINITIONS}
-    -DFUSE_USE_VERSION=30
+    -DFUSE_USE_VERSION=${FUSE_USE_VERSION}
     -DBOOST_FILESYSTEM_NO_DEPRECATED
     -DBOOST_ALL_DYN_LINK
     -DASIO_STANDALONE
@@ -311,7 +326,7 @@ include_directories(
     ${PROJECT_BINARY_DIR}/version
     ${HELPERS_INCLUDE_DIRS})
 
-include_directories(SYSTEM
+include_directories(
     ${HELPERS_SYSTEM_INCLUDE_DIRS}
     ${GLUSTERFSAPI_INCLUDEDIR}
     ${FUSE_INCLUDE_DIRS}
