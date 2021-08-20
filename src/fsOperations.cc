@@ -22,7 +22,11 @@
 #include <folly/container/Enumerate.h>
 #include <folly/futures/Future.h>
 #include <folly/io/IOBufQueue.h>
-#include <fuse.h>
+#if FUSE_USE_VERSION > 30
+#include <fuse3/fuse.h>
+#else
+#include <fuse/fuse.h>
+#endif
 
 #include <array>
 #include <exception>
