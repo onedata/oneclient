@@ -38,8 +38,13 @@
 #include "version.h"
 
 #include <folly/Singleton.h>
+#if FUSE_USE_VERSION > 30
+#include <fuse3/fuse_lowlevel.h>
+#include <fuse3/fuse_opt.h>
+#else
 #include <fuse/fuse_lowlevel.h>
 #include <fuse/fuse_opt.h>
+#endif
 #include <macaroons.hpp>
 
 #include <sys/mount.h>
@@ -88,7 +93,11 @@ void sigtermHandler(int signum)
         "Oneclient received ({}) signal - releasing mountpoint: {}\n", signum,
         __options->getMountpoint().c_str());
 
+#if FUSE_USE_VERSION > 30
+    auto exec = "/bin/fusermount3";
+#else
     auto exec = "/bin/fusermount";
+#endif
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
     execl(exec, exec, "-uz", __options->getMountpoint().c_str(), NULL);
 
@@ -107,11 +116,15 @@ void unmountFuse(std::shared_ptr<options::Options> options)
 #if defined(__APPLE__)
         auto exec = "/usr/sbin/diskutil";
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
-        execl(exec, exec, "unmount", options->getMountpoint().c_str(), NULL);
+        execl(exec, exec, "unmount", options->getMountpoint().c_str(), nullptr);
+#else
+#if FUSE_USE_VERSION > 30
+        auto exec = "/bin/fusermount3";
 #else
         auto exec = "/bin/fusermount";
+#endif
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
-        execl(exec, exec, "-uz", options->getMountpoint().c_str(), NULL);
+        execl(exec, exec, "-uz", options->getMountpoint().c_str(), nullptr);
 #endif
     }
     if (status == 0) {
@@ -163,7 +176,82 @@ int main(int argc, char *argv[])
         char *mountpoint{nullptr};
         int multithreaded{0};
         int foreground{0};
+        struct fuse_session *fuse = nullptr;
 
+#if FUSE_USE_VERSION > 30
+        struct fuse_cmdline_opts opts;
+        res = fuse_parse_cmdline(&args, &opts);
+        if (res == -1)
+            return EXIT_FAILURE;
+
+        multithreaded = !opts.singlethread;
+        foreground = opts.foreground;
+        mountpoint = opts.mountpoint;
+
+        if (foreground == 0) {
+            FLAGS_stderrthreshold = 3;
+        }
+        else {
+            FLAGS_stderrthreshold = options->getDebug() ? 0 : 1;
+        }
+
+        ScopeExit freeMountpoint{[=] {
+            free(mountpoint); // NOLINT
+        }};
+
+        // Create test communicator with single connection to test the
+        // authentication and get protocol configuration
+        auto authManager = getAuthManager(context);
+        auto sessionId = generateSessionId();
+        auto configuration = getConfiguration(sessionId, authManager, context);
+
+        if (!configuration)
+            return EXIT_FAILURE;
+
+        std::unique_ptr<fslogic::Composite> fsLogic;
+        fuse = fuse_session_new(&args, &fuse_oper, sizeof(fuse_oper), &fsLogic);
+        if (fuse == nullptr)
+            return EXIT_FAILURE;
+
+        res = fuse_set_signal_handlers(fuse);
+        if (res == -1)
+            return EXIT_FAILURE;
+
+        ScopeExit removeHandlers{[=] { fuse_remove_signal_handlers(fuse); }};
+
+        res = fuse_session_mount(fuse, mountpoint);
+        if (res != 0)
+            return EXIT_FAILURE;
+
+        ScopeExit unmountFuse{[=] { fuse_session_unmount(fuse); }};
+        ScopeExit destroyFuse{[=] { fuse_session_destroy(fuse); }, unmountFuse};
+
+        std::signal(SIGINT, sigtermHandler);
+        std::signal(SIGTERM, sigtermHandler);
+
+        std::cout << "Oneclient has been successfully mounted in '"
+                  << options->getMountpoint().c_str() << "'." << std::endl;
+
+        if (foreground == 0) {
+            context->scheduler()->prepareForDaemonize();
+            folly::SingletonVault::singleton()->destroyInstances();
+
+            fuse_remove_signal_handlers(fuse);
+            res = fuse_daemonize(foreground);
+
+            if (res != -1)
+                res = fuse_set_signal_handlers(fuse);
+
+            if (res == -1)
+                return EXIT_FAILURE;
+
+            folly::SingletonVault::singleton()->reenableInstances();
+            context->scheduler()->restartAfterDaemonize();
+        }
+        else {
+            FLAGS_stderrthreshold = options->getDebug() ? 0 : 1;
+        }
+#else
         res =
             fuse_parse_cmdline(&args, &mountpoint, &multithreaded, &foreground);
         if (res == -1)
@@ -237,6 +325,7 @@ int main(int argc, char *argv[])
             folly::SingletonVault::singleton()->reenableInstances();
             context->scheduler()->restartAfterDaemonize();
         }
+#endif
 
         if (startPerformanceMonitoring(options) != EXIT_SUCCESS)
             return EXIT_FAILURE;
@@ -258,8 +347,19 @@ int main(int argc, char *argv[])
             options->isFullblockReadEnabled(), options->getProviderTimeout(),
             options->getDirectoryCacheDropAfter());
 
+#if FUSE_USE_VERSION > 31
+        struct fuse_loop_config config;
+        config.clone_fd = opts.clone_fd;
+        config.max_idle_threads = opts.max_idle_threads;
+        res = (multithreaded != 0) ? fuse_session_loop_mt(fuse, &config)
+                                   : fuse_session_loop(fuse);
+#elif FUSE_VERSION == 31
+        res = (multithreaded != 0) ? fuse_session_loop_mt(fuse, opts.clone_fd)
+                                   : fuse_session_loop(fuse);
+#else
         res = (multithreaded != 0) ? fuse_session_loop_mt(fuse)
                                    : fuse_session_loop(fuse);
+#endif
     }
     catch (const macaroons::exception::Invalid &e) {
         fmt::print(stderr,

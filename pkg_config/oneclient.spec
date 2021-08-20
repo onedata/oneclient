@@ -17,7 +17,7 @@ URL:		https://onedata.org
 Source0:	oneclient-base-%{version}.orig.tar.gz
 
 Requires: epel-release
-Requires: fuse
+Requires: fuse3
 Requires: xrootd-libs >= %{xrootd_version}
 Requires: xrootd-client-libs >= %{xrootd_version}
 Requires: xrootd-server-libs >= %{xrootd_version}
@@ -65,7 +65,7 @@ BuildRequires: binutils-devel
 BuildRequires: cmake3
 BuildRequires: double-conversion-devel
 BuildRequires: epel-release
-BuildRequires: fuse-devel >= 2.7
+BuildRequires: fuse3-devel >= 3.6
 BuildRequires: git
 BuildRequires: golang
 BuildRequires: libcurl-devel

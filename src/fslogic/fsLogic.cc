@@ -68,7 +68,12 @@
 #include <folly/fibers/FiberManager.h>
 #include <folly/fibers/ForEach.h>
 #include <folly/json.h>
+#if FUSE_USE_VERSION > 30
+#include <fuse3/fuse_lowlevel.h>
+#else
 #include <fuse/fuse_lowlevel.h>
+#endif
+
 #include <openssl/md4.h>
 
 #include "buffering/bufferAgent.h"

@@ -26,7 +26,7 @@ parser.add_argument(
 parser.add_argument(
     '--image', '-i',
     action='store',
-    default='onedata/builder:2102-4',
+    default='onedata/builder:2102-5',
     help='docker image to use as a test master',
     dest='image')
 

@@ -257,6 +257,7 @@ conda/oneclient_centos6: package/$(PKG_ID).tar.gz
 	sed -i "s|<<PKG_SOURCE>>|../../$(PKG_ID).tar.gz|g" package/conda/oneclient/meta.yaml
 	sed -i 's|libfuse .*$$|libfuse =2.8.3|g' package/conda/oneclient/meta.yaml
 	sed -i 's|protobuf.*$$|protobuf =3.8.0|g' package/conda/oneclient/meta.yaml
+	sed -i 's|DWITH_FUSE_VERSION=3$$|DWITH_FUSE_VERSION=2|g' package/conda/oneclient/build.sh
 	sed -i '/run:/ { :l; n; s/^.*libfuse.*$$//; tx; bl; :x; N; s/\n//; bl }' package/conda/oneclient/meta.yaml
 	source /opt/conda/bin/activate base && \
 		PKG_VERSION=$(PKG_VERSION) CONDA_BLD_PATH=$$PWD/package/conda-bld \
@@ -429,7 +430,7 @@ oneclient_rpm: $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz
 		   --iteration $(PKG_BUILD) --license "Apache 2.0" \
 		   --after-install=/data/oneclient_rpm.pre \
 		   --after-remove=/data/oneclient_rpm.post \
-		   --depends fuse --depends ca-certificates \
+		   --depends fuse3 --depends ca-certificates \
 		   --maintainer "Onedata Package Maintainers <info@onedata.org>" \
 		   --description "Self-contained Onedata Oneclient command-line client package" \
 		   /data/oneclient-bin.tar.gz
@@ -450,7 +451,7 @@ oneclient_deb: $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz
 		   -v $(ONECLIENT_VERSION)-$(PKG_BUILD)~$(DISTRIBUTION) --license "Apache 2.0" \
 		   --after-install=/data/oneclient_deb.pre \
 		   --after-remove=/data/oneclient_deb.post \
-		   --depends fuse --depends ca-certificates \
+		   --depends fuse3 --depends ca-certificates \
 		   --maintainer "Onedata Package Maintainers <info@onedata.org>" \
 		   --description "Self-contained Onedata Oneclient command-line client package" \
 		   /data/oneclient-bin.tar.gz

@@ -14,7 +14,12 @@
 #include <boost/multi_index_container.hpp>
 #include <folly/FBString.h>
 #include <folly/Optional.h>
+
+#if FUSE_USE_VERSION > 30
+#include <fuse3/fuse_lowlevel.h>
+#else
 #include <fuse/fuse_lowlevel.h>
+#endif
 
 namespace one {
 namespace client {

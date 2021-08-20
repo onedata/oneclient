@@ -22,7 +22,11 @@
 #include <folly/container/Enumerate.h>
 #include <folly/futures/Future.h>
 #include <folly/io/IOBufQueue.h>
-#include <fuse.h>
+#if FUSE_USE_VERSION > 30
+#include <fuse3/fuse.h>
+#else
+#include <fuse/fuse.h>
+#endif
 
 #include <array>
 #include <exception>
@@ -442,7 +446,12 @@ void wrap_unlink(fuse_req_t req, fuse_ino_t parent, const char *name)
 }
 
 void wrap_rename(fuse_req_t req, fuse_ino_t parent, const char *name,
-    fuse_ino_t newparent, const char *newname)
+    fuse_ino_t newparent, const char *newname
+#if FUSE_USE_VERSION > 30
+    ,
+    const unsigned int /*flags*/
+#endif
+)
 {
     LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(parent)
                 << LOG_FARG(name) << LOG_FARG(newparent) << LOG_FARG(newname);

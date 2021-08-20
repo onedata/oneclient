@@ -17,7 +17,12 @@
 #include <boost/optional.hpp>
 #include <boost/program_options.hpp>
 #include <folly/Optional.h>
+
+#if FUSE_USE_VERSION > 30
+#include <fuse3/fuse_opt.h>
+#else
 #include <fuse/fuse_opt.h>
+#endif
 
 #include <chrono>
 #include <vector>

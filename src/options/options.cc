@@ -1237,7 +1237,9 @@ struct fuse_args Options::getFuseArgs(const char *programName) const
     struct fuse_args args = FUSE_ARGS_INIT(0, nullptr);
 
     fuse_opt_add_arg(&args, programName);
+#if FUSE_USE_VERSION <= 30
     fuse_opt_add_arg(&args, "-obig_writes");
+#endif
 
     if (getDebug())
         fuse_opt_add_arg(&args, "-d");
