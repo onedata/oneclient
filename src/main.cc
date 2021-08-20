@@ -347,11 +347,14 @@ int main(int argc, char *argv[])
             options->isFullblockReadEnabled(), options->getProviderTimeout(),
             options->getDirectoryCacheDropAfter());
 
-#if FUSE_USE_VERSION > 30
+#if FUSE_USE_VERSION > 31
         struct fuse_loop_config config;
         config.clone_fd = opts.clone_fd;
         config.max_idle_threads = opts.max_idle_threads;
         res = (multithreaded != 0) ? fuse_session_loop_mt(fuse, &config)
+                                   : fuse_session_loop(fuse);
+#elif FUSE_VERSION == 31
+        res = (multithreaded != 0) ? fuse_session_loop_mt(fuse, opts.clone_fd)
                                    : fuse_session_loop(fuse);
 #else
         res = (multithreaded != 0) ? fuse_session_loop_mt(fuse)

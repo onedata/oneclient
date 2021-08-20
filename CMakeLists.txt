@@ -326,11 +326,10 @@ include_directories(
     ${PROJECT_BINARY_DIR}/version
     ${HELPERS_INCLUDE_DIRS})
 
-include_directories(
+include_directories(SYSTEM
     ${HELPERS_SYSTEM_INCLUDE_DIRS}
     ${GLUSTERFSAPI_INCLUDEDIR}
     ${FUSE_INCLUDE_DIRS}
-    ${FUSE_INCLUDE_DIRS}/..
     ${PROTOBUF_INCLUDE_DIR}
     ${ASIO_INCLUDE_DIRS}
     ${TBB_INCLUDE_DIRS}

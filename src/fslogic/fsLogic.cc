@@ -74,7 +74,6 @@
 #include <fuse/fuse_lowlevel.h>
 #endif
 
-
 #include <openssl/md4.h>
 
 #include "buffering/bufferAgent.h"
