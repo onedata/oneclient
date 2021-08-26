@@ -62,14 +62,13 @@ Checks: >-
   -modernize-use-nullptr,
   -modernize-use-override,
   -modernize-use-trailing-return-type,
-  -modernize-use-equals-default,
+  modernize-use-equals-default,
   -mpi*,
   -objc*,
   -openmp*,
   -darwin*,
   -clang-diagnostic-overloaded-virtual,
   -modernize-redundant-void-arg,
-  performance-move-const-arg,
   -zircon*
 WarningsAsErrors: '*'
 HeaderFilterRegex: 'helpers/include|helpers/src'
