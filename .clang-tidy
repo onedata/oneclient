@@ -1,5 +1,5 @@
 Checks: >-
-  *,
+  -*,
   -*braces-around-statements,
   -*osx*,
   -abseil*,
@@ -79,8 +79,7 @@ Checks: >-
   -readability-magic-numbers,
   -readability-make-member-function-const,
   -readability-named-parameter,
-  -readability-qualified-auto,
-  -readability-uppercase-literal-suffix,
+  readability-qualified-auto,
   -zircon*
 WarningsAsErrors: '*'
 HeaderFilterRegex: 'helpers/include|helpers/src'

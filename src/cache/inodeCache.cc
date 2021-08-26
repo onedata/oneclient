@@ -72,7 +72,7 @@ folly::fbstring InodeCache::at(const fuse_ino_t inode) const
 {
     LOG_FCALL() << LOG_FARG(inode);
 
-    auto &index = boost::multi_index::get<ByInode>(m_cache);
+    const auto &index = boost::multi_index::get<ByInode>(m_cache);
     auto entryIt = index.find(inode);
     if (entryIt == index.end() || entryIt->lruIt) {
         LOG(ERROR) << "No file found for inode " << inode;

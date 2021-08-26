@@ -33,9 +33,9 @@ std::string ChangeMode::toString() const
 std::unique_ptr<ProtocolClientMessage> ChangeMode::serializeAndDestroy()
 {
     auto msg = FileRequest::serializeAndDestroy();
-    auto cm = msg->mutable_fuse_request()
-                  ->mutable_file_request()
-                  ->mutable_change_mode();
+    auto *cm = msg->mutable_fuse_request()
+                   ->mutable_file_request()
+                   ->mutable_change_mode();
 
     cm->set_mode(m_mode);
 

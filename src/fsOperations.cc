@@ -138,7 +138,7 @@ void wrap_lookup(fuse_req_t req, fuse_ino_t parent, const char *name)
     wrap(
         &fslogic::Composite::lookup,
         [req, timer = std::move(timer)](const struct fuse_entry_param &entry) {
-            const auto userdata = fuse_req_userdata(req);
+            auto *const userdata = fuse_req_userdata(req);
             // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDelete)
             if (fuse_reply_entry(req, &entry) != 0)
                 // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDelete)
@@ -209,8 +209,8 @@ void wrap_readdir(fuse_req_t req, fuse_ino_t ino, size_t maxSize, off_t off,
             }
 
             std::size_t bufSize = 0;
-            auto begin = names.begin();
-            auto end = begin;
+            const auto *begin = names.begin();
+            const auto *end = begin;
             for (; end < names.end(); ++end) {
                 const auto nextSize = fuse_add_direntry(
                     req, nullptr, 0, end->c_str(), nullptr, 0);
@@ -227,7 +227,7 @@ void wrap_readdir(fuse_req_t req, fuse_ino_t ino, size_t maxSize, off_t off,
             struct stat stbuf = {0};
             stbuf.st_ino = static_cast<fuse_ino_t>(-1);
 
-            auto bufPoint = buf.data();
+            auto *bufPoint = buf.data();
 
             for (const auto it : folly::enumerate(folly::range(begin, end))) {
                 const auto remaining = buf.size() - (bufPoint - buf.data());
@@ -254,7 +254,7 @@ void wrap_open(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
         &fslogic::Composite::open,
         [req, ino, fi = *fi, timer = std::move(timer)](
             const std::uint64_t fh) mutable {
-            const auto userdata = fuse_req_userdata(req);
+            auto *const userdata = fuse_req_userdata(req);
             fi.fh = fh;
             fi.direct_io = 1;
             if (fuse_reply_open(req, &fi) != 0)

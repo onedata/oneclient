@@ -36,9 +36,9 @@ std::unique_ptr<ProtocolClientMessage>
 SynchronizeBlockAndComputeChecksum::serializeAndDestroy()
 {
     auto msg = FileRequest::serializeAndDestroy();
-    auto sb = msg->mutable_fuse_request()
-                  ->mutable_file_request()
-                  ->mutable_synchronize_block_and_compute_checksum();
+    auto *sb = msg->mutable_fuse_request()
+                   ->mutable_file_request()
+                   ->mutable_synchronize_block_and_compute_checksum();
 
     sb->mutable_block()->set_offset(boost::icl::first(m_block));
     sb->mutable_block()->set_size(boost::icl::size(m_block));

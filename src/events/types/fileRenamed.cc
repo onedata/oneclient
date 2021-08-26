@@ -19,7 +19,7 @@ namespace events {
 FileRenamed::FileRenamed(const ProtocolMessage &msg)
     : m_topEntry{msg.top_entry()}
 {
-    for (auto &childEntry : msg.child_entries()) {
+    for (const auto &childEntry : msg.child_entries()) {
         m_childEntries.emplace_back(childEntry);
     }
 }

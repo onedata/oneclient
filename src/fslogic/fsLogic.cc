@@ -473,7 +473,8 @@ FileAttrPtr FsLogic::lookup(
         throw std::system_error(
             std::make_error_code(std::errc::no_such_file_or_directory));
 
-    auto type = attr->type() == FileAttr::FileType::directory ? "d" : "f";
+    const auto *type =
+        attr->type() == FileAttr::FileType::directory ? "d" : "f";
     auto size = attr->size();
 
     IOTRACE_END(IOTraceLookup, IOTraceLogger::OpType::LOOKUP, uuid, 0, name,
@@ -1754,7 +1755,7 @@ void FsLogic::rename(const folly::fbstring &parentUuid,
     LOG_DBG(2) << "Renamed file " << name << " in " << parentUuid << " to "
                << newName << " in " << newParentUuid;
 
-    for (auto &child : renamed.childEntries())
+    for (const auto &child : renamed.childEntries())
         m_metadataCache.rename(child.oldUuid(), child.newParentUuid(),
             child.newName(), child.newUuid());
 
@@ -2063,7 +2064,7 @@ folly::fbstring FsLogic::syncAndFetchChecksum(const folly::fbstring &uuid,
     auto syncResponse = communicate<messages::fuse::SyncResponse>(
         std::move(request), m_providerTimeout);
 
-    auto &fileLocationUpdate = syncResponse.fileLocationChanged();
+    const auto &fileLocationUpdate = syncResponse.fileLocationChanged();
     if (fileLocationUpdate.changeStartOffset() &&
         fileLocationUpdate.changeEndOffset())
         m_metadataCache.updateLocation(
@@ -2141,7 +2142,7 @@ folly::fbstring FsLogic::computeHash(const folly::IOBufQueue &buf)
                 MD4_Init(&ctx);
 
                 if (!buf.empty())
-                    for (auto &byteRange : *buf.front())
+                    for (const auto &byteRange : *buf.front())
                         MD4_Update(&ctx, byteRange.data(), byteRange.size());
 
                 MD4_Final(reinterpret_cast<unsigned char *>(&hash[0]), &ctx);

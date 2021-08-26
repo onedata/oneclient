@@ -71,7 +71,7 @@ bool MetadataCache::contains(const folly::fbstring &uuid) const
 {
     assertInFiber();
 
-    auto &index = bmi::get<ByUuid>(m_cache);
+    const auto &index = bmi::get<ByUuid>(m_cache);
     return index.find(uuid) != index.end();
 }
 
@@ -179,7 +179,7 @@ folly::fbvector<folly::fbstring> MetadataCache::readdir(
             }
 
         off_t offCount{0};
-        auto it = whitelistedSpaces.begin();
+        auto *it = whitelistedSpaces.begin();
         for (; (offCount < off - extraFilesCount) &&
              (it != whitelistedSpaces.end());
              it++, offCount++) { }

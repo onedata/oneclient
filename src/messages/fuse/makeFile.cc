@@ -38,9 +38,9 @@ std::string MakeFile::toString() const
 std::unique_ptr<ProtocolClientMessage> MakeFile::serializeAndDestroy()
 {
     auto msg = FileRequest::serializeAndDestroy();
-    auto mf = msg->mutable_fuse_request()
-                  ->mutable_file_request()
-                  ->mutable_make_file();
+    auto *mf = msg->mutable_fuse_request()
+                   ->mutable_file_request()
+                   ->mutable_make_file();
 
     mf->set_name(m_name.toStdString());
     mf->set_mode(m_mode);

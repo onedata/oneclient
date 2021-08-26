@@ -42,9 +42,9 @@ std::string OpenFile::toString() const
 std::unique_ptr<ProtocolClientMessage> OpenFile::serializeAndDestroy()
 {
     auto msg = FileRequest::serializeAndDestroy();
-    auto of = msg->mutable_fuse_request()
-                  ->mutable_file_request()
-                  ->mutable_open_file();
+    auto *of = msg->mutable_fuse_request()
+                   ->mutable_file_request()
+                   ->mutable_open_file();
 
     if (m_flag == one::helpers::Flag::RDONLY)
         of->set_flag(clproto::OpenFlag::READ);

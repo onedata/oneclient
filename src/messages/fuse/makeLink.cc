@@ -36,9 +36,9 @@ std::string MakeLink::toString() const
 std::unique_ptr<ProtocolClientMessage> MakeLink::serializeAndDestroy()
 {
     auto msg = FileRequest::serializeAndDestroy();
-    auto mf = msg->mutable_fuse_request()
-                  ->mutable_file_request()
-                  ->mutable_make_link();
+    auto *mf = msg->mutable_fuse_request()
+                   ->mutable_file_request()
+                   ->mutable_make_link();
 
     mf->set_target_parent_uuid(m_parentUuid.toStdString());
     mf->set_target_name(m_name.toStdString());

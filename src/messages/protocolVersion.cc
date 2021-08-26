@@ -25,7 +25,7 @@ namespace messages {
 ProtocolVersion::ProtocolVersion(
     std::unique_ptr<ProtocolServerMessage> serverMessage)
 {
-    auto &protocolVersionMsg = serverMessage->protocol_version();
+    const auto &protocolVersionMsg = serverMessage->protocol_version();
     m_major = protocolVersionMsg.major();
     m_minor = protocolVersionMsg.minor();
 }

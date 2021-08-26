@@ -23,9 +23,9 @@ std::unique_ptr<ProtocolClientMessage> FileRequest::serializeAndDestroy()
 {
     auto msg = std::make_unique<ProtocolClientMessage>();
 
-    auto cg = msg->mutable_fuse_request()
-                  ->mutable_file_request()
-                  ->mutable_context_guid();
+    auto *cg = msg->mutable_fuse_request()
+                   ->mutable_file_request()
+                   ->mutable_context_guid();
     cg->swap(m_contextGuid);
 
     return msg;

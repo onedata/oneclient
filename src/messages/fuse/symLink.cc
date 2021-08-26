@@ -26,7 +26,7 @@ SymLink::SymLink(std::unique_ptr<ProtocolServerMessage> serverMessage)
             "symlink field missing"};
     }
 
-    auto symlink = serverMessage->mutable_fuse_response()->mutable_symlink();
+    auto *symlink = serverMessage->mutable_fuse_response()->mutable_symlink();
 
     m_link = symlink->link();
 }

@@ -94,7 +94,7 @@ void sigtermHandler(int signum)
         __options->getMountpoint().c_str());
 
 #if FUSE_USE_VERSION > 30
-    auto exec = "/bin/fusermount3";
+    const auto *exec = "/bin/fusermount3";
 #else
     auto exec = "/bin/fusermount";
 #endif
@@ -119,7 +119,7 @@ void unmountFuse(std::shared_ptr<options::Options> options)
         execl(exec, exec, "unmount", options->getMountpoint().c_str(), nullptr);
 #else
 #if FUSE_USE_VERSION > 30
-        auto exec = "/bin/fusermount3";
+        const auto *exec = "/bin/fusermount3";
 #else
         auto exec = "/bin/fusermount";
 #endif
