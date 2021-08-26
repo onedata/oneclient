@@ -140,7 +140,7 @@ MacaroonHandler::getMacaroonFromOptions() const
     }
 }
 
-macaroons::Macaroon MacaroonHandler::getMacaroonFromUser() const
+macaroons::Macaroon MacaroonHandler::getMacaroonFromUser()
 {
     LOG_FCALL();
 

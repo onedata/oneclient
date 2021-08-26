@@ -83,7 +83,7 @@ private:
     macaroons::Macaroon retrieveMacaroon() const;
     boost::optional<macaroons::Macaroon> readMacaroonFromFile() const;
     boost::optional<macaroons::Macaroon> getMacaroonFromOptions() const;
-    macaroons::Macaroon getMacaroonFromUser() const;
+    static macaroons::Macaroon getMacaroonFromUser();
     boost::filesystem::path macaroonFilePath() const;
     void persistMacaroon(macaroons::Macaroon) const;
 
