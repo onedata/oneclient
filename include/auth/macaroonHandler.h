@@ -58,7 +58,7 @@ public:
      * @param macaron Macaroon to deserialize.
      * @return Deserialized macaroon.
      */
-    macaroons::Macaroon deserialize(std::string macaroon) const;
+    static macaroons::Macaroon deserialize(std::string macaroon);
 
     /**
      * Decodes macaroon in base62 format to base64 format.

@@ -73,8 +73,7 @@ Checks: >-
   -performance-unnecessary-value-param,
   -readability-avoid-const-params-in-decls,
   -readability-const-return-type,
-  -readability-convert-member-functions-to-static,
-  readability-identifier-naming,
+  readability-convert-member-functions-to-static,
   -zircon*
 WarningsAsErrors: '*'
 HeaderFilterRegex: 'helpers/include|helpers/src'

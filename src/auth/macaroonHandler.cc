@@ -186,7 +186,7 @@ boost::filesystem::path MacaroonHandler::macaroonFilePath() const
     return m_userDataDir / "macaroon";
 }
 
-macaroons::Macaroon MacaroonHandler::deserialize(std::string macaroon) const
+macaroons::Macaroon MacaroonHandler::deserialize(std::string macaroon)
 {
     LOG_FCALL() << LOG_FARG(macaroon);
 
