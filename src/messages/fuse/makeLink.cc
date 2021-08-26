@@ -18,8 +18,8 @@ namespace one {
 namespace messages {
 namespace fuse {
 
-MakeLink::MakeLink(
-    folly::fbstring uuid, folly::fbstring parentUuid, folly::fbstring name)
+MakeLink::MakeLink(const folly::fbstring &uuid, folly::fbstring parentUuid,
+    folly::fbstring name)
     : FileRequest{uuid.toStdString()}
     , m_parentUuid{std::move(parentUuid)}
     , m_name{std::move(name)}

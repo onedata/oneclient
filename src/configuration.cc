@@ -36,7 +36,7 @@ std::shared_ptr<communication::Communicator> handshake(
     std::shared_ptr<auth::AuthManager> authManager,
     std::shared_ptr<Context> context)
 {
-    auto handshakeHandler = [&](messages::HandshakeResponse msg) {
+    auto handshakeHandler = [&](const messages::HandshakeResponse &msg) {
         if (msg.isMacaroonError()) {
             LOG(ERROR) << "Fatal error during handshake: "
                        << msg.status().message();

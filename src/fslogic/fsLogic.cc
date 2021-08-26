@@ -123,7 +123,7 @@ inline helpers::Flag getOpenFlag(const helpers::FlagsSet &flagsSet)
 constexpr auto XATTR_FILE_BLOCKS_MAP_LENGTH = 50;
 constexpr auto LINEAR_PREFETCH_THRESHOLD_MATCH_RATIO = 0.9;
 
-inline static folly::fbstring ONE_XATTR(std::string name)
+inline static folly::fbstring ONE_XATTR(const std::string &name)
 {
     assert(!name.empty());
     return ONE_XATTR_PREFIX + name;
@@ -1083,7 +1083,7 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
 
 std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
     std::shared_ptr<FuseFileHandle> fuseFileHandle,
-    helpers::FileHandlePtr helperHandle, const off_t offset,
+    const helpers::FileHandlePtr &helperHandle, const off_t offset,
     const std::size_t size, const folly::fbstring &uuid,
     const boost::icl::discrete_interval<off_t> possibleRange,
     const boost::icl::discrete_interval<off_t> availableRange)

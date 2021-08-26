@@ -70,11 +70,18 @@ Checks: >-
   -clang-diagnostic-overloaded-virtual,
   -modernize-redundant-void-arg,
   -performance-move-const-arg,
-  -performance-unnecessary-value-param,
-  readability-avoid-const-params-in-decls,
+  performance-unnecessary-value-param,
   -zircon*
 WarningsAsErrors: '*'
 HeaderFilterRegex: 'helpers/include|helpers/src'
 CheckOptions:
   - key:             readability-identifier-naming.ClassMemberPrefix
     value:           'm_'
+  - key:             performance-unnecessary-value-param.AllowedTypes
+    value:           shared_ptr;weak_ptr
+  - key:             misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic
+    value:           1
+  - key:             hicpp-special-member-functions.AllowSoleDefaultDtor
+    value:           1
+  - key:             cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor
+    value:           1

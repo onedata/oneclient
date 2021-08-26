@@ -58,7 +58,7 @@ public:
      * @param macaron Macaroon to deserialize.
      * @return Deserialized macaroon.
      */
-    static macaroons::Macaroon deserialize(std::string macaroon);
+    static macaroons::Macaroon deserialize(const std::string &macaroon);
 
     /**
      * Decodes macaroon in base62 format to base64 format.
@@ -72,7 +72,7 @@ public:
      * @param macaroon 64 Macaroon to encode.
      * @return Encoded macaroon in base62 format.
      */
-    static std::string encode62(std::string macaroon64);
+    static std::string encode62(const std::string &macaroon64);
 
     /**
      * Removes file where macaroon is cached.
@@ -85,7 +85,7 @@ private:
     boost::optional<macaroons::Macaroon> getMacaroonFromOptions() const;
     static macaroons::Macaroon getMacaroonFromUser();
     boost::filesystem::path macaroonFilePath() const;
-    void persistMacaroon(macaroons::Macaroon) const;
+    void persistMacaroon(const macaroons::Macaroon &) const;
 
     options::Options &m_options;
 

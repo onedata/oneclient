@@ -18,7 +18,7 @@ namespace messages {
 namespace fuse {
 
 MakeFile::MakeFile(
-    folly::fbstring parentUuid, folly::fbstring name, const mode_t mode)
+    const folly::fbstring &parentUuid, folly::fbstring name, const mode_t mode)
     : FileRequest{parentUuid.toStdString()}
     , m_name{std::move(name)}
     , m_mode{mode}

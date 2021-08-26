@@ -17,7 +17,7 @@ namespace one {
 namespace messages {
 namespace fuse {
 
-CreateFile::CreateFile(folly::fbstring parentUuid, folly::fbstring name,
+CreateFile::CreateFile(const folly::fbstring &parentUuid, folly::fbstring name,
     const mode_t mode, const one::helpers::Flag flag)
     : FileRequest{parentUuid.toStdString()}
     , m_name{std::move(name)}

@@ -29,7 +29,7 @@ public:
      * @param uuid UUID of the file for which extended attribute is requested.
      * @param name Name of the extended attribute.
      */
-    GetXAttr(folly::fbstring uuid, folly::fbstring name);
+    GetXAttr(const folly::fbstring &uuid, folly::fbstring name);
 
     std::string toString() const override;
 

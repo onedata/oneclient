@@ -37,8 +37,8 @@ public:
      * @param targetCacheSize The target size of the cache; the cache will
      * attempt to keep population no bigger than this number.
      */
-    InodeCache(
-        folly::fbstring rootUuid, const std::size_t targetCacheSize = 100000);
+    InodeCache(const folly::fbstring &rootUuid,
+        const std::size_t targetCacheSize = 100000);
 
     /**
      * Looks up an number by its uuid and increments lookup count for the
@@ -69,7 +69,7 @@ public:
      * @param oldUuid Uuid to rename from.
      * @param newUuid Uuid to rename to.
      */
-    void rename(folly::fbstring oldUuid, folly::fbstring newUuid);
+    void rename(const folly::fbstring &oldUuid, folly::fbstring newUuid);
 
     /**
      * Marks uuid as deleted.
@@ -77,7 +77,7 @@ public:
      * 0.
      * @param uuid The uuid to mark as deleted.
      */
-    void markDeleted(folly::fbstring uuid);
+    void markDeleted(const folly::fbstring &uuid);
 
 private:
     void prune();

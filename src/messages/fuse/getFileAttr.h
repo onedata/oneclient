@@ -33,8 +33,8 @@ public:
      * @param includeLinkCount Whether the response should include hard link
      * count
      */
-    GetFileAttr(folly::fbstring uuid, bool includeReplicationStatus = false,
-        bool includeLinkCount = false);
+    GetFileAttr(const folly::fbstring &uuid,
+        bool includeReplicationStatus = false, bool includeLinkCount = false);
 
     std::string toString() const override;
 

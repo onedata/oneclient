@@ -196,8 +196,8 @@ ArchivematicaMetadataJSONFileHandle::getLocation() const
 }
 
 void ArchivematicaMetadataJSONFileHandle::appendMetadata(FsLogic &fsLogic,
-    folly::fbstring parentUuid, folly::dynamic &objects, folly::fbstring prefix,
-    bool topLevelDir)
+    const folly::fbstring &parentUuid, folly::dynamic &objects,
+    const folly::fbstring &prefix, bool topLevelDir)
 {
     LOG_FCALL() << LOG_FARG(parentUuid) << LOG_FARG(prefix);
 
