@@ -926,7 +926,7 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
         log_timer<> timer;
 
         auto readBuffer = communication::wait(
-            helperHandle->read(offset, availableSize, continuousSize),
+            helperHandle->readContinuous(offset, availableSize, continuousSize),
             m_storageTimeout);
 
         log<read_write_perf>(
