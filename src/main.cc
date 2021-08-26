@@ -184,7 +184,7 @@ int main(int argc, char *argv[])
         if (res == -1)
             return EXIT_FAILURE;
 
-        multithreaded = !opts.singlethread;
+        multithreaded = !opts.singlethread; // NOLINT
         foreground = opts.foreground;
         mountpoint = opts.mountpoint;
 

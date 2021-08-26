@@ -75,8 +75,7 @@ Checks: >-
   -readability-const-return-type,
   -readability-convert-member-functions-to-static,
   -readability-identifier-naming,
-  -readability-implicit-bool-conversion,
-  readability-magic-numbers,
+  readability-implicit-bool-conversion,
   -zircon*
 WarningsAsErrors: '*'
 HeaderFilterRegex: 'helpers/include|helpers/src'
