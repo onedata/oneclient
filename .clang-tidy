@@ -69,8 +69,7 @@ Checks: >-
   -darwin*,
   -clang-diagnostic-overloaded-virtual,
   -modernize-redundant-void-arg,
-  -performance-move-const-arg,
-  performance-unnecessary-value-param,
+  performance-move-const-arg,
   -zircon*
 WarningsAsErrors: '*'
 HeaderFilterRegex: 'helpers/include|helpers/src'
