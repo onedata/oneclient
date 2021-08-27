@@ -20,7 +20,11 @@ OpenFileMetadataCache::OpenFileToken::OpenFileToken(
 
 OpenFileMetadataCache::OpenFileToken::~OpenFileToken()
 {
-    m_cache.releaseFile(m_attr->uuid());
+    try {
+        m_cache.releaseFile(m_attr->uuid());
+    }
+    catch (...) {
+    }
 }
 
 OpenFileMetadataCache::OpenFileMetadataCache(
