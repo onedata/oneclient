@@ -791,7 +791,7 @@ void wrap_listxattr(fuse_req_t req, fuse_ino_t ino, size_t size)
                 auto offset = 0UL;
 
                 for (const auto &name : names) {
-                    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
+                    // NOLINTNEXTLINE(hicpp-vararg,cppcoreguidelines-pro-type-vararg)
                     sprintf(buf.get() + offset, name.data(), name.length());
                     offset += name.length() + 1;
                 }

@@ -98,7 +98,7 @@ void sigtermHandler(int signum)
 #else
     auto exec = "/bin/fusermount";
 #endif
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
+    // NOLINTNEXTLINE(hicpp-vararg,cppcoreguidelines-pro-type-vararg)
     execl(exec, exec, "-uz", __options->getMountpoint().c_str(), NULL);
 
     exit(signum);
@@ -115,7 +115,7 @@ void unmountFuse(std::shared_ptr<options::Options> options)
     else {
 #if defined(__APPLE__)
         auto exec = "/usr/sbin/diskutil";
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
+        // NOLINTNEXTLINE(hicpp-vararg,cppcoreguidelines-pro-type-vararg)
         execl(exec, exec, "unmount", options->getMountpoint().c_str(), nullptr);
 #else
 #if FUSE_USE_VERSION > 30
@@ -123,7 +123,7 @@ void unmountFuse(std::shared_ptr<options::Options> options)
 #else
         auto exec = "/bin/fusermount";
 #endif
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
+        // NOLINTNEXTLINE(hicpp-vararg,cppcoreguidelines-pro-type-vararg)
         execl(exec, exec, "-uz", options->getMountpoint().c_str(), nullptr);
 #endif
     }
@@ -286,7 +286,7 @@ int main(int argc, char *argv[])
         std::signal(SIGINT, sigtermHandler);
         std::signal(SIGTERM, sigtermHandler);
 
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
+        // NOLINTNEXTLINE(hicpp-vararg,cppcoreguidelines-pro-type-vararg)
         res = fcntl(fuse_chan_fd(ch), F_SETFD, FD_CLOEXEC);
         if (res == -1)
             perror("WARNING: failed to set FD_CLOEXEC on fuse device");
