@@ -83,7 +83,7 @@ std::vector<boost::filesystem::path> getMountPoints()
         return mountPoints;
     }
 
-    struct mntent *ent;
+    struct mntent *ent = nullptr;
     while ((ent = getmntent(file)) != nullptr) {
         std::string type(ent->mnt_type);
         std::string path(ent->mnt_dir);

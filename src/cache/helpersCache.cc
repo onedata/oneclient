@@ -210,7 +210,7 @@ HelpersCache::HelperPtr HelpersCache::performAutoIOStorageDetection(
         << storageId << " for file " << fileUuid
         << " with forced proxy io mode: " << forceProxyIO;
 
-    bool accessUnset;
+    bool accessUnset = 0;
     auto accessTypeKey = std::make_pair(storageId, AccessType::PROXY);
 
     // Check if the access type (PROXY or DIRECT) is already

@@ -1113,7 +1113,7 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
     if (m_randomReadPrefetchClusterWindow != 0) {
         off_t leftRange = 0;
         off_t rightRange = 0;
-        bool blockAligned;
+        bool blockAligned = 0;
 
         // Make sure the prefetch is not calculated on each read
         if (!fuseFileHandle->shouldCalculatePrefetch())
