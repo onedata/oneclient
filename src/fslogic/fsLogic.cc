@@ -2145,6 +2145,7 @@ folly::fbstring FsLogic::computeHash(const folly::IOBufQueue &buf)
                     for (const auto &byteRange : *buf.front())
                         MD4_Update(&ctx, byteRange.data(), byteRange.size());
 
+                // NOLINTNEXTLINE
                 MD4_Final(reinterpret_cast<unsigned char *>(&hash[0]), &ctx);
                 promise.setValue(std::move(hash));
             });
