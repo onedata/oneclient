@@ -213,7 +213,7 @@ Coding createCoding()
     return {pairs.begin(), pairs.end()};
 }
 
-const Coding coding = createCoding();
+const Coding coding = createCoding(); // NOLINT
 
 } // namespace
 

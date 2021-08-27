@@ -100,7 +100,7 @@ namespace fslogic {
 using namespace std::literals;
 
 namespace {
-const std::string kAbsLinkPrefix = "<__onedata_space_id:";
+const std::string kAbsLinkPrefix = "<__onedata_space_id:"; // NOLINT
 } // namespace
 
 /**
