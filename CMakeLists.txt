@@ -498,7 +498,6 @@ if(CLANG_TIDY)
          "${CMAKE_CURRENT_SOURCE_DIR}/${CLANG_TIDY_SOURCE_FILTER}")
     add_custom_target(clang-tidy COMMAND ${CLANG_TIDY}
         -export-fixes clang-tidy-suggested-fixes.yaml
-        -fix
         -j ${CLANG_TIDY_PARALLEL_JOBS}
         -extra-arg=-DTBB_USE_GLIBCXX_VERSION=50400
         ${CLANG_TIDY_SOURCES})
