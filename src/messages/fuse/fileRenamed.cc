@@ -24,7 +24,7 @@ FileRenamed::FileRenamed(std::unique_ptr<ProtocolServerMessage> serverMessage)
         throw std::system_error{std::make_error_code(std::errc::protocol_error),
             "file_renamed field missing"};
 
-    auto fileRenamed =
+    auto *fileRenamed =
         serverMessage->mutable_fuse_response()->mutable_file_renamed();
 
     fileRenamed->mutable_new_uuid()->swap(m_newUuid);

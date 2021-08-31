@@ -210,7 +210,7 @@ HelpersCache::HelperPtr HelpersCache::performAutoIOStorageDetection(
         << storageId << " for file " << fileUuid
         << " with forced proxy io mode: " << forceProxyIO;
 
-    bool accessUnset;
+    bool accessUnset = false;
     auto accessTypeKey = std::make_pair(storageId, AccessType::PROXY);
 
     // Check if the access type (PROXY or DIRECT) is already
@@ -248,7 +248,7 @@ HelpersCache::HelperPtr HelpersCache::performAutoIOStorageDetection(
             if (params.name() == helpers::POSIX_HELPER_NAME &&
                 overrideParams.find("mountPoint") != overrideParams.end()) {
 
-                m_storageAccessManager.checkPosixMountpointOverride(
+                one::client::StorageAccessManager::checkPosixMountpointOverride(
                     storageId, overrideParams);
 
                 {
@@ -377,7 +377,7 @@ HelpersCache::HelperPtr HelpersCache::performForcedDirectIOStorageDetection(
         LOG_DBG(1) << "Got storage helper params for file " << fileUuid
                    << " on " << params.name() << " storage " << storageId;
 
-        m_storageAccessManager.checkPosixMountpointOverride(
+        one::client::StorageAccessManager::checkPosixMountpointOverride(
             storageId, overrideParams);
 
         return m_helperFactory.getStorageHelper(params.name(), params.args(),
@@ -455,8 +455,9 @@ HelpersCache::HelperPtr HelpersCache::handleStorageTestFile(
             return {};
         }
 
-        auto fileContent = m_storageAccessManager.modifyStorageTestFile(
-            storageId, helper, *testFile);
+        auto fileContent =
+            one::client::StorageAccessManager::modifyStorageTestFile(
+                storageId, helper, *testFile);
 
         requestStorageTestFileVerification(*testFile, storageId, fileContent);
 

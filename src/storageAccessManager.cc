@@ -83,7 +83,7 @@ std::vector<boost::filesystem::path> getMountPoints()
         return mountPoints;
     }
 
-    struct mntent *ent;
+    struct mntent *ent = nullptr;
     while ((ent = getmntent(file)) != nullptr) {
         std::string type(ent->mnt_type);
         std::string path(ent->mnt_dir);
@@ -284,7 +284,7 @@ folly::fbstring StorageAccessManager::modifyStorageTestFile(
     auto size = testFile.fileContent().size();
     folly::IOBufQueue buf{folly::IOBufQueue::cacheChainLength()};
 
-    auto data = static_cast<char *>(buf.allocate(size));
+    auto *data = static_cast<char *>(buf.allocate(size));
 
     std::random_device device;
     std::default_random_engine engine(device());

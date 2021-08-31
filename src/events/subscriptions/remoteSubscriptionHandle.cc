@@ -36,7 +36,7 @@ RemoteSubscriptionHandle::~RemoteSubscriptionHandle()
                << m_subscriptionId << "'";
 
     auto clientMsg = std::make_unique<ProtoClient>();
-    auto msg = clientMsg->mutable_subscription_cancellation();
+    auto *msg = clientMsg->mutable_subscription_cancellation();
     msg->set_id(m_subscriptionId);
     m_stream.send(std::move(clientMsg));
 }

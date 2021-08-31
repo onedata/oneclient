@@ -115,8 +115,8 @@ public:
     size_t size() const { return m_content.size(); }
 
 private:
-    void appendMetadata(FsLogic &fsLogic, folly::fbstring parentUuid,
-        folly::dynamic &objects, folly::fbstring prefix,
+    void appendMetadata(FsLogic &fsLogic, const folly::fbstring &parentUuid,
+        folly::dynamic &objects, const folly::fbstring &prefix,
         bool topLevelDir = false);
 
     folly::fbstring m_content;

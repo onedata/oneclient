@@ -20,7 +20,11 @@ OpenFileMetadataCache::OpenFileToken::OpenFileToken(
 
 OpenFileMetadataCache::OpenFileToken::~OpenFileToken()
 {
-    m_cache.releaseFile(m_attr->uuid());
+    try {
+        m_cache.releaseFile(m_attr->uuid());
+    }
+    catch (...) {
+    }
 }
 
 OpenFileMetadataCache::OpenFileMetadataCache(
@@ -386,9 +390,9 @@ void OpenFileMetadataCache::clear()
     MetadataCache::clear();
 }
 
-bool OpenFileMetadataCache::rename(folly::fbstring uuid,
-    folly::fbstring newParentUuid, folly::fbstring newName,
-    folly::fbstring newUuid)
+bool OpenFileMetadataCache::rename(const folly::fbstring &uuid,
+    const folly::fbstring &newParentUuid, const folly::fbstring &newName,
+    const folly::fbstring &newUuid)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(newParentUuid)
                 << LOG_FARG(newName) << LOG_FARG(newUuid);
@@ -435,7 +439,7 @@ bool OpenFileMetadataCache::rename(folly::fbstring uuid,
 }
 
 void OpenFileMetadataCache::truncate(
-    folly::fbstring uuid, const std::size_t newSize)
+    const folly::fbstring &uuid, const std::size_t newSize)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(newSize);
 
@@ -457,7 +461,7 @@ void OpenFileMetadataCache::truncate(
 }
 
 void OpenFileMetadataCache::updateTimes(
-    folly::fbstring uuid, const messages::fuse::UpdateTimes &updateTimes)
+    const folly::fbstring &uuid, const messages::fuse::UpdateTimes &updateTimes)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 

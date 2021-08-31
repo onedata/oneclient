@@ -22,6 +22,7 @@
 #include <functional>
 #include <iostream>
 #include <unordered_map>
+#include <utility>
 
 namespace one {
 namespace client {
@@ -43,7 +44,7 @@ void AuthManager::cleanup() { }
 MacaroonAuthManager::MacaroonAuthManager(std::weak_ptr<Context> context,
     std::string defaultHostname, const unsigned int port,
     const bool checkCertificate, const std::chrono::seconds providerTimeout)
-    : AuthManager{context, defaultHostname, port, checkCertificate,
+    : AuthManager{context, std::move(defaultHostname), port, checkCertificate,
           providerTimeout}
     , m_macaroonHandler{*context.lock()->options(), m_environment.userDataDir(),
           "TODO:ProviderId"}

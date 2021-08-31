@@ -59,9 +59,9 @@ std::unique_ptr<ProtocolClientMessage>
 GetFileChildrenAttrs::serializeAndDestroy()
 {
     auto msg = FileRequest::serializeAndDestroy();
-    auto gfc = msg->mutable_fuse_request()
-                   ->mutable_file_request()
-                   ->mutable_get_file_children_attrs();
+    auto *gfc = msg->mutable_fuse_request()
+                    ->mutable_file_request()
+                    ->mutable_get_file_children_attrs();
 
     gfc->set_offset(m_offset);
     gfc->set_size(m_size);

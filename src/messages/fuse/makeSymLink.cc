@@ -18,8 +18,8 @@ namespace one {
 namespace messages {
 namespace fuse {
 
-MakeSymLink::MakeSymLink(
-    folly::fbstring parentUuid, folly::fbstring name, folly::fbstring link)
+MakeSymLink::MakeSymLink(const folly::fbstring &parentUuid,
+    folly::fbstring name, folly::fbstring link)
     : FileRequest{parentUuid.toStdString()}
     , m_name{std::move(name)}
     , m_link{std::move(link)}
@@ -36,9 +36,9 @@ std::string MakeSymLink::toString() const
 std::unique_ptr<ProtocolClientMessage> MakeSymLink::serializeAndDestroy()
 {
     auto msg = FileRequest::serializeAndDestroy();
-    auto mf = msg->mutable_fuse_request()
-                  ->mutable_file_request()
-                  ->mutable_make_symlink();
+    auto *mf = msg->mutable_fuse_request()
+                   ->mutable_file_request()
+                   ->mutable_make_symlink();
 
     mf->set_target_name(m_name.toStdString());
     mf->set_link(m_link.toStdString());

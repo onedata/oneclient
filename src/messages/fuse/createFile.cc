@@ -17,7 +17,7 @@ namespace one {
 namespace messages {
 namespace fuse {
 
-CreateFile::CreateFile(folly::fbstring parentUuid, folly::fbstring name,
+CreateFile::CreateFile(const folly::fbstring &parentUuid, folly::fbstring name,
     const mode_t mode, const one::helpers::Flag flag)
     : FileRequest{parentUuid.toStdString()}
     , m_name{std::move(name)}
@@ -46,9 +46,9 @@ std::string CreateFile::toString() const
 std::unique_ptr<ProtocolClientMessage> CreateFile::serializeAndDestroy()
 {
     auto msg = FileRequest::serializeAndDestroy();
-    auto cf = msg->mutable_fuse_request()
-                  ->mutable_file_request()
-                  ->mutable_create_file();
+    auto *cf = msg->mutable_fuse_request()
+                   ->mutable_file_request()
+                   ->mutable_create_file();
 
     cf->set_name(m_name.toStdString());
     cf->set_mode(m_mode);

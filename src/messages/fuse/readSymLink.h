@@ -31,7 +31,7 @@ public:
      * Constructor.
      * @param uuid UUID of the symbolic link.
      */
-    ReadSymLink(folly::fbstring uuid);
+    ReadSymLink(const folly::fbstring &uuid);
 
     std::string toString() const override;
 

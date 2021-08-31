@@ -166,7 +166,7 @@ std::string FileLocation::toString() const
 BlocksMap FileLocation::getFileLocalBlocks() const
 {
     BlocksMap result;
-    for (auto &block : m_blocks) {
+    for (const auto &block : m_blocks) {
         result[block.second.storageId()].emplace_back(
             std::pair<off_t, off_t>(block.first.lower(), block.first.upper()));
     }

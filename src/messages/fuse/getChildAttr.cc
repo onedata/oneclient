@@ -17,7 +17,7 @@ namespace one {
 namespace messages {
 namespace fuse {
 
-GetChildAttr::GetChildAttr(folly::fbstring uuid, folly::fbstring name,
+GetChildAttr::GetChildAttr(const folly::fbstring &uuid, folly::fbstring name,
     bool includeReplicationStatus, bool includeLinkCount)
     : FileRequest{uuid.toStdString()}
     , m_name{std::move(name)}

@@ -33,7 +33,7 @@ std::string ResolveGuid::toString() const
 std::unique_ptr<ProtocolClientMessage> ResolveGuid::serializeAndDestroy()
 {
     auto msg = std::make_unique<ProtocolClientMessage>();
-    auto rg = msg->mutable_fuse_request()->mutable_resolve_guid();
+    auto *rg = msg->mutable_fuse_request()->mutable_resolve_guid();
 
     rg->set_path(m_path.string());
 

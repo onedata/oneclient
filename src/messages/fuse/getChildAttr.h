@@ -31,7 +31,7 @@ public:
      * @param uuid Uuid of a parent directory.
      * @param name Name of parent's child to look up.
      */
-    GetChildAttr(folly::fbstring uuid, folly::fbstring name,
+    GetChildAttr(const folly::fbstring &uuid, folly::fbstring name,
         bool includeReplicationStatus = false, bool includeLinkCount = false);
 
     std::string toString() const override;

@@ -18,7 +18,7 @@ namespace one {
 namespace messages {
 namespace fuse {
 
-ReadSymLink::ReadSymLink(folly::fbstring uuid)
+ReadSymLink::ReadSymLink(const folly::fbstring &uuid)
     : FileRequest{uuid.toStdString()}
 {
 }

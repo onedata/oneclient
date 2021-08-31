@@ -32,8 +32,8 @@ public:
      * @param parentUuid UUID of the parent directory of target link.
      * @param name Name of the new hard link.
      */
-    MakeLink(
-        folly::fbstring uuid, folly::fbstring parentUuid, folly::fbstring name);
+    MakeLink(const folly::fbstring &uuid, folly::fbstring parentUuid,
+        folly::fbstring name);
 
     std::string toString() const override;
 

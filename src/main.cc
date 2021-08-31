@@ -94,11 +94,11 @@ void sigtermHandler(int signum)
         __options->getMountpoint().c_str());
 
 #if FUSE_USE_VERSION > 30
-    auto exec = "/bin/fusermount3";
+    const auto *exec = "/bin/fusermount3";
 #else
     auto exec = "/bin/fusermount";
 #endif
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
+    // NOLINTNEXTLINE(hicpp-vararg,cppcoreguidelines-pro-type-vararg)
     execl(exec, exec, "-uz", __options->getMountpoint().c_str(), NULL);
 
     exit(signum);
@@ -115,15 +115,15 @@ void unmountFuse(std::shared_ptr<options::Options> options)
     else {
 #if defined(__APPLE__)
         auto exec = "/usr/sbin/diskutil";
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
+        // NOLINTNEXTLINE(hicpp-vararg,cppcoreguidelines-pro-type-vararg)
         execl(exec, exec, "unmount", options->getMountpoint().c_str(), nullptr);
 #else
 #if FUSE_USE_VERSION > 30
-        auto exec = "/bin/fusermount3";
+        const auto *exec = "/bin/fusermount3";
 #else
         auto exec = "/bin/fusermount";
 #endif
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
+        // NOLINTNEXTLINE(hicpp-vararg,cppcoreguidelines-pro-type-vararg)
         execl(exec, exec, "-uz", options->getMountpoint().c_str(), nullptr);
 #endif
     }
@@ -179,12 +179,13 @@ int main(int argc, char *argv[])
         struct fuse_session *fuse = nullptr;
 
 #if FUSE_USE_VERSION > 30
-        struct fuse_cmdline_opts opts;
+        struct fuse_cmdline_opts opts {
+        };
         res = fuse_parse_cmdline(&args, &opts);
         if (res == -1)
             return EXIT_FAILURE;
 
-        multithreaded = !opts.singlethread;
+        multithreaded = !opts.singlethread; // NOLINT
         foreground = opts.foreground;
         mountpoint = opts.mountpoint;
 
@@ -286,7 +287,7 @@ int main(int argc, char *argv[])
         std::signal(SIGINT, sigtermHandler);
         std::signal(SIGTERM, sigtermHandler);
 
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
+        // NOLINTNEXTLINE(hicpp-vararg,cppcoreguidelines-pro-type-vararg)
         res = fcntl(fuse_chan_fd(ch), F_SETFD, FD_CLOEXEC);
         if (res == -1)
             perror("WARNING: failed to set FD_CLOEXEC on fuse device");
@@ -348,7 +349,8 @@ int main(int argc, char *argv[])
             options->getDirectoryCacheDropAfter());
 
 #if FUSE_USE_VERSION > 31
-        struct fuse_loop_config config;
+        struct fuse_loop_config config {
+        };
         config.clone_fd = opts.clone_fd;
         config.max_idle_threads = opts.max_idle_threads;
         res = (multithreaded != 0) ? fuse_session_loop_mt(fuse, &config)

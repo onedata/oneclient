@@ -100,7 +100,7 @@ namespace fslogic {
 using namespace std::literals;
 
 namespace {
-const std::string kAbsLinkPrefix = "<__onedata_space_id:";
+const std::string kAbsLinkPrefix = "<__onedata_space_id:"; // NOLINT
 } // namespace
 
 /**
@@ -123,7 +123,7 @@ inline helpers::Flag getOpenFlag(const helpers::FlagsSet &flagsSet)
 constexpr auto XATTR_FILE_BLOCKS_MAP_LENGTH = 50;
 constexpr auto LINEAR_PREFETCH_THRESHOLD_MATCH_RATIO = 0.9;
 
-inline static folly::fbstring ONE_XATTR(std::string name)
+inline static folly::fbstring ONE_XATTR(const std::string &name)
 {
     assert(!name.empty());
     return ONE_XATTR_PREFIX + name;
@@ -473,7 +473,8 @@ FileAttrPtr FsLogic::lookup(
         throw std::system_error(
             std::make_error_code(std::errc::no_such_file_or_directory));
 
-    auto type = attr->type() == FileAttr::FileType::directory ? "d" : "f";
+    const auto *type =
+        attr->type() == FileAttr::FileType::directory ? "d" : "f";
     auto size = attr->size();
 
     IOTRACE_END(IOTraceLookup, IOTraceLogger::OpType::LOOKUP, uuid, 0, name,
@@ -926,7 +927,7 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
         log_timer<> timer;
 
         auto readBuffer = communication::wait(
-            helperHandle->read(offset, availableSize, continuousSize),
+            helperHandle->readContinuous(offset, availableSize, continuousSize),
             m_storageTimeout);
 
         log<read_write_perf>(
@@ -1082,7 +1083,7 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
 
 std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
     std::shared_ptr<FuseFileHandle> fuseFileHandle,
-    helpers::FileHandlePtr helperHandle, const off_t offset,
+    const helpers::FileHandlePtr &helperHandle, const off_t offset,
     const std::size_t size, const folly::fbstring &uuid,
     const boost::icl::discrete_interval<off_t> possibleRange,
     const boost::icl::discrete_interval<off_t> availableRange)
@@ -1112,7 +1113,7 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
     if (m_randomReadPrefetchClusterWindow != 0) {
         off_t leftRange = 0;
         off_t rightRange = 0;
-        bool blockAligned;
+        bool blockAligned = false;
 
         // Make sure the prefetch is not calculated on each read
         if (!fuseFileHandle->shouldCalculatePrefetch())
@@ -1754,7 +1755,7 @@ void FsLogic::rename(const folly::fbstring &parentUuid,
     LOG_DBG(2) << "Renamed file " << name << " in " << parentUuid << " to "
                << newName << " in " << newParentUuid;
 
-    for (auto &child : renamed.childEntries())
+    for (const auto &child : renamed.childEntries())
         m_metadataCache.rename(child.oldUuid(), child.newParentUuid(),
             child.newName(), child.newUuid());
 
@@ -2063,7 +2064,7 @@ folly::fbstring FsLogic::syncAndFetchChecksum(const folly::fbstring &uuid,
     auto syncResponse = communicate<messages::fuse::SyncResponse>(
         std::move(request), m_providerTimeout);
 
-    auto &fileLocationUpdate = syncResponse.fileLocationChanged();
+    const auto &fileLocationUpdate = syncResponse.fileLocationChanged();
     if (fileLocationUpdate.changeStartOffset() &&
         fileLocationUpdate.changeEndOffset())
         m_metadataCache.updateLocation(
@@ -2141,9 +2142,10 @@ folly::fbstring FsLogic::computeHash(const folly::IOBufQueue &buf)
                 MD4_Init(&ctx);
 
                 if (!buf.empty())
-                    for (auto &byteRange : *buf.front())
+                    for (const auto &byteRange : *buf.front())
                         MD4_Update(&ctx, byteRange.data(), byteRange.size());
 
+                // NOLINTNEXTLINE
                 MD4_Final(reinterpret_cast<unsigned char *>(&hash[0]), &ctx);
                 promise.setValue(std::move(hash));
             });

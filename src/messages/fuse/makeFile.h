@@ -32,8 +32,8 @@ public:
      * @param name Name of the file to create.
      * @param mode Mode of the newly created file.
      */
-    MakeFile(
-        folly::fbstring parentUuid, folly::fbstring name, const mode_t mode);
+    MakeFile(const folly::fbstring &parentUuid, folly::fbstring name,
+        const mode_t mode);
 
     std::string toString() const override;
 

@@ -340,7 +340,7 @@ private:
 
     folly::fbstring computeHash(const folly::IOBufQueue &buf);
 
-    folly::fbstring getFileIdFromFilename(const folly::fbstring &name);
+    static folly::fbstring getFileIdFromFilename(const folly::fbstring &name);
 
     FileAttrPtr makeFile(const folly::fbstring &parentUuid,
         const folly::fbstring &name, const mode_t mode,
@@ -353,7 +353,7 @@ private:
 
     std::pair<size_t, IOTraceLogger::PrefetchType> prefetchAsync(
         std::shared_ptr<FuseFileHandle> fuseFileHandle,
-        helpers::FileHandlePtr helperHandle, const off_t offset,
+        const helpers::FileHandlePtr &helperHandle, const off_t offset,
         const std::size_t size, const folly::fbstring &uuid,
         const boost::icl::discrete_interval<off_t> possibleRange,
         const boost::icl::discrete_interval<off_t> availableRange);

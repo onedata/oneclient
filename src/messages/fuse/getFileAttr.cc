@@ -17,8 +17,8 @@ namespace one {
 namespace messages {
 namespace fuse {
 
-GetFileAttr::GetFileAttr(
-    folly::fbstring uuid, bool includeReplicationStatus, bool includeLinkCount)
+GetFileAttr::GetFileAttr(const folly::fbstring &uuid,
+    bool includeReplicationStatus, bool includeLinkCount)
     : FileRequest{uuid.toStdString()}
     , m_includeReplicationStatus{includeReplicationStatus}
     , m_includeLinkCount{includeLinkCount}
