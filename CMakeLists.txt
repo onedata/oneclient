@@ -21,6 +21,7 @@ option(WITH_LIBRT "Link with librt" ON)
 option(WITH_TESTS "Build and run tests" ON)
 option(ONEDATAFS_PYTHON_VERSION "Build onedatafs for specific Python version" "")
 option(GIT_VERSION "Version of the Oneclient" "1.0.0")
+option(FETCH_FOLLY "Fetch folly, fizz, wangle and proxygen and build in-place" OFF)
 
 
 # CMake config
@@ -89,19 +90,67 @@ find_package(NSS REQUIRED)
 # Setup Folly
 option(FOLLY_SHARED "Link folly shared library" ON)
 message(STATUS "Checking for Folly...")
-find_package(Folly REQUIRED)
-find_package(Wangle REQUIRED)
-find_package(Fizz REQUIRED)
 find_library(LIBEVENT_LIBRARY event)
 find_library(IBERTY_LIBRARY iberty)
 find_library(DOUBLE_CONVERSION_LIBRARY double-conversion)
-set(FOLLY_LIBRARIES
-    ${FOLLY_LIBRARIES}
-    ${WANGLE_LIBRARIES}
-    ${LIBEVENT_LIBRARY}
-    ${IBERTY_LIBRARY}
-    ${FIZZ_LIBRARY}
-    ${DOUBLE_CONVERSION_LIBRARY})
+if(NOT FETCH_FOLLY)
+    find_package(Folly REQUIRED)
+    find_package(Wangle REQUIRED)
+    find_package(Fizz REQUIRED)
+    set(FOLLY_LIBRARIES
+        ${FOLLY_LIBRARIES}
+        ${WANGLE_LIBRARIES}
+        ${LIBEVENT_LIBRARY}
+        ${IBERTY_LIBRARY}
+        ${FIZZ_LIBRARY}
+        ${DOUBLE_CONVERSION_LIBRARY})
+else(FETCH_FOLLY)
+    include(ExternalProject)
+    ExternalProject_Add(folly
+        GIT_REPOSITORY    https://github.com/facebook/folly.git
+        GIT_TAG           v2021.01.04.00
+        INSTALL_DIR       ${CMAKE_BINARY_DIR}/contrib
+        CMAKE_ARGS        "-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
+    )
+    ExternalProject_Add_StepTargets(folly install)
+    ExternalProject_Add(fizz
+        GIT_REPOSITORY    https://github.com/facebookincubator/fizz.git
+        GIT_TAG           v2021.01.04.00
+        SOURCE_SUBDIR     fizz
+        DEPENDS           folly-install
+        INSTALL_DIR       ${CMAKE_BINARY_DIR}/contrib
+        CMAKE_ARGS        "-DBUILD_TESTS=OFF;-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/contrib;-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
+    )
+    ExternalProject_Add_StepTargets(fizz install)
+    ExternalProject_Add(wangle
+        GIT_REPOSITORY    https://github.com/facebook/wangle.git
+        GIT_TAG           v2021.01.04.00
+        SOURCE_SUBDIR     wangle
+        DEPENDS           fizz-install
+        INSTALL_DIR       ${CMAKE_BINARY_DIR}/contrib
+        CMAKE_ARGS        "-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/contrib;-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
+    )
+    ExternalProject_Add_StepTargets(wangle install)
+    ExternalProject_Add(proxygen
+        GIT_REPOSITORY    https://github.com/facebook/proxygen.git
+        GIT_TAG           v2021.01.04.00
+        DEPENDS           wangle-install
+        INSTALL_DIR       ${CMAKE_BINARY_DIR}/contrib
+        CMAKE_ARGS        "-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/contrib;-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
+    )
+    ExternalProject_Add_StepTargets(proxygen install)
+    set(FOLLY_LIBRARIES
+        ${CMAKE_BINARY_DIR}/contrib/lib/libfolly.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libfollybenchmark.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libwangle.a
+        ${LIBEVENT_LIBRARY}
+        ${IBERTY_LIBRARY}
+        ${CMAKE_BINARY_DIR}/contrib/lib/libfizz.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libproxygen.a
+        ${DOUBLE_CONVERSION_LIBRARY}
+        gflags
+        glog)
+endif(NOT FETCH_FOLLY)
 
 # Setup Boost
 message(STATUS "Checking for Boost components...")
@@ -129,7 +178,6 @@ set(HELPERS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/helpers)
 
 # Setup Asio
 set(ASIO_INCLUDE_DIRS ${HELPERS_DIR}/deps/asio/asio/include)
-
 # Setup cppmetrics
 set(CPPMETRICS_INCLUDE_DIRS ${HELPERS_DIR}/deps/cppmetrics)
 
@@ -383,6 +431,7 @@ list(APPEND CLIENT_LIBRARIES ${SPDLOG_LIBRARY} ${FMT_LIBRARY})
 
 # Define targets
 add_library(client OBJECT ${SOURCES} ${HEADERS})
+add_dependencies(helpers proxygen-install)
 add_dependencies(client helpers clproto)
 
 if(WITH_ONECLIENT)

@@ -3,7 +3,6 @@ find_package(GFlags REQUIRED)
 set(ONEBENCH_LIBRARIES
     libmacaroons-cpp
     ${PLATFORM_EXTRA_LIBS}
-    ${GLOG_LIBRARIES}
     ${FUSE_LIBRARIES}
     ${Boost_LIBRARIES}
     ${SODIUM_LIBRARIES}
@@ -12,7 +11,9 @@ set(ONEBENCH_LIBRARIES
     ${FOLLY_LIBRARIES}
     ${HELPERS_LIBRARIES}
     ${OPENSSL_LIBRARIES}
-    ${GFLAGS_LIBRARIES}
+    gflags
+    glog
+    unwind
     )
 
 if(WITH_CEPH)

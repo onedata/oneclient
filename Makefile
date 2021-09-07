@@ -62,6 +62,7 @@ all: debug test
                   helpers/test/integration/* helpers/test/integration/**
 	mkdir -p $*
 	cd $* && cmake -GNinja -DCMAKE_BUILD_TYPE=$* \
+	                       -DFETCH_FOLLY=${FETCH_FOLLY} \
 	                       -DGIT_VERSION=${PKG_REVISION} \
 	                       -DGIT_COMMIT=${PKG_COMMIT} \
 	                       -DGIT_HELPERS_COMMIT=${HELPERS_COMMIT} \
@@ -81,6 +82,7 @@ all: debug test
 %/build-native:
 	mkdir -p _build
 	cd _build && cmake -DCMAKE_BUILD_TYPE=$* \
+			-DFETCH_FOLLY=${FETCH_FOLLY} \
 			-DGIT_VERSION=${PKG_VERSION} \
 			-DCODE_COVERAGE=OFF \
 			-DWITH_CEPH=${WITH_CEPH} \
