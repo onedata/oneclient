@@ -31,6 +31,9 @@ set(CMAKE_POSITION_INDEPENDENT_CODE True)
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake ${PROJECT_SOURCE_DIR}/helpers/cmake)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Maintain compatibility for ExternalProject_Add with older cmake versions
+cmake_policy(SET CMP0114 OLD)
+
 set(LIB_INSTALL_DIR lib CACHE INTERNAL "")
 
 include(FindLibraryUtils)
@@ -97,12 +100,14 @@ if(NOT FETCH_FOLLY)
     find_package(Folly REQUIRED)
     find_package(Wangle REQUIRED)
     find_package(Fizz REQUIRED)
+    find_library(PROXYGEN_LIBRARY proxygen REQUIRED)
     set(FOLLY_LIBRARIES
         ${FOLLY_LIBRARIES}
         ${WANGLE_LIBRARIES}
         ${LIBEVENT_LIBRARY}
         ${IBERTY_LIBRARY}
         ${FIZZ_LIBRARY}
+        ${PROXYGEN_LIBRARY}
         ${DOUBLE_CONVERSION_LIBRARY})
 else(FETCH_FOLLY)
     include(ExternalProject)
@@ -110,7 +115,7 @@ else(FETCH_FOLLY)
         GIT_REPOSITORY    https://github.com/facebook/folly.git
         GIT_TAG           v2021.01.04.00
         INSTALL_DIR       ${CMAKE_BINARY_DIR}/contrib
-        CMAKE_ARGS        "-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
+        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC';-DCMAKE_C_FLAGS='-Wl,-lrt';-DCMAKE_EXE_LINKER_FLAGS='-lrt';-DCMAKE_EXE_LINKER_FLAGS='-lrt';-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
     )
     ExternalProject_Add_StepTargets(folly install)
     ExternalProject_Add(fizz
@@ -119,7 +124,7 @@ else(FETCH_FOLLY)
         SOURCE_SUBDIR     fizz
         DEPENDS           folly-install
         INSTALL_DIR       ${CMAKE_BINARY_DIR}/contrib
-        CMAKE_ARGS        "-DBUILD_TESTS=OFF;-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/contrib;-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
+        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC';-DBUILD_TESTS=OFF;-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/contrib;-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
     )
     ExternalProject_Add_StepTargets(fizz install)
     ExternalProject_Add(wangle
@@ -128,7 +133,7 @@ else(FETCH_FOLLY)
         SOURCE_SUBDIR     wangle
         DEPENDS           fizz-install
         INSTALL_DIR       ${CMAKE_BINARY_DIR}/contrib
-        CMAKE_ARGS        "-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/contrib;-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
+        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC';-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/contrib;-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
     )
     ExternalProject_Add_StepTargets(wangle install)
     ExternalProject_Add(proxygen
@@ -136,9 +141,10 @@ else(FETCH_FOLLY)
         GIT_TAG           v2021.01.04.00
         DEPENDS           wangle-install
         INSTALL_DIR       ${CMAKE_BINARY_DIR}/contrib
-        CMAKE_ARGS        "-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/contrib;-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
+        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC';-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/contrib;-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
     )
     ExternalProject_Add_StepTargets(proxygen install)
+    set(FOLLY_INCLUDE_DIR ${CMAKE_BINARY_DIR}/contrib/include)
     set(FOLLY_LIBRARIES
         ${CMAKE_BINARY_DIR}/contrib/lib/libfolly.a
         ${CMAKE_BINARY_DIR}/contrib/lib/libfollybenchmark.a
@@ -262,14 +268,14 @@ endif(WITH_GLUSTERFS)
 
 # WebDAV libraries
 if(WITH_WEBDAV)
-    find_library(PROXYGEN_LIBRARY proxygen REQUIRED)
     add_definitions(-DWITH_WEBDAV=1)
 else(WITH_WEBDAV)
     add_definitions(-DWITH_WEBDAV=0)
 endif(WITH_WEBDAV)
 
 if(WITH_XROOTD)
-    include(/usr/share/xrootd/cmake/XRootDConfig.cmake)
+    include(/usr/share/xrootd/cmake/XRootDConfig.cmake OPTIONAL)
+    include(XRootDConfig OPTIONAL)
     find_package(XRootD REQUIRED)
     add_definitions(-DWITH_XROOTD=1)
 else(WITH_XROOTD)

@@ -18,58 +18,71 @@ requirements:
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
     - conda-forge::aws-c-common
-    - conda-forge::aws-checksums
     - conda-forge::aws-c-event-stream
+    - conda-forge::aws-checksums
     - conda-forge::aws-sdk-cpp
     - conda-forge::backports.lzma
+    - conda-forge::binutils_linux-64
     - conda-forge::boost
-    - onedata::ceph-client =14.2.4
     - conda-forge::cmake
     - conda-forge::double-conversion
-    - conda-forge::fmt =7.1.3
-    - conda-forge::poco
-    - onedata::swift-sdk-cpp
+    - conda-forge::fmt =7.0.1
     - conda-forge::gflags
     - conda-forge::git
     - conda-forge::glog =0.4.0
-    - onedata::glusterfs-client
     - conda-forge::gperf
     - conda-forge::jemalloc
-    - onedata::libacl
-    - onedata::libattr
     - conda-forge::libevent
+    - conda-forge::libfuse
     - conda-forge::libsodium
     - conda-forge::libtool
-    - conda-forge::libfuse
+    - conda-forge::libunwind
     - conda-forge::libuuid
     - conda-forge::make
-    - conda-forge::nss
     - conda-forge::nspr
+    - conda-forge::nss
     - conda-forge::openssl
     - conda-forge::pcre
     - conda-forge::pkg-config
+    - conda-forge::poco
     - conda-forge::protobuf =3.17.2
     - conda-forge::pthread-stubs
     - conda-forge::python
-    - conda-forge::spdlog
+    - conda-forge::spdlog =1.8.1
     - conda-forge::tbb =2018.0.5
     - conda-forge::tbb-devel =2018.0.5
-  run:
-    - conda-forge::boost
+    - conda-forge::zlib
     - onedata::ceph-client =14.2.4
+    - onedata::glusterfs-client
+    - onedata::libacl
+    - onedata::libattr
+    - onedata::libiberty
+    - onedata::swift-sdk-cpp
+  run:
+    - conda-forge::aws-c-common
+    - conda-forge::aws-c-event-stream
+    - conda-forge::aws-checksums
+    - conda-forge::aws-sdk-cpp
+    - conda-forge::boost
+    - conda-forge::double-conversion
     - conda-forge::gflags
     - conda-forge::glog =0.4.0
-    - onedata::glusterfs-client
+    - conda-forge::jemalloc
+    - conda-forge::libevent
     - conda-forge::libfuse
     - conda-forge::libsodium
-    - conda-forge::nss
+    - conda-forge::libunwind
+    - conda-forge::libuuid
     - conda-forge::nspr
+    - conda-forge::nss
     - conda-forge::openssl
     - conda-forge::pcre
     - conda-forge::poco
     - conda-forge::protobuf =3.17.2
     - conda-forge::tbb =2018.0.5
     - conda-forge::zlib
+    - onedata::ceph-client =14.2.4
+    - onedata::glusterfs-client
 
 test:
   commands:
