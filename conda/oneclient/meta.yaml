@@ -1,6 +1,5 @@
 {% set name = "oneclient" %}
 {% set version = "<<PKG_VERSION>>" %}
-{% set folly_version = "2017.10.02.00" %}
 
 package:
   name: {{ name|lower }}
@@ -18,68 +17,59 @@ requirements:
   build:
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
-    - autoconf
-    - autoconf-archive
-    - automake
-    - aws-c-common
-    - aws-checksums
-    - aws-c-event-stream
-    - aws-sdk-cpp-s3
-    - backports.lzma
-    - boost =1.67.0
-    - ceph-client =14.2.2
-    - cmake
-    - double-conversion
-    - fmt >=7.0.1
-    - folly ={{ folly_version }}
-    - poco =1.8.1
-    - swift-sdk-cpp
-    - gflags
-    - git
-    - glog =0.4.0
-    - glusterfs-client
-    - gperf
-    - jemalloc
-    - libacl
-    - libattr
-    - libevent
-    - libsodium
-    - libtool
-    - libfuse =2.9.9
-    - libuuid
-    - make
-    - nss
-    - nspr
-    - openssl >=1.1.1c
-    - pcre
-    - pkg-config >=0.29
-    - protobuf =3.14.0
-    - proxygen ={{ folly_version }}
-    - pthread-stubs
-    - python =3.7.4
-    - spdlog >=1.7.0
-    - swift-sdk-cpp
-    - tbb =2018.0.5
-    - tbb-devel =2018.0.5
-    - wangle ={{ folly_version }}
+    - conda-forge::aws-c-common
+    - conda-forge::aws-checksums
+    - conda-forge::aws-c-event-stream
+    - conda-forge::aws-sdk-cpp
+    - conda-forge::backports.lzma
+    - conda-forge::boost
+    - onedata::ceph-client =14.2.4
+    - conda-forge::cmake
+    - conda-forge::double-conversion
+    - conda-forge::fmt =7.1.3
+    - conda-forge::poco
+    - onedata::swift-sdk-cpp
+    - conda-forge::gflags
+    - conda-forge::git
+    - conda-forge::glog =0.4.0
+    - onedata::glusterfs-client
+    - conda-forge::gperf
+    - conda-forge::jemalloc
+    - onedata::libacl
+    - onedata::libattr
+    - conda-forge::libevent
+    - conda-forge::libsodium
+    - conda-forge::libtool
+    - conda-forge::libfuse
+    - conda-forge::libuuid
+    - conda-forge::make
+    - conda-forge::nss
+    - conda-forge::nspr
+    - conda-forge::openssl
+    - conda-forge::pcre
+    - conda-forge::pkg-config
+    - conda-forge::protobuf =3.17.2
+    - conda-forge::pthread-stubs
+    - conda-forge::python
+    - conda-forge::spdlog
+    - conda-forge::tbb =2018.0.5
+    - conda-forge::tbb-devel =2018.0.5
   run:
-    - boost =1.67.0
-    - ceph-client =14.2.2
-    - folly
-    - gflags
-    - glog =0.4.0
-    - glusterfs-client
-    - libfuse =2.9.9
-    - libgcc-ng
-    - libsodium
-    - nss
-    - nspr
-    - openssl >=1.1.1c
-    - pcre
-    - poco =1.8.1
-    - protobuf =3.14.0
-    - tbb =2018.0.5
-    - zlib
+    - conda-forge::boost
+    - onedata::ceph-client =14.2.4
+    - conda-forge::gflags
+    - conda-forge::glog =0.4.0
+    - onedata::glusterfs-client
+    - conda-forge::libfuse
+    - conda-forge::libsodium
+    - conda-forge::nss
+    - conda-forge::nspr
+    - conda-forge::openssl
+    - conda-forge::pcre
+    - conda-forge::poco
+    - conda-forge::protobuf =3.17.2
+    - conda-forge::tbb =2018.0.5
+    - conda-forge::zlib
 
 test:
   commands:
