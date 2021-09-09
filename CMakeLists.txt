@@ -439,9 +439,9 @@ list(APPEND CLIENT_LIBRARIES ${SPDLOG_LIBRARY} ${FMT_LIBRARY})
 
 # Define targets
 add_library(client OBJECT ${SOURCES} ${HEADERS})
-if(FOLLY_FETCH)
+if(FETCH_FOLLY)
 add_dependencies(helpers proxygen-install)
-endif(FOLLY_FETCH)
+endif(FETCH_FOLLY)
 add_dependencies(client helpers clproto)
 
 if(WITH_ONECLIENT)
