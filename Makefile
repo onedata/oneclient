@@ -260,7 +260,7 @@ conda/oneclient_centos6: package/$(PKG_ID).tar.gz
 	sed -i 's|conda-forge::libfuse|onedata-centos6::libfuse =2.8.3|g' package/conda/oneclient/meta.yaml
 	sed -i 's|protobuf.*$$|protobuf =3.8.0|g' package/conda/oneclient/meta.yaml
 	sed -i 's|onedata::|onedata-centos6::|g' package/conda/oneclient/meta.yaml
-	sed -i 's|DWITH_FUSE_VERSION=3$$|DWITH_FUSE_VERSION=2|g' package/conda/oneclient/build.sh
+	sed -i 's|DWITH_FUSE_VERSION=3|DWITH_FUSE_VERSION=2|g' package/conda/oneclient/build.sh
 	sed -i '/run:/ { :l; n; s/^.*libfuse.*$$//; tx; bl; :x; N; s/\n//; bl }' package/conda/oneclient/meta.yaml
 	source /opt/conda/bin/activate base && \
 		PKG_VERSION=$(PKG_VERSION) CONDA_BLD_PATH=$$PWD/package/conda-bld \
