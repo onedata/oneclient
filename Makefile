@@ -250,15 +250,16 @@ conda/oneclient: package/$(PKG_ID).tar.gz
 .PHONY: conda/oneclient_centos6
 conda/oneclient_centos6: SHELL:=/bin/bash
 conda/oneclient_centos6: package/$(PKG_ID).tar.gz
-	cp /tmp/.condarc $$HOME/.condarc
+	cp /tmp/.condarc-forge $$HOME/.condarc
 	cat $$HOME/.condarc
 	mkdir -p package/conda
 	mkdir -p package/conda-bld
 	cp -R conda/oneclient package/conda/
 	sed -i "s|<<PKG_VERSION>>|$(PKG_VERSION)|g" package/conda/oneclient/meta.yaml
 	sed -i "s|<<PKG_SOURCE>>|../../$(PKG_ID).tar.gz|g" package/conda/oneclient/meta.yaml
-	sed -i 's|libfuse .*$$|libfuse =2.8.3|g' package/conda/oneclient/meta.yaml
+	sed -i 's|conda-forge::libfuse|onedata-centos6::libfuse =2.8.3|g' package/conda/oneclient/meta.yaml
 	sed -i 's|protobuf.*$$|protobuf =3.8.0|g' package/conda/oneclient/meta.yaml
+	sed -i 's|onedata::|onedata-centos6::|g' package/conda/oneclient/meta.yaml
 	sed -i 's|DWITH_FUSE_VERSION=3$$|DWITH_FUSE_VERSION=2|g' package/conda/oneclient/build.sh
 	sed -i '/run:/ { :l; n; s/^.*libfuse.*$$//; tx; bl; :x; N; s/\n//; bl }' package/conda/oneclient/meta.yaml
 	source /opt/conda/bin/activate base && \
