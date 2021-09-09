@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0.0)
+cmake_minimum_required(VERSION 3.7.0)
 project(oneclient C CXX)
 
 option(CODE_COVERAGE "Enable code coverage (gcc only)." OFF)
@@ -32,7 +32,9 @@ set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake ${PROJECT_SOURCE_DIR}/helpers/
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Maintain compatibility for ExternalProject_Add with older cmake versions
+if(CMAKE_MAJOR_VERSION GREATER_EQUAL 3 AND CMAKE_MINOR_VERSION GREATER_EQUAL 19)
 cmake_policy(SET CMP0114 OLD)
+endif()
 
 set(LIB_INSTALL_DIR lib CACHE INTERNAL "")
 
@@ -437,7 +439,9 @@ list(APPEND CLIENT_LIBRARIES ${SPDLOG_LIBRARY} ${FMT_LIBRARY})
 
 # Define targets
 add_library(client OBJECT ${SOURCES} ${HEADERS})
+if(FOLLY_FETCH)
 add_dependencies(helpers proxygen-install)
+endif(FOLLY_FETCH)
 add_dependencies(client helpers clproto)
 
 if(WITH_ONECLIENT)
