@@ -22,6 +22,7 @@ Requires: xrootd-libs >= %{xrootd_version}
 Requires: xrootd-client-libs >= %{xrootd_version}
 Requires: xrootd-server-libs >= %{xrootd_version}
 Requires: scl-utils
+Requires: libunwind
 Requires: %scl_require_package %{scl} folly >= %{folly_version}
 Requires: %scl_require_package %{scl} openssl >= 1.1.0
 Requires: %scl_require_package %{scl} tbb >= 2018.5~
@@ -70,6 +71,7 @@ BuildRequires: git
 BuildRequires: golang
 BuildRequires: libcurl-devel
 BuildRequires: libevent-devel
+BuildRequires: libunwind-devel
 BuildRequires: libsodium-devel
 BuildRequires: libtool-ltdl
 BuildRequires: libtool-ltdl-devel
