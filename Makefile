@@ -34,6 +34,8 @@ WITH_XROOTD       ?= ON
 WITH_ONEDATAFS    ?= ON
 # Build with code coverage
 WITH_COVERAGE     ?= ON
+# Set Fuse version (2 or 3)
+WITH_FUSE_VERSION ?= 3
 
 # Oneclient FPM packaging variables
 PATCHELF_DOCKER_IMAGE   ?= docker.onedata.org/patchelf:0.9
@@ -62,6 +64,7 @@ all: debug test
                   helpers/test/integration/* helpers/test/integration/**
 	mkdir -p $*
 	cd $* && cmake -GNinja -DCMAKE_BUILD_TYPE=$* \
+	                       -DFETCH_FOLLY=${FETCH_FOLLY} \
 	                       -DGIT_VERSION=${PKG_REVISION} \
 	                       -DGIT_COMMIT=${PKG_COMMIT} \
 	                       -DGIT_HELPERS_COMMIT=${HELPERS_COMMIT} \
@@ -73,6 +76,7 @@ all: debug test
 	                       -DWITH_WEBDAV=${WITH_WEBDAV} \
 	                       -DWITH_XROOTD=${WITH_XROOTD} \
 	                       -DWITH_ONEDATAFS=${WITH_ONEDATAFS} \
+	                       -DWITH_FUSE_VERSION=${WITH_FUSE_VERSION} \
 	                       -DCMAKE_INSTALL_PREFIX=${PWD}/debug/PREFIX \
 	                       -DTBB_INSTALL_DIR=${TBB_INSTALL_DIR} \
 	                       -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR} ..
@@ -81,6 +85,7 @@ all: debug test
 %/build-native:
 	mkdir -p _build
 	cd _build && cmake -DCMAKE_BUILD_TYPE=$* \
+			-DFETCH_FOLLY=${FETCH_FOLLY} \
 			-DGIT_VERSION=${PKG_VERSION} \
 			-DCODE_COVERAGE=OFF \
 			-DWITH_CEPH=${WITH_CEPH} \
@@ -92,6 +97,7 @@ all: debug test
 			-DWITH_ONECLIENT=ON \
 			-DWITH_ONEBENCH=ON \
 			-DWITH_ONEDATAFS=OFF \
+			-DWITH_FUSE_VERSION=${WITH_FUSE_VERSION} \
 			-DFOLLY_SHARED=ON \
 			-DWITH_LIBDL=ON \
 			-DWITH_LIBRT=ON \
@@ -248,16 +254,17 @@ conda/oneclient: package/$(PKG_ID).tar.gz
 .PHONY: conda/oneclient_centos6
 conda/oneclient_centos6: SHELL:=/bin/bash
 conda/oneclient_centos6: package/$(PKG_ID).tar.gz
-	cp /tmp/.condarc $$HOME/.condarc
+	cp /tmp/.condarc-forge $$HOME/.condarc
 	cat $$HOME/.condarc
 	mkdir -p package/conda
 	mkdir -p package/conda-bld
 	cp -R conda/oneclient package/conda/
 	sed -i "s|<<PKG_VERSION>>|$(PKG_VERSION)|g" package/conda/oneclient/meta.yaml
 	sed -i "s|<<PKG_SOURCE>>|../../$(PKG_ID).tar.gz|g" package/conda/oneclient/meta.yaml
-	sed -i 's|libfuse .*$$|libfuse =2.8.3|g' package/conda/oneclient/meta.yaml
+	sed -i 's|conda-forge::libfuse|onedata-centos6::libfuse =2.8.3|g' package/conda/oneclient/meta.yaml
 	sed -i 's|protobuf.*$$|protobuf =3.8.0|g' package/conda/oneclient/meta.yaml
-	sed -i 's|DWITH_FUSE_VERSION=3$$|DWITH_FUSE_VERSION=2|g' package/conda/oneclient/build.sh
+	sed -i 's|onedata::|onedata-centos6::|g' package/conda/oneclient/meta.yaml
+	sed -i 's|DWITH_FUSE_VERSION=3|DWITH_FUSE_VERSION=2|g' package/conda/oneclient/build.sh
 	sed -i '/run:/ { :l; n; s/^.*libfuse.*$$//; tx; bl; :x; N; s/\n//; bl }' package/conda/oneclient/meta.yaml
 	source /opt/conda/bin/activate base && \
 		PKG_VERSION=$(PKG_VERSION) CONDA_BLD_PATH=$$PWD/package/conda-bld \

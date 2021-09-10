@@ -48,7 +48,9 @@ if(PYTHON3_CONFIG)
                                         libboost_python3.so.1.67.0
                                         libboost_python35.so.1.67.0
                                         libboost_python36.so.1.67.0
-                                        libboost_python37.so.1.67.0)
+                                        libboost_python37.so.1.76.0
+                                        libboost_python38.so.1.76.0
+                                        libboost_python39.so.1.76.0)
 
     execute_process(COMMAND bash -c "cat /etc/os-release | grep ID_LIKE" OUTPUT_VARIABLE OS_ID_LIKE)
     if($ENV{CONDA_BUILD})

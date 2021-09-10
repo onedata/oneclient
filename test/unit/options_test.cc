@@ -639,7 +639,11 @@ TEST_F(OptionsTest, parseCommandLineShouldSetFuseArgs)
         {"--foreground", "--debug", "--single-thread", "--opt", "someOpt0",
             "--opt", "someOpt1", "--opt", "someOpt2", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
+#if FUSE_USE_VERSION > 30
     EXPECT_EQ(8, options.getFuseArgs("oneclient").argc);
+#else
+    EXPECT_EQ(9, options.getFuseArgs("oneclient").argc);
+#endif
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldWarnOnDeprecatedOptions)

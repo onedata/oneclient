@@ -1,10 +1,9 @@
-cmake_minimum_required(VERSION 3.0.0)
+cmake_minimum_required(VERSION 3.7.0)
 project(oneclient C CXX)
 
 option(CODE_COVERAGE "Enable code coverage (gcc only)." OFF)
-option(STATIC_BOOST "Link Boost statically" Off)
-option(STATIC_LIBSTDCPP "Link libstdc++ statically" Off)
-option(WITH_FUSE_VERSION "Fuse version to compile with (2 or 3)" 3)
+option(STATIC_BOOST "Link Boost statically" OFF)
+option(STATIC_LIBSTDCPP "Link libstdc++ statically" OFF)
 option(WITH_CEPH "Include Ceph direct IO support" ON)
 option(WITH_S3 "Include S3 direct IO support" ON)
 option(WITH_SWIFT "Include Swift direct IO support" ON)
@@ -21,6 +20,7 @@ option(WITH_LIBRT "Link with librt" ON)
 option(WITH_TESTS "Build and run tests" ON)
 option(ONEDATAFS_PYTHON_VERSION "Build onedatafs for specific Python version" "")
 option(GIT_VERSION "Version of the Oneclient" "1.0.0")
+option(FETCH_FOLLY "Fetch folly, fizz, wangle and proxygen and build in-place" OFF)
 
 
 # CMake config
@@ -29,6 +29,14 @@ set(CMAKE_FIND_FRAMEWORK LAST)
 set(CMAKE_POSITION_INDEPENDENT_CODE True)
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake ${PROJECT_SOURCE_DIR}/helpers/cmake)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+set(WITH_FUSE_VERSION "3" CACHE STRING "Select Fuse version (2 or 3)")
+set(CONDA_BUILD_PREFIX "" CACHE STRING "Conda build prefix")
+
+# Maintain compatibility for ExternalProject_Add with older cmake versions
+if(CMAKE_MAJOR_VERSION GREATER_EQUAL 3 AND CMAKE_MINOR_VERSION GREATER_EQUAL 19)
+cmake_policy(SET CMP0114 OLD)
+endif()
 
 set(LIB_INSTALL_DIR lib CACHE INTERNAL "")
 
@@ -46,7 +54,7 @@ add_subdirectory(deps/libmacaroons-cpp)
 
 # Setup fuse, on Linux default required version is >= 3
 # On other platforms it is not yet supported
-if(WITH_FUSE_VERSION EQUAL 2)
+if(WITH_FUSE_VERSION MATCHES "2")
     message(STATUS "Checking for FUSE 2...")
     find_package(FUSE 2 REQUIRED)
     set(FUSE_USE_VERSION 30)
@@ -58,7 +66,6 @@ else()
     else()
         set(FUSE_USE_VERSION 34)
     endif()
-
 endif()
 message(STATUS "Found Fuse version: ${FUSE_VERSION}")
 
@@ -84,24 +91,79 @@ find_package(OpenSSL 1.1.0 REQUIRED)
 
 # Setup NSS
 message(STATUS "Checking for NSS...")
+if(NOT (CONDA_BUILD_PREFIX STREQUAL ""))
+    set(NSS_INCLUDE_DIRS "${CONDA_BUILD_PREFIX}/include/nss")
+    set(NSS_LIBRARIES "${CONDA_BUILD_PREFIX}/lib/libssl3.so;${CONDA_BUILD_PREFIX}/lib/libsmime3.so;${CONDA_BUILD_PREFIX}/lib/libnss3.so;${CONDA_BUILD_PREFIX}/lib/libnssutil3.so;${CONDA_BUILD_PREFIX}/lib/libnspr4.so")
+endif()
 find_package(NSS REQUIRED)
 
 # Setup Folly
 option(FOLLY_SHARED "Link folly shared library" ON)
 message(STATUS "Checking for Folly...")
-find_package(Folly REQUIRED)
-find_package(Wangle REQUIRED)
-find_package(Fizz REQUIRED)
 find_library(LIBEVENT_LIBRARY event)
 find_library(IBERTY_LIBRARY iberty)
 find_library(DOUBLE_CONVERSION_LIBRARY double-conversion)
-set(FOLLY_LIBRARIES
-    ${FOLLY_LIBRARIES}
-    ${WANGLE_LIBRARIES}
-    ${LIBEVENT_LIBRARY}
-    ${IBERTY_LIBRARY}
-    ${FIZZ_LIBRARY}
-    ${DOUBLE_CONVERSION_LIBRARY})
+if(NOT FETCH_FOLLY)
+    find_package(Folly REQUIRED)
+    find_package(Wangle REQUIRED)
+    find_package(Fizz REQUIRED)
+    find_library(PROXYGEN_LIBRARY proxygen REQUIRED)
+    set(FOLLY_LIBRARIES
+        ${FOLLY_LIBRARIES}
+        ${WANGLE_LIBRARIES}
+        ${LIBEVENT_LIBRARY}
+        ${IBERTY_LIBRARY}
+        ${FIZZ_LIBRARY}
+        ${PROXYGEN_LIBRARY}
+        ${DOUBLE_CONVERSION_LIBRARY})
+else(FETCH_FOLLY)
+    include(ExternalProject)
+    ExternalProject_Add(folly
+        GIT_REPOSITORY    https://github.com/facebook/folly.git
+        GIT_TAG           v2021.01.04.00
+        INSTALL_DIR       ${CMAKE_BINARY_DIR}/contrib
+        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC';-DCMAKE_C_FLAGS='-Wl,-lrt';-DCMAKE_EXE_LINKER_FLAGS='-lrt';-DCMAKE_EXE_LINKER_FLAGS='-lrt';-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
+    )
+    ExternalProject_Add_StepTargets(folly install)
+    ExternalProject_Add(fizz
+        GIT_REPOSITORY    https://github.com/facebookincubator/fizz.git
+        GIT_TAG           v2021.01.04.00
+        SOURCE_SUBDIR     fizz
+        DEPENDS           folly-install
+        INSTALL_DIR       ${CMAKE_BINARY_DIR}/contrib
+        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC';-DBUILD_TESTS=OFF;-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/contrib;-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
+    )
+    ExternalProject_Add_StepTargets(fizz install)
+    ExternalProject_Add(wangle
+        GIT_REPOSITORY    https://github.com/facebook/wangle.git
+        GIT_TAG           v2021.01.04.00
+        SOURCE_SUBDIR     wangle
+        DEPENDS           fizz-install
+        INSTALL_DIR       ${CMAKE_BINARY_DIR}/contrib
+        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC';-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/contrib;-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
+    )
+    ExternalProject_Add_StepTargets(wangle install)
+    ExternalProject_Add(proxygen
+        GIT_REPOSITORY    https://github.com/facebook/proxygen.git
+        GIT_TAG           v2021.01.04.00
+        DEPENDS           wangle-install
+        INSTALL_DIR       ${CMAKE_BINARY_DIR}/contrib
+        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC';-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/contrib;-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
+    )
+    ExternalProject_Add_StepTargets(proxygen install)
+    set(FOLLY_INCLUDE_DIR ${CMAKE_BINARY_DIR}/contrib/include)
+    set(FOLLY_LIBRARIES
+        ${CMAKE_BINARY_DIR}/contrib/lib/libfolly.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libfollybenchmark.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libwangle.a
+        ${LIBEVENT_LIBRARY}
+        ${IBERTY_LIBRARY}
+        ${CMAKE_BINARY_DIR}/contrib/lib/libfizz.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libproxygen.a
+        ${DOUBLE_CONVERSION_LIBRARY}
+        gflags
+        glog)
+endif(NOT FETCH_FOLLY)
 
 # Setup Boost
 message(STATUS "Checking for Boost components...")
@@ -129,7 +191,6 @@ set(HELPERS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/helpers)
 
 # Setup Asio
 set(ASIO_INCLUDE_DIRS ${HELPERS_DIR}/deps/asio/asio/include)
-
 # Setup cppmetrics
 set(CPPMETRICS_INCLUDE_DIRS ${HELPERS_DIR}/deps/cppmetrics)
 
@@ -214,14 +275,14 @@ endif(WITH_GLUSTERFS)
 
 # WebDAV libraries
 if(WITH_WEBDAV)
-    find_library(PROXYGEN_LIBRARY proxygen REQUIRED)
     add_definitions(-DWITH_WEBDAV=1)
 else(WITH_WEBDAV)
     add_definitions(-DWITH_WEBDAV=0)
 endif(WITH_WEBDAV)
 
 if(WITH_XROOTD)
-    include(/usr/share/xrootd/cmake/XRootDConfig.cmake)
+    include(/usr/share/xrootd/cmake/XRootDConfig.cmake OPTIONAL)
+    include(XRootDConfig OPTIONAL)
     find_package(XRootD REQUIRED)
     add_definitions(-DWITH_XROOTD=1)
 else(WITH_XROOTD)
@@ -383,6 +444,9 @@ list(APPEND CLIENT_LIBRARIES ${SPDLOG_LIBRARY} ${FMT_LIBRARY})
 
 # Define targets
 add_library(client OBJECT ${SOURCES} ${HEADERS})
+if(FETCH_FOLLY)
+add_dependencies(helpers proxygen-install)
+endif(FETCH_FOLLY)
 add_dependencies(client helpers clproto)
 
 if(WITH_ONECLIENT)
