@@ -31,6 +31,7 @@ set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake ${PROJECT_SOURCE_DIR}/helpers/
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(WITH_FUSE_VERSION "3" CACHE STRING "Select Fuse version (2 or 3)")
+set(CONDA_BUILD_PREFIX "" CACHE STRING "Conda build prefix")
 
 # Maintain compatibility for ExternalProject_Add with older cmake versions
 if(CMAKE_MAJOR_VERSION GREATER_EQUAL 3 AND CMAKE_MINOR_VERSION GREATER_EQUAL 19)
