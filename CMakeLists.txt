@@ -2,9 +2,8 @@ cmake_minimum_required(VERSION 3.7.0)
 project(oneclient C CXX)
 
 option(CODE_COVERAGE "Enable code coverage (gcc only)." OFF)
-option(STATIC_BOOST "Link Boost statically" Off)
-option(STATIC_LIBSTDCPP "Link libstdc++ statically" Off)
-option(WITH_FUSE_VERSION "Fuse version to compile with (2 or 3)" 3)
+option(STATIC_BOOST "Link Boost statically" OFF)
+option(STATIC_LIBSTDCPP "Link libstdc++ statically" OFF)
 option(WITH_CEPH "Include Ceph direct IO support" ON)
 option(WITH_S3 "Include S3 direct IO support" ON)
 option(WITH_SWIFT "Include Swift direct IO support" ON)
@@ -31,6 +30,8 @@ set(CMAKE_POSITION_INDEPENDENT_CODE True)
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake ${PROJECT_SOURCE_DIR}/helpers/cmake)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+set(WITH_FUSE_VERSION "3" CACHE STRING "Select Fuse version (2 or 3)")
+
 # Maintain compatibility for ExternalProject_Add with older cmake versions
 if(CMAKE_MAJOR_VERSION GREATER_EQUAL 3 AND CMAKE_MINOR_VERSION GREATER_EQUAL 19)
 cmake_policy(SET CMP0114 OLD)
@@ -52,7 +53,7 @@ add_subdirectory(deps/libmacaroons-cpp)
 
 # Setup fuse, on Linux default required version is >= 3
 # On other platforms it is not yet supported
-if(WITH_FUSE_VERSION EQUAL 2)
+if(WITH_FUSE_VERSION MATCHES "2")
     message(STATUS "Checking for FUSE 2...")
     find_package(FUSE 2 REQUIRED)
     set(FUSE_USE_VERSION 30)
@@ -64,7 +65,6 @@ else()
     else()
         set(FUSE_USE_VERSION 34)
     endif()
-
 endif()
 message(STATUS "Found Fuse version: ${FUSE_VERSION}")
 

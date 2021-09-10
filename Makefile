@@ -34,6 +34,8 @@ WITH_XROOTD       ?= ON
 WITH_ONEDATAFS    ?= ON
 # Build with code coverage
 WITH_COVERAGE     ?= ON
+# Set Fuse version (2 or 3)
+WITH_FUSE_VERSION ?= 3
 
 # Oneclient FPM packaging variables
 PATCHELF_DOCKER_IMAGE   ?= docker.onedata.org/patchelf:0.9
@@ -74,6 +76,7 @@ all: debug test
 	                       -DWITH_WEBDAV=${WITH_WEBDAV} \
 	                       -DWITH_XROOTD=${WITH_XROOTD} \
 	                       -DWITH_ONEDATAFS=${WITH_ONEDATAFS} \
+	                       -DWITH_FUSE_VERSION=${WITH_FUSE_VERSION} \
 	                       -DCMAKE_INSTALL_PREFIX=${PWD}/debug/PREFIX \
 	                       -DTBB_INSTALL_DIR=${TBB_INSTALL_DIR} \
 	                       -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR} ..
@@ -94,6 +97,7 @@ all: debug test
 			-DWITH_ONECLIENT=ON \
 			-DWITH_ONEBENCH=ON \
 			-DWITH_ONEDATAFS=OFF \
+			-DWITH_FUSE_VERSION=${WITH_FUSE_VERSION} \
 			-DFOLLY_SHARED=ON \
 			-DWITH_LIBDL=ON \
 			-DWITH_LIBRT=ON \

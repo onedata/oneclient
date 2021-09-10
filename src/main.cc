@@ -293,7 +293,7 @@ int main(int argc, char *argv[])
             perror("WARNING: failed to set FD_CLOEXEC on fuse device");
 
         std::unique_ptr<fslogic::Composite> fsLogic;
-        auto fuse =
+        fuse =
             fuse_lowlevel_new(&args, &fuse_oper, sizeof(fuse_oper), &fsLogic);
         if (fuse == nullptr)
             return EXIT_FAILURE;
