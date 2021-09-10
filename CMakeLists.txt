@@ -91,6 +91,10 @@ find_package(OpenSSL 1.1.0 REQUIRED)
 
 # Setup NSS
 message(STATUS "Checking for NSS...")
+if(NOT (CONDA_BUILD_PREFIX STREQUAL ""))
+    set(NSS_INCLUDE_DIRS "${CONDA_BUILD_PREFIX}/include/nss")
+    set(NSS_LIBRARIES "${CONDA_BUILD_PREFIX}/lib/libssl3.so;${CONDA_BUILD_PREFIX}/lib/libsmime3.so;${CONDA_BUILD_PREFIX}/lib/libnss3.so;${CONDA_BUILD_PREFIX}/lib/libnssutil3.so;${CONDA_BUILD_PREFIX}/lib/libnspr4.so")
+endif()
 find_package(NSS REQUIRED)
 
 # Setup Folly
