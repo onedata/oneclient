@@ -10,6 +10,7 @@ option(WITH_SWIFT "Include Swift direct IO support" ON)
 option(WITH_GLUSTERFS "Include GlusterFS direct IO support" ON)
 option(WITH_WEBDAV "Include WebDAV and HTTP direct IO support" ON)
 option(WITH_XROOTD "Include XRootD direct IO support" ON)
+option(WITH_NFS "Include NFS direct IO support" ON)
 option(WITH_ONECLIENT "Include oneclient binary" ON)
 option(WITH_ONEBENCH "Include onebench binary" ON)
 option(WITH_ONEDATAFS "Build onedatafs library" ON)
@@ -289,6 +290,15 @@ else(WITH_XROOTD)
     add_definitions(-DWITH_XROOTD=0)
 endif(WITH_XROOTD)
 
+# NFS libraries
+if(WITH_NFS)
+    find_package(NFS REQUIRED)
+    add_definitions(-DWITH_NFS=1)
+else(WITH_NFS)
+    add_definitions(-DWITH_NFS=0)
+endif(WITH_NFS)
+
+
 # gpertools lib
 find_library(PROFILER_LIBRARY NAMES profiler)
 
@@ -439,6 +449,10 @@ endif(WITH_WEBDAV)
 if(WITH_XROOTD)
     list(APPEND CLIENT_LIBRARIES ${XROOTD_LIBRARIES})
 endif(WITH_XROOTD)
+
+if(WITH_NFS)
+    list(APPEND CLIENT_LIBRARIES ${NFS_LIBRARIES})
+endif(WITH_NFS)
 
 list(APPEND CLIENT_LIBRARIES ${SPDLOG_LIBRARY} ${FMT_LIBRARY})
 
