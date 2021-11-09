@@ -2086,9 +2086,19 @@ void FsLogic::sync(const folly::fbstring &uuid,
         std::move(request), m_providerTimeout);
 
     if (fileLocationUpdate.fileLocation().uuid() != uuid) {
-        LOG(ERROR) << "Synchronize block request for file " << uuid
-                   << "returned file location for different uuid "
-                   << fileLocationUpdate.fileLocation().uuid();
+        const auto &fetchedUuid = fileLocationUpdate.fileLocation().uuid();
+        // Check if this is the same file in case uuid is a share id
+        if ((util::uuid::uuidToSpaceId(fetchedUuid) ==
+                util::uuid::uuidToSpaceId(uuid)) &&
+            (util::uuid::uuidToGuid(fetchedUuid) ==
+                util::uuid::uuidToGuid(uuid))) {
+            fileLocationUpdate.setUuid(uuid);
+        }
+        else {
+            LOG(ERROR) << "Synchronize block request for file " << uuid
+                       << "returned file location for different uuid "
+                       << fileLocationUpdate.fileLocation().uuid();
+        }
     }
 
     if (fileLocationUpdate.changeStartOffset() &&
