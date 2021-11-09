@@ -4,7 +4,12 @@ Release notes for project oneclient
 CHANGELOG
 ---------
 
+### 21.02.0-alpha22
+
 ### 21.02.0-alpha21
+
+-   **VFS-8192** Fixed block synchronization from remote Oneproviders
+    for open share data sets.
 
 ### 21.02.0-alpha20
 
@@ -100,6 +105,8 @@ CHANGELOG
     process, the mountpoint is properly released.
 -   **VFS-7256** Fixed OnedataFS token refresh, which caused
     disconnection from Oneprovider after the token expired.
+
+### 20.02.14
 
 ### 20.02.13
 

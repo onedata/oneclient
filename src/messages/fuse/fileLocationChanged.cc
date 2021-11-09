@@ -40,6 +40,11 @@ const FileLocation &FileLocationChanged::fileLocation() const
     return *m_fileLocation;
 }
 
+void FileLocationChanged::setUuid(const folly::fbstring &uuid)
+{
+    m_fileLocation->setUuid(uuid.toStdString());
+}
+
 boost::optional<off_t> FileLocationChanged::changeStartOffset() const
 {
     return m_changeBegOffset;
