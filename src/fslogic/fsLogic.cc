@@ -452,6 +452,8 @@ FileAttrPtr FsLogic::lookup(
     auto fileNameUUID = getFileIdFromFilename(name);
     FileAttrPtr attr{};
 
+    bool tryVirtualFile{false};
+    std::exception_ptr current_exception;
     try {
         if (fileNameUUID.empty())
             attr = m_metadataCache.getAttr(uuid, name);
@@ -459,14 +461,23 @@ FileAttrPtr FsLogic::lookup(
             attr = m_metadataCache.getAttr(fileNameUUID);
     }
     catch (std::system_error &e) {
-        if (m_metadataCache.getAttr(uuid)->isVirtual()) {
-            if (e.code() == std::errc::no_such_file_or_directory) {
-                // Force update of the directory contents and lookup
-                // the file again
-                readdir(uuid, std::numeric_limits<int>::max(), 0);
-                attr = m_metadataCache.getAttr(uuid, name);
-            }
+        if (e.code() == std::errc::no_such_file_or_directory) {
+            tryVirtualFile = true;
+            current_exception = std::current_exception();
         }
+        else
+            throw e;
+    }
+
+    if (tryVirtualFile) {
+        if (m_metadataCache.getAttr(uuid)->isVirtual()) {
+            // Force update of the directory contents and lookup
+            // the file again
+            readdir(uuid, std::numeric_limits<int>::max(), 0);
+            attr = m_metadataCache.getAttr(uuid, name);
+        }
+        else
+            std::rethrow_exception(current_exception);
     }
 
     if (!attr)
