@@ -116,6 +116,9 @@ if(NOT FETCH_FOLLY)
         ${FIZZ_LIBRARY}
         ${PROXYGEN_LIBRARY}
         ${DOUBLE_CONVERSION_LIBRARY})
+    if(NOT FOLLY_SHARED)
+        list(APPEND FOLLY_LIBRARIES unwind gflags)
+    endif(NOT FOLLY_SHARED)
 else(FETCH_FOLLY)
     include(ExternalProject)
     ExternalProject_Add(folly
@@ -195,9 +198,14 @@ set(ASIO_INCLUDE_DIRS ${HELPERS_DIR}/deps/asio/asio/include)
 set(CPPMETRICS_INCLUDE_DIRS ${HELPERS_DIR}/deps/cppmetrics)
 
 # Setup spdlog and fmt
-find_library(FMT_LIBRARY NAMES libfmt.a fmt REQUIRED)
-find_library(SPDLOG_LIBRARY NAMES libspdlog.a spdlog REQUIRED)
-add_definitions(-DSPDLOG_COMPILED_LIB -DSPDLOG_FMT_EXTERNAL)
+if(FOLLY_SHARED)
+    find_library(FMT_LIBRARY NAMES libfmt.a fmt REQUIRED)
+    find_library(SPDLOG_LIBRARY NAMES libspdlog.a spdlog REQUIRED)
+    add_definitions(-DSPDLOG_COMPILED_LIB -DSPDLOG_FMT_EXTERNAL)
+else(NOT FOLLY_SHARED)
+    find_library(FMT_LIBRARY NAMES fmt libfmt.a REQUIRED)
+    find_library(SPDLOG_LIBRARY NAMES spdlog libspdlog.a REQUIRED)
+endif(NOT FOLLY_SHARED)
 
 # Utility libs
 find_library(LTDL_LIBRARY NAMES ltdl)
