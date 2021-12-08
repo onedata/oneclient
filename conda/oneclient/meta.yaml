@@ -23,7 +23,7 @@ requirements:
     - conda-forge::aws-sdk-cpp
     - conda-forge::backports.lzma
     - conda-forge::binutils_linux-64
-    - conda-forge::boost
+    - conda-forge::boost =1.76.0
     - conda-forge::cmake
     - conda-forge::double-conversion
     - conda-forge::fmt =7.0.1
@@ -63,7 +63,7 @@ requirements:
     - conda-forge::aws-c-event-stream
     - conda-forge::aws-checksums
     - conda-forge::aws-sdk-cpp
-    - conda-forge::boost
+    - conda-forge::boost =1.76.0
     - conda-forge::double-conversion
     - conda-forge::gflags
     - conda-forge::glog =0.4.0
