@@ -4,7 +4,25 @@ Release notes for project oneclient
 CHANGELOG
 ---------
 
+### 21.02.0-alpha23
+
+-   **VFS-8425** Added basic cookie support to HTTP storage helper to
+    support OAuth redirect authorization.
+-   **VFS-8318** Fixed conda packaging for oneclient and onedatafs,
+    switched dependencies to conda-forge channel.
+-   **VFS-8242** Upgraded Oneclient to use Fuse 3 by default.
+-   **VFS-8240** Applied fixes suggested by new version of clang-tidy
+    static C++ code analyzer.
+-   **VFS-8237** Updated C++ clang-format version to 12.
+-   **VFS-8073** Upgrade folly, wangle and proxygen libraries to version
+    2021.01.04.00.
+
+### 21.02.0-alpha22
+
 ### 21.02.0-alpha21
+
+-   **VFS-8192** Fixed block synchronization from remote Oneproviders
+    for open share data sets.
 
 ### 21.02.0-alpha20
 
@@ -100,6 +118,10 @@ CHANGELOG
     process, the mountpoint is properly released.
 -   **VFS-7256** Fixed OnedataFS token refresh, which caused
     disconnection from Oneprovider after the token expired.
+
+### 20.02.15
+
+### 20.02.14
 
 ### 20.02.13
 
