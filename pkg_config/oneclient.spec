@@ -25,6 +25,7 @@ Requires: scl-utils
 Requires: libunwind
 Requires: %scl_require_package %{scl} folly >= %{folly_version}
 Requires: %scl_require_package %{scl} openssl >= 1.1.0
+Requires: %scl_require_package %{scl} libnfs >= 4.0.0
 Requires: %scl_require_package %{scl} tbb >= 2018.5~
 BuildRequires: %scl_require_package %{scl} aws-c-common >= 0.4.49
 BuildRequires: %scl_require_package %{scl} aws-checksums >= 0.1.7
@@ -33,6 +34,7 @@ BuildRequires: %scl_require_package %{scl} aws-sdk-cpp-s3 >= 1.8.7
 BuildRequires: %scl_require_package %{scl} boost-devel >= 1.58.0
 BuildRequires: %scl_require_package %{scl} boost-python >= 1.58.0
 BuildRequires: %scl_require_package %{scl} boost-python3 >= 1.58.0
+BuildRequires: %scl_require_package %{scl} libnfs-devel >= 4.0.0
 BuildRequires: %scl_require_package %{scl} folly-devel >= %{folly_version}
 BuildRequires: %scl_require_package %{scl} fizz-devel >= %{folly_version}
 BuildRequires: %scl_require_package %{scl} fizz-static >= %{folly_version}
@@ -100,6 +102,7 @@ Requires: xrootd-client-libs >= %{xrootd_version}
 Requires: xrootd-libs >= %{xrootd_version}
 Requires: %scl_require_package %{scl} folly >= %{folly_version}
 Requires: %scl_require_package %{scl} openssl >= 1.1.0
+Requires: %scl_require_package %{scl} libnfs >= 4.0.0
 Requires: %scl_require_package %{scl} tbb >= 2018.5~
 Requires: %scl_require_package %{scl} boost-python
 
@@ -117,6 +120,7 @@ Requires: xrootd-client-libs >= %{xrootd_version}
 Requires: xrootd-libs >= %{xrootd_version}
 Requires: %scl_require_package %{scl} folly >= %{folly_version}
 Requires: %scl_require_package %{scl} openssl >= 1.1.0
+Requires: %scl_require_package %{scl} libnfs >= 4.0.0
 Requires: %scl_require_package %{scl} tbb >= 2018.5~
 Requires: %scl_require_package %{scl} boost-python3
 

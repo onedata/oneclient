@@ -203,10 +203,10 @@ if(FOLLY_SHARED)
     find_library(FMT_LIBRARY NAMES libfmt.a fmt REQUIRED)
     find_library(SPDLOG_LIBRARY NAMES libspdlog.a spdlog REQUIRED)
     add_definitions(-DSPDLOG_COMPILED_LIB -DSPDLOG_FMT_EXTERNAL)
-else(NOT FOLLY_SHARED)
+else(FOLLY_SHARED)
     find_library(FMT_LIBRARY NAMES fmt libfmt.a REQUIRED)
     find_library(SPDLOG_LIBRARY NAMES spdlog libspdlog.a REQUIRED)
-endif(NOT FOLLY_SHARED)
+endif(FOLLY_SHARED)
 
 # Utility libs
 find_library(LTDL_LIBRARY NAMES ltdl)
