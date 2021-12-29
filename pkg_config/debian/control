@@ -51,7 +51,7 @@ Build-Depends:
     wangle-dev,
     proxygen-dev,
     libfmt-dev (>= 7.0.1),
-    libspdlog-dev (>= 1:1.7.0)
+    libspdlog-dev (>= 1:1.7.0),
     libnfs-dev (>= 4.0.0)
 Standards-Version: 3.9.5
 Homepage: https://onedata.org
