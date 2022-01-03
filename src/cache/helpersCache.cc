@@ -56,6 +56,9 @@ HelpersCache::HelpersCache(communication::Communicator &communicator,
 #if WITH_XROOTD
         m_helpersIOExecutor,
 #endif
+#if WITH_NFS
+        m_helpersIOExecutor,
+#endif
         m_helpersIOExecutor, m_communicator,
         options.getBufferSchedulerThreadCount(),
         helpers::buffering::BufferLimits{options.getReadBufferMinSize(),

@@ -6,7 +6,7 @@ DOCKER_REG_NAME       ?= "docker.onedata.org"
 DOCKER_REG_USER       ?= ""
 DOCKER_REG_PASSWORD   ?= ""
 DOCKER_BASE_IMAGE     ?= "ubuntu:18.04"
-DOCKER_DEV_BASE_IMAGE ?= "onedata/worker:2102-1"
+DOCKER_DEV_BASE_IMAGE ?= "onedata/worker:2102-6"
 HTTP_PROXY            ?= "http://proxy.devel.onedata.org:3128"
 
 PKG_REVISION    ?= $(shell git describe --tags --always  --abbrev=7)
@@ -30,6 +30,8 @@ WITH_GLUSTERFS    ?= ON
 WITH_WEBDAV       ?= ON
 # Build with XRootD storage helper by default
 WITH_XROOTD       ?= ON
+# Build with NFS storage helper by default
+WITH_NFS          ?= ON
 # Build with onedatafs Python library
 WITH_ONEDATAFS    ?= ON
 # Build with code coverage
@@ -75,6 +77,7 @@ all: debug test
 	                       -DWITH_GLUSTERFS=${WITH_GLUSTERFS} \
 	                       -DWITH_WEBDAV=${WITH_WEBDAV} \
 	                       -DWITH_XROOTD=${WITH_XROOTD} \
+	                       -DWITH_NFS=${WITH_NFS} \
 	                       -DWITH_ONEDATAFS=${WITH_ONEDATAFS} \
 	                       -DWITH_FUSE_VERSION=${WITH_FUSE_VERSION} \
 	                       -DCMAKE_INSTALL_PREFIX=${PWD}/debug/PREFIX \
@@ -94,6 +97,7 @@ all: debug test
 			-DWITH_GLUSTERFS=${WITH_GLUSTERFS} \
 			-DWITH_WEBDAV=${WITH_WEBDAV} \
 			-DWITH_XROOTD=${WITH_XROOTD} \
+			-DWITH_NFS=${WITH_NFS} \
 			-DWITH_ONECLIENT=ON \
 			-DWITH_ONEBENCH=ON \
 			-DWITH_ONEDATAFS=OFF \
