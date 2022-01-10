@@ -24,6 +24,9 @@
 #if WITH_XROOTD
 #include "xrootdHelper.h"
 #endif
+#if WITH_NFS
+#include "nfsHelper.h"
+#endif
 
 #include "bufferedStorageHelper.h"
 #include "storageRouterHelper.h"
@@ -96,6 +99,12 @@ void TestRunner::initialize()
     else if (m_config.storageType == "xrootd") {
         helperFactory =
             std::make_shared<one::helpers::XRootDHelperFactory>(m_ioExecutor);
+    }
+#endif
+#if WITH_NFS
+    else if (m_config.storageType == "nfs") {
+        helperFactory =
+            std::make_shared<one::helpers::NFSHelperFactory>(m_ioExecutor);
     }
 #endif
     else if (m_config.storageType == "posix") {

@@ -79,6 +79,17 @@ DEFINE_string(s3_secretkey, "", "Specify S3 secret key");
 DEFINE_int32(s3_blocksize, 1024 * 1024 * 10,
     "Specify the block size used for striping files into S3 objects");
 
+DEFINE_int32(nfs_version, 3, "NFS version <3|4>");
+DEFINE_string(nfs_host, "", "NFS host");
+DEFINE_string(nfs_volume, "/", "NFS volume");
+DEFINE_int32(nfs_uid, 0, "NFS UID");
+DEFINE_int32(nfs_gid, 0, "NFS GID");
+DEFINE_int64(nfs_readahead, 0, "NFS readahead");
+DEFINE_int64(nfs_tcpsyncnt, 0, "NFS TCP syncnt");
+DEFINE_bool(nfs_dircache, true, "NFS dircache");
+DEFINE_int32(nfs_autoreconnect, 0, "NFS autoreconnect");
+DEFINE_int32(nfs_connection_pool_size, 10, "NFS connection pool size");
+
 DEFINE_string(
     webdav_endpoint, "", "Specify the WebDAV host, e.g.: 'http://192.168.1.2'");
 DEFINE_string(webdav_credentials_type, "basic",
@@ -186,6 +197,19 @@ one::helpers::Params makeHelperParams()
         params["mountPoint"] = FLAGS_posix_mount_point;
         params["uid"] = FLAGS_posix_uid;
         params["gid"] = FLAGS_posix_gid;
+    }
+    else if (FLAGS_storage == "nfs") {
+        params["version"] = std::to_string(FLAGS_nfs_version);
+        params["host"] = FLAGS_nfs_host;
+        params["volume"] = FLAGS_nfs_volume;
+        params["uid"] = std::to_string(FLAGS_nfs_uid);
+        params["gid"] = std::to_string(FLAGS_nfs_gid);
+        params["readAhead"] = std::to_string(FLAGS_nfs_readahead);
+        params["tcpSyncnt"] = std::to_string(FLAGS_nfs_tcpsyncnt);
+        params["dirCache"] = std::to_string(FLAGS_nfs_dircache);
+        params["autoReconnect"] = std::to_string(FLAGS_nfs_autoreconnect);
+        params["connectionPoolSize"] =
+            std::to_string(FLAGS_nfs_connection_pool_size);
     }
     else if (FLAGS_storage == "null") {
         params["latencyMin"] = FLAGS_null_latency_min;

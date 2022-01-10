@@ -36,6 +36,10 @@ if(WITH_XROOTD)
     list(APPEND ONEBENCH_LIBRARIES ${XROOTD_LIBRARIES})
 endif(WITH_XROOTD)
 
+if(WITH_NFS)
+    list(APPEND ONEBENCH_LIBRARIES ${NFS_LIBRARIES})
+endif(WITH_NFS)
+
 add_executable(onebench
     "onebench.cc"
     "testRunner.cc"
