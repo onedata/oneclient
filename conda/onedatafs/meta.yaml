@@ -44,6 +44,7 @@ requirements:
     - libacl
     - libattr
     - libevent
+    - libiberty
     - libsodium
     - libtool
     - libfuse =2.9.9
