@@ -4,6 +4,11 @@ Release notes for project oneclient
 CHANGELOG
 ---------
 
+### 21.02.0-alpha24
+
+-   **VFS-8747** Pinned boost dependency on conda to 1.76.0.
+
+
 ### 21.02.0-alpha23
 
 -   **VFS-8425** Added basic cookie support to HTTP storage helper to
