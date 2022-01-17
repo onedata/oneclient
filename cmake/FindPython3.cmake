@@ -37,6 +37,8 @@ if(PYTHON3_CONFIG)
     find_library(LIBBOOST_PYTHON3 NAMES boost_python-py35
                                         boost_python-py36
                                         boost_python-py37
+                                        boost_python-py38
+                                        boost_python-py39
                                         boost_python3
                                         libboost_python3.so.1.58.0
                                         libboost_python35.so.1.66.0
@@ -46,7 +48,10 @@ if(PYTHON3_CONFIG)
                                         libboost_python3.so.1.67.0
                                         libboost_python35.so.1.67.0
                                         libboost_python36.so.1.67.0
-                                        libboost_python37.so.1.67.0)
+                                        libboost_python37.so.1.67.0
+                                        libboost_python37.so.1.77.0
+                                        libboost_python38.so.1.77.0
+                                        libboost_python39.so.1.77.0)
 
     execute_process(COMMAND bash -c "cat /etc/os-release | grep ID_LIKE" OUTPUT_VARIABLE OS_ID_LIKE)
     if($ENV{CONDA_BUILD})
@@ -63,7 +68,7 @@ if(PYTHON3_CONFIG)
     message(STATUS "Python3 libboost-python: ${LIBBOOST_PYTHON3}")
     message(STATUS "Python3 site directory: ${PYTHON3_SITE_DIR}")
 else(PYTHON3_CONFIG)
-    set(_PYTHON3_VERSIONS 3.7 3.6 3.5)
+    set(_PYTHON3_VERSIONS 3.9 3.8 3.7 3.6 3.5)
     foreach(_PYTHON3_VERSION ${_PYTHON3_VERSIONS})
         execute_process(COMMAND pkg-config --cflags "python-${_PYTHON3_VERSION}" RESULT_VARIABLE RETCODE)
         if("${RETCODE}" STREQUAL "0")
