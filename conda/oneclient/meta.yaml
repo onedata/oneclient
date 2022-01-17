@@ -46,7 +46,7 @@ requirements:
     - conda-forge::pcre
     - conda-forge::pkg-config
     - conda-forge::poco =1.11.*
-    - conda-forge::protobuf =3.17.2
+    - conda-forge::protobuf =3.17.*
     - conda-forge::pthread-stubs
     - conda-forge::python
     - conda-forge::spdlog =1.8.*
@@ -78,8 +78,9 @@ requirements:
     - conda-forge::openssl
     - conda-forge::pcre
     - conda-forge::poco =1.11.*
-    - conda-forge::protobuf =3.17.2
+    - conda-forge::protobuf =3.17.*
     - conda-forge::tbb =2018.0.5
+    - conda-forge::spdlog =1.8.*
     - conda-forge::zlib
     - onedata::ceph-client =14.2.2
 
