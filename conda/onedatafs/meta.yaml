@@ -33,7 +33,7 @@ requirements:
     - conda-forge::gperf
     - conda-forge::jemalloc
     - conda-forge::libevent
-    - conda-forge::libfuse
+    - conda-forge::libfuse =3.10.*
     - conda-forge::libsodium
     - conda-forge::libtool
     - conda-forge::libunwind
@@ -41,7 +41,7 @@ requirements:
     - conda-forge::make
     - conda-forge::nspr
     - conda-forge::nss
-    - conda-forge::openssl
+    - conda-forge::openssl =1.1.*
     - conda-forge::pcre
     - conda-forge::pkg-config
     - conda-forge::poco =1.11.*
@@ -69,12 +69,12 @@ requirements:
     - conda-forge::jemalloc
     - conda-forge::libevent
     - conda-forge::libsodium
-    - conda-forge::libfuse
+    - conda-forge::libfuse =3.10.*
     - conda-forge::libunwind
     - conda-forge::libuuid
     - conda-forge::nspr
     - conda-forge::nss
-    - conda-forge::openssl
+    - conda-forge::openssl =1.1.*
     - conda-forge::pcre
     - conda-forge::poco
     - conda-forge::protobuf =3.17.*
