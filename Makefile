@@ -274,7 +274,7 @@ conda/oneclient_centos6: package/$(PKG_ID).tar.gz
 		PKG_VERSION=$(PKG_VERSION) CONDA_BLD_PATH=$$PWD/package/conda-bld \
 		conda build --user onedata-centos6-devel --token "${CONDA_TOKEN}" \
 		${CONDA_BUILD_OPTIONS} package/conda/oneclient
-	echo "onedata-centos6-devel/oneclient/$(PKG_VERSION)/download/linux-64/oneclient-$(PKG_VERSION)-0.tar.bz2" >> conda-pkg-list.txt
+	echo "onedata-centos6-devel/oneclient/$(PKG_VERSION)/download/linux-64/oneclient-$(PKG_VERSION)-py39.tar.bz2" >> conda-pkg-list.txt
 
 .PHONY: conda/onedatafs
 conda/onedatafs: SHELL:=/bin/bash
@@ -290,8 +290,7 @@ conda/onedatafs: package/$(PKG_ID).tar.gz
 		PKG_VERSION=$(PKG_VERSION) CONDA_BLD_PATH=$$PWD/package/conda-bld \
 		conda build --user onedata-devel --token "${CONDA_TOKEN}" \
 		${CONDA_BUILD_OPTIONS} package/conda/onedatafs
-	echo "onedata-devel/onedatafs/$(PKG_VERSION)/download/linux-64/onedatafs-$(PKG_VERSION)-py36.tar.bz2" >> conda-pkg-list.txt
-	echo "onedata-devel/onedatafs/$(PKG_VERSION)/download/linux-64/onedatafs-$(PKG_VERSION)-py37.tar.bz2" >> conda-pkg-list.txt
+	echo "onedata-devel/onedatafs/$(PKG_VERSION)/download/linux-64/onedatafs-$(PKG_VERSION)-py39.tar.bz2" >> conda-pkg-list.txt
 
 .PHONY: deb
 deb: check_distribution package/$(PKG_ID).tar.gz

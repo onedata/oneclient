@@ -9,6 +9,7 @@ source:
   url: "<<PKG_SOURCE>>"
 
 build:
+  string: py{{ py }}
   binary_relocation: true
   script_env:
     - PKG_VERSION
@@ -23,17 +24,17 @@ requirements:
     - conda-forge::aws-sdk-cpp
     - conda-forge::backports.lzma
     - conda-forge::binutils_linux-64
-    - conda-forge::boost =1.76.0
+    - conda-forge::boost =1.77.0
     - conda-forge::cmake
     - conda-forge::double-conversion
-    - conda-forge::fmt =7.0.1
+    - conda-forge::fmt =7.1.*
     - conda-forge::gflags
     - conda-forge::git
     - conda-forge::glog =0.4.0
     - conda-forge::gperf
     - conda-forge::jemalloc
     - conda-forge::libevent
-    - conda-forge::libfuse
+    - conda-forge::libfuse =3.10.*
     - conda-forge::libsodium
     - conda-forge::libtool
     - conda-forge::libunwind
@@ -41,19 +42,18 @@ requirements:
     - conda-forge::make
     - conda-forge::nspr
     - conda-forge::nss
-    - conda-forge::openssl
+    - conda-forge::openssl =1.1.*
     - conda-forge::pcre
     - conda-forge::pkg-config
-    - conda-forge::poco
-    - conda-forge::protobuf =3.17.2
+    - conda-forge::poco =1.11.*
+    - conda-forge::protobuf =3.17.*
     - conda-forge::pthread-stubs
     - conda-forge::python
-    - conda-forge::spdlog =1.8.1
+    - conda-forge::spdlog =1.8.*
     - conda-forge::tbb =2018.0.5
     - conda-forge::tbb-devel =2018.0.5
     - conda-forge::zlib
-    - onedata::ceph-client =14.2.4
-    - onedata::glusterfs-client
+    - onedata::ceph-client =14.2.2
     - onedata::libacl
     - onedata::libattr
     - onedata::libiberty
@@ -63,13 +63,13 @@ requirements:
     - conda-forge::aws-c-event-stream
     - conda-forge::aws-checksums
     - conda-forge::aws-sdk-cpp
-    - conda-forge::boost =1.76.0
+    - conda-forge::boost =1.77.0
     - conda-forge::double-conversion
     - conda-forge::gflags
     - conda-forge::glog =0.4.0
     - conda-forge::jemalloc
     - conda-forge::libevent
-    - conda-forge::libfuse
+    - conda-forge::libfuse =3.10.*
     - conda-forge::libsodium
     - conda-forge::libunwind
     - conda-forge::libuuid
@@ -77,12 +77,12 @@ requirements:
     - conda-forge::nss
     - conda-forge::openssl
     - conda-forge::pcre
-    - conda-forge::poco
-    - conda-forge::protobuf =3.17.2
+    - conda-forge::poco =1.11.*
+    - conda-forge::protobuf =3.17.*
     - conda-forge::tbb =2018.0.5
+    - conda-forge::spdlog =1.8.*
     - conda-forge::zlib
-    - onedata::ceph-client =14.2.4
-    - onedata::glusterfs-client
+    - onedata::ceph-client =14.2.2
 
 test:
   commands:
