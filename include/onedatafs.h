@@ -853,6 +853,8 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(
     auto communicator = getCommunicator(sessionId, authManager, context);
     context->setCommunicator(communicator);
     communicator->connect();
+    communicator->schedulePeriodicMessageRequest();
+    authManager->scheduleRefresh(auth::RESTRICTED_MACAROON_REFRESH);
 
     auto helpersCache = std::make_unique<cache::HelpersCache>(
         *communicator, context->scheduler(), *options);
