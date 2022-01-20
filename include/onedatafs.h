@@ -376,15 +376,19 @@ public:
     {
         if (!m_stopped.test_and_set()) {
             ReleaseGIL guard;
+            m_authManager.reset();
+            m_fsLogic->stop();
+
             m_eventBase.runInEventBaseThread([this]() {
                 // Make sure that FsLogic destructor is called before EventBase
                 // destructor, in order to stop FsLogic background tasks
-                m_fsLogic.reset();
                 m_eventBase.terminateLoopSoon();
             });
         }
 
-        m_thread.join();
+        if (m_thread.joinable()) {
+            m_thread.join();
+        }
     }
 
     std::string version() const { return ONECLIENT_VERSION; }
@@ -853,6 +857,8 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(
     auto communicator = getCommunicator(sessionId, authManager, context);
     context->setCommunicator(communicator);
     communicator->connect();
+    communicator->schedulePeriodicMessageRequest();
+    authManager->scheduleRefresh(auth::RESTRICTED_MACAROON_REFRESH);
 
     auto helpersCache = std::make_unique<cache::HelpersCache>(
         *communicator, context->scheduler(), *options);
