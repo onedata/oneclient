@@ -318,14 +318,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     start();
 }
 
-FsLogic::~FsLogic()
-{
-    m_fsSubscriptions.stop();
-    m_stopped = true;
-
-    m_directoryCachePruneBaton.post();
-    m_context->communicator()->stop();
-}
+FsLogic::~FsLogic() { stop(); }
 
 void FsLogic::start()
 {
@@ -338,6 +331,16 @@ void FsLogic::start()
         }});
 
     m_stopped = false;
+}
+
+void FsLogic::stop()
+{
+    m_fsSubscriptions.unsubscribeAll();
+    m_fsSubscriptions.stop();
+    m_stopped = true;
+
+    m_directoryCachePruneBaton.post();
+    m_context->communicator()->stop();
 }
 
 void FsLogic::reset()

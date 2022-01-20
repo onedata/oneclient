@@ -100,6 +100,8 @@ public:
      */
     void start();
 
+    void stop();
+
     /**
      * Reset FsLogic state, e.g. after a connection loss.
      */
