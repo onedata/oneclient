@@ -8,7 +8,7 @@
 
 #include "onedatafs.h"
 
-bool Stat::operator==(const Stat &o)
+bool Stat::operator==(const Stat &o) const
 {
     return atime == o.atime && mtime == o.mtime && ctime == o.ctime &&
         gid == o.gid && uid == o.uid && mode == o.mode && size == o.size;
@@ -66,10 +66,10 @@ struct stat toStatBuf(const Stat &attr)
     return statbuf;
 }
 
-Stat attrToStat(FileAttrPtr attr)
+Stat attrToStat(const FileAttrPtr &attr)
 {
     auto statbuf = toStatbuf(attr);
-    Stat stat;
+    Stat stat{};
 
     stat.atime = statbuf.st_atime;
     stat.mtime = statbuf.st_mtime;
@@ -103,7 +103,7 @@ boost::python::dict toPythonDict(
 
     return dictionary;
 }
-}
+} // namespace
 
 OnedataFileHandle::OnedataFileHandle(std::shared_ptr<FiberFsLogic> fsLogic,
     std::uint64_t fileHandleId, std::string uuid,
@@ -120,8 +120,9 @@ boost::python::object OnedataFileHandle::enter(boost::python::object self)
     return self;
 }
 
-bool OnedataFileHandle::exit(boost::python::object type,
-    boost::python::object value, boost::python::object traceback)
+bool OnedataFileHandle::exit(boost::python::object /*type*/, // NOLINT
+    boost::python::object /*value*/,                         // NOLINT
+    boost::python::object /*traceback*/)                     // NOLINT
 {
     close();
     return false;
@@ -152,20 +153,19 @@ std::string OnedataFileHandle::read(const off_t offset, const std::size_t size)
                    .get();
 
 #if PY_MAJOR_VERSION >= 3
-    if (res.size()) {
-        return boost::python::object(boost::python::handle<>(
-            PyBytes_FromStringAndSize(res.c_str(), res.size())));
-    }
-    else {
+    if (res.empty())
         return boost::python::object(
-            boost::python::handle<>(PyBytes_FromStringAndSize(NULL, 0)));
-    }
+            boost::python::handle<>(PyBytes_FromStringAndSize(nullptr, 0)));
+
+    return boost::python::object(boost::python::handle<>(
+        PyBytes_FromStringAndSize(res.c_str(), res.size())));
+
 #else
     return res;
 #endif
 }
 
-size_t OnedataFileHandle::write(std::string data, const off_t offset)
+size_t OnedataFileHandle::write(const std::string &data, const off_t offset)
 {
     ReleaseGIL guard;
 
@@ -241,7 +241,7 @@ OnedataFS::OnedataFS(std::string sessionId, std::string rootUuid,
     : m_rootUuid{std::move(rootUuid)}
     , m_sessionId{std::move(sessionId)}
     , m_context{std::move(context)}
-    , m_authManager{authManager}
+    , m_authManager{std::move(authManager)}
 {
     m_fsLogic = std::make_unique<FiberFsLogic>(m_context,
         std::move(configuration), std::move(helpersCache), metadataCacheSize,
@@ -275,7 +275,7 @@ void OnedataFS::close()
     }
 }
 
-std::string OnedataFS::version() const { return ONECLIENT_VERSION; }
+std::string OnedataFS::version() { return ONECLIENT_VERSION; }
 
 std::string OnedataFS::rootUuid() const { return m_rootUuid; }
 
@@ -356,7 +356,7 @@ Stat OnedataFS::create(std::string path, const mode_t mode, const int flags)
 }
 
 boost::shared_ptr<OnedataFileHandle> OnedataFS::open(
-    std::string path, const int flags)
+    const std::string &path, const int flags)
 {
     ReleaseGIL guard;
     return m_fiberManager
@@ -369,15 +369,16 @@ boost::shared_ptr<OnedataFileHandle> OnedataFS::open(
                 if ((e.code().value() == ENOENT) && (flags & O_CREAT)) {
                     return m_fiberManager.addTaskRemoteFuture(
                         [this, path]() mutable {
+                            constexpr auto defaultPerms = 0644;
                             auto parentPair = splitToParentName(path);
                             auto res = m_fsLogic->create(
                                 uuidFromPath(parentPair.first),
-                                parentPair.second, S_IFREG | 0644, 0);
+                                parentPair.second, S_IFREG | defaultPerms, 0);
                             return uuidFromPath(path);
                         });
                 }
-                else
-                    throw e;
+
+                throw e;
             })
         // Now try to open the file
         .thenValue([this, flags](std::string &&uuid) {
@@ -453,14 +454,13 @@ Stat OnedataFS::setattr(std::string path, Stat attr, const int toSet)
 {
     ReleaseGIL guard;
 
-    auto res =
-        m_fiberManager
-            .addTaskRemoteFuture([this, path = std::move(path),
-                                     attr = std::move(attr), toSet]() mutable {
-                return m_fsLogic->setattr(
-                    uuidFromPath(path), toStatBuf(attr), toSet);
-            })
-            .get();
+    auto res = m_fiberManager
+                   .addTaskRemoteFuture(
+                       [this, path = std::move(path), attr, toSet]() mutable {
+                           return m_fsLogic->setattr(
+                               uuidFromPath(path), toStatBuf(attr), toSet);
+                       })
+                   .get();
 
     return attrToStat(res);
 }
@@ -496,14 +496,12 @@ std::string OnedataFS::getxattr(std::string path, std::string name)
                    .get();
 
 #if PY_MAJOR_VERSION >= 3
-    if (res.size()) {
-        return boost::python::object(boost::python::handle<>(
-            PyBytes_FromStringAndSize(res.c_str(), res.size())));
-    }
-    else {
+    if (res.empty())
         return boost::python::object(
-            boost::python::handle<>(PyBytes_FromStringAndSize(NULL, 0)));
-    }
+            boost::python::handle<>(PyBytes_FromStringAndSize(nullptr, 0)));
+
+    return boost::python::object(boost::python::handle<>(
+        PyBytes_FromStringAndSize(res.c_str(), res.size())));
 #else
     return res;
 #endif
@@ -603,7 +601,7 @@ std::string OnedataFS::uuidFromPath(const std::string &path)
     auto parentUuid = m_rootUuid;
     FileAttrPtr fileAttrPtr;
 
-    for (auto &tok : boost::filesystem::path(path)) {
+    for (const auto &tok : boost::filesystem::path(path)) {
         if (tok == "/")
             continue;
 
@@ -618,10 +616,10 @@ std::string OnedataFS::uuidFromPath(const std::string &path)
 namespace {
 boost::shared_ptr<OnedataFS> makeOnedataFS(
     // clang-format off
-    std::string host,
-    std::string token,
-    std::vector<std::string> space,
-    std::vector<std::string> space_id,
+    const std::string& host,
+    const std::string& token,
+    const std::vector<std::string>& space,
+    const std::vector<std::string>& space_id,
     bool insecure,
     bool force_proxy_io,
     bool force_direct_io,
@@ -759,7 +757,7 @@ template <typename Container> PyIterableAdapter &PyIterableAdapter::fromPython()
 
 void *PyIterableAdapter::convertible(PyObject *object)
 {
-    return PyObject_GetIter(object) ? object : NULL;
+    return PyObject_GetIter(object) != nullptr ? object : nullptr;
 }
 
 template <typename Container>
@@ -769,14 +767,14 @@ void PyIterableAdapter::construct(PyObject *object,
     namespace python = boost::python;
     python::handle<> handle(python::borrowed(object));
 
-    typedef python::converter::rvalue_from_python_storage<Container>
-        storage_type;
+    using storage_type =
+        python::converter::rvalue_from_python_storage<Container>;
+
     void *storage = reinterpret_cast<storage_type *>(data)->storage.bytes;
 
-    typedef python::stl_input_iterator<typename Container::value_type> iterator;
+    using iterator = python::stl_input_iterator<typename Container::value_type>;
 
     new (storage) Container(iterator(python::object(handle)), iterator());
     data->convertible = storage;
 }
-
-}
+} // namespace

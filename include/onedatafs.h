@@ -63,7 +63,7 @@ struct Stat {
     int mode;
     size_t size;
 
-    bool operator==(const Stat &o);
+    bool operator==(const Stat &o) const;
 };
 
 struct Ubuf {
@@ -120,7 +120,7 @@ struct stat toStatbuf(const FileAttrPtr &attr);
 
 struct stat toStatBuf(const Stat &attr);
 
-Stat attrToStat(FileAttrPtr attr);
+Stat attrToStat(const FileAttrPtr &attr);
 
 boost::python::dict toPythonDict(
     const std::map<folly::fbstring, folly::fbvector<std::pair<off_t, off_t>>>
@@ -144,7 +144,7 @@ public:
     std::string read(const off_t offset, const std::size_t size);
 #endif
 
-    size_t write(std::string data, const off_t offset);
+    size_t write(const std::string &data, const off_t offset);
 
     void fsync(bool isDataSync);
 
@@ -174,7 +174,7 @@ public:
 
     void close();
 
-    std::string version() const;
+    static std::string version();
 
     std::string rootUuid() const;
 
@@ -193,7 +193,7 @@ public:
         const int flags = 0);
 
     boost::shared_ptr<OnedataFileHandle> open(
-        std::string path, const int flags = O_RDWR | O_CREAT);
+        const std::string &path, const int flags = O_RDWR | O_CREAT);
 
     Stat mkdir(std::string path, const mode_t mode = 0755);
 
@@ -247,10 +247,10 @@ private:
 namespace {
 boost::shared_ptr<OnedataFS> makeOnedataFS(
     // clang-format off
-    std::string host,
-    std::string token,
-    std::vector<std::string> space = {},
-    std::vector<std::string> space_id = {},
+    const std::string& host,
+    const std::string& token,
+    const std::vector<std::string>& space = {},
+    const std::vector<std::string>& space_id = {},
     bool insecure = false,
     bool force_proxy_io = false,
     bool force_direct_io = false,
@@ -261,6 +261,7 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(
     int drop_dir_cache_after = 0,
     int log_level = 0,
     std::string cli_args = {});
+// clang-format on
 
 int regularMode();
 
