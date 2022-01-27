@@ -28,16 +28,15 @@ index e0a18a3a..fec8b543 100644
      libpoco-dev,
      libpocofoundation50,
      libpoconetssl50,
-@@ -35,7 +35,7 @@ Build-Depends:
+@@ -35,6 +35,6 @@ Build-Depends:
      libpocoxml50,
      openssl (>= 1.1.0),
      pkg-config,
 -    protobuf-compiler (>= 3.4.1),
 +    protobuf-compiler (>= 3.0.0),
-     python-dev,
      python3-dev,
      subversion,
-@@ -55,14 +55,14 @@ Description: FUSE client for onedata system.
+@@ -45,7 +45,7 @@ Description: FUSE client for onedata system.
  
  Package: python3-onedatafs
  Architecture: amd64
