@@ -83,7 +83,6 @@ BuildRequires: xrootd-private-devel >= %{xrootd_version}
 BuildRequires: xrootd-server-devel >= %{xrootd_version}
 BuildRequires: xrootd-client-devel >= %{xrootd_version}
 BuildRequires: xrootd-devel >= %{xrootd_version}
-BuildRequires: python-devel
 BuildRequires: python36-devel
 BuildRequires: subversion
 
@@ -158,7 +157,6 @@ cmake3 . -DLIB_INSTALL_DIR=lib64 \
          -DSTATIC_LIBSTDCPP=ON -DSTATIC_BOOST=OFF -DSTATIC_PROTOBUF=ON
 make %{_smp_mflags} oneclient
 make %{_smp_mflags} onebench
-make %{_smp_mflags} onedatafs.py2
 make %{_smp_mflags} onedatafs.py3
 SCL_EOF_MACRO
 
@@ -179,13 +177,6 @@ make install DESTDIR=$RPM_BUILD_ROOT/opt/onedata/%{scl}/root/
 
 %doc
 %{_defaultdocdir}/oneclient/README.md
-
-%files -n %{?scl_prefix}python2-onedatafs
-/opt/onedata/%{scl}/root/%{python_sitearch}/onedatafs/*
-
-%post -n %{?scl_prefix}python2-onedatafs
-%{__ln_s} -f /opt/onedata/%{scl}/root/%{python_sitearch}/onedatafs/onedatafs_py2.so /opt/onedata/%{scl}/root/%{python_sitearch}/onedatafs/onedatafs.so
-%{__ln_s} -f /opt/onedata/%{scl}/root/usr/lib64/ceph/libceph-common.so.0 /opt/onedata/%{scl}/root/usr/lib64/libceph-common.so.0
 
 %files -n %{?scl_prefix}python3-onedatafs
 /opt/onedata/%{scl}/root/%{python3_sitearch}/onedatafs/*
