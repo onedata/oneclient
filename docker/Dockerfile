@@ -18,12 +18,11 @@ ENV http_proxy ${HTTP_PROXY}
 # Get the image up to date and install utility tools
 RUN apt-get -y update && \
     apt-get -y install bash-completion ca-certificates curl iputils-ping netcat \
-                       man-db net-tools traceroute vim python-xattr parallel \
-                       python-pip python3-pip gnupg2 xattr pv bsdmainutils && \
+                       man-db net-tools traceroute vim python-xattr python3-xattr \
+                       parallel python3-pip gnupg2 xattr pv bsdmainutils && \
     apt-get clean
 
 # Install fs.onedatafs dependencies
-RUN pip install fs==${PYFILESYSTEM_VERSION} six setuptools xmlrunner pyyaml
 RUN pip3 install fs==${PYFILESYSTEM_VERSION} six setuptools xmlrunner pyyaml
 
 WORKDIR /tmp
@@ -42,9 +41,7 @@ RUN case ${RELEASE_TYPE} in \
             ;; \
         esac && \
         sh oneclient-${RELEASE}.sh ${ONECLIENT_PACKAGE}=${VERSION}-1~${DISTRIBUTION} && \
-        apt-get -y install python-onedatafs=${VERSION}-1~${DISTRIBUTION} \
-                           python3-onedatafs=${VERSION}-1~${DISTRIBUTION} \
-                           python-fs-plugin-onedatafs=${FSONEDATAFS_VERSION}-1~${DISTRIBUTION} \
+        apt-get -y install python3-onedatafs=${VERSION}-1~${DISTRIBUTION} \
                            python3-fs-plugin-onedatafs=${FSONEDATAFS_VERSION}-1~${DISTRIBUTION} \
                            sysbench
 

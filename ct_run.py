@@ -71,7 +71,7 @@ else:
     command = ['py.test'] + {args} + ['{test_dirs}']
 
 if(not os.path.exists('{script_dir}/{release}/test/integration/onedatafs_test/onedatafs.so')):
-    shutil.copyfile('{script_dir}/{release}/onedatafs_py2.so',
+    shutil.copyfile('{script_dir}/{release}/onedatafs_py3.so',
                     '{script_dir}/{release}/test/integration/onedatafs_test/onedatafs.so')
 
 ret = subprocess.call(command)
