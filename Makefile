@@ -140,10 +140,10 @@ phony:
 deb-info: relwithdebinfo/oneclient
 
 .PHONY: release
-release: release/oneclient release/onebench release/onedatafs-py2 release/onedatafs-py3
+release: release/oneclient release/onebench release/onedatafs-py3
 
 .PHONY: debug
-debug: debug/oneclient debug/onebench debug/onedatafs-py2 debug/onedatafs-py3
+debug: debug/oneclient debug/onebench debug/onedatafs-py3
 
 .PHONY: test
 test: debug
