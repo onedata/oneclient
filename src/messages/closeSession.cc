@@ -22,7 +22,7 @@ std::string CloseSession::toString() const
 std::unique_ptr<ProtocolClientMessage> CloseSession::serializeAndDestroy()
 {
     auto clientMsg = std::make_unique<ProtocolClientMessage>();
-    clientMsg->mutable_get_configuration();
+    clientMsg->mutable_close_session();
 
     return clientMsg;
 }

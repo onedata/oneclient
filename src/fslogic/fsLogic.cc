@@ -12,6 +12,7 @@
 #include "context.h"
 #include "fslogic/virtualfs/archivematica.h"
 #include "helpers/logging.h"
+#include "messages/closeSession.h"
 #include "messages/configuration.h"
 #include "messages/fuse/blockSynchronizationRequest.h"
 #include "messages/fuse/changeMode.h"
@@ -335,12 +336,18 @@ void FsLogic::start()
 
 void FsLogic::stop()
 {
-    m_fsSubscriptions.unsubscribeAll();
-    m_fsSubscriptions.stop();
-    m_stopped = true;
+    if (!m_stopped) {
+        m_stopped = true;
 
-    m_directoryCachePruneBaton.post();
-    m_context->communicator()->stop();
+        m_fsSubscriptions.unsubscribeAll();
+        m_fsSubscriptions.stop();
+
+        m_directoryCachePruneBaton.post();
+
+        m_context->communicator()->send(messages::CloseSession{}, 1).get();
+
+        m_context->communicator()->stop();
+    }
 }
 
 void FsLogic::reset()
