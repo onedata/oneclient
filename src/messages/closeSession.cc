@@ -10,14 +10,10 @@
 
 #include "messages.pb.h"
 
-
 namespace one {
 namespace messages {
 
-std::string CloseSession::toString() const
-{
-    return "type: 'CloseSession'";
-}
+std::string CloseSession::toString() const { return "type: 'CloseSession'"; }
 
 std::unique_ptr<ProtocolClientMessage> CloseSession::serializeAndDestroy()
 {
