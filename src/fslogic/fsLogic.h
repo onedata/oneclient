@@ -451,7 +451,7 @@ private:
     std::uniform_int_distribution<> m_clusterPrefetchDistribution;
 
     folly::fibers::Baton m_directoryCachePruneBaton;
-    bool m_stopped{};
+    std::atomic_bool m_stopped = ATOMIC_VAR_INIT(false);
     int m_maxRetryCount{FsLogic::MAX_RETRY_COUNT};
 };
 } // namespace fslogic
