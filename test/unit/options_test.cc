@@ -89,6 +89,7 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(false, options.getSingleThread());
     EXPECT_EQ(false, options.isInsecure());
     EXPECT_EQ(false, options.isIOTraceLoggerEnabled());
+    EXPECT_EQ(false, options.isMessageTraceLoggerEnabled());
     EXPECT_EQ(false, options.isProxyIOForced());
     EXPECT_EQ(false, options.isDirectIOForced());
     EXPECT_FALSE(options.showOnlyFullReplicas());
@@ -265,6 +266,13 @@ TEST_F(OptionsTest, parseCommandLineShouldEnableIOTraceLog)
     cmdArgs.insert(cmdArgs.end(), {"--io-trace-log", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ(true, options.isIOTraceLoggerEnabled());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldEnableMessageTraceLog)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--message-trace-log", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.isMessageTraceLoggerEnabled());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldGetCustomLogLevels)

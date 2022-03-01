@@ -190,6 +190,11 @@ public:
     bool isIOTraceLoggerEnabled() const;
 
     /*
+     * @return True if message trace log is enabled.
+     */
+    bool isMessageTraceLoggerEnabled() const;
+
+    /*
      * @return True if read write perf is enabled.
      */
     bool isReadWritePerfEnabled() const;

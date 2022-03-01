@@ -150,6 +150,15 @@ Options::Options()
 
     add<bool>()
         ->asSwitch()
+        .withLongName("message-trace-log")
+        .withConfigName("message_trace_log")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::INVISIBLE)
+        .withDescription("Enable detailed ProtoBuf messages trace log.");
+
+    add<bool>()
+        ->asSwitch()
         .withLongName("log-read-write-perf")
         .withConfigName("log_read_write_perf")
         .withImplicitValue(true)
@@ -862,6 +871,12 @@ boost::filesystem::path Options::getLogDirPath() const
 bool Options::isIOTraceLoggerEnabled() const
 {
     return get<bool>({"io-trace-log", "io_trace_log"}).get_value_or(false);
+}
+
+bool Options::isMessageTraceLoggerEnabled() const
+{
+    return get<bool>({"message-trace-log", "message_trace_log"})
+        .get_value_or(false);
 }
 
 bool Options::isReadWritePerfEnabled() const
