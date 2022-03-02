@@ -302,6 +302,16 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
             context->options()->getMountpoint().string());
     }
 
+    if (m_context->options()->isMessageTraceLoggerEnabled()) {
+        using namespace std::chrono;
+        auto messageLogPath = m_context->options()->getLogDirPath() /
+            fmt::format("message-log-{}.txt",
+                duration_cast<seconds>(system_clock::now().time_since_epoch())
+                    .count());
+        m_context->communicator()->enableMessageLog(
+            "message_trace_log", messageLogPath.string());
+    }
+
     m_runInFiber([this, directoryCacheDropAfter]() {
         pruneExpiredDirectories(directoryCacheDropAfter);
     });

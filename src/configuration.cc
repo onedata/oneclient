@@ -52,6 +52,16 @@ std::shared_ptr<communication::Communicator> handshake(
         std::get<std::shared_ptr<communication::Communicator>>(
             testCommunicatorTuple);
 
+    if (context->options()->isMessageTraceLoggerEnabled()) {
+        using namespace std::chrono;
+        auto messageLogPath = context->options()->getLogDirPath() /
+            fmt::format("message-log-{}.txt",
+                duration_cast<seconds>(system_clock::now().time_since_epoch())
+                    .count());
+        testCommunicator->enableMessageLog(
+            "handshake_message_trace_logger", messageLogPath.string());
+    }
+
     testCommunicator->setScheduler(context->scheduler());
     testCommunicator->connect();
     communication::wait(
