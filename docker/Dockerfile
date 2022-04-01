@@ -10,6 +10,7 @@ ARG DISTRIBUTION="bionic"
 ARG FSONEDATAFS_VERSION=""
 ARG ONECLIENT_PACKAGE="oneclient"
 ARG HTTP_PROXY
+ARG PYFILESYSTEM_VERSION="2.4.14"
 
 # Enable Onedata devel package proxy cache
 ENV http_proxy ${HTTP_PROXY}
@@ -22,8 +23,8 @@ RUN apt-get -y update && \
     apt-get clean
 
 # Install fs.onedatafs dependencies
-RUN pip install fs six setuptools xmlrunner pyyaml
-RUN pip3 install fs six setuptools xmlrunner pyyaml
+RUN pip install fs==${PYFILESYSTEM_VERSION} six setuptools xmlrunner pyyaml
+RUN pip3 install fs==${PYFILESYSTEM_VERSION} six setuptools xmlrunner pyyaml
 
 WORKDIR /tmp
 
