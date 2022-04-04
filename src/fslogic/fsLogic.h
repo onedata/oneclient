@@ -21,7 +21,6 @@
 #include "ioTraceLogger.h"
 #include "virtualfs/virtualFsRegistry.h"
 
-#include <asio/buffer.hpp>
 #include <boost/icl/discrete_interval.hpp>
 #include <folly/FBString.h>
 #include <folly/FBVector.h>
@@ -63,6 +62,8 @@ constexpr auto SYNCHRONIZE_BLOCK_PRIORITY_IMMEDIATE = 32;
 constexpr auto SYNCHRONIZE_BLOCK_PRIORITY_LINEAR_PREFETCH = 96;
 constexpr auto SYNCHRONIZE_BLOCK_PRIORITY_CLUSTER_PREFETCH = 160;
 
+const auto ONEDATA_FILEID_ACCESS_PREFIX = ".__onedata__file_id__";
+
 /**
  * The FsLogic main class.
  * This class contains FUSE all callbacks, so it basically is an heart of the
@@ -98,6 +99,8 @@ public:
      * Perform operations required to start FsLogic properly
      */
     void start();
+
+    void stop();
 
     /**
      * Reset FsLogic state, e.g. after a connection loss.
@@ -189,6 +192,26 @@ public:
      */
     FileAttrPtr mknod(const folly::fbstring &parentUuid,
         const folly::fbstring &name, const mode_t mode);
+
+    /**
+     * FUSE @c link callback.
+     * @see https://libfuse.github.io/doxygen/structfuse__lowlevel__ops.html
+     */
+    FileAttrPtr link(const folly::fbstring &uuid,
+        const folly::fbstring &newParentUuid, const folly::fbstring &newName);
+
+    /**
+     * FUSE @c link callback.
+     * @see https://libfuse.github.io/doxygen/structfuse__lowlevel__ops.html
+     */
+    FileAttrPtr symlink(const folly::fbstring &parentUuid,
+        const folly::fbstring &name, const folly::fbstring &link);
+
+    /**
+     * FUSE @c link callback.
+     * @see https://libfuse.github.io/doxygen/structfuse__lowlevel__ops.html
+     */
+    folly::fbstring readlink(const folly::fbstring &uuid);
 
     /**
      * FUSE @c unlink callback.
@@ -319,6 +342,8 @@ private:
 
     folly::fbstring computeHash(const folly::IOBufQueue &buf);
 
+    static folly::fbstring getFileIdFromFilename(const folly::fbstring &name);
+
     FileAttrPtr makeFile(const folly::fbstring &parentUuid,
         const folly::fbstring &name, const mode_t mode,
         const helpers::Flag flag);
@@ -330,7 +355,7 @@ private:
 
     std::pair<size_t, IOTraceLogger::PrefetchType> prefetchAsync(
         std::shared_ptr<FuseFileHandle> fuseFileHandle,
-        helpers::FileHandlePtr helperHandle, const off_t offset,
+        const helpers::FileHandlePtr &helperHandle, const off_t offset,
         const std::size_t size, const folly::fbstring &uuid,
         const boost::icl::discrete_interval<off_t> possibleRange,
         const boost::icl::discrete_interval<off_t> availableRange);
@@ -350,6 +375,25 @@ private:
      * directories are purged from the metadata cache.
      */
     void pruneExpiredDirectories(const std::chrono::seconds delay);
+
+    /**
+     * Creates a space-relative path from a absolute path pointing to
+     * an active oneclient mountpoint in the format:
+     *   <__onedata_space_id:SPACE_ID>/dir1/dir2/file.txt
+     *
+     *  @param link The original absolute link passed to FsLogic
+     *  @returns Space-relative link or original link if conversion fails
+     */
+    folly::fbstring createSpaceRelativeSymlink(const folly::fbstring &link);
+
+    /**
+     * Resolve a space-relative path to an absolute path starting with the
+     * current oneclient mountpoint.
+     *
+     * @param link Space-relative link
+     * @returns Oneclient mountpoint absolute path
+     */
+    folly::fbstring resolveSpaceRelativeSymlink(const folly::fbstring &link);
 
     std::shared_ptr<Context> m_context;
     events::Manager m_eventManager{m_context};
@@ -393,6 +437,8 @@ private:
     const double m_randomReadPrefetchClusterWindowGrowFactor;
     const bool m_clusterPrefetchThresholdRandom;
     const bool m_showOnlyFullReplicas;
+    const bool m_showSpaceIdsNotNames;
+    const bool m_showHardLinkCount;
     const bool m_ioTraceLoggerEnabled;
     const boost::optional<std::pair<std::string, std::string>> m_tagOnCreate;
     const boost::optional<std::pair<std::string, std::string>> m_tagOnModify;
@@ -405,7 +451,7 @@ private:
     std::uniform_int_distribution<> m_clusterPrefetchDistribution;
 
     folly::fibers::Baton m_directoryCachePruneBaton;
-    bool m_stopped{};
+    std::atomic_bool m_stopped = ATOMIC_VAR_INIT(false);
     int m_maxRetryCount{FsLogic::MAX_RETRY_COUNT};
 };
 } // namespace fslogic

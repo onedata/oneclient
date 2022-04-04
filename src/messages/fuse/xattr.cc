@@ -25,7 +25,7 @@ XAttr::XAttr(std::unique_ptr<ProtocolServerMessage> serverMessage)
             "xattr field missing"};
     }
 
-    auto xattr = serverMessage->mutable_fuse_response()->mutable_xattr();
+    auto *xattr = serverMessage->mutable_fuse_response()->mutable_xattr();
 
     m_name = xattr->name();
     m_value = xattr->value();

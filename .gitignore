@@ -9,6 +9,8 @@ docker-build-report.txt
 integration-tests-results.xml
 oneclient.info
 oneclient.info.cleaned
+/_build
+.gdb_history
 
 # Compiled Object files
 *.slo
@@ -50,7 +52,11 @@ install_manifest.txt
 
 # Clion project files
 .idea
+*.iml
+cmake-build-debug/
+cmake-build-*/
 
 # YouCompleteMe database
 .ycm_extra_conf.py
 compile_commands.json
+

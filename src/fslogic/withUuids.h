@@ -35,7 +35,7 @@ struct stat toStatbuf(const FileAttrPtr &attr, const fuse_ino_t ino);
 template <typename FsLogicT> class WithUuids {
 public:
     template <typename... Args>
-    WithUuids(folly::fbstring rootUuid, Args &&... args)
+    WithUuids(folly::fbstring rootUuid, Args &&...args)
         : m_inodeCache{std::move(rootUuid)}
         , m_generation{std::chrono::system_clock::to_time_t(
               std::chrono::system_clock::now())}
@@ -145,6 +145,35 @@ public:
         return toEntry(std::move(attr));
     }
 
+    auto link(const fuse_ino_t ino, const fuse_ino_t newParent,
+        const folly::fbstring &newName)
+    {
+        LOG_FCALL() << LOG_FARG(ino) << LOG_FARG(newParent)
+                    << LOG_FARG(newName);
+
+        FileAttrPtr attr =
+            wrap(&FsLogicT::link, ino, m_inodeCache.at(newParent), newName);
+        return toEntry(std::move(attr));
+    }
+
+    auto symlink(const fuse_ino_t parent, const folly::fbstring &name,
+        const folly::fbstring &link)
+    {
+        LOG_FCALL() << LOG_FARG(parent) << LOG_FARG(name) << LOG_FARG(link);
+
+        FileAttrPtr attr = wrap(&FsLogicT::symlink, parent, name, link);
+        return toEntry(std::move(attr));
+    }
+
+    auto readlink(const fuse_ino_t ino)
+    {
+        LOG_FCALL() << LOG_FARG(ino);
+
+        folly::fbstring link = wrap(&FsLogicT::readlink, ino);
+
+        return link;
+    }
+
     auto unlink(const fuse_ino_t ino, const folly::fbstring &name)
     {
         LOG_FCALL() << LOG_FARG(ino) << LOG_FARG(name);
@@ -245,7 +274,7 @@ private:
     template <typename Ret, typename... FunArgs, typename... Args>
     inline constexpr Ret wrap(
         Ret (FsLogicT::*fun)(const folly::fbstring &, FunArgs...),
-        const fuse_ino_t inode, Args &&... args)
+        const fuse_ino_t inode, Args &&...args)
     {
         const auto &uuid = m_inodeCache.at(inode);
         return (m_fsLogic.*fun)(uuid, std::forward<Args>(args)...);

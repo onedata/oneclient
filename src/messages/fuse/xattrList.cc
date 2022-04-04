@@ -23,7 +23,7 @@ XAttrList::XAttrList(std::unique_ptr<ProtocolServerMessage> serverMessage)
         throw std::system_error{std::make_error_code(std::errc::protocol_error),
             "xattr_list field missing"};
 
-    auto xattrList =
+    auto *xattrList =
         serverMessage->mutable_fuse_response()->mutable_xattr_list();
 
     for (int i = 0; i < xattrList->names_size(); i++) {

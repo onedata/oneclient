@@ -33,9 +33,9 @@ std::string DeleteFile::toString() const
 std::unique_ptr<ProtocolClientMessage> DeleteFile::serializeAndDestroy()
 {
     auto msg = FileRequest::serializeAndDestroy();
-    auto df = msg->mutable_fuse_request()
-                  ->mutable_file_request()
-                  ->mutable_delete_file();
+    auto *df = msg->mutable_fuse_request()
+                   ->mutable_file_request()
+                   ->mutable_delete_file();
 
     df->set_silent(m_silent);
 

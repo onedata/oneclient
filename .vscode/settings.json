@@ -1,55 +1,5 @@
 {
     "files.associations": {
-<<<<<<< HEAD
-        "*.tcc": "cpp",
-        "optional": "cpp",
-        "future": "cpp",
-        "cmath": "cpp",
-        "numeric": "cpp",
-        "*.cuh": "cpp",
-        "deque": "cpp",
-        "filesystem": "cpp",
-        "iterator": "cpp",
-        "*.ipp": "cpp",
-        "array": "cpp",
-        "bitset": "cpp",
-        "functional": "cpp",
-        "memory": "cpp",
-        "tuple": "cpp",
-        "fstream": "cpp",
-        "iomanip": "cpp",
-        "istream": "cpp",
-        "limits": "cpp",
-        "mutex": "cpp",
-        "ostream": "cpp",
-        "shared_mutex": "cpp",
-        "sstream": "cpp",
-        "streambuf": "cpp",
-        "thread": "cpp",
-        "utility": "cpp",
-        "valarray": "cpp",
-        "variant": "cpp",
-        "memory_resource": "cpp",
-        "*.inc": "cpp",
-        "*.def": "cpp",
-        "map": "cpp",
-        "__config": "cpp",
-        "__functional_03": "cpp",
-        "__functional_base": "cpp",
-        "__hash_table": "cpp",
-        "__tree": "cpp",
-        "__tuple": "cpp",
-        "complex": "cpp",
-        "hash_map": "cpp",
-        "list": "cpp",
-        "locale": "cpp",
-        "random": "cpp",
-        "regex": "cpp",
-        "type_traits": "cpp",
-        "unordered_map": "cpp",
-        "vector": "cpp"
-    }
-=======
         "*.ipp": "cpp",
         "bitset": "cpp",
         "memory": "cpp",
@@ -135,5 +85,4 @@
         "__nullptr": "cpp"
     },
     "cmake.configureOnOpen": false
->>>>>>> VFS-6901 Added vscode settings
 }

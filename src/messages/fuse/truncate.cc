@@ -33,7 +33,7 @@ std::string Truncate::toString() const
 std::unique_ptr<ProtocolClientMessage> Truncate::serializeAndDestroy()
 {
     auto msg = FileRequest::serializeAndDestroy();
-    auto cm =
+    auto *cm =
         msg->mutable_fuse_request()->mutable_file_request()->mutable_truncate();
 
     cm->set_size(m_size);

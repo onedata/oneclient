@@ -64,7 +64,7 @@ void FsSubscriptions::handleFileAttrChanged(
         [this, events = std::move(events)] {
             if (m_stopped)
                 return;
-            for (auto &event : events) {
+            for (const auto &event : events) {
                 auto attr = std::make_shared<FileAttr>(event->fileAttr());
 
                 LOG_DBG(2) << " Received FileAttrChanged event: "
@@ -147,7 +147,7 @@ void FsSubscriptions::handleFileLocationChanged(
     m_runInFiber([this, events = std::move(events)] {
         if (m_stopped)
             return;
-        for (auto &event : events) {
+        for (const auto &event : events) {
             bool updateSucceeded = false;
 
             if (event->changeStartOffset() && event->changeEndOffset())
@@ -207,7 +207,7 @@ void FsSubscriptions::handlePermissionChanged(
     m_runInFiber([this, events = std::move(events)] {
         if (m_stopped)
             return;
-        for (auto &event : events) {
+        for (const auto &event : events) {
             m_forceProxyIOCache.remove(event->fileUuid());
         }
     });
@@ -244,8 +244,8 @@ void FsSubscriptions::handleFileRemoved(
     ONE_METRIC_COUNTER_INC(
         "comp.oneclient.mod.events.submod.received.file_removed");
     m_runInFiber([this, events = std::move(events)] {
-        for (auto &event : events) {
-            auto &uuid = event->fileUuid();
+        for (const auto &event : events) {
+            const auto &uuid = event->fileUuid();
             if (m_metadataCache.markDeleted(uuid))
                 LOG_DBG(2) << "File remove event received: " << uuid;
             else
@@ -289,8 +289,8 @@ void FsSubscriptions::handleFileRenamed(
     ONE_METRIC_COUNTER_INC(
         "comp.oneclient.mod.events.submod.received.file_renamed");
     m_runInFiber([this, events = std::move(events)] {
-        for (auto &event : events) {
-            auto &entry = event->topEntry();
+        for (const auto &event : events) {
+            const auto &entry = event->topEntry();
             if (m_metadataCache.rename(entry.oldUuid(), entry.newParentUuid(),
                     entry.newName(), entry.newUuid()))
                 LOG_DBG(2) << "File renamed event handled: '" << entry.oldUuid()

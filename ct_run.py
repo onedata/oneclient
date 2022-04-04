@@ -26,7 +26,7 @@ parser.add_argument(
 parser.add_argument(
     '--image', '-i',
     action='store',
-    default='onedata/builder:2002-3',
+    default='onedata/builder:2102-6',
     help='docker image to use as a test master',
     dest='image')
 
@@ -71,7 +71,7 @@ else:
     command = ['py.test'] + {args} + ['{test_dirs}']
 
 if(not os.path.exists('{script_dir}/{release}/test/integration/onedatafs_test/onedatafs.so')):
-    shutil.copyfile('{script_dir}/{release}/onedatafs_py2.so',
+    shutil.copyfile('{script_dir}/{release}/onedatafs_py3.so',
                     '{script_dir}/{release}/test/integration/onedatafs_test/onedatafs.so')
 
 ret = subprocess.call(command)

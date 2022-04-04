@@ -37,9 +37,9 @@ std::unique_ptr<ProtocolClientMessage>
 BlockSynchronizationRequest::serializeAndDestroy()
 {
     auto msg = FileRequest::serializeAndDestroy();
-    auto sb = msg->mutable_fuse_request()
-                  ->mutable_file_request()
-                  ->mutable_block_synchronization_request();
+    auto *sb = msg->mutable_fuse_request()
+                   ->mutable_file_request()
+                   ->mutable_block_synchronization_request();
 
     sb->set_prefetch(m_prefetch);
     sb->set_priority(m_priority);

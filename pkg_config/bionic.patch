@@ -28,29 +28,20 @@ index e0a18a3a..fec8b543 100644
      libpoco-dev,
      libpocofoundation50,
      libpoconetssl50,
-@@ -35,7 +35,7 @@ Build-Depends:
+@@ -35,6 +35,6 @@ Build-Depends:
      libpocoxml50,
      openssl (>= 1.1.0),
      pkg-config,
 -    protobuf-compiler (>= 3.4.1),
 +    protobuf-compiler (>= 3.0.0),
-     python-dev,
      python3-dev,
      subversion,
-@@ -55,14 +55,14 @@ Description: FUSE client for onedata system.
- 
- Package: python-onedatafs
- Architecture: amd64
--Depends: python, libboost-python1.58.0, libxrootd-client-dev, xrootd-plugins, ${shlibs:Depends}, ${misc:Depends}
-+Depends: python, libboost-python1.65.1, libxrootd-client-dev, xrootd-plugins, ${shlibs:Depends}, ${misc:Depends}
- Description: FUSE client for onedata system.
-  oneclient is a software based on FUSE (Filesystem in Userspace) that allows
-  mounting onedata filesystem on Linux systems.
+@@ -45,7 +45,7 @@ Description: FUSE client for onedata system.
  
  Package: python3-onedatafs
  Architecture: amd64
--Depends: python3, libboost-python1.58.0, libxrootd-client-dev, xrootd-plugins, ${shlibs:Depends}, ${misc:Depends}
-+Depends: python3, libboost-python1.65.1, libxrootd-client-dev, xrootd-plugins, ${shlibs:Depends}, ${misc:Depends}
+-Depends: python3, libboost-python1.58.0, libnfs13 (>= 4.0.0), folly, libxrootd-client-dev, xrootd-plugins, xrootd-client-plugins, libunwind8, ${shlibs:Depends}, ${misc:Depends}
++Depends: python3, libboost-python1.65.1, libnfs13 (>= 4.0.0), folly, libxrootd-client-dev, xrootd-plugins, xrootd-client-plugins, libunwind8, ${shlibs:Depends}, ${misc:Depends}
  Description: FUSE client for onedata system.
   oneclient is a software based on FUSE (Filesystem in Userspace) that allows
   mounting onedata filesystem on Linux systems.

@@ -72,7 +72,9 @@ public:
         const std::chrono::seconds directoryCacheDropAfter,
         const folly::fbstring &rootUuid,
         const std::vector<std::string> &spaceNames,
-        const std::vector<std::string> &spaceIds);
+        const std::vector<std::string> &spaceIds,
+        const bool showOnlyFullReplicas, const bool showHardLinkCount,
+        const bool showSpaceIdsNotNames = false);
 
     /**
      * Sets a pointer to an instance of @c ReaddirCache.
@@ -105,11 +107,12 @@ public:
      * @param chunkSize Number of entries which should be returned
      * @param includeVirtual Include in the list virtual files.
      * @param onlyFullReplicas Include in the list only fully replicated files.
+     * @param showHardLinkCount Include hard link count information in FileAttr.
      * @return List of file or directory names.
      */
     folly::fbvector<folly::fbstring> readdir(const folly::fbstring &uuid,
         off_t off, std::size_t chunkSize, bool includeVirtual = false,
-        bool onlyFullReplicas = false);
+        bool onlyFullReplicas = false, bool includeHardLinkCount = false);
 
     /**
      * Opens a file in the cache.
@@ -217,21 +220,22 @@ public:
      * @copydoc MetadataCache::rename(const folly::fbstring &, const
      * folly::fbstring &, const folly::fbstring &, const folly::fbstring &)
      */
-    bool rename(folly::fbstring uuid, folly::fbstring newParentUuid,
-        folly::fbstring newName, folly::fbstring newUuid);
+    bool rename(const folly::fbstring &uuid,
+        const folly::fbstring &newParentUuid, const folly::fbstring &newName,
+        const folly::fbstring &newUuid);
 
     /**
      * @copydoc MetadataCache::truncate(const folly::fbstring &, const
      * std::size_t)
      */
-    void truncate(folly::fbstring uuid, const std::size_t newSize);
+    void truncate(const folly::fbstring &uuid, const std::size_t newSize);
 
     /**
      * @copydoc MetadataCache::updateTimes(const folly::fbstring &, const
      * messages::fuse::UpdateTimes &)
      */
-    void updateTimes(
-        folly::fbstring uuid, const messages::fuse::UpdateTimes &updateTimes);
+    void updateTimes(const folly::fbstring &uuid,
+        const messages::fuse::UpdateTimes &updateTimes);
 
     /**
      * @copydoc MetadataCache::changeMode(const folly::fbstring &, const mode_t)
@@ -334,7 +338,7 @@ public:
      * @returns true if attributes have been updated, false if they were not
      * cached.
      */
-    bool updateAttr(std::shared_ptr<FileAttr> newAttr);
+    bool updateAttr(std::shared_ptr<FileAttr> newAttr, bool force = false);
 
 private:
     /**

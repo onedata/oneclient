@@ -4,7 +4,7 @@
 %{!?scl:%global pkg_name %{name}}
 
 %global version {{version}}
-%global folly_version 2017.10.02.00
+%global folly_version 2021.01.04.00
 %global xrootd_version 20200703
 
 Name:		%{?scl_prefix}oneclient-base
@@ -17,11 +17,15 @@ URL:		https://onedata.org
 Source0:	oneclient-base-%{version}.orig.tar.gz
 
 Requires: epel-release
-Requires: fuse
+Requires: fuse3
 Requires: xrootd-libs >= %{xrootd_version}
 Requires: xrootd-client-libs >= %{xrootd_version}
 Requires: xrootd-server-libs >= %{xrootd_version}
 Requires: scl-utils
+Requires: libunwind
+Requires: %scl_require_package %{scl} folly >= %{folly_version}
+Requires: %scl_require_package %{scl} openssl >= 1.1.0
+Requires: %scl_require_package %{scl} libnfs >= 4.0.0
 Requires: %scl_require_package %{scl} tbb >= 2018.5~
 BuildRequires: %scl_require_package %{scl} aws-c-common >= 0.4.49
 BuildRequires: %scl_require_package %{scl} aws-checksums >= 0.1.7
@@ -30,14 +34,19 @@ BuildRequires: %scl_require_package %{scl} aws-sdk-cpp-s3 >= 1.8.7
 BuildRequires: %scl_require_package %{scl} boost-devel >= 1.58.0
 BuildRequires: %scl_require_package %{scl} boost-python >= 1.58.0
 BuildRequires: %scl_require_package %{scl} boost-python3 >= 1.58.0
-BuildRequires: %scl_require_package %{scl} folly-devel = %{folly_version}
-BuildRequires: %scl_require_package %{scl} folly-static = %{folly_version}
+BuildRequires: %scl_require_package %{scl} libnfs-devel >= 4.0.0
+BuildRequires: %scl_require_package %{scl} folly-devel >= %{folly_version}
+BuildRequires: %scl_require_package %{scl} fizz-devel >= %{folly_version}
+BuildRequires: %scl_require_package %{scl} fizz-static >= %{folly_version}
 BuildRequires: %scl_require_package %{scl} gflags-devel >= 2.1.2
 BuildRequires: %scl_require_package %{scl} glog-devel >= 0.3.4
 BuildRequires: %scl_require_package %{scl} glusterfs-api-devel >= 3.12.15
 BuildRequires: %scl_require_package %{scl} librados-devel
 BuildRequires: %scl_require_package %{scl} libradospp-devel
 BuildRequires: %scl_require_package %{scl} libradosstriper-devel
+BuildRequires: %scl_require_package %{scl} openssl >= 1.1.0
+BuildRequires: %scl_require_package %{scl} openssl-devel >= 1.1.0
+BuildRequires: %scl_require_package %{scl} openssl-libs >= 1.1.0
 BuildRequires: %scl_require_package %{scl} poco-devel
 BuildRequires: %scl_require_package %{scl} poco-foundation
 BuildRequires: %scl_require_package %{scl} poco-netssl
@@ -46,12 +55,12 @@ BuildRequires: %scl_require_package %{scl} poco-xml
 BuildRequires: %scl_require_package %{scl} protobuf-compiler >= 3.4.1
 BuildRequires: %scl_require_package %{scl} protobuf-devel >= 3.4.1
 BuildRequires: %scl_require_package %{scl} protobuf-static >= 3.4.1
-BuildRequires: %scl_require_package %{scl} proxygen-devel = %{folly_version}
-BuildRequires: %scl_require_package %{scl} proxygen-static = %{folly_version}
+BuildRequires: %scl_require_package %{scl} proxygen-devel >= %{folly_version}
+BuildRequires: %scl_require_package %{scl} proxygen-static >= %{folly_version}
 BuildRequires: %scl_require_package %{scl} swift-sdk-cpp >= 1.0.0
 BuildRequires: %scl_require_package %{scl} tbb-devel >= 2018.5~
-BuildRequires: %scl_require_package %{scl} wangle-devel = %{folly_version}
-BuildRequires: %scl_require_package %{scl} wangle-static = %{folly_version}
+BuildRequires: %scl_require_package %{scl} wangle-devel >= %{folly_version}
+BuildRequires: %scl_require_package %{scl} wangle-static >= %{folly_version}
 BuildRequires: %scl_require_package %{scl} fmt-devel = 7.0.1
 BuildRequires: %scl_require_package %{scl} spdlog-devel = 1.7.0
 BuildRequires: %scl_require_package devtoolset-7 gcc-c++
@@ -59,23 +68,21 @@ BuildRequires: binutils-devel
 BuildRequires: cmake3
 BuildRequires: double-conversion-devel
 BuildRequires: epel-release
-BuildRequires: fuse-devel >= 2.7
+BuildRequires: fuse3-devel >= 3.6
 BuildRequires: git
 BuildRequires: golang
 BuildRequires: libcurl-devel
 BuildRequires: libevent-devel
+BuildRequires: libunwind-devel
 BuildRequires: libsodium-devel
 BuildRequires: libtool-ltdl
 BuildRequires: libtool-ltdl-devel
 BuildRequires: nspr-devel
 BuildRequires: nss-devel
-BuildRequires: openssl >= 1.0.0
-BuildRequires: openssl-devel >= 1.0.0
 BuildRequires: xrootd-private-devel >= %{xrootd_version}
 BuildRequires: xrootd-server-devel >= %{xrootd_version}
 BuildRequires: xrootd-client-devel >= %{xrootd_version}
 BuildRequires: xrootd-devel >= %{xrootd_version}
-BuildRequires: python-devel
 BuildRequires: python36-devel
 BuildRequires: subversion
 
@@ -92,6 +99,9 @@ Requires: scl-utils
 Requires: xrootd-server-libs >= %{xrootd_version}
 Requires: xrootd-client-libs >= %{xrootd_version}
 Requires: xrootd-libs >= %{xrootd_version}
+Requires: %scl_require_package %{scl} folly >= %{folly_version}
+Requires: %scl_require_package %{scl} openssl >= 1.1.0
+Requires: %scl_require_package %{scl} libnfs >= 4.0.0
 Requires: %scl_require_package %{scl} tbb >= 2018.5~
 Requires: %scl_require_package %{scl} boost-python
 
@@ -107,6 +117,9 @@ Requires: scl-utils
 Requires: xrootd-server-libs >= %{xrootd_version}
 Requires: xrootd-client-libs >= %{xrootd_version}
 Requires: xrootd-libs >= %{xrootd_version}
+Requires: %scl_require_package %{scl} folly >= %{folly_version}
+Requires: %scl_require_package %{scl} openssl >= 1.1.0
+Requires: %scl_require_package %{scl} libnfs >= 4.0.0
 Requires: %scl_require_package %{scl} tbb >= 2018.5~
 Requires: %scl_require_package %{scl} boost-python3
 
@@ -137,12 +150,13 @@ cmake3 . -DLIB_INSTALL_DIR=lib64 \
          -DWANGLE_INCLUDE_DIR=/opt/onedata/%{scl}/root/usr/include \
          -DBOOST_ROOT=/opt/onedata/%{scl}/root/usr \
          -DProtobuf_INCLUDE_DIR=/opt/onedata/%{scl}/root/usr/include \
+         -DOPENSSL_ROOT_DIR=/opt/onedata/%{scl}/root/usr \
          -DWITH_CEPH=ON -DWITH_GLUSTERFS=ON -DWITH_SWIFT=ON -DWITH_WEBDAV=ON -DWITH_XROOTD=ON \
          -DCMAKE_BUILD_TYPE=Release -DBUILD_INTEGRATION_TESTS=OFF -DBUILD_SHARED_LIBS=ON \
+         -DPYTHON3_LDFLAGS="-lpython3.6m -lpthread -ldl  -lutil -lm  -Xlinker -export-dynamic" \
          -DSTATIC_LIBSTDCPP=ON -DSTATIC_BOOST=OFF -DSTATIC_PROTOBUF=ON
 make %{_smp_mflags} oneclient
 make %{_smp_mflags} onebench
-make %{_smp_mflags} onedatafs.py2
 make %{_smp_mflags} onedatafs.py3
 SCL_EOF_MACRO
 
@@ -163,13 +177,6 @@ make install DESTDIR=$RPM_BUILD_ROOT/opt/onedata/%{scl}/root/
 
 %doc
 %{_defaultdocdir}/oneclient/README.md
-
-%files -n %{?scl_prefix}python2-onedatafs
-/opt/onedata/%{scl}/root/%{python_sitearch}/onedatafs/*
-
-%post -n %{?scl_prefix}python2-onedatafs
-%{__ln_s} -f /opt/onedata/%{scl}/root/%{python_sitearch}/onedatafs/onedatafs_py2.so /opt/onedata/%{scl}/root/%{python_sitearch}/onedatafs/onedatafs.so
-%{__ln_s} -f /opt/onedata/%{scl}/root/usr/lib64/ceph/libceph-common.so.0 /opt/onedata/%{scl}/root/usr/lib64/libceph-common.so.0
 
 %files -n %{?scl_prefix}python3-onedatafs
 /opt/onedata/%{scl}/root/%{python3_sitearch}/onedatafs/*

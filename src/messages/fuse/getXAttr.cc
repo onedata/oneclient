@@ -18,7 +18,7 @@ namespace one {
 namespace messages {
 namespace fuse {
 
-GetXAttr::GetXAttr(folly::fbstring uuid, folly::fbstring name)
+GetXAttr::GetXAttr(const folly::fbstring &uuid, folly::fbstring name)
     : FileRequest{uuid.toStdString()}
     , m_name{std::move(name)}
 {
