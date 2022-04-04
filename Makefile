@@ -1,12 +1,12 @@
 # distro for package building (oneof: xenial, centos-7-x86_64)
-RELEASE               ?= 2002
+RELEASE               ?= 2102
 DISTRIBUTION          ?= none
 DOCKER_RELEASE        ?= development
 DOCKER_REG_NAME       ?= "docker.onedata.org"
 DOCKER_REG_USER       ?= ""
 DOCKER_REG_PASSWORD   ?= ""
 DOCKER_BASE_IMAGE     ?= "ubuntu:18.04"
-DOCKER_DEV_BASE_IMAGE ?= "onedata/worker:2002-2"
+DOCKER_DEV_BASE_IMAGE ?= "onedata/worker:2102-6"
 HTTP_PROXY            ?= "http://proxy.devel.onedata.org:3128"
 
 PKG_REVISION    ?= $(shell git describe --tags --always  --abbrev=7)
@@ -30,10 +30,14 @@ WITH_GLUSTERFS    ?= ON
 WITH_WEBDAV       ?= ON
 # Build with XRootD storage helper by default
 WITH_XROOTD       ?= ON
+# Build with NFS storage helper by default
+WITH_NFS          ?= ON
 # Build with onedatafs Python library
 WITH_ONEDATAFS    ?= ON
 # Build with code coverage
 WITH_COVERAGE     ?= ON
+# Set Fuse version (2 or 3)
+WITH_FUSE_VERSION ?= 3
 
 # Oneclient FPM packaging variables
 PATCHELF_DOCKER_IMAGE   ?= docker.onedata.org/patchelf:0.9
@@ -48,6 +52,12 @@ ifeq ($(strip $(ONECLIENT_BASE_IMAGE)),)
 ONECLIENT_BASE_IMAGE    := ID-$(shell git rev-parse HEAD | cut -c1-10)
 endif
 
+# Detect compilation on CentOS using Software Collections environment
+ifeq ($(shell awk -F= '/^ID=/{print $$2}' /etc/os-release), "centos")
+		OPENSSL_ROOT_DIR ?= /opt/onedata/onedata2102/root/usr
+		TBB_INSTALL_DIR ?= /opt/onedata/onedata2102/root/usr
+endif
+
 .PHONY: all
 all: debug test
 
@@ -56,6 +66,7 @@ all: debug test
                   helpers/test/integration/* helpers/test/integration/**
 	mkdir -p $*
 	cd $* && cmake -GNinja -DCMAKE_BUILD_TYPE=$* \
+	                       -DFETCH_FOLLY=${FETCH_FOLLY} \
 	                       -DGIT_VERSION=${PKG_REVISION} \
 	                       -DGIT_COMMIT=${PKG_COMMIT} \
 	                       -DGIT_HELPERS_COMMIT=${HELPERS_COMMIT} \
@@ -66,11 +77,40 @@ all: debug test
 	                       -DWITH_GLUSTERFS=${WITH_GLUSTERFS} \
 	                       -DWITH_WEBDAV=${WITH_WEBDAV} \
 	                       -DWITH_XROOTD=${WITH_XROOTD} \
+	                       -DWITH_NFS=${WITH_NFS} \
 	                       -DWITH_ONEDATAFS=${WITH_ONEDATAFS} \
-	                       -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR} \
+	                       -DWITH_FUSE_VERSION=${WITH_FUSE_VERSION} \
 	                       -DCMAKE_INSTALL_PREFIX=${PWD}/debug/PREFIX \
-	                       -DOPENSSL_LIBRARIES=${OPENSSL_LIBRARIES} ..
+	                       -DTBB_INSTALL_DIR=${TBB_INSTALL_DIR} \
+	                       -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR} ..
 	touch $@
+
+%/build-native:
+	mkdir -p _build
+	cd _build && cmake -DCMAKE_BUILD_TYPE=$* \
+			-DFETCH_FOLLY=${FETCH_FOLLY} \
+			-DGIT_VERSION=${PKG_VERSION} \
+			-DCODE_COVERAGE=OFF \
+			-DWITH_CEPH=${WITH_CEPH} \
+			-DWITH_SWIFT=${WITH_SWIFT} \
+			-DWITH_S3=${WITH_S3} \
+			-DWITH_GLUSTERFS=${WITH_GLUSTERFS} \
+			-DWITH_WEBDAV=${WITH_WEBDAV} \
+			-DWITH_XROOTD=${WITH_XROOTD} \
+			-DWITH_NFS=${WITH_NFS} \
+			-DWITH_ONECLIENT=ON \
+			-DWITH_ONEBENCH=ON \
+			-DWITH_ONEDATAFS=OFF \
+			-DWITH_FUSE_VERSION=${WITH_FUSE_VERSION} \
+			-DFOLLY_SHARED=ON \
+			-DWITH_LIBDL=ON \
+			-DWITH_LIBRT=ON \
+			-DWITH_TESTS=OFF \
+			-DBoost_NO_BOOST_CMAKE=ON \
+			-DCMAKE_INSTALL_PREFIX=${PREFIX} \
+			.. && \
+	make -j8 oneclient VERBOSE=1 && \
+	make -j8 onebench VERBOSE=1
 
 ##
 ## Submodules
@@ -100,10 +140,10 @@ phony:
 deb-info: relwithdebinfo/oneclient
 
 .PHONY: release
-release: release/oneclient release/onebench release/onedatafs-py2 release/onedatafs-py3
+release: release/oneclient release/onebench release/onedatafs-py3
 
 .PHONY: debug
-debug: debug/oneclient debug/onebench debug/onedatafs-py2 debug/onedatafs-py3
+debug: debug/oneclient debug/onebench debug/onedatafs-py3
 
 .PHONY: test
 test: debug
@@ -213,20 +253,22 @@ conda/oneclient: package/$(PKG_ID).tar.gz
 		PKG_VERSION=$(PKG_VERSION) CONDA_BLD_PATH=$$PWD/package/conda-bld \
 		conda build --user onedata-devel --token "${CONDA_TOKEN}" \
 		${CONDA_BUILD_OPTIONS} package/conda/oneclient
-	echo "onedata-devel/oneclient/$(PKG_VERSION)/download/linux-64/oneclient-$(PKG_VERSION)-py39.tar.bz2" >> conda-pkg-list.txt
+	echo "onedata-devel/oneclient/$(PKG_VERSION)/download/linux-64/oneclient-$(PKG_VERSION)-0.tar.bz2" >> conda-pkg-list.txt
 
 .PHONY: conda/oneclient_centos6
 conda/oneclient_centos6: SHELL:=/bin/bash
 conda/oneclient_centos6: package/$(PKG_ID).tar.gz
-	cp /tmp/.condarc $$HOME/.condarc
+	cp /tmp/.condarc-forge $$HOME/.condarc
 	cat $$HOME/.condarc
 	mkdir -p package/conda
 	mkdir -p package/conda-bld
 	cp -R conda/oneclient package/conda/
 	sed -i "s|<<PKG_VERSION>>|$(PKG_VERSION)|g" package/conda/oneclient/meta.yaml
 	sed -i "s|<<PKG_SOURCE>>|../../$(PKG_ID).tar.gz|g" package/conda/oneclient/meta.yaml
-	sed -i 's|libfuse .*$$|libfuse =2.8.3|g' package/conda/oneclient/meta.yaml
+	sed -i 's|conda-forge::libfuse|onedata-centos6::libfuse =2.8.3|g' package/conda/oneclient/meta.yaml
 	sed -i 's|protobuf.*$$|protobuf =3.8.0|g' package/conda/oneclient/meta.yaml
+	sed -i 's|onedata::|onedata-centos6::|g' package/conda/oneclient/meta.yaml
+	sed -i 's|DWITH_FUSE_VERSION=3|DWITH_FUSE_VERSION=2|g' package/conda/oneclient/build.sh
 	sed -i '/run:/ { :l; n; s/^.*libfuse.*$$//; tx; bl; :x; N; s/\n//; bl }' package/conda/oneclient/meta.yaml
 	source /opt/conda/bin/activate base && \
 		PKG_VERSION=$(PKG_VERSION) CONDA_BLD_PATH=$$PWD/package/conda-bld \
@@ -398,7 +440,7 @@ oneclient_rpm: $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz
 		   --iteration $(PKG_BUILD) --license "Apache 2.0" \
 		   --after-install=/data/oneclient_rpm.pre \
 		   --after-remove=/data/oneclient_rpm.post \
-		   --depends fuse --depends ca-certificates \
+		   --depends fuse3 --depends ca-certificates \
 		   --maintainer "Onedata Package Maintainers <info@onedata.org>" \
 		   --description "Self-contained Onedata Oneclient command-line client package" \
 		   /data/oneclient-bin.tar.gz
@@ -419,7 +461,7 @@ oneclient_deb: $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz
 		   -v $(ONECLIENT_VERSION)-$(PKG_BUILD)~$(DISTRIBUTION) --license "Apache 2.0" \
 		   --after-install=/data/oneclient_deb.pre \
 		   --after-remove=/data/oneclient_deb.post \
-		   --depends fuse --depends ca-certificates \
+		   --depends fuse3 --depends ca-certificates \
 		   --maintainer "Onedata Package Maintainers <info@onedata.org>" \
 		   --description "Self-contained Onedata Oneclient command-line client package" \
 		   /data/oneclient-bin.tar.gz
@@ -467,7 +509,7 @@ docker-dev:
 
 .PHONY: clean
 clean:
-	rm -rf debug release relwithdebinfo doc package package_fpm
+	rm -rf debug release relwithdebinfo doc package package_fpm _build
 
 .PHONY: clang-tidy
 clang-tidy:
@@ -475,4 +517,4 @@ clang-tidy:
 
 .PHONY: clang-format
 clang-format:
-	docker run --rm -v $(CURDIR):/root/sources onedata/clang-format-check:1.2
+	docker run --rm -v $(CURDIR):/root/sources onedata/clang-format-check:1.3
