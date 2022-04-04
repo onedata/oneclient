@@ -24,7 +24,7 @@ FileOpened::FileOpened(std::unique_ptr<ProtocolServerMessage> serverMessage)
         throw std::system_error{std::make_error_code(std::errc::protocol_error),
             "file_opened field missing"};
 
-    auto fileOpened =
+    auto *fileOpened =
         serverMessage->mutable_fuse_response()->mutable_file_opened();
 
     fileOpened->mutable_handle_id()->swap(m_handleId);

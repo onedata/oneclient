@@ -23,7 +23,7 @@ std::unique_ptr<ProtocolClientMessage> GetFSStats::serializeAndDestroy()
 {
     auto msg = std::make_unique<ProtocolClientMessage>();
 
-    auto cg =
+    auto *cg =
         msg->mutable_fuse_request()->mutable_get_fs_stats()->mutable_file_id();
     cg->swap(m_fileId);
 

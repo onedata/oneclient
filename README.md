@@ -2,7 +2,7 @@
 
 [![Build Status](https://api.travis-ci.org/onedata/oneclient.svg?branch=develop)](https://travis-ci.org/onedata/oneclient) [![Coverage Status](https://coveralls.io/repos/github/onedata/oneclient/badge.svg?branch=develop)](https://coveralls.io/github/onedata/oneclient?branch=develop)
 
-Latest stable release: ![version](https://img.shields.io/badge/version-20.02.6-blue)
+Latest stable release: ![version](https://img.shields.io/badge/version-20.02.15-blue)
 
 *oneclient* is a command line [Onedata](onedata.org) client. It provides a POSIX interface to user's files in *Onedata* system.
 
@@ -38,6 +38,7 @@ cmake --build release
 * WITH_GLUSTERFS=OFF - disables GlusterFS support
 * WITH_WEBDAV=OFF - disables WebDAV support
 * WITH_XROOTD=OFF - disables XRootD support
+* WITH_NFS=OFF - disable NFS support
 
 The compiled binary `oneclient` will be created on path `release/oneclient`.
 

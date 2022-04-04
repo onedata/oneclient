@@ -28,10 +28,10 @@ FileChildrenAttrs::FileChildrenAttrs(
         throw std::system_error{std::make_error_code(std::errc::protocol_error),
             "file_children_attrs field missing"};
 
-    auto fileChildrenAttrs =
+    auto *fileChildrenAttrs =
         serverMessage->mutable_fuse_response()->mutable_file_children_attrs();
 
-    auto childAttrs = fileChildrenAttrs->mutable_child_attrs();
+    auto *childAttrs = fileChildrenAttrs->mutable_child_attrs();
 
     for (const auto &child :
         folly::range(childAttrs->pointer_begin(), childAttrs->pointer_end())) {

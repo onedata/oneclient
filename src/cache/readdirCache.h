@@ -19,7 +19,6 @@
 #include <folly/Optional.h>
 #include <folly/futures/Future.h>
 #include <folly/futures/SharedPromise.h>
-#include <fuse/fuse_lowlevel.h>
 
 #include <chrono>
 #include <list>
@@ -52,7 +51,7 @@ public:
     /**
      * Destructor
      */
-    virtual ~ReaddirCache() {}
+    virtual ~ReaddirCache() { }
 
     /**
      * Read directory entries from cache or if not available fetch from server.
@@ -62,11 +61,13 @@ public:
      * @param chunkSize Maximum number of directory entries to be returned.
      * @param includeReplicationStatus Determines whether replication status
      * should be included in files attributes.
+     * @param includeHardLinkCount Determines whether hard link count should be
+     * included in FileAttr responses.
      * @return Directory entries in the requested range.
      */
     folly::fbvector<folly::fbstring> readdir(const folly::fbstring &uuid,
         const off_t off, const std::size_t chunkSize,
-        const bool includeReplicationStatus);
+        const bool includeReplicationStatus, const bool includeHardLinkCount);
 
     /**
      * Returns true if cache doesn't contain any elements.
@@ -85,8 +86,8 @@ private:
      *
      * @param uuid Directory id.
      */
-    void fetch(
-        const folly::fbstring &uuid, const bool includeReplicationStatus);
+    void fetch(const folly::fbstring &uuid, const bool includeReplicationStatus,
+        const bool includeHardLinkCount);
 
     /**
      * Removes element cache for specific directory.

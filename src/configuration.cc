@@ -36,7 +36,7 @@ std::shared_ptr<communication::Communicator> handshake(
     std::shared_ptr<auth::AuthManager> authManager,
     std::shared_ptr<Context> context)
 {
-    auto handshakeHandler = [&](messages::HandshakeResponse msg) {
+    auto handshakeHandler = [&](const messages::HandshakeResponse &msg) {
         if (msg.isMacaroonError()) {
             LOG(ERROR) << "Fatal error during handshake: "
                        << msg.status().message();
@@ -52,10 +52,20 @@ std::shared_ptr<communication::Communicator> handshake(
         std::get<std::shared_ptr<communication::Communicator>>(
             testCommunicatorTuple);
 
+    if (context->options()->isMessageTraceLoggerEnabled()) {
+        using namespace std::chrono;
+        auto messageLogPath = context->options()->getLogDirPath() /
+            fmt::format("message-log-{}.txt",
+                duration_cast<seconds>(system_clock::now().time_since_epoch())
+                    .count());
+        testCommunicator->enableMessageLog(
+            "handshake_message_trace_logger", messageLogPath.string());
+    }
+
     testCommunicator->setScheduler(context->scheduler());
     testCommunicator->connect();
     communication::wait(
-        std::get<folly::Future<folly::Unit>>(testCommunicatorTuple),
+        std::move(std::get<folly::Future<folly::Unit>>(testCommunicatorTuple)),
         context->options()->getProviderTimeout());
 
     return testCommunicator;
@@ -91,7 +101,7 @@ std::shared_ptr<messages::Configuration> getConfiguration(
     auto future = communicator->communicate<messages::Configuration>(
         messages::GetConfiguration{});
     auto configuration =
-        communication::wait(future, options->getProviderTimeout());
+        communication::wait(std::move(future), options->getProviderTimeout());
 
     communicator->stop();
 

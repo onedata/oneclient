@@ -16,7 +16,7 @@
 #include "messages/fuse/storageTestFile.h"
 #include "messages/fuse/verifyStorageTestFile.h"
 
-#include <folly/ThreadName.h>
+#include <folly/system/ThreadName.h>
 
 #include <algorithm>
 #include <chrono>
@@ -27,29 +27,28 @@ namespace client {
 namespace cache {
 
 HelpersCache::HelpersCache(communication::Communicator &communicator,
-    Scheduler &scheduler, const options::Options &options)
+    std::shared_ptr<Scheduler> scheduler, const options::Options &options,
+    int maxAttempts)
     : m_communicator{communicator}
-    , m_scheduler{scheduler}
+    , m_scheduler{std::move(scheduler)}
     , m_options{options}
-    , m_helpersIoService{static_cast<int>(
-          options.getStorageHelperThreadCount())}
     , m_helpersIOExecutor{std::make_shared<folly::IOThreadPoolExecutor>(
           static_cast<int>(options.getStorageHelperThreadCount()))}
     , m_helperParamOverrides{options.getHelperOverrideParams()}
     , m_helperFactory
 {
 #if WITH_CEPH
-    m_helpersIoService, m_helpersIoService,
+    m_helpersIOExecutor, m_helpersIOExecutor,
 #endif
-        m_helpersIoService,
+        m_helpersIOExecutor,
 #if WITH_S3
-        m_helpersIoService,
+        m_helpersIOExecutor,
 #endif
 #if WITH_SWIFT
-        m_helpersIoService,
+        m_helpersIOExecutor,
 #endif
 #if WITH_GLUSTERFS
-        m_helpersIoService,
+        m_helpersIOExecutor,
 #endif
 #if WITH_WEBDAV
         m_helpersIOExecutor,
@@ -57,7 +56,10 @@ HelpersCache::HelpersCache(communication::Communicator &communicator,
 #if WITH_XROOTD
         m_helpersIOExecutor,
 #endif
-        m_helpersIoService, m_communicator,
+#if WITH_NFS
+        m_helpersIOExecutor,
+#endif
+        m_helpersIOExecutor, m_communicator,
         options.getBufferSchedulerThreadCount(),
         helpers::buffering::BufferLimits{options.getReadBufferMinSize(),
             options.getReadBufferMaxSize(),
@@ -71,22 +73,8 @@ HelpersCache::HelpersCache(communication::Communicator &communicator,
         helpers::ExecutionContext::ONECLIENT
 }
 , m_storageAccessManager{m_helperFactory, m_options},
-    m_providerTimeout{options.getProviderTimeout()}
+    m_providerTimeout{options.getProviderTimeout()}, m_maxAttempts{maxAttempts}
 {
-    std::generate_n(std::back_inserter(m_helpersWorkers),
-        options.getStorageHelperThreadCount(), [this] {
-            return std::thread{[this] {
-                folly::setThreadName("HelpersWorker");
-                m_helpersIoService.run();
-            }};
-        });
-}
-
-HelpersCache::~HelpersCache()
-{
-    m_helpersIoService.stop();
-    for (auto &worker : m_helpersWorkers)
-        worker.join();
 }
 
 HelpersCache::AccessType HelpersCache::getAccessType(
@@ -119,27 +107,28 @@ folly::Future<folly::Unit> HelpersCache::refreshHelperParameters(
     }
 
     // Invalidate helper parameters and obtain a new parameters promise
-    return helperPromiseIt->second->getFuture().then([this, storageId, spaceId](
-                                                         HelpersCache::HelperPtr
-                                                             helper) {
-        auto params = communication::wait(
-            m_communicator.communicate<messages::fuse::HelperParams>(
-                messages::fuse::GetHelperParams{storageId.toStdString(),
-                    spaceId.toStdString(),
-                    messages::fuse::GetHelperParams::HelperMode::directMode}),
-            m_providerTimeout);
+    return helperPromiseIt->second->getFuture().thenValue(
+        [this, storageId, spaceId](HelpersCache::HelperPtr &&helper) {
+            auto params = communication::wait(
+                m_communicator.communicate<messages::fuse::HelperParams>(
+                    messages::fuse::GetHelperParams{storageId.toStdString(),
+                        spaceId.toStdString(),
+                        messages::fuse::GetHelperParams::HelperMode::
+                            directMode}),
+                m_providerTimeout);
 
-        auto helperParams =
-            helpers::StorageHelperParams::create(params.name(), params.args());
+            auto helperParams = helpers::StorageHelperParams::create(
+                params.name(), params.args());
 
-        auto bufferedHelper =
-            std::dynamic_pointer_cast<helpers::buffering::BufferAgent>(helper);
-        if (bufferedHelper)
-            return bufferedHelper->helper()->refreshParams(
-                std::move(helperParams));
+            auto bufferedHelper =
+                std::dynamic_pointer_cast<helpers::buffering::BufferAgent>(
+                    helper);
+            if (bufferedHelper)
+                return bufferedHelper->helper()->refreshParams(
+                    std::move(helperParams));
 
-        return helper->refreshParams(std::move(helperParams));
-    });
+            return helper->refreshParams(std::move(helperParams));
+        });
 }
 
 folly::Future<HelpersCache::HelperPtr> HelpersCache::get(
@@ -175,7 +164,7 @@ folly::Future<HelpersCache::HelperPtr> HelpersCache::get(
 
                 m_cache.emplace(std::make_tuple(storageId, false), p);
 
-                m_scheduler.post(
+                m_scheduler->post(
                     [this, &fileUuid, &spaceId, &storageId, p = std::move(p)] {
                         p->setWith([=] {
                             return performForcedDirectIOStorageDetection(
@@ -203,8 +192,8 @@ folly::Future<HelpersCache::HelperPtr> HelpersCache::get(
 
         m_cache.emplace(std::make_tuple(storageId, forceProxyIO), p);
 
-        m_scheduler.post([this, &fileUuid, &spaceId, &storageId, forceProxyIO,
-                             p = std::move(p)] {
+        m_scheduler->post([this, &fileUuid, &spaceId, &storageId, forceProxyIO,
+                              p = std::move(p)] {
             p->setWith([=] {
                 return performAutoIOStorageDetection(
                     fileUuid, spaceId, storageId, forceProxyIO);
@@ -224,7 +213,7 @@ HelpersCache::HelperPtr HelpersCache::performAutoIOStorageDetection(
         << storageId << " for file " << fileUuid
         << " with forced proxy io mode: " << forceProxyIO;
 
-    bool accessUnset;
+    bool accessUnset = false;
     auto accessTypeKey = std::make_pair(storageId, AccessType::PROXY);
 
     // Check if the access type (PROXY or DIRECT) is already
@@ -262,7 +251,7 @@ HelpersCache::HelperPtr HelpersCache::performAutoIOStorageDetection(
             if (params.name() == helpers::POSIX_HELPER_NAME &&
                 overrideParams.find("mountPoint") != overrideParams.end()) {
 
-                m_storageAccessManager.checkPosixMountpointOverride(
+                one::client::StorageAccessManager::checkPosixMountpointOverride(
                     storageId, overrideParams);
 
                 {
@@ -291,10 +280,10 @@ HelpersCache::HelperPtr HelpersCache::performAutoIOStorageDetection(
                        << " wasn't determined on first attempt - "
                           "scheduling retry and return proxy helper as "
                           "fallback";
-            m_scheduler.post([this, fileUuid, storageId,
-                                 storageType = params.name()] {
-                auto directIOHelper =
-                    requestStorageTestFileCreation(fileUuid, storageId);
+            m_scheduler->post([this, fileUuid, storageId,
+                                  storageType = params.name()] {
+                auto directIOHelper = requestStorageTestFileCreation(
+                    fileUuid, storageId, m_maxAttempts);
                 if (directIOHelper) {
                     LOG_DBG(2) << "Found direct access to " << storageType
                                << " storage " << storageId
@@ -384,13 +373,14 @@ HelpersCache::HelperPtr HelpersCache::performForcedDirectIOStorageDetection(
                          "attempting storage mountpoint detection in local "
                          "filesystem";
 
-            return requestStorageTestFileCreation(fileUuid, storageId);
+            return requestStorageTestFileCreation(
+                fileUuid, storageId, m_maxAttempts);
         }
 
         LOG_DBG(1) << "Got storage helper params for file " << fileUuid
                    << " on " << params.name() << " storage " << storageId;
 
-        m_storageAccessManager.checkPosixMountpointOverride(
+        one::client::StorageAccessManager::checkPosixMountpointOverride(
             storageId, overrideParams);
 
         return m_helperFactory.getStorageHelper(params.name(), params.args(),
@@ -461,15 +451,16 @@ HelpersCache::HelperPtr HelpersCache::handleStorageTestFile(
             LOG(INFO) << "Storage '" << storageId
                       << "' is not directly accessible to the client. Test "
                          "file verification attempts limit ("
-                      << maxAttempts << ") exceeded.";
+                      << m_maxAttempts << ") exceeded.";
 
             std::lock_guard<std::mutex> guard(m_accessTypeMutex);
             m_accessType[storageId] = AccessType::PROXY;
             return {};
         }
 
-        auto fileContent = m_storageAccessManager.modifyStorageTestFile(
-            storageId, helper, *testFile);
+        auto fileContent =
+            one::client::StorageAccessManager::modifyStorageTestFile(
+                storageId, helper, *testFile);
 
         requestStorageTestFileVerification(*testFile, storageId, fileContent);
 

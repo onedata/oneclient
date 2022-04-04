@@ -27,7 +27,7 @@ struct stat toStatbuf(const FileAttrPtr &attr, const fuse_ino_t ino)
     statbuf.st_uid = attr->uid();
     statbuf.st_mode = attr->mode();
     statbuf.st_size = attr->size() ? *attr->size() : 0;
-    statbuf.st_nlink = 1;
+    statbuf.st_nlink = attr->nlink() ? *attr->nlink() : 1;
     statbuf.st_blksize = kBlockSize;
     // The block count must be returned in 512B blocks, i.e. an eigth
     // of the 4K block size
@@ -41,9 +41,10 @@ struct stat toStatbuf(const FileAttrPtr &attr, const fuse_ino_t ino)
             // Remove sticky bit for nfs compatibility
             statbuf.st_mode &= ~S_ISVTX;
             break;
-        case messages::fuse::FileAttr::FileType::link:
+        case messages::fuse::FileAttr::FileType::symlink:
             statbuf.st_mode |= S_IFLNK;
             break;
+        case messages::fuse::FileAttr::FileType::link:
         case messages::fuse::FileAttr::FileType::regular:
             statbuf.st_mode |= S_IFREG;
             break;

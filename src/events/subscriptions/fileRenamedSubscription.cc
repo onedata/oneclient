@@ -48,7 +48,7 @@ std::string FileRenamedSubscription::toString() const
 ProtoSubscriptionPtr FileRenamedSubscription::serialize() const
 {
     auto subscriptionMsg = std::make_unique<clproto::Subscription>();
-    auto msg = subscriptionMsg->mutable_file_renamed();
+    auto *msg = subscriptionMsg->mutable_file_renamed();
     msg->set_file_uuid(m_fileUuid);
 
     return subscriptionMsg;

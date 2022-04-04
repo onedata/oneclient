@@ -150,6 +150,15 @@ Options::Options()
 
     add<bool>()
         ->asSwitch()
+        .withLongName("message-trace-log")
+        .withConfigName("message_trace_log")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::INVISIBLE)
+        .withDescription("Enable detailed ProtoBuf messages trace log.");
+
+    add<bool>()
+        ->asSwitch()
         .withLongName("log-read-write-perf")
         .withConfigName("log_read_write_perf")
         .withImplicitValue(true)
@@ -471,8 +480,8 @@ Options::Options()
         .withDefaultValue(DEFAULT_METADATA_CACHE_SIZE,
             std::to_string(DEFAULT_METADATA_CACHE_SIZE))
         .withGroup(OptionGroup::ADVANCED)
-        .withDescription("Number of separate blocks after which replication "
-                         "for the file is triggered automatically.");
+        .withDescription(
+            "Maximum number of file attributes cached in the metadata cache.");
 
     add<unsigned int>()
         ->withLongName("readdir-prefetch-size")
@@ -488,8 +497,6 @@ Options::Options()
         ->withLongName("dir-cache-drop-after")
         .withConfigName("dir_cache_drop_after")
         .withValueName("<seconds>")
-        .withDefaultValue(DEFAULT_DIR_CACHE_DROP_AFTER,
-            std::to_string(DEFAULT_DIR_CACHE_DROP_AFTER))
         .withGroup(OptionGroup::ADVANCED)
         .withDescription("Specify (in seconds) how long should directories be "
                          "cached since last activity. When 0 is provided, "
@@ -592,9 +599,15 @@ Options::Options()
         ->asSwitch()
         .withLongName("only-full-replicas")
         .withImplicitValue(true)
-        .withDefaultValue(false, "false")
         .withGroup(OptionGroup::INVISIBLE)
         .withDescription("Show only fully replicated files.");
+
+    add<bool>()
+        ->asSwitch()
+        .withLongName("hard-link-count")
+        .withImplicitValue(true)
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Show hard link count properly in stat.");
 
     add<bool>()
         ->asSwitch()
@@ -603,6 +616,24 @@ Options::Options()
         .withDefaultValue(false, "false")
         .withGroup(OptionGroup::ADVANCED)
         .withDescription("Enable Archivematica mode.");
+
+    add<bool>()
+        ->asSwitch()
+        .withLongName("open-shares-mode")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Enable open share mode, in which space directories "
+                         "list open data shares.");
+
+    add<bool>()
+        ->asSwitch()
+        .withLongName("show-space-ids")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription(
+            "Show space Id's instead of space names in the filesystem tree.");
 
     add<std::string>()
         ->withEnvName("monitoring_type")
@@ -842,6 +873,12 @@ bool Options::isIOTraceLoggerEnabled() const
     return get<bool>({"io-trace-log", "io_trace_log"}).get_value_or(false);
 }
 
+bool Options::isMessageTraceLoggerEnabled() const
+{
+    return get<bool>({"message-trace-log", "message_trace_log"})
+        .get_value_or(false);
+}
+
 bool Options::isReadWritePerfEnabled() const
 {
     return get<bool>({"log-read-write-perf", "log_read_write_perf"})
@@ -1060,9 +1097,17 @@ unsigned int Options::getReaddirPrefetchSize() const
 
 std::chrono::seconds Options::getDirectoryCacheDropAfter() const
 {
+    auto defaultDirCacheDropAfter = DEFAULT_DIR_CACHE_DROP_AFTER;
+    if (get<unsigned int>({"dir-cache-drop-after", "dir_cache_drop_after"}) ==
+            boost::none &&
+        isOpenSharesModeEnabled()) {
+        defaultDirCacheDropAfter =
+            DEFAULT_DIR_CACHE_DROP_AFTER_IN_OPEN_SHARE_MODE;
+    }
+
     return std::chrono::seconds{
         get<unsigned int>({"dir-cache-drop-after", "dir_cache_drop_after"})
-            .get_value_or(DEFAULT_DIR_CACHE_DROP_AFTER)};
+            .get_value_or(defaultDirCacheDropAfter)};
 }
 
 boost::optional<std::pair<std::string, std::string>>
@@ -1116,10 +1161,27 @@ bool Options::showOnlyFullReplicas() const
         .get_value_or(false);
 }
 
+bool Options::showHardLinkCount() const
+{
+    return get<bool>({"hard-link-count", "hard_link_count"})
+        .get_value_or(false);
+}
+
 bool Options::isArchivematicaModeEnabled() const
 {
     return get<bool>({"enable-archivematica", "enable_archivematica"})
         .get_value_or(false);
+}
+
+bool Options::isOpenSharesModeEnabled() const
+{
+    return get<bool>({"open-shares-mode", "open-share-mode"})
+        .get_value_or(false);
+}
+
+bool Options::showSpaceIds() const
+{
+    return get<bool>({"show-space-ids", "show-space-ids"}).get_value_or(false);
 }
 
 bool Options::isMonitoringEnabled() const
@@ -1190,7 +1252,9 @@ struct fuse_args Options::getFuseArgs(const char *programName) const
     struct fuse_args args = FUSE_ARGS_INIT(0, nullptr);
 
     fuse_opt_add_arg(&args, programName);
+#if FUSE_USE_VERSION <= 30
     fuse_opt_add_arg(&args, "-obig_writes");
+#endif
 
     if (getDebug())
         fuse_opt_add_arg(&args, "-d");

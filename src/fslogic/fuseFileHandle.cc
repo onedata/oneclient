@@ -107,7 +107,7 @@ void FuseFileHandle::reset()
 folly::fbvector<helpers::FileHandlePtr> FuseFileHandle::helperHandles() const
 {
     folly::fbvector<helpers::FileHandlePtr> result;
-    for (auto &elem : m_helperHandles)
+    for (const auto &elem : m_helperHandles)
         result.emplace_back(elem.second);
     return result;
 }
@@ -115,7 +115,7 @@ folly::fbvector<helpers::FileHandlePtr> FuseFileHandle::helperHandles() const
 helpers::FileHandlePtr FuseFileHandle::helperHandle(
     const folly::fbstring &storageId) const
 {
-    for (auto &elem : m_helperHandles) {
+    for (const auto &elem : m_helperHandles) {
         if ((std::get<0>(elem.first) == storageId) &&
             (!std::get<2>(elem.first)))
             return elem.second;

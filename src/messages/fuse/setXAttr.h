@@ -35,8 +35,8 @@ public:
      * @param replace Replace-only mode, if set to true, should fail if the
      * attribute does not exist yet (equivalent to POSIX XATTR_REPLACE flag)
      */
-    SetXAttr(folly::fbstring uuid, folly::fbstring name, folly::fbstring value,
-        bool create = false, bool replace = false);
+    SetXAttr(const folly::fbstring &uuid, folly::fbstring name,
+        folly::fbstring value, bool create = false, bool replace = false);
 
     std::string toString() const override;
 

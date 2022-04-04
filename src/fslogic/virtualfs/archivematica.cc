@@ -59,8 +59,8 @@ ArchivematicaProcessingMCPFileHandle::getLocation() const
 
     auto loc = std::make_unique<FileLocation>();
     loc->putBlock(0, m_content.size(),
-        FileBlock{"archivematica", m_fileId.toStdString()});
-    loc->setUuid(m_fileId.toStdString());
+        FileBlock{"archivematica", fileId().toStdString()});
+    loc->setUuid(fileId().toStdString());
     return loc;
 }
 
@@ -190,14 +190,14 @@ ArchivematicaMetadataJSONFileHandle::getLocation() const
 
     auto loc = std::make_unique<FileLocation>();
     loc->putBlock(0, m_content.size(),
-        FileBlock{"archivematica", m_fileId.toStdString()});
-    loc->setUuid(m_fileId.toStdString());
+        FileBlock{"archivematica", fileId().toStdString()});
+    loc->setUuid(fileId().toStdString());
     return loc;
 }
 
 void ArchivematicaMetadataJSONFileHandle::appendMetadata(FsLogic &fsLogic,
-    folly::fbstring parentUuid, folly::dynamic &objects, folly::fbstring prefix,
-    bool topLevelDir)
+    const folly::fbstring &parentUuid, folly::dynamic &objects,
+    const folly::fbstring &prefix, bool topLevelDir)
 {
     LOG_FCALL() << LOG_FARG(parentUuid) << LOG_FARG(prefix);
 
@@ -374,7 +374,7 @@ folly::fbstring ArchivematicaVirtualFsAdapter::effectiveName(
 {
     folly::StringPiece d{direntry};
     d.removeSuffix(".__onedata_archivematica");
-    return d.toFbstring();
+    return d.str();
 }
 
 folly::Future<FileHandlePtr> ArchivematicaVirtualFsAdapter::open(

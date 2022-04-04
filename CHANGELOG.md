@@ -4,10 +4,129 @@ Release notes for project oneclient
 CHANGELOG
 ---------
 
+### 21.02.0-alpha24
+
+-   **VFS-8747** Pinned boost dependency on conda to 1.76.0.
+
+
+### 21.02.0-alpha23
+
+-   **VFS-8425** Added basic cookie support to HTTP storage helper to
+    support OAuth redirect authorization.
+-   **VFS-8318** Fixed conda packaging for oneclient and onedatafs,
+    switched dependencies to conda-forge channel.
+-   **VFS-8242** Upgraded Oneclient to use Fuse 3 by default.
+-   **VFS-8240** Applied fixes suggested by new version of clang-tidy
+    static C++ code analyzer.
+-   **VFS-8237** Updated C++ clang-format version to 12.
+-   **VFS-8073** Upgrade folly, wangle and proxygen libraries to version
+    2021.01.04.00.
+
+### 21.02.0-alpha22
+
+### 21.02.0-alpha21
+
+-   **VFS-8192** Fixed block synchronization from remote Oneproviders
+    for open share data sets.
+
+### 21.02.0-alpha20
+
+### 21.02.0-alpha19
+
+### 21.02.0-alpha18
+
+-   **VFS-7736** Fixed latency and timeout simulation in nulldevice
+    storage helper.
+
+### 21.02.0-alpha17
+
+-   **VFS-8018** Added HTTP storage driver option to limit on the client
+    side maximum number of requests per single session, after which the
+    session is closed and reconnected.
+
+### 21.02.0-alpha16
+
+-   **VFS-7982** Fixed handling of HTTP servers, which do not
+    automatically close the HTTP session connection after reaching max
+    requests per session.
+-   **VFS-7976** Ported oneclient communicator async event stream
+    implementation from asio to folly IOThreadPoolExecutor.
+-   **VFS-7892** Improved write performance on object storages by
+    minimizing the number of memory copying from Erlang to C++.
+
+### 21.02.0-alpha15
+
+-   **VFS-7747** Upgrade the codebase to Erlang OTP 24.
+
+### 21.02.0-alpha14
+
+-   **VFS-7813** Enable access to files directly via their Onedata file
+    id, by opening or performing any other POSIX operation on a file
+    with a name \`.\_\_onedata\_\_file\_id\_\_\<FILEID\>\`.
+
+### 21.02.0-alpha13
+
+-   **VFS-7733** Added block\_aligned flag to onebench storage
+    benchmarking tool, enforcing read and writes aligned to block\_size
+    boundary only.
+
+### 21.02.0-alpha12
+
+### 21.02.0-alpha11
+
+-   **VFS-7589** Added StorageRouter and BufferedStorage helpers to
+    handling of aggregate storages such as archive storage.
+
+### 21.02.0-alpha10
+
+### 21.02.0-alpha9
+
+### 21.02.0-alpha8
+
+### 21.02.0-alpha7
+
+-   **VFS-7509** Added support for absolute symlinks relative to
+    Oneclient mountpoint, i.e. always pointing to the same file in a
+    space, regardless of actual Oneclient mountpoint path.
+-   **VFS-7360** Added support for hardlinks and symlinks through
+    Oneclient POSIX interface.
+
+### 21.02.0-alpha6
+
+-   **VFS-7486** Added option to nulldevice helper allowing control of
+    file size returned by getattr in simulated file systems.
+
+### 21.02.0-alpha5
+
+-   **VFS-7358** Added support for accessing open data shares in
+    oneclient with \--open-shares-mode option.
+
+### 21.02.0-alpha4
+
+-   **VFS-7397** Added new option to oneclient \`\--show-space-ids\`
+    which allows to list spaces using their space Id\'s instead of names
+    in the top level oneclient mount directory.
+
+### 21.02.0-alpha3
+
+-   **VFS-7275** Improved Oneclient exception handling, including
+    connection errors and invalid tokens.
+
+### 21.02.0-alpha2
+
+-   **VFS-7276** Improved handling of startup errors in Oneclient,
+    including more graceful handling of various exceptions and more
+    informative error messages including Oneclient and Oneprovider
+    compatibility and invalid token issues.
+-   **VFS-7274** Added SIGTERM and SIGINT handlers to Oneclient,
+    ensuring that after the oneclient process is stopped by some other
+    process, the mountpoint is properly released.
+-   **VFS-7256** Fixed OnedataFS token refresh, which caused
+    disconnection from Oneprovider after the token expired.
+
 ### 20.02.16
 
--   **VFS-8828** Fixed conda packages for the stable branch 20.02.\*,
-    starting with version 20.02.15 and Python 3.9.
+-   **VFS-8747** Pinned boost dependency on conda to 1.76.0.
 
 ### 20.02.15
 
@@ -38,7 +157,6 @@ CHANGELOG
     process, the mountpoint is properly released.
 -   **VFS-7256** Fixed OnedataFS token refresh, which caused
     disconnection from Oneprovider after the token expired.
-
 
 ### 20.02.6
 

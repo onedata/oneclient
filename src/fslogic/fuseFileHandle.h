@@ -12,12 +12,12 @@
 #include "communication/communicator.h"
 #include "helpers/storageHelper.h"
 
-#include <folly/EvictingCacheMap.h>
 #include <folly/FBString.h>
 #include <folly/FBVector.h>
 #include <folly/Hash.h>
 #include <folly/Optional.h>
 #include <folly/Synchronized.h>
+#include <folly/container/EvictingCacheMap.h>
 #include <folly/futures/Future.h>
 
 #include <unordered_map>

@@ -9,7 +9,6 @@
 #include "auth/authManager.h"
 #include "auth/authException.h"
 #include "auth/macaroonHandler.h"
-#include "communication/cert/certificateData.h"
 #include "communication/communicator.h"
 #include "context.h"
 #include "environment.h"
@@ -23,6 +22,7 @@
 #include <functional>
 #include <iostream>
 #include <unordered_map>
+#include <utility>
 
 namespace one {
 namespace client {
@@ -39,12 +39,12 @@ AuthManager::AuthManager(std::weak_ptr<Context> context,
 {
 }
 
-void AuthManager::cleanup() {}
+void AuthManager::cleanup() { }
 
 MacaroonAuthManager::MacaroonAuthManager(std::weak_ptr<Context> context,
     std::string defaultHostname, const unsigned int port,
     const bool checkCertificate, const std::chrono::seconds providerTimeout)
-    : AuthManager{context, defaultHostname, port, checkCertificate,
+    : AuthManager{context, std::move(defaultHostname), port, checkCertificate,
           providerTimeout}
     , m_macaroonHandler{*context.lock()->options(), m_environment.userDataDir(),
           "TODO:ProviderId"}
@@ -61,23 +61,30 @@ MacaroonAuthManager::createCommunicator(const unsigned int poolSize,
     std::function<std::error_code(messages::HandshakeResponse)>
         onHandshakeResponse)
 {
+    using one::messages::handshake::SessionMode;
+
     m_cancelRefresh();
 
     auto communicator = std::make_shared<communication::Communicator>(poolSize,
         workerCount, m_hostname, m_port, m_checkCertificate, true, true,
         m_providerTimeout);
+    auto sessionMode = SessionMode::normal;
+    auto context = m_context.lock();
+    if (!context)
+        throw std::runtime_error("Application context already released.");
+
+    if (context->options()->isOpenSharesModeEnabled())
+        sessionMode = SessionMode::open_handle;
 
     auto future = communicator->setHandshake(
         [=] {
             one::messages::ClientHandshakeRequest handshake{sessionId,
                 m_macaroonHandler.restrictedMacaroon(), version,
-                compatibleOneproviderVersions};
+                compatibleOneproviderVersions, sessionMode};
 
             return handshake;
         },
         std::move(onHandshakeResponse));
-
-    scheduleRefresh(RESTRICTED_MACAROON_REFRESH);
 
     return std::forward_as_tuple(std::move(communicator), std::move(future));
 }
@@ -87,11 +94,11 @@ void MacaroonAuthManager::refreshMacaroon()
     LOG_FCALL();
     LOG_DBG(1) << "Sending a refreshed macaroon";
 
-    auto future = m_context.lock()->communicator()->send(
-        one::messages::Macaroon{m_macaroonHandler.refreshRestrictedMacaroon()});
-
     try {
-        communication::wait(future, m_providerTimeout);
+        communication::wait(
+            m_context.lock()->communicator()->send(one::messages::Macaroon{
+                m_macaroonHandler.refreshRestrictedMacaroon()}),
+            m_providerTimeout);
         scheduleRefresh(RESTRICTED_MACAROON_REFRESH);
     }
     catch (const std::exception &e) {

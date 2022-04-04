@@ -33,7 +33,7 @@ public:
      * @param mode Mode of the newly created file.
      * @param flag Open flag.
      */
-    CreateFile(folly::fbstring parentUuid, folly::fbstring name,
+    CreateFile(const folly::fbstring &parentUuid, folly::fbstring name,
         const mode_t mode, const one::helpers::Flag flag);
 
     std::string toString() const override;

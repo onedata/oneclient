@@ -18,7 +18,7 @@ namespace one {
 namespace messages {
 namespace fuse {
 
-ListXAttr::ListXAttr(folly::fbstring uuid)
+ListXAttr::ListXAttr(const folly::fbstring &uuid)
     : FileRequest{uuid.toStdString()}
 {
 }

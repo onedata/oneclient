@@ -30,9 +30,9 @@ FSStats::FSStats(std::unique_ptr<ProtocolServerMessage> serverMessage)
     m_spaceId =
         serverMessage->mutable_fuse_response()->mutable_fs_stats()->space_id();
 
-    auto storageStats = serverMessage->mutable_fuse_response()
-                            ->mutable_fs_stats()
-                            ->mutable_storage_stats();
+    auto *storageStats = serverMessage->mutable_fuse_response()
+                             ->mutable_fs_stats()
+                             ->mutable_storage_stats();
 
     for (const auto &storage : folly::range(
              storageStats->pointer_begin(), storageStats->pointer_end())) {
