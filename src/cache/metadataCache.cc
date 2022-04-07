@@ -812,7 +812,8 @@ void MetadataCache::updateSize(const folly::fbstring &uuid, const off_t size)
     });
 }
 
-bool MetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr, bool force)
+bool MetadataCache::updateAttr(
+    std::shared_ptr<FileAttr> newAttr, bool force, bool skipSize)
 {
     LOG_FCALL() << LOG_FARG(newAttr->toString());
 
@@ -872,9 +873,10 @@ bool MetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr, bool force)
                             0, *newAttr->size()));
                 }
 
-                if (newAttr->size())
-                    m.attr->size(*newAttr->size());
-
+                if (newAttr->size()) {
+                    if (!skipSize || !m.attr->size())
+                        m.attr->size(*newAttr->size());
+                }
                 if (newAttr->fullyReplicated())
                     m.attr->setFullyReplicated(newAttr->fullyReplicated());
             }

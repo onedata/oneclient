@@ -151,7 +151,7 @@ void OpenFileMetadataCache::pinFile(const folly::fbstring &uuid)
     LOG_DBG(2) << "Increased LRU open count of " << uuid << " to "
                << lruData.openCount;
 
-    if (lruData.openCount > 1)
+    if (lruData.openCount == 1)
         m_onOpen(uuid);
 }
 
@@ -770,12 +770,12 @@ const std::string &OpenFileMetadataCache::getSpaceId(
 }
 
 bool OpenFileMetadataCache::updateAttr(
-    std::shared_ptr<FileAttr> newAttr, bool force)
+    std::shared_ptr<FileAttr> newAttr, bool force, bool skipSize)
 {
     assertInFiber();
 
     try {
-        if (MetadataCache::updateAttr(newAttr, force) && !force)
+        if (MetadataCache::updateAttr(newAttr, force, skipSize) && !force)
             return true;
     }
     catch (std::system_error &e) {
@@ -800,7 +800,7 @@ bool OpenFileMetadataCache::updateAttr(
                     boost::icl::discrete_interval<off_t>::right_open(
                         0, *newAttr->size()));
             }
-            if (newAttr->size())
+            if (!skipSize && newAttr->size())
                 attr->size(*newAttr->size());
         }
 
