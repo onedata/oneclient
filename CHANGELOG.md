@@ -4,6 +4,23 @@ Release notes for project oneclient
 CHANGELOG
 ---------
 
+### 21.02.0-alpha25
+
+-   **VFS-8872** Dropped support for Python2 in OnedataFS.
+-   **VFS-8862** Update conda package dependencies to conda-forge and
+    Python 3.9.
+-   **VFS-8823** Fixed improper destruction of OnedataFS instances,
+    resulting in possible deadlocks during deletion of the OnedataFS
+    object.
+-   **VFS-8817** Added multisupport to NFS helper allowing handling of
+    multiple NFS volumes in parallel via a single NFS helper for data
+    import.
+-   **VFS-8814** Disable NFS direct io in oneclient on conda.
+-   **VFS-8788** Added the possibility to handle multiple mountpoints by
+    a single POSIX helper in read only mode.
+-   **VFS-8483** Added direct NFS v3 storage helper.
+
+
 ### 21.02.0-alpha24
 
 -   **VFS-8747** Pinned boost dependency on conda to 1.76.0.
