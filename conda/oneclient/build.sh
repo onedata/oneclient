@@ -11,7 +11,7 @@ export PKG_CONFIG_PATH="$BUILD_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH"
 cmake -DCMAKE_BUILD_TYPE=Release \
 	  -DGIT_VERSION=${PKG_REVISION} \
 	  -DCODE_COVERAGE=OFF \
-	  -DWITH_CEPH=ON \
+	  -DWITH_CEPH=OFF \
 	  -DWITH_SWIFT=ON \
       -DCMAKE_AR=${AR} \
 	  -DWITH_S3=OFF \
@@ -31,6 +31,6 @@ cmake -DCMAKE_BUILD_TYPE=Release \
 
 make -j${CPU_COUNT} oneclient VERBOSE=1
 
-make -j${CPU_COUNT} onebench VERBOSE=1
+#make -j${CPU_COUNT} onebench VERBOSE=1
 
 make install

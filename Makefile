@@ -87,8 +87,8 @@ phony:
 %/oneclient: %/CMakeCache.txt phony
 	cmake --build $* --target oneclient
 
-%/onebench: %/CMakeCache.txt phony
-	cmake --build $* --target onebench
+# %/onebench: %/CMakeCache.txt phony
+# 	cmake --build $* --target onebench
 
 %/onedatafs-py2: %/CMakeCache.txt phony
 	cmake --build $* --target onedatafs.py2
@@ -100,10 +100,12 @@ phony:
 deb-info: relwithdebinfo/oneclient
 
 .PHONY: release
-release: release/oneclient release/onebench release/onedatafs-py2 release/onedatafs-py3
+# release: release/oneclient release/onebench release/onedatafs-py2 release/onedatafs-py3
+release: release/oneclient release/onedatafs-py2 release/onedatafs-py3
 
 .PHONY: debug
-debug: debug/oneclient debug/onebench debug/onedatafs-py2 debug/onedatafs-py3
+# debug: debug/oneclient debug/onebench debug/onedatafs-py2 debug/onedatafs-py3
+debug: debug/oneclient debug/onedatafs-py2 debug/onedatafs-py3
 
 .PHONY: test
 test: debug
@@ -339,7 +341,6 @@ oneclient_tar $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz:
 		--entrypoint /bin/bash \
 		-t docker.onedata.org/oneclient-base:$(ONECLIENT_BASE_IMAGE) \
 		-c 'cp /usr/bin/oneclient /output/bin && \
-		    cp /usr/bin/onebench /output/bin && \
 		    cp /etc/oneclient.conf /output/etc && \
 		    cp /usr/share/man/man1/oneclient.1.gz /output/share/man/man1/ && \
 		    cp /usr/share/man/man5/oneclient.conf.5.gz /output/share/man/man5/ && \
@@ -351,6 +352,22 @@ oneclient_tar $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz:
 	        cp -r /usr/lib/x86_64-linux-gnu/libXrd* /output/lib/ && \
 	        cp -r /usr/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/xlator/* /output/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/xlator/ && \
 	        cp -r /usr/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/rpc-transport/* /output/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/rpc-transport/'
+	# docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
+	# 	--entrypoint /bin/bash \
+	# 	-t docker.onedata.org/oneclient-base:$(ONECLIENT_BASE_IMAGE) \
+	# 	-c 'cp /usr/bin/oneclient /output/bin && \
+	# 	    cp /usr/bin/onebench /output/bin && \
+	# 	    cp /etc/oneclient.conf /output/etc && \
+	# 	    cp /usr/share/man/man1/oneclient.1.gz /output/share/man/man1/ && \
+	# 	    cp /usr/share/man/man5/oneclient.conf.5.gz /output/share/man/man5/ && \
+	# 	    cp /usr/share/doc/oneclient/* /output/share/doc/ && \
+	# 	    cp /var/lib/oneclient/_oneclient /output/share/zsh/site-functions/ && \
+	# 	    cp /var/lib/oneclient/oneclient.bash-completion /output/etc/bash_completion.d/ && \
+	# 	    cp -r /lib/x86_64-linux-gnu/* /output/lib/ && \
+	# 	    cp -r /usr/lib/x86_64-linux-gnu/nss/* /output/lib/ && \
+	#         cp -r /usr/lib/x86_64-linux-gnu/libXrd* /output/lib/ && \
+	#         cp -r /usr/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/xlator/* /output/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/xlator/ && \
+	#         cp -r /usr/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/rpc-transport/* /output/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/rpc-transport/'
 	# Collect all dynamic libraries GlusterFS dependencies
 	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
 		-v $(CURDIR)/cpld.sh:/bin/cpld.sh --entrypoint /bin/sh \
@@ -362,11 +379,11 @@ oneclient_tar $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz:
 		--set-interpreter /opt/oneclient/lib/ld-linux-x86-64.so.2 \
 		--set-rpath /opt/oneclient/lib --force-rpath \
 		/output/bin/oneclient
-	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
-		-t $(PATCHELF_DOCKER_IMAGE) \
-		--set-interpreter /opt/oneclient/lib/ld-linux-x86-64.so.2 \
-		--set-rpath /opt/oneclient/lib --force-rpath \
-		/output/bin/onebench
+	# docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
+	# 	-t $(PATCHELF_DOCKER_IMAGE) \
+	# 	--set-interpreter /opt/oneclient/lib/ld-linux-x86-64.so.2 \
+	# 	--set-rpath /opt/oneclient/lib --force-rpath \
+	# 	/output/bin/onebench
 	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
 		--entrypoint /bin/sh -t $(PATCHELF_DOCKER_IMAGE) -c \
 		"find /output/lib -name '*so*' -type f ! -path '*ld-2.27.so' ! -path '*ld-linux-x86-64.so.2' -exec patchelf --set-rpath /opt/oneclient/lib --force-rpath {} \;"
