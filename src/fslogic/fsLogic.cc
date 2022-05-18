@@ -574,6 +574,8 @@ folly::fbvector<folly::fbstring> FsLogic::readdir(
 
     assertInFiber();
 
+    m_metadataCache.onAdd(uuid);
+
     auto entries = m_readdirCache->readdir(
         uuid, off, maxSize, m_showOnlyFullReplicas, m_showHardLinkCount);
 

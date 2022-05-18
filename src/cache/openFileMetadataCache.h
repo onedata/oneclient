@@ -158,6 +158,8 @@ public:
         MetadataCache::onAdd(std::move(cb));
     }
 
+    void onAdd(const folly::fbstring &uuid) { MetadataCache::onAdd(uuid); }
+
     /**
      * Sets a callback that will be called after a file is opened.
      * @param cb The callback which takes uuid as parameter.
@@ -339,7 +341,7 @@ public:
      * cached.
      */
     bool updateAttr(std::shared_ptr<FileAttr> newAttr, bool force = false,
-        bool skipSize = false);
+        bool skipSize = false, bool skipSubscription = false);
 
 private:
     /**

@@ -769,13 +769,15 @@ const std::string &OpenFileMetadataCache::getSpaceId(
     return location->spaceId();
 }
 
-bool OpenFileMetadataCache::updateAttr(
-    std::shared_ptr<FileAttr> newAttr, bool force, bool skipSize)
+bool OpenFileMetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr,
+    bool force, bool skipSize, bool skipSubscription)
 {
     assertInFiber();
 
     try {
-        if (MetadataCache::updateAttr(newAttr, force, skipSize) && !force)
+        if (MetadataCache::updateAttr(
+                newAttr, force, skipSize, skipSubscription) &&
+            !force)
             return true;
     }
     catch (std::system_error &e) {

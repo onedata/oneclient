@@ -116,7 +116,7 @@ public:
      * @param attr The file attributes to put in the cache.
      * @returns True, if the attribute was not in the cache
      */
-    bool putAttr(std::shared_ptr<FileAttr> attr);
+    bool putAttr(std::shared_ptr<FileAttr> attr, bool skipSubscription = false);
 
     /**
      * Inserts an externally fetched file location into the cache.
@@ -191,7 +191,7 @@ public:
      * cached.
      */
     bool updateAttr(std::shared_ptr<FileAttr> newAttr, bool force = false,
-        bool skipSize = false);
+        bool skipSize = false, bool skipSubscription = false);
 
     /**
      * Updates file location, if cached.
@@ -250,6 +250,16 @@ public:
     void onAdd(std::function<void(const folly::fbstring &)> cb)
     {
         m_onAdd = std::move(cb);
+    }
+
+    /**
+     * Execute onAdd callback for uuid
+     * @param uuid
+     */
+    void onAdd(const folly::fbstring &uuid)
+    {
+        if (m_onAdd)
+            m_onAdd(uuid);
     }
 
     /**

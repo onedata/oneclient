@@ -355,7 +355,8 @@ MetadataCache::Map::iterator MetadataCache::getAttrIt(
     return res;
 }
 
-bool MetadataCache::putAttr(std::shared_ptr<FileAttr> attr)
+bool MetadataCache::putAttr(
+    std::shared_ptr<FileAttr> attr, bool skipSubscription)
 {
     LOG_FCALL() << LOG_FARG(attr->toString());
 
@@ -394,7 +395,8 @@ bool MetadataCache::putAttr(std::shared_ptr<FileAttr> attr)
         LOG_DBG(2) << "Added new attribute to the metadata cache for: "
                    << attr->uuid();
 
-        if (attr->parentUuid() && !attr->parentUuid().value().empty()) {
+        if (!skipSubscription && attr->parentUuid() &&
+            !attr->parentUuid().value().empty()) {
             LOG_DBG(2) << "Subscribing for changes on the parent of newly "
                           "added file: "
                        << attr->uuid();
@@ -812,8 +814,8 @@ void MetadataCache::updateSize(const folly::fbstring &uuid, const off_t size)
     });
 }
 
-bool MetadataCache::updateAttr(
-    std::shared_ptr<FileAttr> newAttr, bool force, bool skipSize)
+bool MetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr, bool force,
+    bool skipSize, bool skipSubscription)
 {
     LOG_FCALL() << LOG_FARG(newAttr->toString());
 
@@ -846,7 +848,7 @@ bool MetadataCache::updateAttr(
             return false;
         }
 
-        return putAttr(newAttr);
+        return putAttr(newAttr, skipSubscription);
     }
 
     if (newAttr->fullyReplicatedOpt() && !(*newAttr->fullyReplicatedOpt())) {
