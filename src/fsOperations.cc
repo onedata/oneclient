@@ -74,7 +74,7 @@ std::ostream &operator<<(std::ostream &os, const struct fuse_ctx *ctx)
 std::ostream &operator<<(std::ostream &os, const struct fuse_file_info *fi)
 {
     if (fi == nullptr) {
-        os << "\t fuse_file_info = nullptr\n";
+        os << "\t fuse_file_info = null\n";
         return os;
     }
 
@@ -90,42 +90,6 @@ std::ostream &operator<<(std::ostream &os, const struct fuse_file_info *fi)
        << "\t fuse_file_info->writepage = " << fi->writepage << "\n"
        << "\t fuse_file_info->cache_readdir = " << fi->cache_readdir << "\n"
        << "\t fuse_file_info->nonseekable = " << fi->nonseekable << "\n";
-
-    return os;
-}
-
-std::ostream &operator<<(std::ostream &os, const struct flock *lock)
-{
-    if (lock == nullptr) {
-        os << "\t flock = nullptr\n";
-        return os;
-    }
-
-    std::string ltype{};
-    if (lock->l_type == F_RDLCK)
-        ltype = "F_RDLCK";
-    else if (lock->l_type == F_WRLCK)
-        ltype = "F_WRLCK";
-    else if (lock->l_type == F_UNLCK)
-        ltype = "F_UNLCK";
-    else
-        ltype = "UNKNOWN";
-
-    std::string whence{};
-    if (lock->l_whence == SEEK_SET)
-        whence = "SEEK_SET";
-    else if (lock->l_whence == SEEK_CUR)
-        whence = "SEEK_CUR";
-    else if (lock->l_whence == SEEK_END)
-        whence = "SEEK_END";
-    else
-        whence = "UNKNOWN";
-
-    os << "\t flock->l_type = " << ltype << "\n"
-       << "\t flock->l_whence = " << whence << "\n"
-       << "\t flock->l_start = " << lock->l_start << "\n"
-       << "\t flock->l_len = " << lock->l_len << "\n"
-       << "\t flock->l_pid = " << lock->l_pid << "\n";
 
     return os;
 }
@@ -208,7 +172,7 @@ void wrap_lookup(fuse_req_t req, fuse_ino_t parent, const char *name)
     LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(parent)
                 << LOG_FARG(name);
 
-    LOG(ERROR) << "lookup() called with the following arguments: \n"
+    LOG_DBG(4) << "Fuse lookup() called with the following arguments: \n"
                << fuse_req_ctx(req) << "\t parent = " << parent << "\n"
                << name;
 
@@ -231,7 +195,7 @@ void wrap_getattr(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
 {
     LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino);
 
-    LOG(ERROR) << "getattr() called with the following arguments: \n"
+    LOG_DBG(4) << "Fuse getattr() called with the following arguments: \n"
                << fuse_req_ctx(req) << "\t ino = " << ino << "\n"
                << fi;
 
@@ -247,7 +211,7 @@ void wrap_opendir(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
 {
     LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino);
 
-    LOG(ERROR) << "opendir() called with the following arguments: \n"
+    LOG_DBG(4) << "Fuse opendir() called with the following arguments: \n"
                << fuse_req_ctx(req) << "\t ino = " << ino << "\n"
                << fi;
 
@@ -266,7 +230,7 @@ void wrap_releasedir(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
 {
     LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino);
 
-    LOG(ERROR) << "releasedir() called with the following arguments: \n"
+    LOG_DBG(4) << "Fuse releasedir() called with the following arguments: \n"
                << fuse_req_ctx(req) << "\t ino = " << ino << "\n"
                << fi;
 
@@ -285,7 +249,7 @@ void wrap_readdir(fuse_req_t req, fuse_ino_t ino, size_t maxSize, off_t off,
     LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino)
                 << LOG_FARG(maxSize) << LOG_FARG(off);
 
-    LOG(ERROR) << "readdir() called with the following arguments: \n"
+    LOG_DBG(4) << "Fuse readdir() called with the following arguments: \n"
                << fuse_req_ctx(req) << "\t ino = " << ino << "\n"
                << "\t maxSize = " << maxSize << "\n"
                << "\t off = " << off << "\n"
@@ -345,7 +309,7 @@ void wrap_open(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
     LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino)
                 << LOG_FARG(fi->fh);
 
-    LOG(ERROR) << "open() called with the following arguments: \n"
+    LOG_DBG(4) << "Fuse open() called with the following arguments: \n"
                << fuse_req_ctx(req) << "\t ino = " << ino << "\n"
                << fi;
 
@@ -371,7 +335,7 @@ void wrap_release(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.release");
 
-    LOG(ERROR) << "release() called with the following arguments: \n"
+    LOG_DBG(4) << "Fuse release() called with the following arguments: \n"
                << fuse_req_ctx(req) << "\t ino = " << ino << "\n"
                << fi;
 
@@ -388,7 +352,7 @@ void wrap_read(fuse_req_t req, fuse_ino_t ino, size_t size, off_t off,
     LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino)
                 << LOG_FARG(size) << LOG_FARG(off) << LOG_FARG(fi->fh);
 
-    LOG(ERROR) << "read() called with the following arguments: \n"
+    LOG_DBG(4) << "Fuse read() called with the following arguments: \n"
                << fuse_req_ctx(req) << "\t ino = " << ino << "\n"
                << "\t size = " << size << "\n"
                << "\t off = " << off << "\n"
@@ -443,7 +407,7 @@ void wrap_write(fuse_req_t req, fuse_ino_t ino, const char *buf, size_t size,
     LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino)
                 << LOG_FARG(size) << LOG_FARG(off) << LOG_FARG(fi->fh);
 
-    LOG(ERROR) << "write() called with the following arguments: \n"
+    LOG_DBG(4) << "Fuse write() called with the following arguments: \n"
                << fuse_req_ctx(req) << "\t ino = " << ino << "\n"
                << "\t size = " << size << "\n"
                << "\t off = " << off << "\n"
@@ -469,7 +433,7 @@ void wrap_mkdir(
     LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(parent)
                 << LOG_FARG(name) << LOG_FARG(mode);
 
-    LOG(ERROR) << "mkdir() called with the following arguments: \n"
+    LOG_DBG(4) << "Fuse mkdir() called with the following arguments: \n"
                << fuse_req_ctx(req) << "\t parent = " << parent << "\n"
                << "\t name = " << name << "\n"
                << "\t mode = " << mode << "\n";
@@ -492,7 +456,7 @@ void wrap_mknod(fuse_req_t req, fuse_ino_t parent, const char *name,
     LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(parent)
                 << LOG_FARG(name) << LOG_FARG(mode);
 
-    LOG(ERROR) << "mknod() called with the following arguments: \n"
+    LOG_DBG(4) << "Fuse mknod() called with the following arguments: \n"
                << fuse_req_ctx(req) << "\t parent = " << parent << "\n"
                << "\t name = " << name << "\n"
                << "\t mode = " << mode << "\n";
@@ -515,7 +479,7 @@ void wrap_link(
     LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino)
                 << LOG_FARG(newparent) << LOG_FARG(newname);
 
-    LOG(ERROR) << "link() called with the following arguments: \n"
+    LOG_DBG(4) << "Fuse link() called with the following arguments: \n"
                << fuse_req_ctx(req) << "\t newparent = " << newparent << "\n"
                << "\t newname = " << newname << "\n";
 
@@ -536,7 +500,7 @@ void wrap_symlink(
     LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(link)
                 << LOG_FARG(parent) << LOG_FARG(name);
 
-    LOG(ERROR) << "symlink() called with the following arguments: \n"
+    LOG_DBG(4) << "Fuse symlink() called with the following arguments: \n"
                << fuse_req_ctx(req) << "\t link = " << link << "\n"
                << "\t parent = " << parent << "\n"
                << "\t name = " << name << "\n";
@@ -556,7 +520,7 @@ void wrap_readlink(fuse_req_t req, fuse_ino_t ino)
 {
     LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino);
 
-    LOG(ERROR) << "readlink() called with the following arguments: \n"
+    LOG_DBG(4) << "Fuse readlink() called with the following arguments: \n"
                << fuse_req_ctx(req) << "\t ino = " << ino << "\n";
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.readlink");
@@ -574,7 +538,7 @@ void wrap_unlink(fuse_req_t req, fuse_ino_t parent, const char *name)
     LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(parent)
                 << LOG_FARG(name);
 
-    LOG(ERROR) << "unlink() called with the following arguments: \n"
+    LOG_DBG(4) << "Fuse unlink() called with the following arguments: \n"
                << fuse_req_ctx(req) << "\t parent = " << parent << "\n"
                << "\t name = " << name << "\n";
 
@@ -600,7 +564,7 @@ void wrap_rename(fuse_req_t req, fuse_ino_t parent, const char *name,
     LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(parent)
                 << LOG_FARG(name) << LOG_FARG(newparent) << LOG_FARG(newname);
 
-    LOG(ERROR) << "rename() called with the following arguments: \n"
+    LOG_DBG(4) << "Fuse rename() called with the following arguments: \n"
                << fuse_req_ctx(req) << "\t parent = " << parent << "\n"
                << "\t name = " << name << "\n"
                << "\t newname = " << newname << "\n";
@@ -623,7 +587,7 @@ void wrap_forget(fuse_req_t req, fuse_ino_t ino, uint64_t nlookup)
     LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino)
                 << LOG_FARG(nlookup);
 
-    LOG(ERROR) << "forget() called with the following arguments: \n"
+    LOG_DBG(4) << "Fuse forget() called with the following arguments: \n"
                << fuse_req_ctx(req) << "\t ino = " << ino << "\n"
                << "\t nlookup = " << nlookup << "\n";
 
@@ -643,7 +607,7 @@ void wrap_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int to_set,
     LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino)
                 << LOG_FARG(attr->st_ino) << LOG_FARG(to_set);
 
-    LOG(ERROR) << "setattr() called with the following arguments: \n"
+    LOG_DBG(4) << "Fuse setattr() called with the following arguments: \n"
                << fuse_req_ctx(req) << "\t ino = " << ino << "\n"
                << "\t to_set = " << to_set << "\n"
                << fi;
@@ -664,7 +628,7 @@ void wrap_create(fuse_req_t req, fuse_ino_t parent, const char *name,
     LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(parent)
                 << LOG_FARG(name) << LOG_FARG(mode) << LOG_FARG(fi->fh);
 
-    LOG(ERROR) << "create() called with the following arguments: \n"
+    LOG_DBG(4) << "Fuse create() called with the following arguments: \n"
                << fuse_req_ctx(req) << "\t parent = " << parent << "\n"
                << "\t name = " << name << "\n"
                << "\t mode = " << mode << "\n"
@@ -690,7 +654,7 @@ void wrap_statfs(fuse_req_t req, fuse_ino_t ino)
 {
     LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino);
 
-    LOG(ERROR) << "statfs() called with the following arguments: \n"
+    LOG_DBG(4) << "Fuse statfs() called with the following arguments: \n"
                << fuse_req_ctx(req) << "\t ino = " << ino << "\n";
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.statfs");
@@ -707,7 +671,7 @@ void wrap_flush(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
     LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino)
                 << LOG_FARG(fi->fh);
 
-    LOG(ERROR) << "flush() called with the following arguments: \n"
+    LOG_DBG(4) << "Fuse flush() called with the following arguments: \n"
                << fuse_req_ctx(req) << "\t ino = " << ino << "\n"
                << fi;
 
@@ -725,7 +689,7 @@ void wrap_fsync(
     LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino)
                 << LOG_FARG(dataSync) << LOG_FARG(fi->fh);
 
-    LOG(ERROR) << "fsync() called with the following arguments: \n"
+    LOG_DBG(4) << "Fuse fsync() called with the following arguments: \n"
                << fuse_req_ctx(req) << "\t ino = " << ino << "\n"
                << "\t dataSync = " << dataSync << "\n"
                << fi;
@@ -753,9 +717,9 @@ void wrap_getxattr(fuse_req_t req, fuse_ino_t ino, const char *attr, size_t size
         return;
     }
 
-    LOG(ERROR) << "getxattr() called with the following arguments: \n"
+    LOG_DBG(4) << "Fuse getxattr() called with the following arguments: \n"
                << fuse_req_ctx(req) << "\t ino = " << ino << "\n"
-               << "\t attr = " << attr << "\n"
+               << "\t attr = " << (attr != nullptr ? attr : "null") << "\n"
                << "\t size = " << size << "\n";
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.getxattr");
@@ -848,10 +812,10 @@ void wrap_setxattr(fuse_req_t req, fuse_ino_t ino, const char *attr,
                 << LOG_FARG(attr) << LOG_FARG(val) << LOG_FARG(size)
                 << LOG_FARGO(flags);
 
-    LOG(ERROR) << "setxattr() called with the following arguments: \n"
+    LOG_DBG(4) << "Fuse setxattr() called with the following arguments: \n"
                << fuse_req_ctx(req) << "\t ino = " << ino << "\n"
-               << "\t attr = " << attr << "\n"
-               << "\t val = " << val << "\n"
+               << "\t attr = " << (attr != nullptr ? attr : "null") << "\n"
+               << "\t val = " << (val != nullptr ? val : "null") << "\n"
                << "\t size = " << size << "\n"
                << "\t flags = " << flags << "\n";
 
@@ -894,7 +858,8 @@ void wrap_setxattr(fuse_req_t req, fuse_ino_t ino, const char *attr,
         fuse_reply_err(req, EINVAL);
         return;
     }
-    LOG_DBG(1) << "Setting extended attribute '" << attr << "' to value '"
+
+    LOG_DBG(2) << "Setting extended attribute '" << attr << "' to value '"
                << xattrJsonValue << "' for file " << ino << " with flags "
                << "XATTR_CREATE=" << std::to_string(flags & XATTR_CREATE)
                << " XATTR_REPLACE=" << std::to_string(flags & XATTR_REPLACE);
@@ -912,7 +877,7 @@ void wrap_removexattr(fuse_req_t req, fuse_ino_t ino, const char *attr)
     LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino)
                 << LOG_FARG(attr);
 
-    LOG(ERROR) << "removexattr() called with the following arguments: \n"
+    LOG_DBG(4) << "Fuse removexattr() called with the following arguments: \n"
                << fuse_req_ctx(req) << "\t ino = " << ino << "\n"
                << "\t attr = " << attr << "\n";
 
@@ -953,7 +918,7 @@ void wrap_listxattr(fuse_req_t req, fuse_ino_t ino, size_t size)
     LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino)
                 << LOG_FARG(size);
 
-    LOG(ERROR) << "listxattr() called with the following arguments: \n"
+    LOG_DBG(4) << "Fuse listxattr() called with the following arguments: \n"
                << fuse_req_ctx(req) << "\t ino = " << ino << "\n"
                << "\t size = " << size << "\n";
 
@@ -1001,58 +966,6 @@ void wrap_listxattr(fuse_req_t req, fuse_ino_t ino, size_t size)
         req, ino);
 }
 
-void wrap_flock(
-    fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi, int op)
-{
-    LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino);
-
-    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.flock");
-
-    std::string op_str{};
-    if (op == LOCK_SH)
-        op_str = "LOCK_SH";
-    else if (op == LOCK_EX)
-        op_str = "LOCK_EX";
-    else if (op == LOCK_UN)
-        op_str = "LOCK_UN";
-    else
-        op_str = "UNKNOWN";
-
-    LOG(ERROR) << "flock() called with the following arguments: \n"
-               << fuse_req_ctx(req) << "\t ino = " << ino << "\n"
-               << fi << "\t op = " << op_str;
-
-    fuse_reply_err(req, 0);
-}
-
-void wrap_setlk(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi,
-    struct flock *lock, int sleep)
-{
-    LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino);
-
-    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.setlk");
-
-    LOG(ERROR) << "setlk() called with the following arguments: \n"
-               << fuse_req_ctx(req) << "\t ino = " << ino << "\n"
-               << fi << lock << "\t sleep = " << sleep << "\n";
-
-    fuse_reply_err(req, 0);
-}
-
-void wrap_getlk(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi,
-    struct flock *lock)
-{
-    LOG_FCALL() << LOG_FUSE_CTX(fuse_req_ctx(req)) << LOG_FARG(ino);
-
-    LOG(ERROR) << "getlk() called with the following arguments: \n"
-               << fuse_req_ctx(req) << "\t ino = " << ino << "\n"
-               << fi << lock;
-
-    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.setlk");
-
-    fuse_reply_err(req, 0);
-}
-
 } // extern "C"
 } // namespace
 
@@ -1087,9 +1000,6 @@ struct fuse_lowlevel_ops fuseOperations()
     operations.setxattr = wrap_setxattr;
     operations.removexattr = wrap_removexattr;
     operations.listxattr = wrap_listxattr;
-    operations.flock = wrap_flock;
-    operations.setlk = wrap_setlk;
-    operations.getlk = wrap_getlk;
 
     return operations;
 }
