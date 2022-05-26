@@ -21,7 +21,7 @@ fi
 cmake -DCMAKE_BUILD_TYPE=Release \
 	  -DGIT_VERSION=${PKG_VERSION} \
 	  -DCODE_COVERAGE=OFF \
-	  -DWITH_CEPH=OFF \
+	  -DWITH_CEPH=ON \
 	  -DWITH_SWIFT=ON \
       -DCMAKE_AR=${AR} \
 	  -DWITH_S3=OFF \
