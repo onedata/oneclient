@@ -94,6 +94,13 @@ def parentStat(endpoint, fl, parentUuid):
         return fl.getattr(parentUuid)
 
 
+def prepare_status_response():
+    server_response = messages_pb2.ServerMessage()
+    server_response.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    return server_response
+
+
 def prepare_file_blocks(blocks=[]):
     file_blocks = []
     for file_block in blocks:
@@ -452,9 +459,11 @@ def get_stream_id_from_location_subscription(subscription_message_data):
 
 def test_statfs_should_get_storage_size(appmock_client, endpoint, fl, uuid):
     block_size = 4096
+
+    ok = prepare_status_response()
     response = prepare_fsstat_response(uuid, "space_1", 1, 1000*block_size, 21*block_size)
 
-    with reply(endpoint, [response]) as queue:
+    with reply(endpoint, [ok, response]) as queue:
         statfs = fl.statfs(uuid)
         queue.get()
 
@@ -466,24 +475,29 @@ def test_statfs_should_get_storage_size(appmock_client, endpoint, fl, uuid):
 
 def test_statfs_should_report_empty_free_space_on_overoccupied_storage(appmock_client, endpoint, fl, uuid):
     block_size = 4096
+
+    ok = prepare_status_response()
     response = prepare_fsstat_response(uuid, "space_1", 2, 10*block_size, 20*block_size)
 
-    with reply(endpoint, [response]) as queue:
+    with reply(endpoint, [ok, response]) as queue:
         statfs = fl.statfs(uuid)
         queue.get()
 
     assert statfs.bsize == block_size
     assert statfs.frsize == block_size
     assert statfs.blocks == 2*10
-    assert statfs.bavail == 0
+    assert statfs.bavail == he0
 
 
 def test_getattrs_should_get_attrs(appmock_client, endpoint, fl, uuid, parentUuid):
+    ok = prepare_status_response()
     response = prepare_attr_response(uuid, fuse_messages_pb2.REG, 1, parentUuid)
     parentParentUuid = random_str()
     parent_response = prepare_attr_response(parentUuid, fuse_messages_pb2.DIR, None, parentParentUuid)
 
-    with reply(endpoint, [response,
+    with reply(endpoint, [ok,
+                          response,
+                          ok, ok, ok,
                           parent_response]) as queue:
         stat = fl.getattr(uuid)
         client_message = queue.get()
@@ -506,17 +520,19 @@ def test_getattrs_should_get_attrs(appmock_client, endpoint, fl, uuid, parentUui
 
 
 def test_getattrs_should_pass_errors(appmock_client, endpoint, fl, uuid):
+    ok = prepare_status_response()
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.enoent
 
     with pytest.raises(RuntimeError) as excinfo:
-        with reply(endpoint, response):
+        with reply(endpoint, [ok, response]):
             fl.getattr(uuid)
 
     assert 'No such file or directory' in str(excinfo.value)
 
 
 def test_getattrs_should_cache_attrs(appmock_client, endpoint, fl, uuid, parentUuid):
+    ok = prepare_status_response()
     attr_response = prepare_attr_response(uuid, fuse_messages_pb2.REG, 1, parentUuid)
     attr_parent_response = prepare_attr_response(parentUuid, fuse_messages_pb2.DIR)
 
@@ -524,7 +540,7 @@ def test_getattrs_should_cache_attrs(appmock_client, endpoint, fl, uuid, parentU
     # call the FileAttr for it's parent since it isn't cached
     # After that it should create subscriptions on the parent for the
     # metadata changes in that directory
-    with reply(endpoint, [attr_response, attr_parent_response]):
+    with reply(endpoint, [ok, attr_response, attr_parent_response]):
         stat = fl.getattr(uuid)
 
     assert fl.metadata_cache_contains(uuid)

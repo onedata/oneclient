@@ -77,6 +77,13 @@ def manager(endpoint):
     mgr.stop()
 
 
+def prepare_status_response():
+    server_response = messages_pb2.ServerMessage()
+    server_response.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    return server_response
+
+
 def prepare_file_read_subscription(sid, counter_thr=None, time_thr=None):
     read_sub = event_messages_pb2.FileReadSubscription()
     if counter_thr:
@@ -288,9 +295,9 @@ def test_timed_emit_file_truncated(endpoint, manager, uuid, size):
 
 
 def test_subscribe_file_attr_changed(endpoint, manager, uuid, time_thr):
-    with receive(endpoint, msgs_num=2) as queue:
+    msg = prepare_status_response()
+    with reply(endpoint, msg, reply_to_async=False) as queue:
         manager.subscribeFileAttrChanged(uuid, time_thr)
-        queue.get() # Skip message stream reset
         client_message = queue.get()
 
     assert client_message.HasField('subscription')
@@ -302,18 +309,23 @@ def test_subscribe_file_attr_changed(endpoint, manager, uuid, time_thr):
 
 
 def test_timed_emit_file_attr_changed(endpoint, manager, uuid):
+    msg = prepare_status_response()
     evt = prepare_file_attr_changed_event(uuid)
-    with reply(endpoint, evt, reply_to_async=True):
+    with reply(endpoint, msg):
         manager.subscribeFileAttrChanged(uuid, 500)
+
+    with send(endpoint, evt):
+        pass
 
     wait_until(lambda: manager.getHandlerCallsNumber("file_attr_changed") == 1)
 
 
 def test_cancel_file_attr_changed_subscription(endpoint, manager, uuid):
-    with receive(endpoint):
+    msg = prepare_status_response()
+    with reply(endpoint, [msg]):
         sid = manager.subscribeFileAttrChanged(uuid, 500)
 
-    with receive(endpoint) as queue:
+    with reply(endpoint, [msg]) as queue:
         assert manager.unsubscribe(sid)
         client_message = queue.get()
 
@@ -323,9 +335,9 @@ def test_cancel_file_attr_changed_subscription(endpoint, manager, uuid):
 
 
 def test_subscribe_file_location_changed(endpoint, manager, uuid, time_thr):
-    with receive(endpoint, msgs_num=2) as queue:
+    msg = prepare_status_response()
+    with reply(endpoint, msg) as queue:
         manager.subscribeFileLocationChanged(uuid, time_thr)
-        queue.get() # Skip message stream reset
         client_message = queue.get()
 
     assert client_message.HasField('subscription')
@@ -337,18 +349,20 @@ def test_subscribe_file_location_changed(endpoint, manager, uuid, time_thr):
 
 
 def test_timed_emit_file_location_changed(endpoint, manager, uuid):
+    msg = prepare_status_response()
     evt = prepare_file_location_changed_event(uuid)
-    with reply(endpoint, evt, reply_to_async=True):
+    with reply(endpoint, [msg, evt], reply_to_async=True):
         manager.subscribeFileLocationChanged(uuid, 500)
 
     wait_until(lambda: manager.getHandlerCallsNumber("file_location_changed") == 1)
 
 
 def test_cancel_file_location_changed_subscription(endpoint, manager, uuid):
-    with receive(endpoint):
+    msg = prepare_status_response()
+    with reply(endpoint, msg):
         sid = manager.subscribeFileLocationChanged(uuid, 500)
 
-    with receive(endpoint) as queue:
+    with reply(endpoint, msg) as queue:
         assert manager.unsubscribe(sid)
         client_message = queue.get()
 
@@ -358,9 +372,9 @@ def test_cancel_file_location_changed_subscription(endpoint, manager, uuid):
 
 
 def test_subscribe_file_perm_changed(endpoint, manager, uuid):
-    with receive(endpoint, msgs_num=2) as queue:
+    msg = prepare_status_response()
+    with reply(endpoint, msg) as queue:
         manager.subscribeFilePermChanged(uuid)
-        queue.get() # Skip message strip reset
         client_message = queue.get()
 
     assert client_message.HasField('subscription')
@@ -371,18 +385,20 @@ def test_subscribe_file_perm_changed(endpoint, manager, uuid):
 
 
 def test_timed_emit_file_perm_changed(endpoint, manager, uuid):
+    msg = prepare_status_response()
     evt = prepare_file_perm_changed_event(uuid)
-    with reply(endpoint, evt, reply_to_async=True):
+    with reply(endpoint, [msg, evt], reply_to_async=True):
         manager.subscribeFilePermChanged(uuid)
 
     wait_until(lambda: manager.getHandlerCallsNumber("file_perm_changed") == 1)
 
 
 def test_cancel_file_perm_changed_subscription(endpoint, manager, uuid):
-    with receive(endpoint, msgs_num=2):
+    msg = prepare_status_response()
+    with reply(endpoint, [msg]):
         sid = manager.subscribeFilePermChanged(uuid)
 
-    with receive(endpoint) as queue:
+    with reply(endpoint, msg) as queue:
         assert manager.unsubscribe(sid)
         client_message = queue.get()
 
@@ -392,8 +408,8 @@ def test_cancel_file_perm_changed_subscription(endpoint, manager, uuid):
 
 
 def test_subscribe_file_renamed(endpoint, manager, uuid):
-    with receive(endpoint, msgs_num=2) as queue:
-        queue.get() # Skip message stream reset
+    msg = prepare_status_response()
+    with reply(endpoint, [msg]) as queue:
         manager.subscribeFileRenamed(uuid)
         client_message = queue.get()
 
@@ -405,18 +421,20 @@ def test_subscribe_file_renamed(endpoint, manager, uuid):
 
 
 def test_timed_emit_file_renamed(endpoint, manager, uuid):
+    msg = prepare_status_response()
     evt = prepare_file_renamed_event(uuid)
-    with reply(endpoint, evt, reply_to_async=True):
+    with reply(endpoint, [msg, evt], reply_to_async=True):
         manager.subscribeFileRenamed(uuid)
 
     wait_until(lambda: manager.getHandlerCallsNumber("file_renamed") == 1)
 
 
 def test_cancel_file_renamed_subscription(endpoint, manager, uuid):
-    with receive(endpoint):
+    msg = prepare_status_response()
+    with reply(endpoint, msg):
         sid = manager.subscribeFileRenamed(uuid)
 
-    with receive(endpoint) as queue:
+    with reply(endpoint, msg) as queue:
         assert manager.unsubscribe(sid)
         client_message = queue.get()
 
@@ -426,9 +444,9 @@ def test_cancel_file_renamed_subscription(endpoint, manager, uuid):
 
 
 def test_subscribe_file_removed(endpoint, manager, uuid):
-    with receive(endpoint, msgs_num=2) as queue:
+    msg = prepare_status_response()
+    with reply(endpoint, msg) as queue:
         manager.subscribeFileRemoved(uuid)
-        queue.get() # Skip message stream reset
         client_message = queue.get()
 
     assert client_message.HasField('subscription')
@@ -439,18 +457,20 @@ def test_subscribe_file_removed(endpoint, manager, uuid):
 
 
 def test_timed_emit_file_removed(endpoint, manager, uuid):
+    msg = prepare_status_response()
     evt = prepare_file_removed_event(uuid)
-    with reply(endpoint, evt, reply_to_async=True):
+    with reply(endpoint, [msg, evt], reply_to_async=True):
         manager.subscribeFileRemoved(uuid)
 
     wait_until(lambda: manager.getHandlerCallsNumber("file_removed") == 1)
 
 
 def test_cancel_file_removed_subscription(endpoint, manager, uuid):
-    with receive(endpoint):
+    msg = prepare_status_response()
+    with reply(endpoint, msg):
         sid = manager.subscribeFileRemoved(uuid)
 
-    with receive(endpoint) as queue:
+    with reply(endpoint, msg) as queue:
         assert manager.unsubscribe(sid)
         client_message = queue.get()
 
@@ -460,9 +480,9 @@ def test_cancel_file_removed_subscription(endpoint, manager, uuid):
 
 
 def test_subscribe_quota_exceeded(endpoint, manager):
-    with receive(endpoint, msgs_num=2) as queue:
+    msg = prepare_status_response()
+    with reply(endpoint, msg) as queue:
         manager.subscribeQuotaExceeded()
-        queue.get() # Skip message stream reset
         client_message = queue.get()
 
     assert client_message.HasField('subscription')
@@ -470,18 +490,20 @@ def test_subscribe_quota_exceeded(endpoint, manager):
 
 
 def test_timed_emit_quota_exceeded(endpoint, manager):
+    msg = prepare_status_response()
     evt = prepare_quota_exceeded_event()
-    with reply(endpoint, evt, reply_to_async=True):
+    with reply(endpoint, [msg, evt], reply_to_async=True):
         manager.subscribeQuotaExceeded()
 
     wait_until(lambda: manager.getHandlerCallsNumber("quota_exceeded") == 1)
 
 
 def test_cancel_quota_exceeded_subscription(endpoint, manager):
-    with receive(endpoint):
+    msg = prepare_status_response()
+    with reply(endpoint, msg):
         sid = manager.subscribeQuotaExceeded()
 
-    with receive(endpoint) as queue:
+    with reply(endpoint, msg) as queue:
         assert manager.unsubscribe(sid)
         client_message = queue.get()
 
