@@ -363,10 +363,10 @@ oneclient_tar $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz:
 		--set-rpath /opt/oneclient/lib --force-rpath \
 		/output/bin/oneclient
 	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
-		-t $(PATCHELF_DOCKER_IMAGE) \
-		--set-interpreter /opt/oneclient/lib/ld-linux-x86-64.so.2 \
-		--set-rpath /opt/oneclient/lib --force-rpath \
-		/output/bin/onebench
+	 	-t $(PATCHELF_DOCKER_IMAGE) \
+	 	--set-interpreter /opt/oneclient/lib/ld-linux-x86-64.so.2 \
+	 	--set-rpath /opt/oneclient/lib --force-rpath \
+	 	/output/bin/onebench
 	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
 		--entrypoint /bin/sh -t $(PATCHELF_DOCKER_IMAGE) -c \
 		"find /output/lib -name '*so*' -type f ! -path '*ld-2.27.so' ! -path '*ld-linux-x86-64.so.2' -exec patchelf --set-rpath /opt/oneclient/lib --force-rpath {} \;"
