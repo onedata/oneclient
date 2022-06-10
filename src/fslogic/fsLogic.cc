@@ -475,8 +475,10 @@ FileAttrPtr FsLogic::lookup(
     bool tryVirtualFile{false};
     std::exception_ptr current_exception;
     try {
-        if (fileNameUUID.empty())
+        if (fileNameUUID.empty()) {
+            m_metadataCache.onAdd(uuid);
             attr = m_metadataCache.getAttr(uuid, name);
+        }
         else
             attr = m_metadataCache.getAttr(fileNameUUID);
     }
