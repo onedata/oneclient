@@ -38,7 +38,7 @@ RemoteSubscriptionHandle::~RemoteSubscriptionHandle()
     auto clientMsg = std::make_unique<ProtoClient>();
     auto *msg = clientMsg->mutable_subscription_cancellation();
     msg->set_id(m_subscriptionId);
-    m_stream.sendSync(std::move(clientMsg));
+    m_stream.send(std::move(clientMsg));
 }
 
 } // namespace events
