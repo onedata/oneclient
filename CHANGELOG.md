@@ -4,6 +4,17 @@ Release notes for project oneclient
 CHANGELOG
 ---------
 
+### 21.02.0-alpha26
+
+-   **VFS-9120** Fixed uid/gid encoding to use unsigned int32 rather
+    than signed int32, so that it now aligns with POSIX uid_t and gid_t
+    types.
+-   **VFS-9054** Improved connection closing in Oneclient.
+-   **VFS-9026** Added option \--message-trace-log to enable logging of
+    protobuf messages with the server.
+-   **VFS-8828** Fixed conda packages for the stable branch 20.02.\*,
+    starting with version 20.02.15 and Python 3.9.
+
 ### 21.02.0-alpha25
 
 -   **VFS-8872** Dropped support for Python2 in OnedataFS.
