@@ -395,13 +395,13 @@ bool MetadataCache::putAttr(
         LOG_DBG(2) << "Added new attribute to the metadata cache for: "
                    << attr->uuid();
 
-        if (!skipSubscription && attr->parentUuid() &&
-            !attr->parentUuid().value().empty()) {
-            LOG_DBG(2) << "Subscribing for changes on the parent of newly "
-                          "added file: "
-                       << attr->uuid();
-            m_onAdd(attr->parentUuid().value());
-        }
+        /*        if (!skipSubscription && attr->parentUuid() &&*/
+        //! attr->parentUuid().value().empty()) {
+        // LOG_DBG(2) << "Subscribing for changes on the parent of newly "
+        //              "added file: "
+        //           << attr->uuid();
+        // m_onAdd(attr->parentUuid().value());
+        /*}*/
 
         ONE_METRIC_COUNTER_INC("comp.oneclient.mod.metadatacache.size");
         return isNewEntry;
@@ -459,9 +459,9 @@ MetadataCache::Map::iterator MetadataCache::fetchAttr(ReqMsg &&msg)
 
         // In case the parent of uuid is not in the cache, add it and
         // subscribe for change events on that directory
-        if (parentUuid && !parentUuid.value().empty()) {
-            m_onAdd(parentUuid.value());
-        }
+        // if (parentUuid && !parentUuid.value().empty()) {
+        // m_onAdd(parentUuid.value());
+        //}
 
         ONE_METRIC_COUNTER_INC("comp.oneclient.mod.metadatacache.size");
     }
@@ -774,7 +774,7 @@ bool MetadataCache::rename(const folly::fbstring &uuid,
     if (uuid != newUuid)
         m_deletedUuids.insert(uuid);
 
-    m_onAdd(newParentUuid);
+    // m_onAdd(newParentUuid);
 
     if (renewSubscriptions)
         m_onRename(uuid, newUuid);

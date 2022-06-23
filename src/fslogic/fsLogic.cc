@@ -226,7 +226,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     // Called when file attributes are added to the metadata cache
     m_metadataCache.onAdd([this](const folly::fbstring &uuid) {
         m_fsSubscriptions.subscribeFileAttrChanged(uuid);
-        m_fsSubscriptions.subscribeFileRemoved(uuid);
+        // m_fsSubscriptions.subscribeFileRemoved(uuid);
         m_fsSubscriptions.subscribeFileRenamed(uuid);
 
         if (m_showOnlyFullReplicas)
@@ -1785,6 +1785,7 @@ void FsLogic::rename(const folly::fbstring &parentUuid,
             newParentUuid.toStdString(), newName.toStdString()},
         m_providerTimeout);
 
+    m_metadataCache.onAdd(newParentUuid);
     m_metadataCache.rename(oldUuid, newParentUuid, newName, renamed.newUuid());
 
     LOG_DBG(2) << "Renamed file " << name << " in " << parentUuid << " to "

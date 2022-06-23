@@ -321,7 +321,11 @@ void FsSubscriptions::subscribe(
             subscriptionAcc, {subscription.streamKey(), fileUuid})) {
         // If the subscription doesn't exist yet, create new stream and
         // store it's id
+        LOG(ERROR) << ">>>>>>>>>>>>>>>>>>>> CREATING SUBSCRIPTION TO "
+                   << fileUuid;
         subscriptionAcc->second = m_eventManager.subscribe(subscription);
+        LOG(ERROR) << "<<<<<<<<<<<<<<<<<<<< CREATED SUBSCRIPTION TO "
+                   << fileUuid;
     }
 }
 
