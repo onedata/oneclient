@@ -791,18 +791,21 @@ bool OpenFileMetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr,
         auto attr = m_lruFileData.at(newAttr->uuid()).attr;
         auto location = m_lruFileData.at(newAttr->uuid()).location;
         if (attr->type() == FileAttr::FileType::regular) {
-            if (newAttr->size() && attr->size() &&
-                (*newAttr->size() < *attr->size()) && location) {
-                LOG_DBG(2)
-                    << "Truncating file size based on updated attributes "
-                       "for uuid: '"
-                    << newAttr->uuid() << "'";
+            if (!skipSize) {
+                if (newAttr->size() && attr->size() &&
+                    (*newAttr->size() < *attr->size()) && location) {
+                    LOG_DBG(2)
+                        << "Truncating file size based on updated attributes "
+                           "for uuid: '"
+                        << newAttr->uuid() << "'";
 
-                location->truncate(
-                    boost::icl::discrete_interval<off_t>::right_open(
-                        0, *newAttr->size()));
+                    location->truncate(
+                        boost::icl::discrete_interval<off_t>::right_open(
+                            0, *newAttr->size()));
+                }
             }
-            if (!skipSize && newAttr->size())
+
+            if (newAttr->size() && (!skipSize || !attr->size()))
                 attr->size(*newAttr->size());
         }
 

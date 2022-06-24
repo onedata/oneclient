@@ -863,7 +863,7 @@ bool MetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr, bool force,
     index.modify(
         it, [&](Metadata &m) {
             if (m.attr->type() != FileAttr::FileType::directory) {
-                if (newAttr->size() && m.attr->size() &&
+                if (!skipSize && newAttr->size() && m.attr->size() &&
                     (*newAttr->size() < *m.attr->size()) && m.location) {
                     LOG_DBG(2)
                         << "Truncating file size based on updated attributes "
@@ -875,10 +875,9 @@ bool MetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr, bool force,
                             0, *newAttr->size()));
                 }
 
-                if (newAttr->size()) {
-                    if (!skipSize || !m.attr->size())
-                        m.attr->size(*newAttr->size());
-                }
+                if (newAttr->size() && (!skipSize || !m.attr->size()))
+                    m.attr->size(*newAttr->size());
+
                 if (newAttr->fullyReplicated())
                     m.attr->setFullyReplicated(newAttr->fullyReplicated());
             }
