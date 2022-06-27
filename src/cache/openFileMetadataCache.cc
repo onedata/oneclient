@@ -774,11 +774,11 @@ bool OpenFileMetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr,
 {
     assertInFiber();
 
+    bool result = false;
+
     try {
-        if (MetadataCache::updateAttr(
-                newAttr, force, skipSize, skipSubscription) &&
-            !force)
-            return true;
+        result = MetadataCache::updateAttr(
+            newAttr, force, skipSize, skipSubscription);
     }
     catch (std::system_error &e) {
         if (e.code().value() == ENOENT) {
@@ -791,6 +791,8 @@ bool OpenFileMetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr,
         auto attr = m_lruFileData.at(newAttr->uuid()).attr;
         auto location = m_lruFileData.at(newAttr->uuid()).location;
         if (attr->type() == FileAttr::FileType::regular) {
+            if (!attr->size())
+                skipSize = false;
             if (!skipSize) {
                 if (newAttr->size() && attr->size() &&
                     (*newAttr->size() < *attr->size()) && location) {
@@ -805,7 +807,7 @@ bool OpenFileMetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr,
                 }
             }
 
-            if (newAttr->size() && (!skipSize || !attr->size()))
+            if (newAttr->size() && !skipSize)
                 attr->size(*newAttr->size());
         }
 
@@ -818,7 +820,7 @@ bool OpenFileMetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr,
         attr->uid(newAttr->uid());
     }
 
-    return false;
+    return result;
 }
 
 void OpenFileMetadataCache::handleMarkDeleted(const folly::fbstring &uuid)
