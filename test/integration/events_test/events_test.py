@@ -295,8 +295,8 @@ def test_timed_emit_file_truncated(endpoint, manager, uuid, size):
 
 
 def test_subscribe_file_attr_changed(endpoint, manager, uuid, time_thr):
-    msg = prepare_status_response()
-    with reply(endpoint, msg, reply_to_async=False) as queue:
+    ok = prepare_status_response()
+    with reply(endpoint, ok) as queue:
         manager.subscribeFileAttrChanged(uuid, time_thr)
         client_message = queue.get()
 
@@ -306,7 +306,6 @@ def test_subscribe_file_attr_changed(endpoint, manager, uuid, time_thr):
     sub = client_message.subscription.file_attr_changed
     assert sub.file_uuid == uuid
     assert sub.time_threshold == time_thr
-
 
 def test_timed_emit_file_attr_changed(endpoint, manager, uuid):
     msg = prepare_status_response()
@@ -325,7 +324,7 @@ def test_cancel_file_attr_changed_subscription(endpoint, manager, uuid):
     with reply(endpoint, [msg]):
         sid = manager.subscribeFileAttrChanged(uuid, 500)
 
-    with reply(endpoint, [msg]) as queue:
+    with receive(endpoint) as queue:
         assert manager.unsubscribe(sid)
         client_message = queue.get()
 
@@ -362,7 +361,7 @@ def test_cancel_file_location_changed_subscription(endpoint, manager, uuid):
     with reply(endpoint, msg):
         sid = manager.subscribeFileLocationChanged(uuid, 500)
 
-    with reply(endpoint, msg) as queue:
+    with receive(endpoint) as queue:
         assert manager.unsubscribe(sid)
         client_message = queue.get()
 
@@ -398,7 +397,7 @@ def test_cancel_file_perm_changed_subscription(endpoint, manager, uuid):
     with reply(endpoint, [msg]):
         sid = manager.subscribeFilePermChanged(uuid)
 
-    with reply(endpoint, msg) as queue:
+    with receive(endpoint) as queue:
         assert manager.unsubscribe(sid)
         client_message = queue.get()
 
@@ -434,7 +433,7 @@ def test_cancel_file_renamed_subscription(endpoint, manager, uuid):
     with reply(endpoint, msg):
         sid = manager.subscribeFileRenamed(uuid)
 
-    with reply(endpoint, msg) as queue:
+    with receive(endpoint) as queue:
         assert manager.unsubscribe(sid)
         client_message = queue.get()
 
@@ -470,7 +469,7 @@ def test_cancel_file_removed_subscription(endpoint, manager, uuid):
     with reply(endpoint, msg):
         sid = manager.subscribeFileRemoved(uuid)
 
-    with reply(endpoint, msg) as queue:
+    with receive(endpoint) as queue:
         assert manager.unsubscribe(sid)
         client_message = queue.get()
 
@@ -503,7 +502,7 @@ def test_cancel_quota_exceeded_subscription(endpoint, manager):
     with reply(endpoint, msg):
         sid = manager.subscribeQuotaExceeded()
 
-    with reply(endpoint, msg) as queue:
+    with receive(endpoint) as queue:
         assert manager.unsubscribe(sid)
         client_message = queue.get()
 

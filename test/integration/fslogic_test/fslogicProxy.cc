@@ -108,9 +108,10 @@ public:
               context->scheduler(), *context->options())}
         , m_fsLogic{context, std::make_shared<messages::Configuration>(),
               std::unique_ptr<HelpersCacheProxy>{m_helpersCache},
-              metadataCacheSize, false, false, 10s,
+              metadataCacheSize, false, false,
+              context->options()->getProviderTimeout(),
               std::chrono::seconds{dropDirectoryCacheAfter},
-              makeRunInFiber() /*[](auto f) { f(); }*/}
+              makeRunInFiber() /*[](auto f) { f(); }*/, false}
         , m_context{context}
     {
         m_fsLogic.setMaxRetryCount(FSLOGIC_PROXY_RETRY_COUNT);
@@ -118,6 +119,12 @@ public:
             folly::setThreadName("InFiber");
             m_eventBase.loopForever();
         }};
+    }
+
+    void start()
+    {
+        ReleaseGIL guard;
+        m_fsLogic.start();
     }
 
     void stop()
@@ -567,7 +574,7 @@ boost::shared_ptr<FsLogicProxy> create(std::string ip, int port,
     auto options = std::make_shared<options::Options>();
     std::vector<std::string> optionsTokens;
     std::string optionsString = std::string("oneclient -H ") + ip +
-        " -t TOKEN " + cliOptions + " mountpoint";
+        " -t TOKEN --provider-timeout 5 " + cliOptions + " mountpoint";
     boost::split(optionsTokens, optionsString, boost::is_any_of(" "),
         boost::token_compress_on);
 
@@ -637,6 +644,7 @@ BOOST_PYTHON_MODULE(fslogic)
     class_<FsLogicProxy, boost::noncopyable>("FsLogicProxy", no_init)
         .def("__init__", make_constructor(create))
         .def("failHelper", &FsLogicProxy::failHelper)
+        .def("start", &FsLogicProxy::start)
         .def("stop", &FsLogicProxy::stop)
         .def("statfs", &FsLogicProxy::statfs)
         .def("getattr", &FsLogicProxy::getattr)

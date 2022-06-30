@@ -11,6 +11,7 @@
 #include "events/events.h"
 #include "messages/fuse/fileAttr.h"
 #include "messages/fuse/fileLocation.h"
+#include "options/options.h"
 #include "scheduler.h"
 
 #include "messages.pb.h"
@@ -29,6 +30,17 @@ using namespace one::client;
 using namespace one::client::events;
 using namespace one::communication;
 using namespace boost::python;
+
+class ReleaseGIL {
+public:
+    ReleaseGIL()
+        : threadState{PyEval_SaveThread(), PyEval_RestoreThread}
+    {
+    }
+
+private:
+    std::unique_ptr<PyThreadState, decltype(&PyEval_RestoreThread)> threadState;
+};
 
 class ManagerProxy {
 public:
@@ -58,6 +70,7 @@ public:
     std::int64_t subscribeFileRead(
         std::int64_t counterThr, std::int64_t timeThr)
     {
+        ReleaseGIL guard;
         return subscribeIOEvents<clproto::FileReadSubscription,
             FileReadSubscription>(counterThr, timeThr);
     }
@@ -65,6 +78,7 @@ public:
     std::int64_t subscribeFileWritten(
         std::int64_t counterThr, std::int64_t timeThr)
     {
+        ReleaseGIL guard;
         return subscribeIOEvents<clproto::FileWrittenSubscription,
             FileWrittenSubscription>(counterThr, timeThr);
     }
@@ -72,6 +86,7 @@ public:
     std::int64_t subscribeFileAttrChanged(
         std::string fileUuid, std::int64_t timeThr)
     {
+        ReleaseGIL guard;
         FileAttrChangedSubscription sub{std::move(fileUuid),
             std::chrono::milliseconds{timeThr},
             [this](auto) { this->incCounter("file_attr_changed"); }};
@@ -81,6 +96,7 @@ public:
     std::int64_t subscribeFileLocationChanged(
         std::string fileUuid, std::int64_t timeThr)
     {
+        ReleaseGIL guard;
         FileLocationChangedSubscription sub{std::move(fileUuid),
             std::chrono::milliseconds{timeThr},
             [this](auto) { this->incCounter("file_location_changed"); }};
@@ -89,6 +105,7 @@ public:
 
     std::int64_t subscribeFilePermChanged(std::string fileUuid)
     {
+        ReleaseGIL guard;
         FilePermChangedSubscription sub{std::move(fileUuid),
             [this](auto) { this->incCounter("file_perm_changed"); }};
         return m_manager.subscribe(sub);
@@ -96,6 +113,7 @@ public:
 
     std::int64_t subscribeFileRenamed(std::string fileUuid)
     {
+        ReleaseGIL guard;
         FileRenamedSubscription sub{std::move(fileUuid),
             [this](auto) { this->incCounter("file_renamed"); }};
         return m_manager.subscribe(sub);
@@ -103,6 +121,7 @@ public:
 
     std::int64_t subscribeFileRemoved(std::string fileUuid)
     {
+        ReleaseGIL guard;
         FileRemovedSubscription sub{std::move(fileUuid),
             [this](auto) { this->incCounter("file_removed"); }};
         return m_manager.subscribe(sub);
@@ -110,6 +129,7 @@ public:
 
     std::int64_t subscribeQuotaExceeded()
     {
+        ReleaseGIL guard;
         QuotaExceededSubscription sub{
             [this](auto) { this->incCounter("quota_exceeded"); }};
         return m_manager.subscribe(sub);
@@ -183,13 +203,27 @@ boost::shared_ptr<ManagerProxy> create(
     FLAGS_minloglevel = 1;
 
     auto communicator = std::make_shared<Communicator>(/*connections*/ 10,
-        /*threads*/ 1, std::move(ip), port,
+        /*threads*/ 1, ip, port,
         /*verifyServerCertificate*/ false, /*upgrade to clproto*/ true,
         /*perform handshake*/ false);
+
+    auto options = std::make_shared<options::Options>();
+    std::vector<std::string> optionsTokens;
+    std::string optionsString = std::string("oneclient -H ") + ip +
+        " -t TOKEN --provider-timeout 5 " + " mountpoint";
+    boost::split(optionsTokens, optionsString, boost::is_any_of(" "),
+        boost::token_compress_on);
+
+    std::vector<const char *> cmdArgs;
+    std::transform(optionsTokens.begin(), optionsTokens.end(),
+        std::back_inserter(cmdArgs), [](auto &s) { return s.c_str(); });
+
+    options->parse(cmdArgs.size(), cmdArgs.data());
 
     auto context = std::make_shared<Context>();
     context->setScheduler(std::make_shared<Scheduler>(1));
     context->setCommunicator(communicator);
+    context->setOptions(std::move(options));
     communicator->setScheduler(context->scheduler());
     communicator->connect();
 

@@ -136,7 +136,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     unsigned int metadataCacheSize, bool readEventsDisabled,
     bool forceFullblockRead, const std::chrono::seconds providerTimeout,
     const std::chrono::seconds directoryCacheDropAfter,
-    std::function<void(folly::Function<void()>)> runInFiber)
+    std::function<void(folly::Function<void()>)> runInFiber, bool autoStart)
     : m_context{context}
     , m_metadataCache{*m_context->communicator(), metadataCacheSize,
           providerTimeout, directoryCacheDropAfter, configuration->rootUuid(),
@@ -326,7 +326,8 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
         m_runInFiber([]() {});
     });
 
-    start();
+    if (autoStart)
+        start();
 }
 
 FsLogic::~FsLogic() { stop(); }

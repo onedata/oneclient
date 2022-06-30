@@ -356,7 +356,7 @@ MetadataCache::Map::iterator MetadataCache::getAttrIt(
 }
 
 bool MetadataCache::putAttr(
-    std::shared_ptr<FileAttr> attr, bool skipSubscription)
+    std::shared_ptr<FileAttr> attr, bool /*skipSubscription*/)
 {
     LOG_FCALL() << LOG_FARG(attr->toString());
 
