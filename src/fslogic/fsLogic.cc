@@ -136,7 +136,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     unsigned int metadataCacheSize, bool readEventsDisabled,
     bool forceFullblockRead, const std::chrono::seconds providerTimeout,
     const std::chrono::seconds directoryCacheDropAfter,
-    std::function<void(folly::Function<void()>)> runInFiber)
+    std::function<void(folly::Function<void()>)> runInFiber, bool autoStart)
     : m_context{context}
     , m_metadataCache{*m_context->communicator(), metadataCacheSize,
           providerTimeout, directoryCacheDropAfter, configuration->rootUuid(),
@@ -326,7 +326,8 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
         m_runInFiber([]() {});
     });
 
-    start();
+    if (autoStart)
+        start();
 }
 
 FsLogic::~FsLogic() { stop(); }
@@ -475,8 +476,10 @@ FileAttrPtr FsLogic::lookup(
     bool tryVirtualFile{false};
     std::exception_ptr current_exception;
     try {
-        if (fileNameUUID.empty())
+        if (fileNameUUID.empty()) {
+            m_metadataCache.onAdd(uuid);
             attr = m_metadataCache.getAttr(uuid, name);
+        }
         else
             attr = m_metadataCache.getAttr(fileNameUUID);
     }
@@ -573,6 +576,8 @@ folly::fbvector<folly::fbstring> FsLogic::readdir(
     IOTRACE_START()
 
     assertInFiber();
+
+    m_metadataCache.onAdd(uuid);
 
     auto entries = m_readdirCache->readdir(
         uuid, off, maxSize, m_showOnlyFullReplicas, m_showHardLinkCount);
@@ -1727,8 +1732,10 @@ void FsLogic::unlink(
     // TODO: directly order provider to delete {parentUuid, name}
     FileAttrPtr attr{};
     auto fileNameUUID = getFileIdFromFilename(name);
-    if (fileNameUUID.empty())
+    if (fileNameUUID.empty()) {
+        m_metadataCache.onAdd(parentUuid);
         attr = m_metadataCache.getAttr(parentUuid, name);
+    }
     else
         attr = m_metadataCache.getAttr(fileNameUUID);
 
@@ -1769,8 +1776,10 @@ void FsLogic::rename(const folly::fbstring &parentUuid,
     // TODO: directly order provider to rename {parentUuid, name}
     FileAttrPtr attr{};
     auto fileNameUUID = getFileIdFromFilename(name);
-    if (fileNameUUID.empty())
+    if (fileNameUUID.empty()) {
+        m_metadataCache.onAdd(newParentUuid);
         attr = m_metadataCache.getAttr(parentUuid, name);
+    }
     else
         attr = m_metadataCache.getAttr(fileNameUUID);
 

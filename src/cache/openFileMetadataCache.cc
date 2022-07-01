@@ -151,7 +151,7 @@ void OpenFileMetadataCache::pinFile(const folly::fbstring &uuid)
     LOG_DBG(2) << "Increased LRU open count of " << uuid << " to "
                << lruData.openCount;
 
-    if (lruData.openCount > 1)
+    if (lruData.openCount == 1)
         m_onOpen(uuid);
 }
 
@@ -769,14 +769,16 @@ const std::string &OpenFileMetadataCache::getSpaceId(
     return location->spaceId();
 }
 
-bool OpenFileMetadataCache::updateAttr(
-    std::shared_ptr<FileAttr> newAttr, bool force)
+bool OpenFileMetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr,
+    bool force, bool skipSize, bool skipSubscription)
 {
     assertInFiber();
 
+    bool result = false;
+
     try {
-        if (MetadataCache::updateAttr(newAttr, force) && !force)
-            return true;
+        result = MetadataCache::updateAttr(
+            newAttr, force, skipSize, skipSubscription);
     }
     catch (std::system_error &e) {
         if (e.code().value() == ENOENT) {
@@ -789,18 +791,23 @@ bool OpenFileMetadataCache::updateAttr(
         auto attr = m_lruFileData.at(newAttr->uuid()).attr;
         auto location = m_lruFileData.at(newAttr->uuid()).location;
         if (attr->type() == FileAttr::FileType::regular) {
-            if (newAttr->size() && attr->size() &&
-                (*newAttr->size() < *attr->size()) && location) {
-                LOG_DBG(2)
-                    << "Truncating file size based on updated attributes "
-                       "for uuid: '"
-                    << newAttr->uuid() << "'";
+            if (!attr->size())
+                skipSize = false;
+            if (!skipSize) {
+                if (newAttr->size() && attr->size() &&
+                    (*newAttr->size() < *attr->size()) && location) {
+                    LOG_DBG(2)
+                        << "Truncating file size based on updated attributes "
+                           "for uuid: '"
+                        << newAttr->uuid() << "'";
 
-                location->truncate(
-                    boost::icl::discrete_interval<off_t>::right_open(
-                        0, *newAttr->size()));
+                    location->truncate(
+                        boost::icl::discrete_interval<off_t>::right_open(
+                            0, *newAttr->size()));
+                }
             }
-            if (newAttr->size())
+
+            if (newAttr->size() && !skipSize)
                 attr->size(*newAttr->size());
         }
 
@@ -813,7 +820,7 @@ bool OpenFileMetadataCache::updateAttr(
         attr->uid(newAttr->uid());
     }
 
-    return false;
+    return result;
 }
 
 void OpenFileMetadataCache::handleMarkDeleted(const folly::fbstring &uuid)

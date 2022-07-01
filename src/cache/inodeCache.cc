@@ -29,6 +29,7 @@ InodeCache::InodeCache(
     : m_targetCacheSize{targetCacheSize}
 {
     m_cache.emplace(FUSE_ROOT_ID, rootUuid);
+
     ONE_METRIC_COUNTER_SET(
         "comp.oneclient.mod.inodecache.maxsize", targetCacheSize);
 }
@@ -117,6 +118,7 @@ void InodeCache::forget(const fuse_ino_t inode, const std::size_t count)
 
         prune();
     }
+
     ONE_METRIC_COUNTER_SET("comp.oneclient.mod.inodecache.size", index.size());
 }
 

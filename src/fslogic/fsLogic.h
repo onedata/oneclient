@@ -91,7 +91,8 @@ public:
         unsigned int metadataCacheSize, bool readEventsDisabled,
         bool forceFullblockRead, const std::chrono::seconds providerTimeout,
         const std::chrono::seconds directoryCacheDropAfter,
-        std::function<void(folly::Function<void()>)> runInFiber);
+        std::function<void(folly::Function<void()>)> runInFiber,
+        bool autoStart = true);
 
     ~FsLogic();
 
