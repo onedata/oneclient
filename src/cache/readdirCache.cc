@@ -105,7 +105,8 @@ void ReaddirCache::fetch(const folly::fbstring &uuid,
                                 !attr->fullyReplicated())
                                 continue;
 
-                            m_metadataCache.updateAttr(std::move(attr), true);
+                            m_metadataCache.updateAttr(
+                                std::move(attr), false, true, true);
                         }
                         partialPromise.setValue();
                     });

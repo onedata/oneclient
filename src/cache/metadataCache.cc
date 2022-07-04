@@ -355,7 +355,8 @@ MetadataCache::Map::iterator MetadataCache::getAttrIt(
     return res;
 }
 
-bool MetadataCache::putAttr(std::shared_ptr<FileAttr> attr)
+bool MetadataCache::putAttr(
+    std::shared_ptr<FileAttr> attr, bool /*skipSubscription*/)
 {
     LOG_FCALL() << LOG_FARG(attr->toString());
 
@@ -393,13 +394,6 @@ bool MetadataCache::putAttr(std::shared_ptr<FileAttr> attr)
 
         LOG_DBG(2) << "Added new attribute to the metadata cache for: "
                    << attr->uuid();
-
-        if (attr->parentUuid() && !attr->parentUuid().value().empty()) {
-            LOG_DBG(2) << "Subscribing for changes on the parent of newly "
-                          "added file: "
-                       << attr->uuid();
-            m_onAdd(attr->parentUuid().value());
-        }
 
         ONE_METRIC_COUNTER_INC("comp.oneclient.mod.metadatacache.size");
         return isNewEntry;
@@ -457,9 +451,9 @@ MetadataCache::Map::iterator MetadataCache::fetchAttr(ReqMsg &&msg)
 
         // In case the parent of uuid is not in the cache, add it and
         // subscribe for change events on that directory
-        if (parentUuid && !parentUuid.value().empty()) {
-            m_onAdd(parentUuid.value());
-        }
+        // if (parentUuid && !parentUuid.value().empty()) {
+        // m_onAdd(parentUuid.value());
+        //}
 
         ONE_METRIC_COUNTER_INC("comp.oneclient.mod.metadatacache.size");
     }
@@ -772,8 +766,6 @@ bool MetadataCache::rename(const folly::fbstring &uuid,
     if (uuid != newUuid)
         m_deletedUuids.insert(uuid);
 
-    m_onAdd(newParentUuid);
-
     if (renewSubscriptions)
         m_onRename(uuid, newUuid);
 
@@ -812,7 +804,8 @@ void MetadataCache::updateSize(const folly::fbstring &uuid, const off_t size)
     });
 }
 
-bool MetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr, bool force)
+bool MetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr, bool force,
+    bool skipSize, bool skipSubscription)
 {
     LOG_FCALL() << LOG_FARG(newAttr->toString());
 
@@ -845,7 +838,7 @@ bool MetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr, bool force)
             return false;
         }
 
-        return putAttr(newAttr);
+        return putAttr(newAttr, skipSubscription);
     }
 
     if (newAttr->fullyReplicatedOpt() && !(*newAttr->fullyReplicatedOpt())) {
@@ -860,7 +853,10 @@ bool MetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr, bool force)
     index.modify(
         it, [&](Metadata &m) {
             if (m.attr->type() != FileAttr::FileType::directory) {
-                if (newAttr->size() && m.attr->size() &&
+                if (!m.attr->size())
+                    skipSize = false;
+
+                if (!skipSize && newAttr->size() && m.attr->size() &&
                     (*newAttr->size() < *m.attr->size()) && m.location) {
                     LOG_DBG(2)
                         << "Truncating file size based on updated attributes "
@@ -872,7 +868,7 @@ bool MetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr, bool force)
                             0, *newAttr->size()));
                 }
 
-                if (newAttr->size())
+                if (newAttr->size() && !skipSize)
                     m.attr->size(*newAttr->size());
 
                 if (newAttr->fullyReplicated())
