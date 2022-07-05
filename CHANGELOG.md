@@ -6,6 +6,7 @@ CHANGELOG
 
 ### 21.02.0-alpha26
 
+-   **VFS-9424** Fixed broken dependencies in Oneclient Conda packages.
 -   **VFS-9120** Fixed uid/gid encoding to use unsigned int32 rather
     than signed int32, so that it now aligns with POSIX uid_t and gid_t
     types.
