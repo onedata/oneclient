@@ -384,7 +384,7 @@ public:
             .get();
     }
 
-    std::string read(std::string uuid, int fileHandleId, int offset, int size)
+    auto read(std::string uuid, int fileHandleId, int offset, int size)
     {
         ReleaseGIL guard;
         return m_fiberManager
@@ -394,8 +394,8 @@ public:
 
                 std::string data;
                 buf.appendToString(data);
-
-                return data;
+                return boost::python::api::object(boost::python::handle<>(
+                    PyBytes_FromStringAndSize(data.c_str(), data.size())));
             })
             .get();
     }

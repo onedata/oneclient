@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import random
 
 __author__ = "Bartek Kryza"
@@ -27,7 +25,7 @@ from proto import messages_pb2, fuse_messages_pb2, event_messages_pb2, \
     handshake_messages_pb2
 
 
-@pytest.yield_fixture(scope="function")
+@pytest.fixture(scope="function")
 def endpoint(appmock_client):
     app = appmock_client.tcp_endpoint(443)
     yield app
@@ -55,7 +53,7 @@ def prepare_handshake_response(status):
 
 def prepare_configuration_response(root_uuid):
     repl = diagnostic_messages_pb2.Configuration()
-    repl.root_uuid = root_uuid
+    repl.root_uuid = root_uuid.encode('utf-8')
 
     response = messages_pb2.ServerMessage()
     response.configuration.CopyFrom(repl)
@@ -65,20 +63,20 @@ def prepare_configuration_response(root_uuid):
 
 def prepare_attr_response(uuid, filetype, size=None, parent_uuid=None, name='filename'):
     repl = fuse_messages_pb2.FileAttr()
-    repl.uuid = uuid
+    repl.uuid = uuid.encode('utf-8')
     if parent_uuid:
-        repl.parent_uuid = parent_uuid
-    repl.name = name
+        repl.parent_uuid = parent_uuid.encode('utf-8')
+    repl.name = name.encode('utf-8')
     repl.mode = random.randint(0, 1023)
     repl.uid = random.randint(0, 20000)
     repl.gid = random.randint(0, 20000)
     repl.mtime = int(time.time()) - random.randint(0, 1000000)
-    repl.atime = repl.mtime - random.randint(0, 1000000)
-    repl.ctime = repl.atime - random.randint(0, 1000000)
+    repl.atime = int(time.time()) - random.randint(0, 1000000)
+    repl.ctime = int(time.time()) - random.randint(0, 1000000)
     repl.type = filetype
     repl.size = size if size else random.randint(0, 1000000000)
-    repl.owner_id = ''
-    repl.provider_id = ''
+    repl.owner_id = b''
+    repl.provider_id = b''
 
     server_response = messages_pb2.ServerMessage()
     server_response.fuse_response.file_attr.CopyFrom(repl)
@@ -95,15 +93,18 @@ def test_onedatafs_should_connect_to_provider(endpoint, uuid, token):
 
     configuration_response = prepare_configuration_response(uuid)
 
+    print("AAAAAAAAAAA")
+
     stat_response = prepare_attr_response(uuid, fuse_messages_pb2.REG, 1000, None, 'file.txt')
 
-    with reply(endpoint, [handshake_response,
+    with reply(endpoint, [response_ok, handshake_response,
                           response_ok, # Match to stream_reset
                           configuration_response,
                           handshake_response,
                           response_ok,
                           response_ok,
                           stat_response], True) as queue:
+        print(f"BBBBBBBBBB {endpoint.ip}, {endpoint.port}, {token}")
         odfs = onedatafs.OnedataFS(
             endpoint.ip,
             token,
@@ -118,12 +119,14 @@ def test_onedatafs_should_connect_to_provider(endpoint, uuid, token):
             metadata_cache_size=1000,
             drop_dir_cache_after=30,
             log_level=0,
-            cli_args="--communicator-pool-size 1 --communicator-thread-count 1 --storage-helper-thread-count 1")
+            cli_args="--communicator-pool-size 1 --communicator-thread-count 3 --storage-helper-thread-count 3")
+
+        print("CCCCCCCCCC")
 
         attr = odfs.stat('file.txt')
 
         assert attr.size == 1000
-        assert uuid == odfs.root_uuid()
+        assert uuid == odfs.root_uuid().decode('utf-8')
 
 
 def test_onedatafs_should_raise_exception_on_bad_token(endpoint, uuid, token):

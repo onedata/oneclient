@@ -27,14 +27,14 @@ from proto import messages_pb2, fuse_messages_pb2, event_messages_pb2, \
     common_messages_pb2, stream_messages_pb2
 
 
-@pytest.yield_fixture
+@pytest.fixture
 def endpoint(appmock_client):
     app = appmock_client.tcp_endpoint(443)
     yield app
     appmock_client.reset_tcp_history()
 
 
-@pytest.yield_fixture
+@pytest.fixture
 def hc(endpoint):
     cache = helperscache.HelpersCacheProxy(
             endpoint.ip, endpoint.port,
@@ -42,7 +42,7 @@ def hc(endpoint):
     yield cache
 
 
-@pytest.yield_fixture
+@pytest.fixture
 def hc_directio(endpoint):
     cache = helperscache.HelpersCacheProxy(
             endpoint.ip, endpoint.port,
@@ -50,7 +50,7 @@ def hc_directio(endpoint):
     yield cache
 
 
-@pytest.yield_fixture
+@pytest.fixture
 def hc_proxyio(endpoint):
     cache = helperscache.HelpersCacheProxy(
             endpoint.ip, endpoint.port,

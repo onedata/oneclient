@@ -18,12 +18,12 @@ add_custom_target(appmock ALL DEPENDS ${APPMOCK_BINARY})
 if(APPLE)
     # On OSX we have to force Python 2 to run tests using default
     # boost-python library
-    find_package(Boost COMPONENTS python27-mt REQUIRED)
-    find_package(PythonLibs 2 REQUIRED)
-    find_package(PythonInterp 2 REQUIRED)
+    find_package(Boost COMPONENTS python38-mt REQUIRED)
+    find_package(PythonLibs 3 REQUIRED)
+    find_package(PythonInterp 3 REQUIRED)
 else(APPLE)
     find_package(Boost COMPONENTS python REQUIRED)
-    find_package(PythonLibs 2 REQUIRED)
+    find_package(PythonLibs 3 REQUIRED)
 endif(APPLE)
 include_directories(SYSTEM ${PYTHON_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})
 remove_definitions(-DBOOST_BIND_NO_PLACEHOLDERS)
@@ -41,7 +41,7 @@ endif(Protobuf_PROTOC_EXECUTABLE)
 
 add_custom_target(pythonProto
     COMMAND ${PROTOBUF_PROTOC_EXECUTABLE} --python_out ${CMAKE_CURRENT_BINARY_DIR}/proto -I ${PROTO_DIR} ${PROTO_FILES}
-    COMMENT "Running Python protocol buffer compiler for integration tests"
+    COMMENT "Running Python protocol buffer compiler for integration tests ($ENV{PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION})"
     VERBATIM)
 
 file(GLOB TEST_DIRS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *_test)

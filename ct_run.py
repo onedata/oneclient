@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """Runs integration tests."""
 
@@ -64,11 +64,11 @@ if {shed_privileges}:
     os.setreuid({uid}, {uid})
 
 if {gdb}:
-    command = ['gdb', 'python', '-silent', '-statistics', '-ex', """run -c "
+    command = ['gdb', 'python3', '-silent', '-statistics', '-ex', """run -c "
 import pytest
 pytest.main({args} + ['{test_dirs}'])" """]
 else:
-    command = ['py.test'] + {args} + ['{test_dirs}']
+    command = ['python3'] + ['-m'] + ['pytest'] + {args} + ['{test_dirs}']
 
 if(not os.path.exists('{script_dir}/{release}/test/integration/onedatafs_test/onedatafs.so')):
     shutil.copyfile('{script_dir}/{release}/onedatafs_py3.so',
