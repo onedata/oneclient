@@ -1,0 +1,58 @@
+--- a/debian/control      2022-07-12 19:31:43.665753916 +0200
++++ b/debian/control      2022-08-02 11:25:43.048740668 +0200
+@@ -10,9 +10,9 @@
+     cmake (>= 3.0.0),
+     debhelper (>= 9),
+     folly-dev,
+-    g++-5 (>= 5.0.0),
++    g++ (>= 9.4.0),
+     git,
+-    glusterfs-common (>= 3.12.1),
++    glusterfs-common (>= 7.2),
+     golang-go,
+     libacl1-dev,
+     libboost-all-dev,
+@@ -25,17 +25,17 @@
+     libnspr4-dev,
+     libnss3-dev,
+     libprotobuf-dev (>= 3.4.1),
+-    libradospp-dev (>= 14.2.2),
+-    libradosstriper-dev (>= 14.2.2),
++    libradospp-dev (>= 15.2.0),
++    libradosstriper-dev (>= 15.2.0),
+     libsodium-dev,
+     libssl-dev (>= 1.1.0),
+-    libstdc++-5-dev,
+-    libtbb-dev (>= 2018~U5),
++    libstdc++-9-dev,
++    libtbb-dev,
+     libpoco-dev,
+-    libpocofoundation50,
+-    libpoconetssl50,
+-    libpocoutil50,
+-    libpocoxml50,
++    libpocofoundation62,
++    libpoconetssl62,
++    libpocoutil62,
++    libpocoxml62,
+     libxrootd-client-dev,
+     libxrootd-server-dev,
+     libxrootd-private-dev,
+@@ -57,14 +57,14 @@
+ 
+ Package: oneclient-base
+ Architecture: amd64
+-Depends: glusterfs-common (>= 3.12.1), libnfs13 (>= 4.0.0), folly, libxrootd-client-dev, xrootd-plugins, xrootd-client-plugins, ${shlibs:Depends}, ${misc:Depends}, fuse3, libunwind8
++Depends: glusterfs-common (>= 7.2), libnfs13 (>= 4.0.0), folly, libxrootd-client-dev, xrootd-plugins, xrootd-client-plugins, ${shlibs:Depends}, ${misc:Depends}, fuse3, libunwind8
+ Description: FUSE client for onedata system.
+  Oneclient is a software based on FUSE (Filesystem in Userspace) that allows
+  mounting onedata filesystem on Linux systems.
+ 
+ Package: python3-onedatafs
+ Architecture: amd64
+-Depends: python3, libboost-python1.58.0, libnfs13 (>= 4.0.0), folly, libxrootd-client-dev, xrootd-plugins, xrootd-client-plugins, libunwind8, ${shlibs:Depends}, ${misc:Depends}
++Depends: python3, libboost-python1.71.0, libnfs13 (>= 4.0.0), folly, libxrootd-client-dev, xrootd-plugins, xrootd-client-plugins, libunwind8, ${shlibs:Depends}, ${misc:Depends}
+ Description: FUSE client for onedata system.
+  oneclient is a software based on FUSE (Filesystem in Userspace) that allows
+  mounting onedata filesystem on Linux systems.
+
