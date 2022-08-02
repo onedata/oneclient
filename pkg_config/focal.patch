@@ -79,10 +79,11 @@ index 2dfa7933..7cc09b48 100644
 -usr/lib/python3.5/dist-packages/onedatafs/__init__.py
 +usr/lib/python3.9/dist-packages/onedatafs/onedatafs*
 +usr/lib/python3.9/dist-packages/onedatafs/__init__.py
-diff --git a/pkg_config/debian/python3-onedatafs.links b/pkg_config/debian/python3-onedatafs.links
+
+diff --git a/debian/python3-onedatafs.links b/debian/python3-onedatafs.links
 index d2f932d1..2a7f89fb 100644
---- a/pkg_config/debian/python3-onedatafs.links
-+++ b/pkg_config/debian/python3-onedatafs.links
+--- a/debian/python3-onedatafs.links
++++ b/debian/python3-onedatafs.links
 @@ -1,2 +1,2 @@
 -usr/lib/python3.5/dist-packages/onedatafs/onedatafs_py3.so usr/lib/python3.5/dist-packages/onedatafs/onedatafs.so
 +usr/lib/python3.9/dist-packages/onedatafs/onedatafs_py3.so usr/lib/python3.9/dist-packages/onedatafs/onedatafs.so
