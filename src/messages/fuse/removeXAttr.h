@@ -30,7 +30,7 @@ public:
      * removed.
      * @param name Name of the extended attribute to remove.
      */
-    RemoveXAttr(folly::fbstring uuid, folly::fbstring name);
+    RemoveXAttr(const folly::fbstring &uuid, folly::fbstring name);
 
     std::string toString() const override;
 

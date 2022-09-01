@@ -1,30 +1,51 @@
 Checks: >-
   *,
-  -abseil*,
-  -*avoid-c-arrays,
-  -android*,
   -*braces-around-statements,
-  -cert-err58-cpp,
+  -*osx*,
+  -abseil*,
+  -android*,
   -clang-analyzer-alpha.*,
+  -clang-analyzer-cplusplus.NewDelete,
+  -clang-analyzer-cplusplus.NewDeleteLeaks,
+  -clang-analyzer-optin.cplusplus.VirtualCall,
   -clang-analyzer-core.UndefinedBinaryOperatorResult,
+  -cppcoreguidelines-avoid-c-arrays,
   -cppcoreguidelines-macro-usage,
   -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
   -cppcoreguidelines-pro-bounds-pointer-arithmetic,
   -cppcoreguidelines-pro-type-reinterpret-cast,
   -fuchsia*,
+  -google-build-using-namespace,
+  -google-default-arguments,
   -google-readability-todo,
+  -hicpp-avoid-c-arrays,
+  -hicpp-member-init,
   -hicpp-no-array-decay,
   -hicpp-signed-bitwise,
-  -hicpp-vararg,-google-runtime-references,
+  -google-runtime-references,
   -llvm-header-guard,
+  -misc-definitions-in-headers,
   -modernize-avoid-bind,
+  -modernize-avoid-c-arrays,
+  -modernize-use-default-member-init,
+  -modernize-use-trailing-return-type,
   -mpi*,
   -objc*,
-  -*osx*,
-  -performance-unnecessary-value-param,
+  -openmp*,
+  -darwin*,
+  -clang-diagnostic-overloaded-virtual,
+  -modernize-redundant-void-arg,
   -zircon*
 WarningsAsErrors: '*'
-HeaderFilterRegex: 'oneclient/include|oneclient/src'
+HeaderFilterRegex: 'helpers/include|helpers/src'
 CheckOptions:
   - key:             readability-identifier-naming.ClassMemberPrefix
     value:           'm_'
+  - key:             performance-unnecessary-value-param.AllowedTypes
+    value:           shared_ptr;weak_ptr
+  - key:             misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic
+    value:           1
+  - key:             hicpp-special-member-functions.AllowSoleDefaultDtor
+    value:           1
+  - key:             cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor
+    value:           1

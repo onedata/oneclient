@@ -26,7 +26,11 @@
 #include <folly/fibers/FiberManager.h>
 #include <folly/fibers/FiberManagerMap.h>
 #include <folly/fibers/ForEach.h>
-#include <fuse.h>
+#if FUSE_USE_VERSION > 30
+#include <fuse3/fuse.h>
+#else
+#include <fuse/fuse.h>
+#endif
 
 #include <atomic>
 #include <memory>
@@ -101,12 +105,13 @@ public:
         unsigned int metadataCacheSize = 10000,
         unsigned int dropDirectoryCacheAfter = 60)
         : m_helpersCache{new HelpersCacheProxy(*context->communicator(),
-              *context->scheduler(), *context->options())}
+              context->scheduler(), *context->options())}
         , m_fsLogic{context, std::make_shared<messages::Configuration>(),
               std::unique_ptr<HelpersCacheProxy>{m_helpersCache},
-              metadataCacheSize, false, false, 10s,
+              metadataCacheSize, false, false,
+              context->options()->getProviderTimeout(),
               std::chrono::seconds{dropDirectoryCacheAfter},
-              makeRunInFiber() /*[](auto f) { f(); }*/}
+              makeRunInFiber() /*[](auto f) { f(); }*/, false}
         , m_context{context}
     {
         m_fsLogic.setMaxRetryCount(FSLOGIC_PROXY_RETRY_COUNT);
@@ -114,6 +119,12 @@ public:
             folly::setThreadName("InFiber");
             m_eventBase.loopForever();
         }};
+    }
+
+    void start()
+    {
+        ReleaseGIL guard;
+        m_fsLogic.start();
     }
 
     void stop()
@@ -126,11 +137,11 @@ public:
 
             m_fiberManager.addTaskRemote(
                 [this, stopped = std::move(stopped)]() mutable {
-                    m_context->communicator()->stop();
+                    m_fsLogic.stop();
                     stopped.setValue();
                 });
 
-            stoppedFuture.get();
+            std::move(stoppedFuture).get();
         }
     }
 
@@ -334,6 +345,36 @@ public:
             .get();
     }
 
+    void link(std::string uuid, std::string parentUuid, std::string name)
+    {
+        ReleaseGIL guard;
+        m_fiberManager
+            .addTaskRemoteFuture([this, uuid, parentUuid, name]() {
+                m_fsLogic.link(uuid, parentUuid, name);
+            })
+            .get();
+    }
+
+    void symlink(std::string parentUuid, std::string name, std::string link)
+    {
+        ReleaseGIL guard;
+        m_fiberManager
+            .addTaskRemoteFuture([this, parentUuid, name, link]() {
+                m_fsLogic.symlink(parentUuid, name, link);
+            })
+            .get();
+    }
+
+    std::string readlink(std::string uuid)
+    {
+        ReleaseGIL guard;
+        return m_fiberManager
+            .addTaskRemoteFuture([this, uuid]() {
+                return m_fsLogic.readlink(uuid).toStdString();
+            })
+            .get();
+    }
+
     int open(std::string uuid, int flags)
     {
         ReleaseGIL guard;
@@ -520,7 +561,7 @@ boost::shared_ptr<FsLogicProxy> create(std::string ip, int port,
     FLAGS_minloglevel = 1;
 
     auto communicator = std::make_shared<Communicator>(/*connections*/ 10,
-        /*threads*/ 2, ip, port,
+        /*threads*/ 1, ip, port,
         /*verifyServerCertificate*/ false, /*upgrade to clproto*/ true,
         /*perform handshake*/ false);
 
@@ -533,7 +574,7 @@ boost::shared_ptr<FsLogicProxy> create(std::string ip, int port,
     auto options = std::make_shared<options::Options>();
     std::vector<std::string> optionsTokens;
     std::string optionsString = std::string("oneclient -H ") + ip +
-        " -t TOKEN " + cliOptions + " mountpoint";
+        " -t TOKEN --provider-timeout 5 " + cliOptions + " mountpoint";
     boost::split(optionsTokens, optionsString, boost::is_any_of(" "),
         boost::token_compress_on);
 
@@ -603,6 +644,7 @@ BOOST_PYTHON_MODULE(fslogic)
     class_<FsLogicProxy, boost::noncopyable>("FsLogicProxy", no_init)
         .def("__init__", make_constructor(create))
         .def("failHelper", &FsLogicProxy::failHelper)
+        .def("start", &FsLogicProxy::start)
         .def("stop", &FsLogicProxy::stop)
         .def("statfs", &FsLogicProxy::statfs)
         .def("getattr", &FsLogicProxy::getattr)
@@ -618,6 +660,9 @@ BOOST_PYTHON_MODULE(fslogic)
         .def("releasedir", &FsLogicProxy::releasedir)
         .def("readdir", &FsLogicProxy::readdir)
         .def("mknod", &FsLogicProxy::mknod)
+        .def("link", &FsLogicProxy::link)
+        .def("symlink", &FsLogicProxy::symlink)
+        .def("readlink", &FsLogicProxy::readlink)
         .def("open", &FsLogicProxy::open)
         .def("read", &FsLogicProxy::read)
         .def("write", &FsLogicProxy::write)

@@ -9,8 +9,10 @@ find_program(PYTHON3_CONFIG NAMES "python3-config")
 if(PYTHON3_CONFIG)
     set(PYTHON3_FOUND ON)
 
-    execute_process(COMMAND python3-config --ldflags OUTPUT_VARIABLE PYTHON3_LDFLAGS)
-    string(STRIP "${PYTHON3_LDFLAGS}" PYTHON3_LDFLAGS)
+    if(NOT PYTHON3_LDFLAGS) # Hack for CentOS SCL to allow custom ldflags in oneclient.spec
+        execute_process(COMMAND python3-config --ldflags OUTPUT_VARIABLE PYTHON3_LDFLAGS)
+        string(STRIP "${PYTHON3_LDFLAGS}" PYTHON3_LDFLAGS)
+    endif(NOT PYTHON3_LDFLAGS)
 
     execute_process(COMMAND python3-config --includes OUTPUT_VARIABLE PYTHON3_CFLAGS)
     string(STRIP "${PYTHON3_CFLAGS}" PYTHON3_CFLAGS)
@@ -37,8 +39,6 @@ if(PYTHON3_CONFIG)
     find_library(LIBBOOST_PYTHON3 NAMES boost_python-py35
                                         boost_python-py36
                                         boost_python-py37
-                                        boost_python-py38
-                                        boost_python-py39
                                         boost_python3
                                         libboost_python3.so.1.58.0
                                         libboost_python35.so.1.66.0
@@ -48,9 +48,9 @@ if(PYTHON3_CONFIG)
                                         libboost_python3.so.1.67.0
                                         libboost_python35.so.1.67.0
                                         libboost_python36.so.1.67.0
-                                        libboost_python37.so.1.67.0
-                                        libboost_python37.so.1.77.0
-                                        libboost_python38.so.1.77.0
+                                        libboost_python37.so.1.76.0
+                                        libboost_python38.so.1.76.0
+                                        libboost_python39.so.1.76.0
                                         libboost_python39.so.1.77.0
                                         libboost_python39.so.1.78.0)
 
@@ -69,7 +69,7 @@ if(PYTHON3_CONFIG)
     message(STATUS "Python3 libboost-python: ${LIBBOOST_PYTHON3}")
     message(STATUS "Python3 site directory: ${PYTHON3_SITE_DIR}")
 else(PYTHON3_CONFIG)
-    set(_PYTHON3_VERSIONS 3.9 3.8 3.7 3.6 3.5)
+    set(_PYTHON3_VERSIONS 3.7 3.6 3.5)
     foreach(_PYTHON3_VERSION ${_PYTHON3_VERSIONS})
         execute_process(COMMAND pkg-config --cflags "python-${_PYTHON3_VERSION}" RESULT_VARIABLE RETCODE)
         if("${RETCODE}" STREQUAL "0")

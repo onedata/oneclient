@@ -22,7 +22,7 @@
 namespace {
 boost::filesystem::path calcUserHome()
 {
-    if (const auto homeEnv = getenv("HOME"))
+    if (auto *const homeEnv = getenv("HOME"))
         return {homeEnv};
 
     return {getpwuid(getuid())->pw_dir};
@@ -30,7 +30,7 @@ boost::filesystem::path calcUserHome()
 
 boost::filesystem::path calcUserDataDir(const boost::filesystem::path &home)
 {
-    if (const auto xdgDataHomeEnv = getenv("XDG_DATA_HOME"))
+    if (auto *const xdgDataHomeEnv = getenv("XDG_DATA_HOME"))
         return {xdgDataHomeEnv};
 
     return home / ".local" / "share";

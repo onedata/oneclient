@@ -20,7 +20,6 @@
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index_container.hpp>
 #include <folly/FBString.h>
-#include <folly/Optional.h>
 #include <folly/futures/Future.h>
 
 #include <chrono>
@@ -56,7 +55,9 @@ public:
     MetadataCache(communication::Communicator &communicator,
         const std::chrono::seconds providerTimeout, folly::fbstring rootUuid,
         const std::vector<std::string> &spaceNames,
-        const std::vector<std::string> &spaceIds);
+        const std::vector<std::string> &spaceIds,
+        const bool showOnlyFullReplicas, const bool showHardLinkCount,
+        const bool showSpaceIdsNotNames = false);
 
     /**
      * Sets a pointer to an instance of @c ReaddirCache.
@@ -86,11 +87,14 @@ public:
      * @param chunkSize Maximum number of directory entries to be returned.
      * @param includeVirtual Include in the list virtual files.
      * @param onlyFullReplicas Include in the list only fully replicated files.
+     * @param showHardLinkCount Include information about hard link count in
+     * FileAttr.
      * @returns Directory entries in the requested range.
      */
     folly::fbvector<folly::fbstring> readdir(const folly::fbstring &uuid,
         off_t off, std::size_t chunkSize, bool includeVirtual = false,
-        bool onlyFullReplicas = false);
+        bool onlyFullReplicas = false, bool showHardLinkCount = false);
+
     /**
      * Retrieves file attributes by uuid.
      * @param uuid Uuid of the file.
@@ -112,7 +116,7 @@ public:
      * @param attr The file attributes to put in the cache.
      * @returns True, if the attribute was not in the cache
      */
-    bool putAttr(std::shared_ptr<FileAttr> attr);
+    bool putAttr(std::shared_ptr<FileAttr> attr, bool skipSubscription = false);
 
     /**
      * Inserts an externally fetched file location into the cache.
@@ -147,13 +151,13 @@ public:
      * fetching them from the server if missing.
      * @param uuid Uuid of the file.
      */
-    void ensureAttrAndLocationCached(folly::fbstring uuid);
+    void ensureAttrAndLocationCached(const folly::fbstring &uuid);
 
     /**
      * Removes all of file's metadata from the cache.
      * @param uuid Uuid of the file.
      */
-    void erase(folly::fbstring uuid);
+    void erase(const folly::fbstring &uuid);
 
     /**
      * Truncates blocks in cached file locations and modifies attributes to set
@@ -161,7 +165,7 @@ public:
      * @param uuid Uuid of the file.
      * @param newSize Size to truncate to.
      */
-    void truncate(folly::fbstring uuid, const std::size_t newSize);
+    void truncate(const folly::fbstring &uuid, const std::size_t newSize);
 
     /**
      * Update times cached in file's attributes.
@@ -176,15 +180,18 @@ public:
      * @param uuid Uuid of the file.
      * @param newMode The new mode.
      */
-    void changeMode(folly::fbstring uuid, const mode_t newMode);
+    void changeMode(const folly::fbstring &uuid, const mode_t newMode);
 
     /**
      * Updates file attributes, if cached.
      * @param newAttr Updated attributes.
+     * @param force If set to true and the attr already exists in the cache, it
+     * is first removed and then newAttr is added.
      * @returns true if attributes have been updated, false if they were not
      * cached.
      */
-    bool updateAttr(std::shared_ptr<FileAttr> newAttr);
+    bool updateAttr(std::shared_ptr<FileAttr> newAttr, bool force = false,
+        bool skipSize = false, bool skipSubscription = false);
 
     /**
      * Updates file location, if cached.
@@ -209,7 +216,7 @@ public:
      * @returns true if file has been marked as deleted, false if it was not
      * cached.
      */
-    bool markDeleted(folly::fbstring uuid);
+    bool markDeleted(const folly::fbstring &uuid);
 
     /**
      * Renames a cached file.
@@ -219,7 +226,7 @@ public:
      * @param newUuid New uuid of the file.
      * @returns true if file has been renamed, false if it was not cached.
      */
-    bool rename(folly::fbstring uuid, folly::fbstring newParentUuid,
+    bool rename(const folly::fbstring &uuid, folly::fbstring newParentUuid,
         folly::fbstring newName, folly::fbstring newUuid,
         bool renewSubscriptions);
 
@@ -243,6 +250,16 @@ public:
     void onAdd(std::function<void(const folly::fbstring &)> cb)
     {
         m_onAdd = std::move(cb);
+    }
+
+    /**
+     * Execute onAdd callback for uuid
+     * @param uuid
+     */
+    void onAdd(const folly::fbstring &uuid)
+    {
+        if (m_onAdd)
+            m_onAdd(uuid);
     }
 
     /**
@@ -385,8 +402,10 @@ private:
     const folly::fbstring m_rootUuid;
     std::unordered_set<folly::fbstring> m_whitelistedSpaceNames;
     std::unordered_set<folly::fbstring> m_whitelistedSpaceIds;
-
     std::shared_ptr<VirtualFsHelpersCache> m_virtualFsHelpersCache{};
+    const bool m_showOnlyFullReplicas;
+    const bool m_showHardLinkCount;
+    const bool m_showSpaceIdsNotNames;
 };
 
 } // namespace cache

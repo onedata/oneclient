@@ -1,6 +1,5 @@
 {% set name = "oneclient" %}
 {% set version = "<<PKG_VERSION>>" %}
-{% set folly_version = "2017.10.02.03" %}
 
 package:
   name: {{ name|lower }}
@@ -19,47 +18,46 @@ requirements:
   build:
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
-    - conda-forge::autoconf
-    - conda-forge::autoconf-archive
-    - conda-forge::automake
     - conda-forge::aws-c-common
-    - conda-forge::aws-checksums
     - conda-forge::aws-c-event-stream
+    - conda-forge::aws-checksums
     - conda-forge::aws-sdk-cpp
+    - conda-forge::backports.lzma
+    - conda-forge::binutils_linux-64
     - conda-forge::boost =1.78.0
     - conda-forge::cmake
     - conda-forge::double-conversion
     - conda-forge::fmt =7.1.*
-    - conda-forge::poco =1.11.1
     - conda-forge::gflags
     - conda-forge::git
-    - conda-forge::glog
+    - conda-forge::glog =0.4.0
     - conda-forge::gperf
-    - onedata::libacl
-    - onedata::libattr
+    - conda-forge::jemalloc
     - conda-forge::libevent
-    - onedata::libiberty
+    - conda-forge::libfuse =3.10.*
     - conda-forge::libsodium
     - conda-forge::libtool
-    - conda-forge::libfuse =2.9.*
+    - conda-forge::libunwind
     - conda-forge::libuuid
     - conda-forge::make
-    - conda-forge::nss
     - conda-forge::nspr
+    - conda-forge::nss
     - conda-forge::openssl =1.1.1o
     - conda-forge::pcre
-    - conda-forge::pkg-config >=0.29
+    - conda-forge::pkg-config
+    - conda-forge::poco =1.11.1
     - conda-forge::protobuf =3.17.*
     - conda-forge::pthread-stubs
-    - python {{ python }}
+    - conda-forge::python
     - conda-forge::spdlog =1.8.*
     - conda-forge::tbb =2018.0.5
     - conda-forge::tbb-devel =2018.0.5
+    - conda-forge::zlib
     - onedata::ceph-client =14.2.2.5
-    - onedata::swift-sdk-cpp =1.0.1
-    - onedata::folly ={{ folly_version }}
-    - onedata::wangle ={{ folly_version }}
-    - onedata::proxygen ={{ folly_version }}
+    - onedata::libacl
+    - onedata::libattr
+    - onedata::libiberty
+    - onedata::swift-sdk-cpp
   run:
     - conda-forge::aws-c-common
     - conda-forge::aws-c-event-stream
@@ -69,11 +67,9 @@ requirements:
     - conda-forge::double-conversion
     - conda-forge::gflags
     - conda-forge::glog =0.4.0
-    - conda-forge::fmt =7.1.*
-    - conda-forge::libfuse =2.9.*
     - conda-forge::jemalloc
     - conda-forge::libevent
-    - conda-forge::libfuse
+    - conda-forge::libfuse =3.10.*
     - conda-forge::libsodium
     - conda-forge::libunwind
     - conda-forge::libuuid
@@ -83,12 +79,11 @@ requirements:
     - conda-forge::pcre
     - conda-forge::poco =1.11.1
     - conda-forge::protobuf =3.17.*
-    - conda-forge::spdlog =1.8.*
     - conda-forge::tbb =2018.0.5
+    - conda-forge::spdlog =1.8.*
     - conda-forge::zlib
     - onedata::ceph-client =14.2.2.5
-    - onedata::folly ={{ folly_version }}
-    - onedata::proxygen ={{ folly_version }}
+
 test:
   commands:
     - test -f $PREFIX/bin/oneclient

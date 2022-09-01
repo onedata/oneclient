@@ -140,7 +140,7 @@ MacaroonHandler::getMacaroonFromOptions() const
     }
 }
 
-macaroons::Macaroon MacaroonHandler::getMacaroonFromUser() const
+macaroons::Macaroon MacaroonHandler::getMacaroonFromUser()
 {
     LOG_FCALL();
 
@@ -156,7 +156,7 @@ macaroons::Macaroon MacaroonHandler::getMacaroonFromUser() const
     return deserialize(macaroon);
 }
 
-void MacaroonHandler::persistMacaroon(macaroons::Macaroon macaroon) const
+void MacaroonHandler::persistMacaroon(const macaroons::Macaroon &macaroon) const
 {
     LOG_FCALL();
 
@@ -186,7 +186,7 @@ boost::filesystem::path MacaroonHandler::macaroonFilePath() const
     return m_userDataDir / "macaroon";
 }
 
-macaroons::Macaroon MacaroonHandler::deserialize(std::string macaroon) const
+macaroons::Macaroon MacaroonHandler::deserialize(const std::string &macaroon)
 {
     LOG_FCALL() << LOG_FARG(macaroon);
 
@@ -213,7 +213,7 @@ Coding createCoding()
     return {pairs.begin(), pairs.end()};
 }
 
-const Coding coding = createCoding();
+const Coding coding = createCoding(); // NOLINT
 
 } // namespace
 
@@ -244,7 +244,7 @@ std::string MacaroonHandler::decode62(std::string macaroon62)
     return macaroon64;
 }
 
-std::string MacaroonHandler::encode62(std::string macaroon64)
+std::string MacaroonHandler::encode62(const std::string &macaroon64)
 {
     LOG_FCALL() << LOG_FARG(macaroon64);
 

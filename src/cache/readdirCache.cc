@@ -16,11 +16,15 @@
 #include "messages/fuse/getFileChildrenAttrs.h"
 #include "options/options.h"
 
-#include <folly/Enumerate.h>
 #include <folly/FBString.h>
 #include <folly/Optional.h>
 #include <folly/Range.h>
+#include <folly/container/Enumerate.h>
+#if FUSE_USE_VERSION > 30
+#include <fuse3/fuse_lowlevel.h>
+#else
 #include <fuse/fuse_lowlevel.h>
+#endif
 
 #include <memory>
 
@@ -41,8 +45,8 @@ ReaddirCache::ReaddirCache(OpenFileMetadataCache &metadataCache,
 {
 }
 
-void ReaddirCache::fetch(
-    const folly::fbstring &uuid, const bool includeReplicationStatus)
+void ReaddirCache::fetch(const folly::fbstring &uuid,
+    const bool includeReplicationStatus, const bool includeHardLinkCount)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
@@ -55,7 +59,8 @@ void ReaddirCache::fetch(
     m_cache.emplace(uuid, p);
 
     m_context.lock()->scheduler()->post([this, uuid = uuid, p = std::move(p),
-                                            includeReplicationStatus] {
+                                            includeReplicationStatus,
+                                            includeHardLinkCount] {
         std::size_t chunkIndex = 0;
         std::size_t fetchedSize = 0;
         auto isLast = false;
@@ -72,12 +77,14 @@ void ReaddirCache::fetch(
 
             auto ew = folly::try_and_catch<std::exception>(
                 [this, p, &isLast, uuid, &chunkIndex, &fetchedSize, &futs,
-                    &indexToken, includeReplicationStatus]() {
+                    &indexToken, includeReplicationStatus,
+                    includeHardLinkCount]() {
                     auto msg =
                         communicate<one::messages::fuse::FileChildrenAttrs>(
                             one::messages::fuse::GetFileChildrenAttrs{uuid,
                                 static_cast<off_t>(chunkIndex), m_prefetchSize,
-                                indexToken, includeReplicationStatus},
+                                indexToken, includeReplicationStatus,
+                                includeHardLinkCount},
                             m_providerTimeout);
 
                     fetchedSize = msg.childrenAttrs().size();
@@ -98,7 +105,8 @@ void ReaddirCache::fetch(
                                 !attr->fullyReplicated())
                                 continue;
 
-                            m_metadataCache.updateAttr(std::move(attr));
+                            m_metadataCache.updateAttr(
+                                std::move(attr), false, true, true);
                         }
                         partialPromise.setValue();
                     });
@@ -112,8 +120,9 @@ void ReaddirCache::fetch(
         } while (!isLast && fetchedSize > 0);
 
         folly::collectAll(futs)
-            .then([this, p, uuid](
-                      const std::vector<folly::Try<folly::Unit>> & /*unused*/) {
+            .via(folly::getGlobalCPUExecutor().get())
+            .thenValue([this, p, uuid](
+                           std::vector<folly::Try<folly::Unit>> && /*unused*/) {
                 // Wait until all directory entries are added to the
                 // metadata cache
                 m_runInFiber([this, p, uuid]() {
@@ -129,7 +138,7 @@ void ReaddirCache::fetch(
 
 folly::fbvector<folly::fbstring> ReaddirCache::readdir(
     const folly::fbstring &uuid, off_t off, std::size_t chunkSize,
-    bool includeReplicationStatus)
+    bool includeReplicationStatus, bool includeHardLinkCount)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(off) << LOG_FARG(chunkSize);
 
@@ -156,7 +165,7 @@ folly::fbvector<folly::fbstring> ReaddirCache::readdir(
             assert(attr->isVirtual());
             attr->getVirtualFsAdapter()->readdir(
                 m_metadataCache.readdir(effectiveUuid, off, chunkSize, true,
-                    includeReplicationStatus),
+                    includeReplicationStatus, includeHardLinkCount),
                 attr, m_metadataCache);
         }
 
@@ -169,15 +178,16 @@ folly::fbvector<folly::fbstring> ReaddirCache::readdir(
         auto uuidIt = m_cache.find(effectiveUuid);
 
         if (uuidIt == m_cache.end()) {
-            fetch(effectiveUuid, includeReplicationStatus);
+            fetch(
+                effectiveUuid, includeReplicationStatus, includeHardLinkCount);
         }
 
-        auto dirEntriesFuture = (*m_cache.find(effectiveUuid)).second;
-        auto f = dirEntriesFuture->getFuture().wait();
+        auto dirEntriesPromise = (*m_cache.find(effectiveUuid)).second;
+        auto f = dirEntriesPromise->getFuture().wait();
 
         if (f.hasException()) {
             m_cache.erase(effectiveUuid);
-            f.get();
+            std::move(f).get();
         }
     }
 

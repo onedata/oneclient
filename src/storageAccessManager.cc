@@ -83,7 +83,7 @@ std::vector<boost::filesystem::path> getMountPoints()
         return mountPoints;
     }
 
-    struct mntent *ent;
+    struct mntent *ent = nullptr;
     while ((ent = getmntent(file)) != nullptr) {
         std::string type(ent->mnt_type);
         std::string path(ent->mnt_dir);
@@ -184,8 +184,11 @@ StorageAccessManager::verifyStorageTestFile(const folly::fbstring &storageId,
             }
         }
     }
-    else if ((helperParams.name() == helpers::NULL_DEVICE_HELPER_NAME) ||
-        (helperParams.name() == helpers::HTTP_HELPER_NAME)) {
+    else if ((helperParams.name() == helpers::NULL_DEVICE_HELPER_NAME)
+#if WITH_WEBDAV
+        || (helperParams.name() == helpers::HTTP_HELPER_NAME)
+#endif
+    ) {
         return m_helperFactory.getStorageHelper(helperParams.name(),
             helperParams.args(), m_options.isIOBuffered(), overrideParams);
     }
@@ -281,7 +284,7 @@ folly::fbstring StorageAccessManager::modifyStorageTestFile(
     auto size = testFile.fileContent().size();
     folly::IOBufQueue buf{folly::IOBufQueue::cacheChainLength()};
 
-    auto data = static_cast<char *>(buf.allocate(size));
+    auto *data = static_cast<char *>(buf.allocate(size));
 
     std::random_device device;
     std::default_random_engine engine(device());

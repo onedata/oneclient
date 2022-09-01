@@ -36,9 +36,9 @@ std::string SynchronizeBlock::toString() const
 std::unique_ptr<ProtocolClientMessage> SynchronizeBlock::serializeAndDestroy()
 {
     auto msg = FileRequest::serializeAndDestroy();
-    auto sb = msg->mutable_fuse_request()
-                  ->mutable_file_request()
-                  ->mutable_synchronize_block();
+    auto *sb = msg->mutable_fuse_request()
+                   ->mutable_file_request()
+                   ->mutable_synchronize_block();
 
     sb->set_prefetch(m_prefetch);
     sb->set_priority(m_priority);

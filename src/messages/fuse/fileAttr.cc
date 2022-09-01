@@ -93,6 +93,10 @@ FileAttr::FileType FileAttr::type() const { return m_type; }
 
 folly::Optional<off_t> FileAttr::size() const { return m_size; }
 
+void FileAttr::nlink(const int count) { m_nlink = count; }
+
+folly::Optional<int> FileAttr::nlink() const { return m_nlink; }
+
 void FileAttr::size(const off_t size_) { m_size = size_; }
 
 bool FileAttr::fullyReplicated() const
@@ -138,6 +142,9 @@ std::string FileAttr::toString() const
     else
         stream << "unset";
 
+    if (m_nlink)
+        stream << ", nlink: " << *m_nlink;
+
     stream << ", type: ";
 
     switch (m_type) {
@@ -149,6 +156,8 @@ std::string FileAttr::toString() const
             break;
         case FileType::link:
             stream << "link";
+        case FileType::symlink:
+            stream << "symlink";
             break;
     }
 
@@ -177,6 +186,8 @@ void FileAttr::deserialize(const ProtocolMessage &message)
         m_size = message.size();
     if (message.has_fully_replicated())
         m_fullyReplicated = message.fully_replicated();
+    if (message.has_nlink())
+        m_nlink = message.nlink();
 
     if (message.type() == clproto::FileType::DIR)
         m_type = FileType::directory;
@@ -184,6 +195,8 @@ void FileAttr::deserialize(const ProtocolMessage &message)
         m_type = FileType::regular;
     else if (message.type() == clproto::FileType::LNK)
         m_type = FileType::link;
+    else if (message.type() == clproto::FileType::SYMLNK)
+        m_type = FileType::symlink;
     else
         throw std::system_error{
             std::make_error_code(std::errc::protocol_error), "bad filetype"};

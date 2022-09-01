@@ -89,10 +89,14 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(false, options.getSingleThread());
     EXPECT_EQ(false, options.isInsecure());
     EXPECT_EQ(false, options.isIOTraceLoggerEnabled());
+    EXPECT_EQ(false, options.isMessageTraceLoggerEnabled());
     EXPECT_EQ(false, options.isProxyIOForced());
     EXPECT_EQ(false, options.isDirectIOForced());
-    EXPECT_EQ(false, options.showOnlyFullReplicas());
+    EXPECT_FALSE(options.showOnlyFullReplicas());
+    EXPECT_FALSE(options.showHardLinkCount());
     EXPECT_EQ(false, options.isArchivematicaModeEnabled());
+    EXPECT_EQ(false, options.isOpenSharesModeEnabled());
+    EXPECT_EQ(false, options.showSpaceIds());
     EXPECT_EQ(false, options.isMonitoringEnabled());
     EXPECT_EQ(false, options.isMonitoringLevelFull());
     EXPECT_EQ(false, options.areFileReadEventsDisabled());
@@ -262,6 +266,13 @@ TEST_F(OptionsTest, parseCommandLineShouldEnableIOTraceLog)
     cmdArgs.insert(cmdArgs.end(), {"--io-trace-log", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ(true, options.isIOTraceLoggerEnabled());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldEnableMessageTraceLog)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--message-trace-log", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.isMessageTraceLoggerEnabled());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldGetCustomLogLevels)
@@ -636,7 +647,11 @@ TEST_F(OptionsTest, parseCommandLineShouldSetFuseArgs)
         {"--foreground", "--debug", "--single-thread", "--opt", "someOpt0",
             "--opt", "someOpt1", "--opt", "someOpt2", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
+#if FUSE_USE_VERSION > 30
+    EXPECT_EQ(8, options.getFuseArgs("oneclient").argc);
+#else
     EXPECT_EQ(9, options.getFuseArgs("oneclient").argc);
+#endif
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldWarnOnDeprecatedOptions)
@@ -952,11 +967,42 @@ TEST_F(OptionsTest, parseCommandLineShouldShowOnlyFullReplicas)
     EXPECT_EQ(true, options.showOnlyFullReplicas());
 }
 
+TEST_F(OptionsTest, parseCommandLineShouldShowHardLinkCount)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--hard-link-count", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.showHardLinkCount());
+}
+
 TEST_F(OptionsTest, parseCommandLineShouldEnableArchivematicaMode)
 {
     cmdArgs.insert(cmdArgs.end(), {"--enable-archivematica", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ(true, options.isArchivematicaModeEnabled());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldEnableOpenSharesMode)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--open-shares-mode", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.isOpenSharesModeEnabled());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetDropDirCacheInOpenSharesMode)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--open-shares-mode", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+
+    using namespace one::client::options;
+    EXPECT_EQ(DEFAULT_DIR_CACHE_DROP_AFTER_IN_OPEN_SHARE_MODE,
+        options.getDirectoryCacheDropAfter().count());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldShouldShowSpaceIds)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--show-space-ids", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.showSpaceIds());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldEnableMonitoringWithType)

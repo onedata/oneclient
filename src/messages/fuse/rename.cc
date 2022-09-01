@@ -34,7 +34,7 @@ std::string Rename::toString() const
 std::unique_ptr<ProtocolClientMessage> Rename::serializeAndDestroy()
 {
     auto msg = FileRequest::serializeAndDestroy();
-    auto rnm =
+    auto *rnm =
         msg->mutable_fuse_request()->mutable_file_request()->mutable_rename();
 
     rnm->mutable_target_parent_uuid()->swap(m_targetParentUuid);

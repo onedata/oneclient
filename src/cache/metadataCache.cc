@@ -39,10 +39,14 @@ using namespace std::literals;
 MetadataCache::MetadataCache(communication::Communicator &communicator,
     const std::chrono::seconds providerTimeout, folly::fbstring rootUuid,
     const std::vector<std::string> &spaceNames,
-    const std::vector<std::string> &spaceIds)
+    const std::vector<std::string> &spaceIds, const bool showOnlyFullReplicas,
+    const bool showHardLinkCount, const bool showSpaceIdsNotNames)
     : m_communicator{communicator}
     , m_providerTimeout{providerTimeout}
     , m_rootUuid{std::move(rootUuid)}
+    , m_showOnlyFullReplicas{showOnlyFullReplicas}
+    , m_showHardLinkCount{showHardLinkCount}
+    , m_showSpaceIdsNotNames{showSpaceIdsNotNames}
 {
     for (const auto &name : spaceNames) {
         m_whitelistedSpaceNames.emplace(name);
@@ -67,7 +71,7 @@ bool MetadataCache::contains(const folly::fbstring &uuid) const
 {
     assertInFiber();
 
-    auto &index = bmi::get<ByUuid>(m_cache);
+    const auto &index = bmi::get<ByUuid>(m_cache);
     return index.find(uuid) != index.end();
 }
 
@@ -110,16 +114,18 @@ void MetadataCache::invalidateChildren(const folly::fbstring &uuid)
 
     assert(!uuid.empty());
 
-    LOG_DBG(2) << "Invalidating children of directory: " << uuid;
-
     auto &index = bmi::get<ByParent>(m_cache);
     auto irange = boost::make_iterator_range(index.equal_range(uuid));
+
+    LOG_DBG(2) << "Invalidating children of directory: " << uuid;
+
     index.erase(irange.begin(), irange.end());
 }
 
 folly::fbvector<folly::fbstring> MetadataCache::readdir(
     const folly::fbstring &uuid, off_t off, std::size_t chunkSize,
-    bool includeVirtual, bool /*onlyFullReplicas*/)
+    bool includeVirtual, bool /*onlyFullReplicas*/,
+    bool /*includeHardLinkCount*/)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(off) << LOG_FARG(chunkSize);
 
@@ -143,8 +149,7 @@ folly::fbvector<folly::fbstring> MetadataCache::readdir(
         off_t offCount{0};
         auto it = irange.begin();
         for (; (offCount < off - extraFilesCount) && (it != irange.end());
-             it++, offCount++) {
-        }
+             it++, offCount++) { }
         if (offCount < off - extraFilesCount)
             return result;
 
@@ -163,16 +168,21 @@ folly::fbvector<folly::fbstring> MetadataCache::readdir(
     else {
         // Handle space whitelisting
         folly::fbvector<folly::fbstring> whitelistedSpaces;
+
         for (const auto &m : irange)
-            if (isSpaceWhitelisted(*m.attr))
-                whitelistedSpaces.emplace_back(m.attr->name());
+            if (isSpaceWhitelisted(*m.attr)) {
+                if (m_showSpaceIdsNotNames)
+                    whitelistedSpaces.emplace_back(
+                        util::uuid::uuidToSpaceId(m.attr->uuid()));
+                else
+                    whitelistedSpaces.emplace_back(m.attr->name());
+            }
 
         off_t offCount{0};
-        auto it = whitelistedSpaces.begin();
+        auto *it = whitelistedSpaces.begin();
         for (; (offCount < off - extraFilesCount) &&
              (it != whitelistedSpaces.end());
-             it++, offCount++) {
-        }
+             it++, offCount++) { }
         if (offCount < off - extraFilesCount)
             return result;
 
@@ -201,6 +211,9 @@ FileAttrPtr MetadataCache::getAttr(
 
     assertInFiber();
 
+    if (m_showSpaceIdsNotNames && (parentUuid == m_rootUuid))
+        return getAttr(util::uuid::spaceIdToSpaceUUID(name));
+
     folly::StringPiece effectiveName{name};
     folly::fbstring effectiveParentUuid{parentUuid};
     auto isVirtual{false};
@@ -214,8 +227,8 @@ FileAttrPtr MetadataCache::getAttr(
                 ->effectiveName(parentUuid);
 
     auto &index = bmi::get<ByParentName>(m_cache);
-    auto it = index.find(
-        std::make_tuple(effectiveParentUuid, effectiveName.toFbstring()));
+    auto it =
+        index.find(std::make_tuple(effectiveParentUuid, effectiveName.str()));
 
     // Check if the requested entry 'name' matches a name pattern of
     // any of the registered virtual filesystem adapters
@@ -234,7 +247,7 @@ FileAttrPtr MetadataCache::getAttr(
                 m_virtualFsHelpersCache->get(virtualStorageId));
         }
 
-        if (it->attr->type() == FileAttr::FileType::regular &&
+        if (it->attr->type() != FileAttr::FileType::directory &&
             !it->attr->size()) {
             LOG_DBG(1) << "Metadata for file " << effectiveParentUuid << "/"
                        << effectiveName
@@ -255,8 +268,8 @@ FileAttrPtr MetadataCache::getAttr(
                << effectiveParentUuid
                << " not found in cache - retrieving from server";
 
-    auto fetchedIt = fetchAttr(messages::fuse::GetChildAttr{
-        effectiveParentUuid, effectiveName.toFbstring()});
+    auto fetchedIt = fetchAttr(messages::fuse::GetChildAttr{effectiveParentUuid,
+        effectiveName.str(), m_showOnlyFullReplicas, m_showHardLinkCount});
 
     if (effectiveParentUuid == m_rootUuid &&
         !isSpaceWhitelisted(*fetchedIt->attr)) {
@@ -315,7 +328,7 @@ MetadataCache::Map::iterator MetadataCache::getAttrIt(
                     m_virtualFsHelpersCache->get(virtualStorageId));
         }
 
-        if (it->attr->type() == FileAttr::FileType::regular &&
+        if (it->attr->type() != FileAttr::FileType::directory &&
             !it->attr->size()) {
             LOG_DBG(2) << "Metadata for file " << effectiveUuid
                        << " exists, but size is undefined, fetch the "
@@ -329,7 +342,8 @@ MetadataCache::Map::iterator MetadataCache::getAttrIt(
     LOG_DBG(2) << "Metadata attributes for " << effectiveUuid
                << " not found in cache - fetching from server";
 
-    auto res = fetchAttr(messages::fuse::GetFileAttr{effectiveUuid});
+    auto res = fetchAttr(messages::fuse::GetFileAttr{
+        effectiveUuid, m_showOnlyFullReplicas, m_showHardLinkCount});
     if (isVirtual) {
         res->attr->setVirtualEntrypoint(true);
         res->attr->setVirtualFsAdapter(
@@ -341,7 +355,8 @@ MetadataCache::Map::iterator MetadataCache::getAttrIt(
     return res;
 }
 
-bool MetadataCache::putAttr(std::shared_ptr<FileAttr> attr)
+bool MetadataCache::putAttr(
+    std::shared_ptr<FileAttr> attr, bool /*skipSubscription*/)
 {
     LOG_FCALL() << LOG_FARG(attr->toString());
 
@@ -357,13 +372,14 @@ bool MetadataCache::putAttr(std::shared_ptr<FileAttr> attr)
     }
 
     try {
-        if (attr->type() == FileAttr::FileType::regular &&
+        if (attr->type() != FileAttr::FileType::directory &&
             !(attr->size().hasValue())) {
             LOG(WARNING)
                 << "Received attribute for new file " << uuid
                 << " without size - fetching full attribute from server...";
 
-            fetchAttr(messages::fuse::GetFileAttr{uuid});
+            fetchAttr(messages::fuse::GetFileAttr{
+                uuid, m_showOnlyFullReplicas, m_showHardLinkCount});
             return true;
         }
 
@@ -378,13 +394,6 @@ bool MetadataCache::putAttr(std::shared_ptr<FileAttr> attr)
 
         LOG_DBG(2) << "Added new attribute to the metadata cache for: "
                    << attr->uuid();
-
-        if (attr->parentUuid() && !attr->parentUuid().value().empty()) {
-            LOG_DBG(2) << "Subscribing for changes on the parent of newly "
-                          "added file: "
-                       << attr->uuid();
-            m_onAdd(attr->parentUuid().value());
-        }
 
         ONE_METRIC_COUNTER_INC("comp.oneclient.mod.metadatacache.size");
         return isNewEntry;
@@ -442,9 +451,9 @@ MetadataCache::Map::iterator MetadataCache::fetchAttr(ReqMsg &&msg)
 
         // In case the parent of uuid is not in the cache, add it and
         // subscribe for change events on that directory
-        if (parentUuid && !parentUuid.value().empty()) {
-            m_onAdd(parentUuid.value());
-        }
+        // if (parentUuid && !parentUuid.value().empty()) {
+        // m_onAdd(parentUuid.value());
+        //}
 
         ONE_METRIC_COUNTER_INC("comp.oneclient.mod.metadatacache.size");
     }
@@ -494,7 +503,6 @@ std::shared_ptr<FileLocation> MetadataCache::getLocation(
     LOG_FCALL() << LOG_FARG(attr->uuid());
 
     assertInFiber();
-
     return fetchFileLocation(attr->uuid());
 }
 
@@ -530,7 +538,7 @@ std::shared_ptr<FileLocation> MetadataCache::fetchFileLocation(
     return sharedLocation;
 }
 
-void MetadataCache::ensureAttrAndLocationCached(folly::fbstring uuid)
+void MetadataCache::ensureAttrAndLocationCached(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
@@ -568,7 +576,7 @@ void MetadataCache::clear()
     assert(index.empty());
 }
 
-void MetadataCache::erase(folly::fbstring uuid)
+void MetadataCache::erase(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
     assertInFiber();
@@ -579,7 +587,8 @@ void MetadataCache::erase(folly::fbstring uuid)
         "comp.oneclient.mod.metadatacache.size", index.size());
 }
 
-void MetadataCache::truncate(folly::fbstring uuid, const std::size_t newSize)
+void MetadataCache::truncate(
+    const folly::fbstring &uuid, const std::size_t newSize)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(newSize);
 
@@ -638,7 +647,8 @@ void MetadataCache::updateTimes(
     });
 }
 
-void MetadataCache::changeMode(folly::fbstring uuid, const mode_t newMode)
+void MetadataCache::changeMode(
+    const folly::fbstring &uuid, const mode_t newMode)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARGO(newMode);
 
@@ -666,7 +676,7 @@ void MetadataCache::putLocation(std::unique_ptr<FileLocation> location)
         it, [&](Metadata &m) mutable { m.location = {std::move(location)}; });
 }
 
-bool MetadataCache::markDeleted(folly::fbstring uuid)
+bool MetadataCache::markDeleted(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
@@ -703,8 +713,9 @@ void MetadataCache::markDeletedIt(const Map::iterator &it)
     m_onMarkDeleted(uuid);
 }
 
-bool MetadataCache::rename(folly::fbstring uuid, folly::fbstring newParentUuid,
-    folly::fbstring newName, folly::fbstring newUuid, bool renewSubscriptions)
+bool MetadataCache::rename(const folly::fbstring &uuid,
+    folly::fbstring newParentUuid, folly::fbstring newName,
+    folly::fbstring newUuid, bool renewSubscriptions)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(newParentUuid)
                 << LOG_FARG(newName) << LOG_FARG(newUuid);
@@ -731,7 +742,8 @@ bool MetadataCache::rename(folly::fbstring uuid, folly::fbstring newParentUuid,
         // just add the new attr to the cache if the parent directory of
         // the newUuid is being cached
         try {
-            fetchAttr(messages::fuse::GetFileAttr{newUuid});
+            fetchAttr(messages::fuse::GetFileAttr{
+                newUuid, m_showOnlyFullReplicas, m_showHardLinkCount});
         }
         catch (const std::system_error &e) {
             LOG_DBG(1) << "Rename event received for removed file - ignoring: "
@@ -753,8 +765,6 @@ bool MetadataCache::rename(folly::fbstring uuid, folly::fbstring newParentUuid,
 
     if (uuid != newUuid)
         m_deletedUuids.insert(uuid);
-
-    m_onAdd(newParentUuid);
 
     if (renewSubscriptions)
         m_onRename(uuid, newUuid);
@@ -794,7 +804,8 @@ void MetadataCache::updateSize(const folly::fbstring &uuid, const off_t size)
     });
 }
 
-bool MetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr)
+bool MetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr, bool force,
+    bool skipSize, bool skipSubscription)
 {
     LOG_FCALL() << LOG_FARG(newAttr->toString());
 
@@ -810,7 +821,14 @@ bool MetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr)
 
     auto &index = bmi::get<ByUuid>(m_cache);
     auto it = index.find(uuid);
-    if (it == index.end()) {
+    auto alreadyExists = it != index.end();
+
+    if (force && alreadyExists) {
+        index.erase(uuid);
+        return putAttr(newAttr);
+    }
+
+    if (!alreadyExists) {
         LOG_DBG(2) << "Attribute for " << newAttr->name() << " (" << uuid
                    << ")  not found in cache - adding";
 
@@ -820,7 +838,7 @@ bool MetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr)
             return false;
         }
 
-        return putAttr(newAttr);
+        return putAttr(newAttr, skipSubscription);
     }
 
     if (newAttr->fullyReplicatedOpt() && !(*newAttr->fullyReplicatedOpt())) {
@@ -834,8 +852,11 @@ bool MetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr)
 
     index.modify(
         it, [&](Metadata &m) {
-            if (m.attr->type() == FileAttr::FileType::regular) {
-                if (newAttr->size() && m.attr->size() &&
+            if (m.attr->type() != FileAttr::FileType::directory) {
+                if (!m.attr->size())
+                    skipSize = false;
+
+                if (!skipSize && newAttr->size() && m.attr->size() &&
                     (*newAttr->size() < *m.attr->size()) && m.location) {
                     LOG_DBG(2)
                         << "Truncating file size based on updated attributes "
@@ -847,12 +868,15 @@ bool MetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr)
                             0, *newAttr->size()));
                 }
 
-                if (newAttr->size())
+                if (newAttr->size() && !skipSize)
                     m.attr->size(*newAttr->size());
 
                 if (newAttr->fullyReplicated())
                     m.attr->setFullyReplicated(newAttr->fullyReplicated());
             }
+
+            if (newAttr->nlink())
+                m.attr->nlink(*newAttr->nlink());
 
             m.attr->atime(std::max(m.attr->atime(), newAttr->atime()));
             m.attr->ctime(std::max(m.attr->ctime(), newAttr->ctime()));

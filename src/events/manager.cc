@@ -10,6 +10,7 @@
 #include "events.h"
 #include "helpers/logging.h"
 #include "messages/configuration.h"
+#include "options/options.h"
 #include "scheduler.h"
 
 namespace one {
@@ -18,7 +19,8 @@ namespace events {
 
 Manager::Manager(std::shared_ptr<Context> context)
     : m_scheduler{*context->scheduler()}
-    , m_sequencerManager{context->communicator()}
+    , m_sequencerManager{context->communicator(),
+          context->options()->getProviderTimeout()}
     , m_sequencerStream{m_sequencerManager.create()}
     , m_router{*this, *context->communicator()}
 {

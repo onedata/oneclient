@@ -61,7 +61,8 @@ public:
      * @param testFile Instance of @c messages::fuse::StorageTestFile.
      * @return Modified content of the test file.
      */
-    folly::fbstring modifyStorageTestFile(const folly::fbstring &storageId,
+    static folly::fbstring modifyStorageTestFile(
+        const folly::fbstring &storageId,
         std::shared_ptr<helpers::StorageHelper> helper,
         const messages::fuse::StorageTestFile &testFile);
 
@@ -73,12 +74,12 @@ public:
      * @param overrideParams The dictionary of override params for the helper.
      * @return True if mountPoint exists and is valid.
      */
-    bool checkPosixMountpointOverride(const folly::fbstring &storageId,
+    static bool checkPosixMountpointOverride(const folly::fbstring &storageId,
         const std::unordered_map<folly::fbstring, folly::fbstring>
             &overrideParams);
 
 private:
-    bool verifyStorageTestFile(const folly::fbstring &storageId,
+    static bool verifyStorageTestFile(const folly::fbstring &storageId,
         std::shared_ptr<helpers::StorageHelper> helper,
         const messages::fuse::StorageTestFile &testFile);
 

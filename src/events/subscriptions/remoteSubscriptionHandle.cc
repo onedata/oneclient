@@ -27,7 +27,7 @@ RemoteSubscriptionHandle::RemoteSubscriptionHandle(StreamKey streamKey,
     auto clientMsg = std::make_unique<ProtoClient>();
     msg->set_id(m_subscriptionId);
     clientMsg->mutable_subscription()->Swap(msg.release());
-    m_stream.send(std::move(clientMsg));
+    m_stream.sendSync(std::move(clientMsg));
 }
 
 RemoteSubscriptionHandle::~RemoteSubscriptionHandle()
@@ -36,7 +36,7 @@ RemoteSubscriptionHandle::~RemoteSubscriptionHandle()
                << m_subscriptionId << "'";
 
     auto clientMsg = std::make_unique<ProtoClient>();
-    auto msg = clientMsg->mutable_subscription_cancellation();
+    auto *msg = clientMsg->mutable_subscription_cancellation();
     msg->set_id(m_subscriptionId);
     m_stream.send(std::move(clientMsg));
 }

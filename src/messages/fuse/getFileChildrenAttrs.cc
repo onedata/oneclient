@@ -26,12 +26,13 @@ GetFileChildrenAttrs::GetFileChildrenAttrs(
 
 GetFileChildrenAttrs::GetFileChildrenAttrs(const folly::fbstring &uuid,
     const off_t offset, const std::size_t size,
-    folly::Optional<folly::fbstring> indexToken,
-    folly::Optional<bool> includeReplicationStatus)
+    folly::Optional<folly::fbstring> indexToken, bool includeReplicationStatus,
+    bool includeHardLinkCount)
     : GetFileChildrenAttrs{uuid, offset, size}
 {
+    m_includeReplicationStatus = includeReplicationStatus;
+    m_includeHardLinkCount = includeHardLinkCount;
     m_indexToken.assign(std::move(indexToken));
-    m_includeReplicationStatus.assign(std::move(includeReplicationStatus));
 }
 
 std::string GetFileChildrenAttrs::toString() const
@@ -46,7 +47,10 @@ std::string GetFileChildrenAttrs::toString() const
 
     if (m_includeReplicationStatus)
         stream << ", include_replication_status: "
-               << *m_includeReplicationStatus;
+               << m_includeReplicationStatus;
+
+    if (m_includeHardLinkCount)
+        stream << ", include_hard_link_count: " << m_includeHardLinkCount;
 
     return stream.str();
 }
@@ -55,9 +59,9 @@ std::unique_ptr<ProtocolClientMessage>
 GetFileChildrenAttrs::serializeAndDestroy()
 {
     auto msg = FileRequest::serializeAndDestroy();
-    auto gfc = msg->mutable_fuse_request()
-                   ->mutable_file_request()
-                   ->mutable_get_file_children_attrs();
+    auto *gfc = msg->mutable_fuse_request()
+                    ->mutable_file_request()
+                    ->mutable_get_file_children_attrs();
 
     gfc->set_offset(m_offset);
     gfc->set_size(m_size);
@@ -66,7 +70,10 @@ GetFileChildrenAttrs::serializeAndDestroy()
         gfc->set_index_token(m_indexToken->toStdString());
 
     if (m_includeReplicationStatus)
-        gfc->set_include_replication_status(*m_includeReplicationStatus);
+        gfc->set_include_replication_status(m_includeReplicationStatus);
+
+    if (m_includeHardLinkCount)
+        gfc->set_include_link_count(m_includeReplicationStatus);
 
     return msg;
 }
