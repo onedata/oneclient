@@ -155,6 +155,10 @@ CHANGELOG
 -   **VFS-7256** Fixed OnedataFS token refresh, which caused
     disconnection from Oneprovider after the token expired.
 
+### 20.02.18
+
+### 20.02.17
+
 ### 20.02.16
 
 -   **VFS-8747** Pinned boost dependency on conda to 1.76.0.
