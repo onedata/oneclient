@@ -269,11 +269,11 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     m_metadataCache.onRename(
         [this](const folly::fbstring &oldUuid, const folly::fbstring &newUuid) {
             if (oldUuid != newUuid) {
-                m_fsSubscriptions.unsubscribeFileAttrChanged(oldUuid);
-                m_fsSubscriptions.unsubscribeFileRemoved(oldUuid);
-                m_fsSubscriptions.unsubscribeFileRenamed(oldUuid);
-                if (m_showOnlyFullReplicas)
-                    m_fsSubscriptions.unsubscribeReplicaStatusChanged(oldUuid);
+                //                m_fsSubscriptions.unsubscribeFileAttrChanged(oldUuid);
+                //                m_fsSubscriptions.unsubscribeFileRemoved(oldUuid);
+                //                m_fsSubscriptions.unsubscribeFileRenamed(oldUuid);
+                //                if (m_showOnlyFullReplicas)
+                //                    m_fsSubscriptions.unsubscribeReplicaStatusChanged(oldUuid);
                 m_fsSubscriptions.subscribeFileAttrChanged(newUuid);
                 m_fsSubscriptions.subscribeFileRemoved(newUuid);
                 m_fsSubscriptions.subscribeFileRenamed(newUuid);
@@ -856,6 +856,9 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
     if (boost::icl::size(wantedRange) <= 0) {
         LOG_DBG(2) << "Read requested for impossible range " << requestedRange
                    << " for file " << uuid;
+
+        LOG_DBG(2) << uuid << " size is " << fileSize;
+
         return folly::IOBufQueue{folly::IOBufQueue::cacheChainLength()};
     }
 

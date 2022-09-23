@@ -428,14 +428,12 @@ bool OpenFileMetadataCache::rename(const folly::fbstring &uuid,
         return true;
     }
 
-    // Recreate the subscriptions only if the old uuid is different from the new
-    // one and the file is opened or directory is cached
-    bool renewSubscriptions = (uuid != newUuid) &&
-        (std::find(m_lruFileList.begin(), m_lruFileList.end(), uuid) !=
-            m_lruFileList.end());
+    auto res =
+        MetadataCache::rename(uuid, newParentUuid, newName, newUuid, true);
 
-    return MetadataCache::rename(
-        uuid, newParentUuid, newName, newUuid, renewSubscriptions);
+    invalidateChildren(newParentUuid);
+
+    return res;
 }
 
 void OpenFileMetadataCache::truncate(

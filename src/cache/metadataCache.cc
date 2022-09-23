@@ -756,7 +756,7 @@ bool MetadataCache::rename(const folly::fbstring &uuid,
             m.attr->setName(newName);
             m.attr->setUuid(newUuid);
             m.attr->setParentUuid(newParentUuid);
-            m.location = nullptr;
+            m.location.reset();
         });
 
         LOG_DBG(2) << "Renamed file " << uuid << " to " << newName
@@ -767,7 +767,7 @@ bool MetadataCache::rename(const folly::fbstring &uuid,
         m_deletedUuids.insert(uuid);
 
     if (renewSubscriptions)
-        m_onRename(uuid, newUuid);
+        m_onRename(uuid, newParentUuid);
 
     return true;
 }
