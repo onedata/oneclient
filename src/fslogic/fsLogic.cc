@@ -601,6 +601,33 @@ std::uint64_t FsLogic::open(const folly::fbstring &uuid, const int flags,
 
     const auto filteredFlags = flags & (~O_CREAT) & (~O_APPEND);
     const auto flag = getOpenFlag(helpers::maskToFlags(filteredFlags));
+
+    // If the file was opened in overwrite mode, truncate the size to 0
+    // before opening
+    if ((flags & O_TRUNC) && !(flags & O_RDONLY)) {
+        // Make sure all opened handles for file uuid are fsynced before
+        // truncating
+        auto pairIt = m_openFileHandles.equal_range(uuid);
+        auto it = pairIt.first;
+        for (; it != pairIt.second; ++it) {
+            auto fileHandleId = it->second;
+            flush(uuid, fileHandleId);
+        }
+
+        m_eventManager.flush();
+
+        communicate(
+            messages::fuse::Truncate{uuid.toStdString(), 0}, m_providerTimeout);
+        m_metadataCache.truncate(uuid, 0);
+        m_eventManager.emit<events::FileTruncated>(uuid.toStdString(), 0);
+
+        LOG_DBG(2) << "Truncated file on open " << uuid << " to size " << 0
+                   << " via setattr";
+
+        ONE_METRIC_COUNTER_INC(
+            "comp.oneclient.mod.events.submod.emitted.truncate");
+    }
+
     messages::fuse::OpenFile msg{uuid.toStdString(), flag};
 
     // Check if the file is a virtual file
