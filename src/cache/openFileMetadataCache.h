@@ -224,7 +224,8 @@ public:
      */
     bool rename(const folly::fbstring &uuid,
         const folly::fbstring &newParentUuid, const folly::fbstring &newName,
-        const folly::fbstring &newUuid);
+        const folly::fbstring &newUuid,
+        bool invalidateNewParentChildren = true);
 
     /**
      * @copydoc MetadataCache::truncate(const folly::fbstring &, const

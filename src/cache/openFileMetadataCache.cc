@@ -392,7 +392,7 @@ void OpenFileMetadataCache::clear()
 
 bool OpenFileMetadataCache::rename(const folly::fbstring &uuid,
     const folly::fbstring &newParentUuid, const folly::fbstring &newName,
-    const folly::fbstring &newUuid)
+    const folly::fbstring &newUuid, bool invalidateNewParentChildren)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(newParentUuid)
                 << LOG_FARG(newName) << LOG_FARG(newUuid);
@@ -428,10 +428,11 @@ bool OpenFileMetadataCache::rename(const folly::fbstring &uuid,
         return true;
     }
 
-    auto res =
-        MetadataCache::rename(uuid, newParentUuid, newName, newUuid, true);
+    auto res = MetadataCache::rename(
+        uuid, newParentUuid, newName, newUuid, /* renewSubscriptions */ true);
 
-    invalidateChildren(newParentUuid);
+    if (invalidateNewParentChildren)
+        invalidateChildren(newParentUuid);
 
     return res;
 }
