@@ -430,9 +430,9 @@ bool OpenFileMetadataCache::rename(const folly::fbstring &uuid,
 
     auto res = MetadataCache::rename(
         uuid, newParentUuid, newName, newUuid, /* renewSubscriptions */ true);
-
-    if (invalidateNewParentChildren)
-        invalidateChildren(newParentUuid);
+    //
+    //    if (invalidateNewParentChildren)
+    //        invalidateChildren(newParentUuid);
 
     return res;
 }

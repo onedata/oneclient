@@ -126,6 +126,9 @@ void InodeCache::rename(const folly::fbstring &oldUuid, folly::fbstring newUuid)
 {
     LOG_FCALL() << LOG_FARG(oldUuid) << LOG_FARG(newUuid);
 
+    if (oldUuid == newUuid)
+        return;
+
     auto &index = boost::multi_index::get<ByUuid>(m_cache);
     const auto entryRange = index.equal_range(oldUuid);
     for (auto it = entryRange.first; it != entryRange.second; ++it)

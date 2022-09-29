@@ -70,6 +70,9 @@ void FsSubscriptions::handleFileAttrChanged(
                 LOG_DBG(2) << " Received FileAttrChanged event: "
                            << attr->toString();
 
+                // This even can mean that:
+                //   - an existing file has changed
+                //   - a new file has been created in some directory
                 if (m_metadataCache.updateAttr(attr)) {
                     LOG_DBG(2)
                         << "Updated attributes for uuid: '" << attr->uuid()
