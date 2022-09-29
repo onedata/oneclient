@@ -228,7 +228,7 @@ public:
      */
     bool rename(const folly::fbstring &uuid, folly::fbstring newParentUuid,
         folly::fbstring newName, folly::fbstring newUuid,
-        bool renewSubscriptions);
+        bool renewSubscriptions, bool invalidateAttrSize);
 
     /**
      * Perform any necessary action on the metadata after the file has been

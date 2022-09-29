@@ -295,7 +295,8 @@ void FsSubscriptions::handleFileRenamed(
         for (const auto &event : events) {
             const auto &entry = event->topEntry();
             if (m_metadataCache.rename(entry.oldUuid(), entry.newParentUuid(),
-                    entry.newName(), entry.newUuid()))
+                    entry.newName(), entry.newUuid(),
+                    /* invalidateAttrSize */ true))
                 LOG_DBG(2) << "File renamed event handled: '" << entry.oldUuid()
                            << "' -> '" << entry.newUuid() << "'";
             else

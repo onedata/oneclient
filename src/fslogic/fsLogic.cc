@@ -1821,7 +1821,7 @@ void FsLogic::rename(const folly::fbstring &parentUuid,
         m_providerTimeout);
 
     m_metadataCache.rename(oldUuid, newParentUuid, newName, renamed.newUuid(),
-        /* invalidateNewParentChildren */ false);
+        /* invalidateAttrSize */ false);
 
     LOG_DBG(2) << "Renamed file " << name << " in " << parentUuid << " to "
                << newName << " in " << newParentUuid;
@@ -1829,7 +1829,7 @@ void FsLogic::rename(const folly::fbstring &parentUuid,
     for (const auto &child : renamed.childEntries())
         m_metadataCache.rename(child.oldUuid(), child.newParentUuid(),
             child.newName(), child.newUuid(),
-            /* invalidateNewParentChildren */ false);
+            /* invalidateAttrSize */ false);
 
     IOTRACE_END(IOTraceRename, IOTraceLogger::OpType::RENAME, parentUuid, 0,
         name, oldUuid, newParentUuid, newName, renamed.newUuid())
