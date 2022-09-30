@@ -863,7 +863,17 @@ void OpenFileMetadataCache::handleRename(
     assertInFiber();
     assert(!newUuid.empty());
 
-    auto attr = getAttr(newUuid);
+    FileAttrPtr attr;
+    try {
+        attr = getAttr(oldUuid);
+    }
+    catch (const std::system_error &e) {
+        if (e.code().value() == ENOENT) {
+            LOG_DBG(2) << "File " << oldUuid
+                       << " already deleted - ignoring rename";
+            return;
+        }
+    }
 
     if (attr->type() == FileAttr::FileType::directory) {
         // Handle rename of a cached directory
