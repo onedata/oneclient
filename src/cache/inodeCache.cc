@@ -93,7 +93,12 @@ void InodeCache::forget(const fuse_ino_t inode, const std::size_t count)
     auto &index = boost::multi_index::get<ByInode>(m_cache);
     auto entryIt = index.find(inode);
 
-    assert(entryIt != index.end());
+    if (entryIt == index.end()) {
+        LOG_DBG(2) << "Inode " << inode
+                   << " not found in inode cache - ignoring...";
+        return;
+    }
+
     assert(entryIt->lookupCount >= count);
 
     const auto newCount = entryIt->lookupCount - count;
