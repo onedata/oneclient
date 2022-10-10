@@ -41,7 +41,8 @@ OpenFileMetadataCache::OpenFileMetadataCache(
     , m_directoryCacheDropAfter{directoryCacheDropAfter}
 {
     MetadataCache::onRename(std::bind(&OpenFileMetadataCache::handleRename,
-        this, std::placeholders::_1, std::placeholders::_2));
+        this, std::placeholders::_1, std::placeholders::_2,
+        std::placeholders::_2));
 
     MetadataCache::onMarkDeleted(
         std::bind(&OpenFileMetadataCache::handleMarkDeleted, this,
@@ -855,8 +856,8 @@ void OpenFileMetadataCache::handleMarkDeleted(const folly::fbstring &uuid)
     m_onMarkDeleted(uuid);
 }
 
-void OpenFileMetadataCache::handleRename(
-    const folly::fbstring &oldUuid, const folly::fbstring &newUuid)
+void OpenFileMetadataCache::handleRename(const folly::fbstring &oldUuid,
+    const folly::fbstring &newUuid, const folly::fbstring &newParentUuid)
 {
     LOG_FCALL() << LOG_FARG(oldUuid) << LOG_FARG(newUuid);
 
@@ -940,7 +941,7 @@ void OpenFileMetadataCache::handleRename(
         }
     }
 
-    m_onRename(oldUuid, newUuid);
+    m_onRename(oldUuid, newUuid, newParentUuid);
 }
 
 } // namespace cache

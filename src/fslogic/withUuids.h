@@ -45,7 +45,8 @@ public:
             &m_inodeCache, std::placeholders::_1));
 
         m_fsLogic.onRename(std::bind(&cache::InodeCache::rename, &m_inodeCache,
-            std::placeholders::_1, std::placeholders::_2));
+            std::placeholders::_1, std::placeholders::_2,
+            std::placeholders::_3));
     }
 
     auto lookup(const fuse_ino_t ino, const folly::fbstring &name)

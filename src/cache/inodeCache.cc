@@ -127,7 +127,8 @@ void InodeCache::forget(const fuse_ino_t inode, const std::size_t count)
     ONE_METRIC_COUNTER_SET("comp.oneclient.mod.inodecache.size", index.size());
 }
 
-void InodeCache::rename(const folly::fbstring &oldUuid, folly::fbstring newUuid)
+void InodeCache::rename(const folly::fbstring &oldUuid, folly::fbstring newUuid,
+    const folly::fbstring & /*newParentUuid*/)
 {
     LOG_FCALL() << LOG_FARG(oldUuid) << LOG_FARG(newUuid);
 

@@ -295,8 +295,8 @@ public:
      * @param cb The callback function that takes file's old uuid and new uuid
      * as parameters.
      */
-    void onRename(
-        std::function<void(const folly::fbstring &, const folly::fbstring &)>
+    void onRename(std::function<void(const folly::fbstring &,
+            const folly::fbstring &, const folly::fbstring &)>
             cb)
     {
         m_onRename = std::move(cb);
@@ -420,8 +420,9 @@ private:
     std::atomic<std::uint64_t> m_nextFuseHandleId{1};
 
     std::function<void(const folly::fbstring &)> m_onMarkDeleted = [](auto) {};
-    std::function<void(const folly::fbstring &, const folly::fbstring &)>
-        m_onRename = [](auto, auto) {};
+    std::function<void(const folly::fbstring &, const folly::fbstring &,
+        const folly::fbstring &)>
+        m_onRename = [](auto, auto, auto) {};
 
     const std::chrono::seconds m_providerTimeout;
     const std::chrono::seconds m_storageTimeout;

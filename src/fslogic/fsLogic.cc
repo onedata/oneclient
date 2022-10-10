@@ -267,23 +267,24 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
 
     // Called when file is renamed
     m_metadataCache.onRename(
-        [this](const folly::fbstring &oldUuid, const folly::fbstring &newUuid) {
-            if (oldUuid != newUuid) {
-                //                m_fsSubscriptions.unsubscribeFileAttrChanged(oldUuid);
-                //                m_fsSubscriptions.unsubscribeFileRemoved(oldUuid);
-                //                m_fsSubscriptions.unsubscribeFileRenamed(oldUuid);
-                //                if (m_showOnlyFullReplicas)
-                //                    m_fsSubscriptions.unsubscribeReplicaStatusChanged(oldUuid);
-                m_fsSubscriptions.subscribeFileAttrChanged(newUuid);
-                m_fsSubscriptions.subscribeFileRemoved(newUuid);
-                m_fsSubscriptions.subscribeFileRenamed(newUuid);
-                if (m_showOnlyFullReplicas)
-                    m_fsSubscriptions.subscribeReplicaStatusChanged(newUuid);
+        [this](const folly::fbstring &oldUuid, const folly::fbstring &newUuid,
+            const folly::fbstring &newParentUuid) {
+            //            if (oldUuid != newUuid) {
+            //                m_fsSubscriptions.unsubscribeFileAttrChanged(oldUuid);
+            //                m_fsSubscriptions.unsubscribeFileRemoved(oldUuid);
+            //                m_fsSubscriptions.unsubscribeFileRenamed(oldUuid);
+            //                if (m_showOnlyFullReplicas)
+            //                    m_fsSubscriptions.unsubscribeReplicaStatusChanged(oldUuid);
+            m_fsSubscriptions.subscribeFileAttrChanged(newParentUuid);
+            m_fsSubscriptions.subscribeFileRemoved(newParentUuid);
+            m_fsSubscriptions.subscribeFileRenamed(newParentUuid);
+            if (m_showOnlyFullReplicas)
+                m_fsSubscriptions.subscribeReplicaStatusChanged(newUuid);
 
-                if (m_fsSubscriptions.unsubscribeFileLocationChanged(oldUuid))
-                    m_fsSubscriptions.subscribeFileLocationChanged(newUuid);
-            }
-            m_onRename(oldUuid, newUuid);
+            if (m_fsSubscriptions.unsubscribeFileLocationChanged(oldUuid))
+                m_fsSubscriptions.subscribeFileLocationChanged(newUuid);
+            //            }
+            m_onRename(oldUuid, newUuid, newParentUuid);
         });
 
     // Called when file is removed

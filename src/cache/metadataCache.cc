@@ -771,7 +771,7 @@ bool MetadataCache::rename(const folly::fbstring &uuid,
         m_deletedUuids.insert(uuid);
 
     if (renewSubscriptions)
-        m_onRename(uuid, newParentUuid);
+        m_onRename(uuid, newUuid, newParentUuid);
 
     return true;
 }
