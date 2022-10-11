@@ -365,25 +365,6 @@ void wrap_read(fuse_req_t req, fuse_ino_t ino, size_t size, off_t off,
         [req, timer = std::move(timer), ino, fh = fi->fh, size, off](
             folly::IOBufQueue &&buf) {
             if (!buf.empty()) {
-                auto &fsLogic =
-                    (*static_cast<std::unique_ptr<fslogic::Composite> *>(
-                         fuse_req_userdata(req)))
-                        ->fsLogic();
-
-                // When full block read mode is forced, read until exactly
-                // 'size' bytes are read from storage or any of the 'read' calls
-                // returns 0 or error.
-                while (fsLogic.isFullBlockReadForced() &&
-                    (buf.chainLength() < size)) {
-                    auto remainderBuf = fsLogic.read(ino, fh,
-                        off + buf.chainLength(), size - buf.chainLength());
-
-                    if (remainderBuf.chainLength() > 0)
-                        buf.append(std::move(remainderBuf));
-                    else
-                        break;
-                }
-
                 LOG_DBG(2) << "Received  " << buf.chainLength()
                            << " bytes when reading inode " << ino
                            << " at offset " << off;

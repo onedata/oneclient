@@ -825,8 +825,6 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(fileHandleId) << LOG_FARG(offset)
                 << LOG_FARG(size);
 
-    assertInFiber();
-
     if (m_ioTraceLoggerEnabled && !ioTraceEntry) {
         ioTraceEntry = std::make_unique<IOTraceRead>();
         ioTraceEntry->opType = IOTraceLogger::OpType::READ;
@@ -841,6 +839,31 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
             IOTraceLogger::toString(IOTraceLogger::PrefetchType::NONE);
     }
 
+    assertInFiber();
+
+    auto buf = readInternal(
+        uuid, fileHandleId, offset, size, checksum, retriesLeft, {});
+
+    if (isFullBlockReadForced()) {
+        while (buf.chainLength() < size) {
+            auto remainderBuf =
+                readInternal(uuid, fileHandleId, offset + buf.chainLength(),
+                    size - buf.chainLength(), checksum, retriesLeft, {});
+            if (remainderBuf.chainLength() > 0)
+                buf.append(std::move(remainderBuf));
+            else
+                break;
+        }
+    }
+
+    return buf;
+}
+
+folly::IOBufQueue FsLogic::readInternal(const folly::fbstring &uuid,
+    const std::uint64_t fileHandleId, const off_t offset,
+    const std::size_t size, folly::Optional<folly::fbstring> checksum,
+    const int retriesLeft, std::unique_ptr<IOTraceRead> ioTraceEntry)
+{
     if (!m_context->communicator()->isConnected()) {
         LOG(ERROR) << "Connection to Oneprovider lost...";
         if (retriesLeft > 0) {

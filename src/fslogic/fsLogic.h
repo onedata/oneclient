@@ -327,6 +327,12 @@ public:
     folly::fbstring rootUuid() const { return m_rootUuid; }
 
 private:
+    folly::IOBufQueue readInternal(const folly::fbstring &uuid,
+        const std::uint64_t fileHandleId, const off_t offset,
+        const std::size_t size, folly::Optional<folly::fbstring> checksum,
+        const int retriesLeft = FSLOGIC_RETRY_COUNT,
+        std::unique_ptr<IOTraceRead> ioTraceEntry = {});
+
     template <typename SrvMsg = messages::fuse::FuseResponse, typename CliMsg>
     SrvMsg communicate(CliMsg &&msg, const std::chrono::seconds timeout);
 
