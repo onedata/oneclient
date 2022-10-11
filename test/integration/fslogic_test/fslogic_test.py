@@ -1332,7 +1332,7 @@ def test_readdir_should_handle_fileattrchanged_event(appmock_client, endpoint, f
     attr = fl.getattr(file_uuid)
 
     evt = prepare_file_attr_changed_event(
-            file_uuid, fuse_messages_pb2.REG, 12345, 'parentUuid')
+            file_uuid, fuse_messages_pb2.REG, 12345, parentUuid)
     with send(endpoint, [evt]):
         pass
 
