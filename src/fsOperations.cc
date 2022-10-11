@@ -377,6 +377,7 @@ void wrap_read(fuse_req_t req, fuse_ino_t ino, size_t size, off_t off,
                     (buf.chainLength() < size)) {
                     auto remainderBuf = fsLogic.read(ino, fh,
                         off + buf.chainLength(), size - buf.chainLength());
+
                     if (remainderBuf.chainLength() > 0)
                         buf.append(std::move(remainderBuf));
                     else
