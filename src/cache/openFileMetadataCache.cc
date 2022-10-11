@@ -42,7 +42,7 @@ OpenFileMetadataCache::OpenFileMetadataCache(
 {
     MetadataCache::onRename(std::bind(&OpenFileMetadataCache::handleRename,
         this, std::placeholders::_1, std::placeholders::_2,
-        std::placeholders::_2));
+        std::placeholders::_3));
 
     MetadataCache::onMarkDeleted(
         std::bind(&OpenFileMetadataCache::handleMarkDeleted, this,
