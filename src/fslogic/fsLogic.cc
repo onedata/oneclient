@@ -604,7 +604,7 @@ std::uint64_t FsLogic::open(const folly::fbstring &uuid, const int flags,
 
     // If the file was opened in overwrite mode, truncate the size to 0
     // before opening
-    if ((flags & O_TRUNC) && !(flags & O_RDONLY)) {
+    if (((flags & O_TRUNC) != 0) && ((flags & O_RDONLY) == 0)) {
         // Make sure all opened handles for file uuid are fsynced before
         // truncating
         auto pairIt = m_openFileHandles.equal_range(uuid);
@@ -819,7 +819,7 @@ void FsLogic::fsync(const folly::fbstring &uuid,
 
 folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
     const std::uint64_t fileHandleId, const off_t offset,
-    const std::size_t size, folly::Optional<folly::fbstring> checksum,
+    const std::size_t size, const folly::Optional<folly::fbstring> &checksum,
     const int retriesLeft, std::unique_ptr<IOTraceRead> ioTraceEntry)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(fileHandleId) << LOG_FARG(offset)
@@ -955,8 +955,8 @@ folly::IOBufQueue FsLogic::readInternal(const folly::fbstring &uuid,
                 std::get<2>(ioTraceEntry->arguments) = false;
 
             if (retriesLeft >= 0) {
-                return read(uuid, fileHandleId, offset, size, std::move(csum),
-                    retriesLeft - 1, std::move(ioTraceEntry));
+                return readInternal(uuid, fileHandleId, offset, size,
+                    std::move(csum), retriesLeft - 1, std::move(ioTraceEntry));
             }
 
             LOG(INFO) << "Cannot synchronize block " << wantedRange << " after "
@@ -1048,7 +1048,7 @@ folly::IOBufQueue FsLogic::readInternal(const folly::fbstring &uuid,
                 if (m_ioTraceLoggerEnabled)
                     ioTraceEntry->retries++;
 
-                return read(uuid, fileHandleId, offset, size, checksum,
+                return readInternal(uuid, fileHandleId, offset, size, checksum,
                     retriesLeft - 1, std::move(ioTraceEntry));
             }
 
@@ -1078,7 +1078,7 @@ folly::IOBufQueue FsLogic::readInternal(const folly::fbstring &uuid,
 
             fiberRetryDelay(retriesLeft);
             m_metadataCache.getLocation(uuid, true);
-            return read(uuid, fileHandleId, offset, size, checksum,
+            return readInternal(uuid, fileHandleId, offset, size, checksum,
                 retriesLeft - 1, std::move(ioTraceEntry));
         }
 
@@ -1121,8 +1121,8 @@ folly::IOBufQueue FsLogic::readInternal(const folly::fbstring &uuid,
                 });
         });
 
-        return read(uuid, fileHandleId, offset, size, checksum, retriesLeft - 1,
-            std::move(ioTraceEntry));
+        return readInternal(uuid, fileHandleId, offset, size, checksum,
+            retriesLeft - 1, std::move(ioTraceEntry));
     }
 
     if ((ec == ENOENT) && (retriesLeft >= 0) &&
@@ -1132,15 +1132,15 @@ folly::IOBufQueue FsLogic::readInternal(const folly::fbstring &uuid,
 
         // fiberRetryDelay(retriesLeft);
         m_metadataCache.getLocation(uuid, true);
-        return read(uuid, fileHandleId, offset, size, checksum, retriesLeft - 1,
-            std::move(ioTraceEntry));
+        return readInternal(uuid, fileHandleId, offset, size, checksum,
+            retriesLeft - 1, std::move(ioTraceEntry));
     }
 
     if (((ec == EAGAIN) || (ec == ECANCELED)) && (retriesLeft >= 0)) {
         LOG_DBG(1) << "Retrying read due to error: " << ec;
         fiberRetryDelay(retriesLeft);
-        return read(uuid, fileHandleId, offset, size, checksum, retriesLeft - 1,
-            std::move(ioTraceEntry));
+        return readInternal(uuid, fileHandleId, offset, size, checksum,
+            retriesLeft - 1, std::move(ioTraceEntry));
     }
 
     if ((ec != EPERM) && (ec != EACCES)) {
@@ -1166,8 +1166,8 @@ folly::IOBufQueue FsLogic::readInternal(const folly::fbstring &uuid,
     LOG_DBG(1) << "Rereading requested block for " << uuid
                << " via proxy fallback, restarting retry counter";
 
-    return read(uuid, fileHandleId, offset, size, checksum, m_maxRetryCount,
-        std::move(ioTraceEntry));
+    return readInternal(uuid, fileHandleId, offset, size, checksum,
+        m_maxRetryCount, std::move(ioTraceEntry));
 }
 
 std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
