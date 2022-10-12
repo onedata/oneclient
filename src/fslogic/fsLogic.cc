@@ -275,11 +275,6 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
             if (m_showOnlyFullReplicas)
                 m_fsSubscriptions.subscribeReplicaStatusChanged(newParentUuid);
             if (oldUuid != newUuid) {
-                //                m_fsSubscriptions.unsubscribeFileAttrChanged(oldUuid);
-                //                m_fsSubscriptions.unsubscribeFileRemoved(oldUuid);
-                //                m_fsSubscriptions.unsubscribeFileRenamed(oldUuid);
-                //                if (m_showOnlyFullReplicas)
-                //                    m_fsSubscriptions.unsubscribeReplicaStatusChanged(oldUuid);
                 if (m_fsSubscriptions.unsubscribeFileLocationChanged(oldUuid))
                     m_fsSubscriptions.subscribeFileLocationChanged(newUuid);
             }
