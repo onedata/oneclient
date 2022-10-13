@@ -4,6 +4,8 @@ Release notes for project oneclient
 CHANGELOG
 ---------
 
+### 20.02.19
+
 ### 20.02.18
 
 ### 20.02.17
