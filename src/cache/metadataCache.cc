@@ -239,6 +239,8 @@ FileAttrPtr MetadataCache::getAttr(
             m_virtualFsHelpersCache->get(virtualStorageId)->effectiveName(name);
     }
 
+    // If the attributes for file exist in the cache, the file is not deleted
+    // and the attributes contain valid file size
     if (it != index.end() && !it->deleted) {
         LOG_DBG(2) << "Found metadata attr for file " << effectiveName
                    << " in directory " << effectiveParentUuid;
@@ -266,7 +268,7 @@ FileAttrPtr MetadataCache::getAttr(
 
     LOG_DBG(2) << "Metadata attr for file " << effectiveName << " in directory "
                << effectiveParentUuid
-               << " not found in cache - retrieving from server";
+               << " not found in cache (or invalid) - retrieving from server";
 
     auto fetchedIt = fetchAttr(messages::fuse::GetChildAttr{effectiveParentUuid,
         effectiveName.str(), m_showOnlyFullReplicas, m_showHardLinkCount});
@@ -340,7 +342,7 @@ MetadataCache::Map::iterator MetadataCache::getAttrIt(
     }
 
     LOG_DBG(2) << "Metadata attributes for " << effectiveUuid
-               << " not found in cache - fetching from server";
+               << " not found in cache (or invalid) - fetching from server";
 
     auto res = fetchAttr(messages::fuse::GetFileAttr{
         effectiveUuid, m_showOnlyFullReplicas, m_showHardLinkCount});
@@ -715,7 +717,7 @@ void MetadataCache::markDeletedIt(const Map::iterator &it)
 
 bool MetadataCache::rename(const folly::fbstring &uuid,
     folly::fbstring newParentUuid, folly::fbstring newName,
-    folly::fbstring newUuid, bool renewSubscriptions)
+    folly::fbstring newUuid, bool renewSubscriptions, bool invalidateAttrSize)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(newParentUuid)
                 << LOG_FARG(newName) << LOG_FARG(newUuid);
@@ -756,7 +758,9 @@ bool MetadataCache::rename(const folly::fbstring &uuid,
             m.attr->setName(newName);
             m.attr->setUuid(newUuid);
             m.attr->setParentUuid(newParentUuid);
-            m.location = nullptr;
+            if (invalidateAttrSize)
+                m.attr->resetSize();
+            m.location.reset();
         });
 
         LOG_DBG(2) << "Renamed file " << uuid << " to " << newName
@@ -767,7 +771,7 @@ bool MetadataCache::rename(const folly::fbstring &uuid,
         m_deletedUuids.insert(uuid);
 
     if (renewSubscriptions)
-        m_onRename(uuid, newUuid);
+        m_onRename(uuid, newUuid, newParentUuid);
 
     return true;
 }
@@ -839,6 +843,12 @@ bool MetadataCache::updateAttr(std::shared_ptr<FileAttr> newAttr, bool force,
         }
 
         return putAttr(newAttr, skipSubscription);
+    }
+
+    if (newAttr->parentUuid() != it->attr->parentUuid()) {
+        LOG_DBG(2) << "Update attr event for renamed file (parent uuid of new "
+                      "attr different than cached) - ignoring...";
+        return false;
     }
 
     if (newAttr->fullyReplicatedOpt() && !(*newAttr->fullyReplicatedOpt())) {

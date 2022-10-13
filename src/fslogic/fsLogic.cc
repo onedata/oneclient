@@ -267,23 +267,18 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
 
     // Called when file is renamed
     m_metadataCache.onRename(
-        [this](const folly::fbstring &oldUuid, const folly::fbstring &newUuid) {
+        [this](const folly::fbstring &oldUuid, const folly::fbstring &newUuid,
+            const folly::fbstring &newParentUuid) {
+            m_fsSubscriptions.subscribeFileAttrChanged(newParentUuid);
+            m_fsSubscriptions.subscribeFileRemoved(newParentUuid);
+            m_fsSubscriptions.subscribeFileRenamed(newParentUuid);
+            if (m_showOnlyFullReplicas)
+                m_fsSubscriptions.subscribeReplicaStatusChanged(newParentUuid);
             if (oldUuid != newUuid) {
-                m_fsSubscriptions.unsubscribeFileAttrChanged(oldUuid);
-                m_fsSubscriptions.unsubscribeFileRemoved(oldUuid);
-                m_fsSubscriptions.unsubscribeFileRenamed(oldUuid);
-                if (m_showOnlyFullReplicas)
-                    m_fsSubscriptions.unsubscribeReplicaStatusChanged(oldUuid);
-                m_fsSubscriptions.subscribeFileAttrChanged(newUuid);
-                m_fsSubscriptions.subscribeFileRemoved(newUuid);
-                m_fsSubscriptions.subscribeFileRenamed(newUuid);
-                if (m_showOnlyFullReplicas)
-                    m_fsSubscriptions.subscribeReplicaStatusChanged(newUuid);
-
                 if (m_fsSubscriptions.unsubscribeFileLocationChanged(oldUuid))
                     m_fsSubscriptions.subscribeFileLocationChanged(newUuid);
             }
-            m_onRename(oldUuid, newUuid);
+            m_onRename(oldUuid, newUuid, newParentUuid);
         });
 
     // Called when file is removed
@@ -601,6 +596,33 @@ std::uint64_t FsLogic::open(const folly::fbstring &uuid, const int flags,
 
     const auto filteredFlags = flags & (~O_CREAT) & (~O_APPEND);
     const auto flag = getOpenFlag(helpers::maskToFlags(filteredFlags));
+
+    // If the file was opened in overwrite mode, truncate the size to 0
+    // before opening
+    if (((flags & O_TRUNC) != 0) && ((flags & O_RDONLY) == 0)) {
+        // Make sure all opened handles for file uuid are fsynced before
+        // truncating
+        auto pairIt = m_openFileHandles.equal_range(uuid);
+        auto it = pairIt.first;
+        for (; it != pairIt.second; ++it) {
+            auto fileHandleId = it->second;
+            flush(uuid, fileHandleId);
+        }
+
+        m_eventManager.flush();
+
+        communicate(
+            messages::fuse::Truncate{uuid.toStdString(), 0}, m_providerTimeout);
+        m_metadataCache.truncate(uuid, 0);
+        m_eventManager.emit<events::FileTruncated>(uuid.toStdString(), 0);
+
+        LOG_DBG(2) << "Truncated file on open " << uuid << " to size " << 0
+                   << " via setattr";
+
+        ONE_METRIC_COUNTER_INC(
+            "comp.oneclient.mod.events.submod.emitted.truncate");
+    }
+
     messages::fuse::OpenFile msg{uuid.toStdString(), flag};
 
     // Check if the file is a virtual file
@@ -792,13 +814,11 @@ void FsLogic::fsync(const folly::fbstring &uuid,
 
 folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
     const std::uint64_t fileHandleId, const off_t offset,
-    const std::size_t size, folly::Optional<folly::fbstring> checksum,
+    const std::size_t size, const folly::Optional<folly::fbstring> &checksum,
     const int retriesLeft, std::unique_ptr<IOTraceRead> ioTraceEntry)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(fileHandleId) << LOG_FARG(offset)
                 << LOG_FARG(size);
-
-    assertInFiber();
 
     if (m_ioTraceLoggerEnabled && !ioTraceEntry) {
         ioTraceEntry = std::make_unique<IOTraceRead>();
@@ -814,6 +834,31 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
             IOTraceLogger::toString(IOTraceLogger::PrefetchType::NONE);
     }
 
+    assertInFiber();
+
+    auto buf = readInternal(
+        uuid, fileHandleId, offset, size, checksum, retriesLeft, {});
+
+    if (isFullBlockReadForced()) {
+        while (buf.chainLength() < size) {
+            auto remainderBuf =
+                readInternal(uuid, fileHandleId, offset + buf.chainLength(),
+                    size - buf.chainLength(), checksum, retriesLeft, {});
+            if (remainderBuf.chainLength() > 0)
+                buf.append(std::move(remainderBuf));
+            else
+                break;
+        }
+    }
+
+    return buf;
+}
+
+folly::IOBufQueue FsLogic::readInternal(const folly::fbstring &uuid,
+    const std::uint64_t fileHandleId, const off_t offset,
+    const std::size_t size, folly::Optional<folly::fbstring> checksum,
+    const int retriesLeft, std::unique_ptr<IOTraceRead> ioTraceEntry)
+{
     if (!m_context->communicator()->isConnected()) {
         LOG(ERROR) << "Connection to Oneprovider lost...";
         if (retriesLeft > 0) {
@@ -856,6 +901,9 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
     if (boost::icl::size(wantedRange) <= 0) {
         LOG_DBG(2) << "Read requested for impossible range " << requestedRange
                    << " for file " << uuid;
+
+        LOG_DBG(2) << uuid << " size is " << fileSize;
+
         return folly::IOBufQueue{folly::IOBufQueue::cacheChainLength()};
     }
 
@@ -902,8 +950,8 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
                 std::get<2>(ioTraceEntry->arguments) = false;
 
             if (retriesLeft >= 0) {
-                return read(uuid, fileHandleId, offset, size, std::move(csum),
-                    retriesLeft - 1, std::move(ioTraceEntry));
+                return readInternal(uuid, fileHandleId, offset, size,
+                    std::move(csum), retriesLeft - 1, std::move(ioTraceEntry));
             }
 
             LOG(INFO) << "Cannot synchronize block " << wantedRange << " after "
@@ -995,7 +1043,7 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
                 if (m_ioTraceLoggerEnabled)
                     ioTraceEntry->retries++;
 
-                return read(uuid, fileHandleId, offset, size, checksum,
+                return readInternal(uuid, fileHandleId, offset, size, checksum,
                     retriesLeft - 1, std::move(ioTraceEntry));
             }
 
@@ -1025,7 +1073,7 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
 
             fiberRetryDelay(retriesLeft);
             m_metadataCache.getLocation(uuid, true);
-            return read(uuid, fileHandleId, offset, size, checksum,
+            return readInternal(uuid, fileHandleId, offset, size, checksum,
                 retriesLeft - 1, std::move(ioTraceEntry));
         }
 
@@ -1068,8 +1116,8 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
                 });
         });
 
-        return read(uuid, fileHandleId, offset, size, checksum, retriesLeft - 1,
-            std::move(ioTraceEntry));
+        return readInternal(uuid, fileHandleId, offset, size, checksum,
+            retriesLeft - 1, std::move(ioTraceEntry));
     }
 
     if ((ec == ENOENT) && (retriesLeft >= 0) &&
@@ -1079,15 +1127,15 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
 
         // fiberRetryDelay(retriesLeft);
         m_metadataCache.getLocation(uuid, true);
-        return read(uuid, fileHandleId, offset, size, checksum, retriesLeft - 1,
-            std::move(ioTraceEntry));
+        return readInternal(uuid, fileHandleId, offset, size, checksum,
+            retriesLeft - 1, std::move(ioTraceEntry));
     }
 
     if (((ec == EAGAIN) || (ec == ECANCELED)) && (retriesLeft >= 0)) {
         LOG_DBG(1) << "Retrying read due to error: " << ec;
         fiberRetryDelay(retriesLeft);
-        return read(uuid, fileHandleId, offset, size, checksum, retriesLeft - 1,
-            std::move(ioTraceEntry));
+        return readInternal(uuid, fileHandleId, offset, size, checksum,
+            retriesLeft - 1, std::move(ioTraceEntry));
     }
 
     if ((ec != EPERM) && (ec != EACCES)) {
@@ -1113,8 +1161,8 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
     LOG_DBG(1) << "Rereading requested block for " << uuid
                << " via proxy fallback, restarting retry counter";
 
-    return read(uuid, fileHandleId, offset, size, checksum, m_maxRetryCount,
-        std::move(ioTraceEntry));
+    return readInternal(uuid, fileHandleId, offset, size, checksum,
+        m_maxRetryCount, std::move(ioTraceEntry));
 }
 
 std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
@@ -1790,14 +1838,16 @@ void FsLogic::rename(const folly::fbstring &parentUuid,
             newParentUuid.toStdString(), newName.toStdString()},
         m_providerTimeout);
 
-    m_metadataCache.rename(oldUuid, newParentUuid, newName, renamed.newUuid());
+    m_metadataCache.rename(oldUuid, newParentUuid, newName, renamed.newUuid(),
+        /* invalidateAttrSize */ false);
 
     LOG_DBG(2) << "Renamed file " << name << " in " << parentUuid << " to "
                << newName << " in " << newParentUuid;
 
     for (const auto &child : renamed.childEntries())
         m_metadataCache.rename(child.oldUuid(), child.newParentUuid(),
-            child.newName(), child.newUuid());
+            child.newName(), child.newUuid(),
+            /* invalidateAttrSize */ false);
 
     IOTRACE_END(IOTraceRename, IOTraceLogger::OpType::RENAME, parentUuid, 0,
         name, oldUuid, newParentUuid, newName, renamed.newUuid())

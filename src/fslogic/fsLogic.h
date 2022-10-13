@@ -166,7 +166,8 @@ public:
      */
     folly::IOBufQueue read(const folly::fbstring &uuid,
         const std::uint64_t fileHandleId, const off_t offset,
-        const std::size_t size, folly::Optional<folly::fbstring> checksum,
+        const std::size_t size,
+        const folly::Optional<folly::fbstring> &checksum,
         const int retriesLeft = FSLOGIC_RETRY_COUNT,
         std::unique_ptr<IOTraceRead> ioTraceEntry = {});
 
@@ -295,8 +296,8 @@ public:
      * @param cb The callback function that takes file's old uuid and new uuid
      * as parameters.
      */
-    void onRename(
-        std::function<void(const folly::fbstring &, const folly::fbstring &)>
+    void onRename(std::function<void(const folly::fbstring &,
+            const folly::fbstring &, const folly::fbstring &)>
             cb)
     {
         m_onRename = std::move(cb);
@@ -327,6 +328,12 @@ public:
     folly::fbstring rootUuid() const { return m_rootUuid; }
 
 private:
+    folly::IOBufQueue readInternal(const folly::fbstring &uuid,
+        const std::uint64_t fileHandleId, const off_t offset,
+        const std::size_t size, folly::Optional<folly::fbstring> checksum,
+        const int retriesLeft = FSLOGIC_RETRY_COUNT,
+        std::unique_ptr<IOTraceRead> ioTraceEntry = {});
+
     template <typename SrvMsg = messages::fuse::FuseResponse, typename CliMsg>
     SrvMsg communicate(CliMsg &&msg, const std::chrono::seconds timeout);
 
@@ -420,8 +427,9 @@ private:
     std::atomic<std::uint64_t> m_nextFuseHandleId{1};
 
     std::function<void(const folly::fbstring &)> m_onMarkDeleted = [](auto) {};
-    std::function<void(const folly::fbstring &, const folly::fbstring &)>
-        m_onRename = [](auto, auto) {};
+    std::function<void(const folly::fbstring &, const folly::fbstring &,
+        const folly::fbstring &)>
+        m_onRename = [](auto, auto, auto) {};
 
     const std::chrono::seconds m_providerTimeout;
     const std::chrono::seconds m_storageTimeout;
