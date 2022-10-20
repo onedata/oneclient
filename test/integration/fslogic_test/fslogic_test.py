@@ -2640,6 +2640,7 @@ def test_readdir_should_handle_archivematica_metadata(appmock_client, endpoint, 
         assert "processingMCP.xml" in children_chunk
         assert "metadata" in children_chunk
 
+
 @pytest.mark.skip
 def test_read_should_read_archivematica_processingmcp(appmock_client, endpoint, fl_archivematica):
     parentUuid = 'parentParentUuid'
