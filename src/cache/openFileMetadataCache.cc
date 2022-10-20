@@ -534,20 +534,34 @@ std::shared_ptr<FileLocation> OpenFileMetadataCache::getLocation(
 
     assertInFiber();
 
+    auto it = m_lruFileData.find(uuid);
     // Check if the file is opened
-    if ((m_lruFileData.find(uuid) != m_lruFileData.end())) {
+    if ((it != m_lruFileData.end())) {
         // If this request doesn't require updating the location,
         // just return the cached version
         if (!forceUpdate)
             return m_lruFileData.at(uuid).location;
 
+        const bool isDeleted = MetadataCache::isDeleted(uuid);
+        auto attr = it->second.attr;
+
         // If the file is deleted, or this is a forced update (e.g. after
         // read error) request the file location from the server
-        if (MetadataCache::isDeleted(uuid) || forceUpdate) {
-            m_lruFileData.find(uuid)->second.location =
-                MetadataCache::getLocation(
-                    m_lruFileData.find(uuid)->second.attr);
+        if (isDeleted || forceUpdate) {
+            LOG_DBG(2) << "Getting location for file " << attr->name()
+                       << " isDeleted=" << isDeleted;
 
+            auto location = MetadataCache::getLocation(attr);
+
+            bool validLocation = location != nullptr;
+
+            LOG_DBG(2) << "Got valid location " << validLocation;
+
+            if ((m_lruFileData.find(uuid) == m_lruFileData.end())) {
+                return location;
+            }
+
+            m_lruFileData.find(uuid)->second.location = std::move(location);
             return m_lruFileData.find(uuid)->second.location;
         }
     }
