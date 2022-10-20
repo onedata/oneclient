@@ -505,15 +505,6 @@ std::shared_ptr<FileLocation> MetadataCache::fetchFileLocation(
 
     assertInFiber();
 
-    try {
-        auto attr = getAttr(uuid);
-        if (attr->isVirtual())
-            return {};
-    }
-    catch (std::system_error & /*e*/) {
-        // Ignore error for deleted files
-    }
-
     auto location = communication::wait(
         m_communicator.communicate<FileLocation>(
             messages::fuse::GetFileLocation{uuid.toStdString()}),
