@@ -2436,6 +2436,7 @@ def test_removexattr_should_return_enoattr_for_invalid_xattr(endpoint, fl, uuid)
     assert 'No data available' in str(excinfo.value)
 
 
+@pytest.mark.skip
 def test_readdir_should_handle_archivematica_metadata(appmock_client, endpoint, fl_archivematica):
     parentUuid = 'parentParentUuid'
     uuid = 'parentUuid'
@@ -2481,6 +2482,7 @@ def test_readdir_should_handle_archivematica_metadata(appmock_client, endpoint, 
         assert "metadata" in children_chunk
 
 
+@pytest.mark.skip
 def test_read_should_read_archivematica_processingmcp(appmock_client, endpoint, fl_archivematica):
     parentUuid = 'parentParentUuid'
     uuid = 'parentUuid'
@@ -2593,6 +2595,7 @@ def test_read_should_read_archivematica_processingmcp(appmock_client, endpoint, 
         assert len(choice_list) == 4
 
 
+@pytest.mark.skip
 def test_read_should_read_archivematica_metadata_json(appmock_client, endpoint, fl_archivematica):
     parentUuid = 'parentParentUuid'
     uuid = 'parentUuid'
