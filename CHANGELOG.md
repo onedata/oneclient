@@ -6,6 +6,11 @@ CHANGELOG
 
 ### 20.02.19
 
+-   **VFS-10008** Fixed race condition which occurred when a file
+    location was retrieved through getxattr call concurrently to file
+    release.
+
+
 ### 20.02.18
 
 ### 20.02.17
