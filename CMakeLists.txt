@@ -70,6 +70,7 @@ else()
     endif()
 endif()
 message(STATUS "Found Fuse version: ${FUSE_VERSION}")
+message(STATUS "FUSE_USE_VERSION: ${FUSE_USE_VERSION}")
 
 # Setup pthreads
 message(STATUS "Checking for thread support...")
