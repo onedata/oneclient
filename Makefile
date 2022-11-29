@@ -304,7 +304,8 @@ deb: check_distribution package/$(PKG_ID).tar.gz
 	sed -i "s/{{distribution}}/$(DISTRIBUTION)/g" package/$(PKG_ID)/debian/changelog
 	sed -i "s/{{date}}/`date -R`/g" package/$(PKG_ID)/debian/changelog
 
-	cd package/$(PKG_ID) && sg sbuild -c "sbuild -sd $(DISTRIBUTION) -j$$(nproc)"
+	#sleep 36000
+	cd package/$(PKG_ID) && sudo sg sbuild -c "sbuild -sd $(DISTRIBUTION) -j$$(nproc)"
 	mv package/*$(PKG_VERSION).orig.tar.gz package/packages/
 	mv package/*$(PKG_VERSION)-$(PKG_BUILD)*.deb package/packages/
 	mv package/*$(PKG_VERSION)-$(PKG_BUILD)*.dsc package/packages/
@@ -450,6 +451,7 @@ oneclient_rpm: $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz
 #
 oneclient_deb: $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz
 	# Build DEB package for the distribution specified using FPM
+	@echo "========== oneclient_deb =========="
 	cp pkg_config/fpm/oneclient_deb.pre $(ONECLIENT_FPMPACKAGE_TMP)/
 	cp pkg_config/fpm/oneclient_deb.post $(ONECLIENT_FPMPACKAGE_TMP)/
 	docker run -u=$$UID:$$GID -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro \
