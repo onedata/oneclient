@@ -1,6 +1,6 @@
 --- a/debian/control
 +++ b/debian/control
-@@ -10,9 +10,9 @@
+@@ -10,9 +10,10 @@ Build-Depends:
      cmake (>= 3.0.0),
      debhelper (>= 9),
      folly-dev,
@@ -9,10 +9,11 @@
      git,
 -    glusterfs-common (>= 3.12.1),
 +    glusterfs-common (>= 7.2),
++    libglusterfs-dev (>= 7.2),
      golang-go,
      libacl1-dev,
      libboost-all-dev,
-@@ -25,17 +25,17 @@
+@@ -25,17 +26,17 @@ Build-Depends:
      libnspr4-dev,
      libnss3-dev,
      libprotobuf-dev (>= 3.4.1),
@@ -38,7 +39,7 @@
      libxrootd-client-dev,
      libxrootd-server-dev,
      libxrootd-private-dev,
-@@ -57,14 +57,14 @@
+@@ -57,14 +58,14 @@ Homepage: https://onedata.org
  
  Package: oneclient-base
  Architecture: amd64
@@ -77,8 +78,8 @@ index 2dfa7933..7cc09b48 100644
 @@ -1,2 +1,2 @@
 -usr/lib/python3.5/dist-packages/onedatafs/onedatafs*
 -usr/lib/python3.5/dist-packages/onedatafs/__init__.py
-+usr/lib/python3.9/dist-packages/onedatafs/onedatafs*
-+usr/lib/python3.9/dist-packages/onedatafs/__init__.py
++usr/lib/python3.8/dist-packages/onedatafs/onedatafs*
++usr/lib/python3.8/dist-packages/onedatafs/__init__.py
 
 diff --git a/debian/python3-onedatafs.links b/debian/python3-onedatafs.links
 index d2f932d1..2a7f89fb 100644
@@ -86,7 +87,7 @@ index d2f932d1..2a7f89fb 100644
 +++ b/debian/python3-onedatafs.links
 @@ -1,2 +1,2 @@
 -usr/lib/python3.5/dist-packages/onedatafs/onedatafs_py3.so usr/lib/python3.5/dist-packages/onedatafs/onedatafs.so
-+usr/lib/python3.9/dist-packages/onedatafs/onedatafs_py3.so usr/lib/python3.9/dist-packages/onedatafs/onedatafs.so
++usr/lib/python3.8/dist-packages/onedatafs/onedatafs_py3.so usr/lib/python3.8/dist-packages/onedatafs/onedatafs.so
  
 diff --git a/debian/rules b/debian/rules
 index f87bc221..31b9f1fd 100755
