@@ -40,7 +40,6 @@ BuildRequires: %scl_require_package %{scl} fizz-devel >= %{folly_version}
 BuildRequires: %scl_require_package %{scl} fizz-static >= %{folly_version}
 BuildRequires: %scl_require_package %{scl} gflags-devel >= 2.1.2
 BuildRequires: %scl_require_package %{scl} glog-devel >= 0.3.4
-BuildRequires: %scl_require_package %{scl} glusterfs-api-devel >= 3.12.15
 BuildRequires: %scl_require_package %{scl} librados-devel
 BuildRequires: %scl_require_package %{scl} libradospp-devel
 BuildRequires: %scl_require_package %{scl} libradosstriper-devel
@@ -70,6 +69,7 @@ BuildRequires: double-conversion-devel
 BuildRequires: epel-release
 BuildRequires: fuse3-devel >= 3.6
 BuildRequires: git
+BuildRequires: glusterfs-api-devel >= 6.0
 BuildRequires: golang
 BuildRequires: libcurl-devel
 BuildRequires: libevent-devel
