@@ -40,9 +40,6 @@ BuildRequires: %scl_require_package %{scl} fizz-devel >= %{folly_version}
 BuildRequires: %scl_require_package %{scl} fizz-static >= %{folly_version}
 BuildRequires: %scl_require_package %{scl} gflags-devel >= 2.1.2
 BuildRequires: %scl_require_package %{scl} glog-devel >= 0.3.4
-BuildRequires: %scl_require_package %{scl} librados-devel
-BuildRequires: %scl_require_package %{scl} libradospp-devel
-BuildRequires: %scl_require_package %{scl} libradosstriper-devel
 BuildRequires: %scl_require_package %{scl} openssl >= 1.1.0
 BuildRequires: %scl_require_package %{scl} openssl-devel >= 1.1.0
 BuildRequires: %scl_require_package %{scl} openssl-libs >= 1.1.0
@@ -73,6 +70,9 @@ BuildRequires: glusterfs-api-devel >= 6.0
 BuildRequires: golang
 BuildRequires: libcurl-devel
 BuildRequires: libevent-devel
+BuildRequires: librados-devel
+BuildRequires: libradospp-devel
+BuildRequires: libradosstriper-devel
 BuildRequires: libunwind-devel
 BuildRequires: libsodium-devel
 BuildRequires: libtool-ltdl
