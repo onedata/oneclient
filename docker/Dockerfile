@@ -6,7 +6,7 @@ MAINTAINER Krzysztof Trzepla <krzysztof.trzepla@gmail.com>
 ARG RELEASE_TYPE
 ARG RELEASE="2102"
 ARG VERSION=""
-ARG DISTRIBUTION="bionic"
+ARG DISTRIBUTION="focal"
 ARG FSONEDATAFS_VERSION=""
 ARG ONECLIENT_PACKAGE="oneclient"
 ARG HTTP_PROXY
@@ -14,11 +14,12 @@ ARG PYFILESYSTEM_VERSION="2.4.14"
 
 # Enable Onedata devel package proxy cache
 ENV http_proxy ${HTTP_PROXY}
+ENV DEBIAN_FRONTEND=noninteractive 
 
 # Get the image up to date and install utility tools
 RUN apt-get -y update && \
     apt-get -y install bash-completion ca-certificates curl iputils-ping netcat \
-                       man-db net-tools traceroute vim python-xattr python3-xattr \
+                       man-db net-tools traceroute vim \
                        parallel python3-pip gnupg2 xattr pv bsdmainutils && \
     apt-get clean
 

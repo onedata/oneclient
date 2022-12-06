@@ -304,7 +304,7 @@ deb: check_distribution package/$(PKG_ID).tar.gz
 	sed -i "s/{{distribution}}/$(DISTRIBUTION)/g" package/$(PKG_ID)/debian/changelog
 	sed -i "s/{{date}}/`date -R`/g" package/$(PKG_ID)/debian/changelog
 
-	#sleep 36000
+	#sleep 360000
 	cd package/$(PKG_ID) && sudo sg sbuild -c "sbuild -sd $(DISTRIBUTION) -j$$(nproc)"
 	mv package/*$(PKG_VERSION).orig.tar.gz package/packages/
 	mv package/*$(PKG_VERSION)-$(PKG_BUILD)*.deb package/packages/

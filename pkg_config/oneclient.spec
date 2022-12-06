@@ -34,6 +34,9 @@ BuildRequires: %scl_require_package %{scl} aws-sdk-cpp-s3 >= 1.8.7
 BuildRequires: %scl_require_package %{scl} boost-devel >= 1.58.0
 BuildRequires: %scl_require_package %{scl} boost-python >= 1.58.0
 BuildRequires: %scl_require_package %{scl} boost-python3 >= 1.58.0
+BuildRequires: %scl_require_package %{scl} librados-devel
+BuildRequires: %scl_require_package %{scl} libradospp-devel
+BuildRequires: %scl_require_package %{scl} libradosstriper-devel
 BuildRequires: %scl_require_package %{scl} libnfs-devel >= 4.0.0
 BuildRequires: %scl_require_package %{scl} folly-devel >= %{folly_version}
 BuildRequires: %scl_require_package %{scl} fizz-devel >= %{folly_version}
@@ -70,9 +73,6 @@ BuildRequires: glusterfs-api-devel >= 6.0
 BuildRequires: golang
 BuildRequires: libcurl-devel
 BuildRequires: libevent-devel
-BuildRequires: librados-devel
-BuildRequires: libradospp-devel
-BuildRequires: libradosstriper-devel
 BuildRequires: libunwind-devel
 BuildRequires: libsodium-devel
 BuildRequires: libtool-ltdl

@@ -224,7 +224,7 @@ endif(WITH_LIBDL)
 
 # Rados library
 if(WITH_CEPH)
-    find_library(CEPHCOMMON_LIBRARY "ceph-common" NAMES "ceph-common" "libceph-common.so.2" PATH_SUFFIXES "ceph")
+    find_library(CEPHCOMMON_LIBRARY "ceph-common" NAMES "ceph-common" "libceph-common.so.2" "libceph-common.so.0" PATH_SUFFIXES "ceph")
     find_library(RADOS_LIBRARY rados)
     find_library(RADOSSTRIPER_LIBRARY radosstriper)
     get_filename_component(CEPHCOMMON_RPATH "${CEPHCOMMON_LIBRARY}" DIRECTORY)
