@@ -42,7 +42,7 @@ WITH_FUSE_VERSION ?= 3
 # Oneclient FPM packaging variables
 PATCHELF_DOCKER_IMAGE   ?= docker.onedata.org/patchelf:0.9
 FPM_DOCKER_IMAGE        ?= docker.onedata.org/fpm:1.9.3
-GLUSTERFS_VERSION       ?= 3.13.2
+GLUSTERFS_VERSION       ?= 7.2
 ONECLIENT_FPMPACKAGE_TMP := package_fpm
 
 ifeq ($(strip $(ONECLIENT_BASE_IMAGE)),)
@@ -304,7 +304,6 @@ deb: check_distribution package/$(PKG_ID).tar.gz
 	sed -i "s/{{distribution}}/$(DISTRIBUTION)/g" package/$(PKG_ID)/debian/changelog
 	sed -i "s/{{date}}/`date -R`/g" package/$(PKG_ID)/debian/changelog
 
-	#sleep 360000
 	cd package/$(PKG_ID) && sudo sg sbuild -c "sbuild -sd $(DISTRIBUTION) -j$$(nproc)"
 	mv package/*$(PKG_VERSION).orig.tar.gz package/packages/
 	mv package/*$(PKG_VERSION)-$(PKG_BUILD)*.deb package/packages/
@@ -321,7 +320,6 @@ rpm: check_distribution package/$(PKG_ID).tar.gz
 	patch -d package/ -p1 -i $(PKG_ID)/pkg_config/$(DISTRIBUTION).patch
 	sed -i "s/{{version}}/$(PKG_VERSION)/g" package/oneclient.spec
 	sed -i "s/{{build}}/$(PKG_BUILD)/g" package/oneclient.spec
-
 	mock --root $(DISTRIBUTION) --buildsrpm --spec package/oneclient.spec --resultdir=package/packages \
 		--sources package/$(PKG_ID).orig.tar.gz
 	mock --root $(DISTRIBUTION) --resultdir=package/packages --rebuild package/packages/onedata$(RELEASE)-$(PKG_ID)*.src.rpm
@@ -390,7 +388,6 @@ oneclient_tar $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz:
 		    cp /var/lib/oneclient/_oneclient /output/share/zsh/site-functions/ && \
 		    cp /var/lib/oneclient/oneclient.bash-completion /output/etc/bash_completion.d/ && \
 		    cp -r /lib/x86_64-linux-gnu/* /output/lib/ && \
-		    cp -r /usr/lib/x86_64-linux-gnu/nss/* /output/lib/ && \
 	        cp -r /usr/lib/x86_64-linux-gnu/libXrd* /output/lib/ && \
 	        cp -r /usr/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/xlator/* /output/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/xlator/ && \
 	        cp -r /usr/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/rpc-transport/* /output/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/rpc-transport/'
