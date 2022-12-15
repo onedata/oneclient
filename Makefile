@@ -409,7 +409,7 @@ oneclient_tar $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz:
 		/output/bin/onebench
 	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
 		--entrypoint /bin/sh -t $(PATCHELF_DOCKER_IMAGE) -c \
-		"find /output/lib -name '*so*' -type f ! -path '*ld-2.27.so' ! -path '*ld-linux-x86-64.so.2' -exec patchelf --set-rpath /opt/oneclient/lib --force-rpath {} \;"
+		"find /output/lib -name '*so*' -type f ! -path '*ld-[0-9]*.[0-9]*.so' ! -path '*ld-linux-x86-64.so.2' -exec patchelf --set-rpath /opt/oneclient/lib --force-rpath {} \;"
 	# Create binary archive
 	cd $(ONECLIENT_FPMPACKAGE_TMP)/root && \
 		tar -cf oneclient-bin.tar * && \
