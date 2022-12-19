@@ -1295,13 +1295,13 @@ std::vector<std::pair<std::string, std::string>> Options::toKeyValueList() const
 {
     std::vector<std::pair<std::string, std::string>> result;
 
-    for (const auto it : m_vm) {
+    for (const auto &it : m_vm) {
         auto name = it.first;
 
         if (it.second.defaulted())
             continue;
 
-        auto &value = it.second.value();
+        const auto &value = it.second.value();
 
         if (value.type() == typeid(std::string)) {
             result.emplace_back(
@@ -1317,22 +1317,19 @@ std::vector<std::pair<std::string, std::string>> Options::toKeyValueList() const
         }
         else if (value.type() == typeid(double)) {
             result.emplace_back(std::move(name),
-                boost::lexical_cast<std::string>(
-                    boost::any_cast<double>(value)));
+                std::to_string(boost::any_cast<double>(value)));
         }
         else if (value.type() == typeid(int)) {
-            result.emplace_back(std::move(name),
-                boost::lexical_cast<std::string>(boost::any_cast<int>(value)));
+            result.emplace_back(
+                std::move(name), std::to_string(boost::any_cast<int>(value)));
         }
         else if (value.type() == typeid(unsigned int)) {
             result.emplace_back(std::move(name),
-                boost::lexical_cast<std::string>(
-                    boost::any_cast<unsigned int>(value)));
+                std::to_string(boost::any_cast<unsigned int>(value)));
         }
         else if (value.type() == typeid(uint64_t)) {
             result.emplace_back(std::move(name),
-                boost::lexical_cast<std::string>(
-                    boost::any_cast<uint64_t>(value)));
+                std::to_string(boost::any_cast<uint64_t>(value)));
         }
         else if (value.type() == typeid(std::vector<std::string>)) {
             // Handle multiple value command line options
