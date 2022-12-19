@@ -1298,6 +1298,9 @@ std::vector<std::pair<std::string, std::string>> Options::toKeyValueList() const
     for (const auto &it : m_vm) {
         auto name = it.first;
 
+        if (name == "token")
+            continue;
+
         if (it.second.defaulted())
             continue;
 

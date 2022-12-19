@@ -169,12 +169,13 @@ TEST_F(OptionsTest, parseCommandLineShouldCreateKeyValueMap)
     options.parse(cmdArgs.size(), cmdArgs.data());
 
     auto optionValues = options.toKeyValueList();
-    EXPECT_EQ(6, optionValues.size());
+    EXPECT_EQ(5, optionValues.size());
 
     int matches{0};
+    bool token_skipped{true};
     for (const auto &o : optionValues) {
         if (o.first == "token" && o.second == "ABCD")
-            matches++;
+            token_skipped = false;
         if (o.first == "host" && o.second == "example.com")
             matches++;
         if (o.first == "force-direct-io" && o.second == "true")
@@ -187,7 +188,9 @@ TEST_F(OptionsTest, parseCommandLineShouldCreateKeyValueMap)
             matches++;
     }
 
-    EXPECT_EQ(6, matches);
+    EXPECT_TRUE(token_skipped);
+
+    EXPECT_EQ(5, matches);
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetHelpWhenNoArguments)
