@@ -160,6 +160,36 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_FALSE(options.isReadWritePerfEnabled());
 }
 
+TEST_F(OptionsTest, parseCommandLineShouldCreateKeyValueMap)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"-t", "ABCD", "-H", "example.com", "--force-direct-io", "--space-id",
+            "s1", "--space-id", "s2", "/mnt/oneclient"});
+
+    options.parse(cmdArgs.size(), cmdArgs.data());
+
+    auto optionValues = options.toKeyValueList();
+    EXPECT_EQ(6, optionValues.size());
+
+    int matches{0};
+    for (const auto &o : optionValues) {
+        if (o.first == "token" && o.second == "ABCD")
+            matches++;
+        if (o.first == "host" && o.second == "example.com")
+            matches++;
+        if (o.first == "force-direct-io" && o.second == "true")
+            matches++;
+        if (o.first == "mountpoint" && o.second == "/mnt/oneclient")
+            matches++;
+        if (o.first == "space-id" && o.second == "s1")
+            matches++;
+        if (o.first == "space-id" && o.second == "s2")
+            matches++;
+    }
+
+    EXPECT_EQ(6, matches);
+}
+
 TEST_F(OptionsTest, parseCommandLineShouldSetHelpWhenNoArguments)
 {
     options.parse(cmdArgs.size(), cmdArgs.data());

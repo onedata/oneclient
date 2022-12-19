@@ -204,7 +204,8 @@ int main(int argc, char *argv[])
         // authentication and get protocol configuration
         auto authManager = getAuthManager(context);
         auto sessionId = generateSessionId();
-        auto configuration = getConfiguration(sessionId, authManager, context);
+        auto configuration = getConfiguration(sessionId, authManager, context,
+            messages::handshake::ClientType::oneclient);
 
         if (!configuration)
             return EXIT_FAILURE;
@@ -269,7 +270,8 @@ int main(int argc, char *argv[])
         // authentication and get protocol configuration
         auto authManager = getAuthManager(context);
         auto sessionId = generateSessionId();
-        auto configuration = getConfiguration(sessionId, authManager, context);
+        auto configuration = getConfiguration(sessionId, authManager, context,
+            messages::handshake::ClientType::oneclient);
 
         if (!configuration)
             return EXIT_FAILURE;
@@ -331,7 +333,8 @@ int main(int argc, char *argv[])
         if (startPerformanceMonitoring(options) != EXIT_SUCCESS)
             return EXIT_FAILURE;
 
-        auto communicator = getCommunicator(sessionId, authManager, context);
+        auto communicator = getCommunicator(sessionId, authManager, context,
+            messages::handshake::ClientType::oneclient);
         context->setCommunicator(communicator);
         communicator->connect();
         communicator->schedulePeriodicMessageRequest();

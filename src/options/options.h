@@ -492,6 +492,8 @@ public:
      */
     struct fuse_args getFuseArgs(const char *programName) const;
 
+    std::vector<std::pair<std::string, std::string>> toKeyValueList() const;
+
 private:
     template <typename T> std::shared_ptr<TypedOption<T>> add()
     {
@@ -592,6 +594,7 @@ Options::get<std::pair<std::string, std::string>>(
     }
     return {};
 }
+
 } // namespace options
 } // namespace client
 } // namespace one

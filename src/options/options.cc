@@ -1291,6 +1291,61 @@ std::vector<std::string> Options::selectDeprecated() const
     return deprecated;
 }
 
+std::vector<std::pair<std::string, std::string>> Options::toKeyValueList() const
+{
+    std::vector<std::pair<std::string, std::string>> result;
+
+    for (const auto it : m_vm) {
+        auto name = it.first;
+
+        if (it.second.defaulted())
+            continue;
+
+        auto &value = it.second.value();
+
+        if (value.type() == typeid(std::string)) {
+            result.emplace_back(
+                std::move(name), boost::any_cast<std::string>(value));
+        }
+        else if (value.type() == typeid(boost::filesystem::path)) {
+            result.emplace_back(std::move(name),
+                boost::any_cast<boost::filesystem::path>(value).string());
+        }
+        else if (value.type() == typeid(bool)) {
+            result.emplace_back(std::move(name),
+                boost::any_cast<bool>(value) ? "true" : "false");
+        }
+        else if (value.type() == typeid(double)) {
+            result.emplace_back(std::move(name),
+                boost::lexical_cast<std::string>(
+                    boost::any_cast<double>(value)));
+        }
+        else if (value.type() == typeid(int)) {
+            result.emplace_back(std::move(name),
+                boost::lexical_cast<std::string>(boost::any_cast<int>(value)));
+        }
+        else if (value.type() == typeid(unsigned int)) {
+            result.emplace_back(std::move(name),
+                boost::lexical_cast<std::string>(
+                    boost::any_cast<unsigned int>(value)));
+        }
+        else if (value.type() == typeid(uint64_t)) {
+            result.emplace_back(std::move(name),
+                boost::lexical_cast<std::string>(
+                    boost::any_cast<uint64_t>(value)));
+        }
+        else if (value.type() == typeid(std::vector<std::string>)) {
+            // Handle multiple value command line options
+            for (const auto &v :
+                boost::any_cast<std::vector<std::string>>(value)) {
+                result.emplace_back(name, v);
+            }
+        }
+    }
+
+    return result;
+}
+
 } // namespace options
 } // namespace client
 } // namespace one
