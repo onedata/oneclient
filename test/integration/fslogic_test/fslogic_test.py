@@ -225,6 +225,7 @@ def prepare_attr_response(uuid, filetype, size=None, parent_uuid=None, name='fil
     repl.size = size if size else random.randint(0, 1000000000)
     repl.owner_id = ''
     repl.provider_id = ''
+    repl.index = ''
 
     server_response = messages_pb2.ServerMessage()
     server_response.fuse_response.file_attr.CopyFrom(repl)
@@ -248,6 +249,7 @@ def prepare_attr_response_mode(uuid, filetype, mode, parent_uuid=None):
     repl.type = filetype
     repl.owner_id = ''
     repl.provider_id = ''
+    repl.index = ''
 
     server_response = messages_pb2.ServerMessage()
     server_response.fuse_response.file_attr.CopyFrom(repl)
@@ -394,6 +396,7 @@ def prepare_file_attr_changed_event(uuid, type, size, parent_uuid, mode=None):
     attr.owner_id = ''
     attr.provider_id = ''
     attr.parent_uuid = parent_uuid
+    attr.index = ''
 
     attr_evt = event_messages_pb2.FileAttrChangedEvent()
     attr_evt.file_attr.CopyFrom(attr)

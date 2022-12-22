@@ -58,6 +58,7 @@ std::tuple<std::shared_ptr<communication::Communicator>,
 MacaroonAuthManager::createCommunicator(const unsigned int poolSize,
     const unsigned int workerCount, std::string sessionId, std::string version,
     const std::vector<std::string> &compatibleOneproviderVersions,
+    messages::handshake::ClientType clientType,
     std::function<std::error_code(messages::HandshakeResponse)>
         onHandshakeResponse)
 {
@@ -68,10 +69,21 @@ MacaroonAuthManager::createCommunicator(const unsigned int poolSize,
     auto communicator = std::make_shared<communication::Communicator>(poolSize,
         workerCount, m_hostname, m_port, m_checkCertificate, true, true,
         m_providerTimeout);
+
     auto sessionMode = SessionMode::normal;
     auto context = m_context.lock();
     if (!context)
         throw std::runtime_error("Application context already released.");
+
+    if (context->options()->isMessageTraceLoggerEnabled()) {
+        using namespace std::chrono;
+        auto messageLogPath = context->options()->getLogDirPath() /
+            fmt::format("message-log-{}.txt",
+                duration_cast<seconds>(system_clock::now().time_since_epoch())
+                    .count());
+        communicator->enableMessageLog(
+            "handshake_message_trace_logger", messageLogPath.string());
+    }
 
     if (context->options()->isOpenSharesModeEnabled())
         sessionMode = SessionMode::open_handle;
@@ -80,7 +92,8 @@ MacaroonAuthManager::createCommunicator(const unsigned int poolSize,
         [=] {
             one::messages::ClientHandshakeRequest handshake{sessionId,
                 m_macaroonHandler.restrictedMacaroon(), version,
-                compatibleOneproviderVersions, sessionMode};
+                compatibleOneproviderVersions, sessionMode, clientType,
+                context->options()->toKeyValueList(), {}};
 
             return handshake;
         },

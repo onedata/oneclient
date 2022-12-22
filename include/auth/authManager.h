@@ -74,6 +74,7 @@ public:
         const unsigned int workerCount, std::string sessionId,
         std::string version,
         const std::vector<std::string> &compatibleOneproviderVersions,
+        messages::handshake::ClientType clientType,
         std::function<std::error_code(messages::HandshakeResponse)>
             onHandshakeResponse) = 0;
 
@@ -118,6 +119,7 @@ public:
         const unsigned int workerCount, std::string sessionId,
         std::string version,
         const std::vector<std::string> &compatibleOneproviderVersions,
+        messages::handshake::ClientType clientType,
         std::function<std::error_code(messages::HandshakeResponse)>
             onHandshakeResponse) override;
 

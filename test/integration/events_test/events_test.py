@@ -142,6 +142,7 @@ def prepare_file_attr_changed_event(uuid):
     attr.size = random_int(upper_bound=1000000000)
     attr.owner_id = ''
     attr.provider_id = ''
+    attr.index = ''
 
     attr_evt = event_messages_pb2.FileAttrChangedEvent()
     attr_evt.file_attr.CopyFrom(attr)
