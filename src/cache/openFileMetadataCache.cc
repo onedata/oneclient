@@ -41,7 +41,8 @@ OpenFileMetadataCache::OpenFileMetadataCache(
     , m_directoryCacheDropAfter{directoryCacheDropAfter}
 {
     MetadataCache::onRename(std::bind(&OpenFileMetadataCache::handleRename,
-        this, std::placeholders::_1, std::placeholders::_2));
+        this, std::placeholders::_1, std::placeholders::_2,
+        std::placeholders::_3));
 
     MetadataCache::onMarkDeleted(
         std::bind(&OpenFileMetadataCache::handleMarkDeleted, this,
@@ -392,7 +393,7 @@ void OpenFileMetadataCache::clear()
 
 bool OpenFileMetadataCache::rename(const folly::fbstring &uuid,
     const folly::fbstring &newParentUuid, const folly::fbstring &newName,
-    const folly::fbstring &newUuid)
+    const folly::fbstring &newUuid, bool invalidateAttrSize)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(newParentUuid)
                 << LOG_FARG(newName) << LOG_FARG(newUuid);
@@ -428,14 +429,10 @@ bool OpenFileMetadataCache::rename(const folly::fbstring &uuid,
         return true;
     }
 
-    // Recreate the subscriptions only if the old uuid is different from the new
-    // one and the file is opened or directory is cached
-    bool renewSubscriptions = (uuid != newUuid) &&
-        (std::find(m_lruFileList.begin(), m_lruFileList.end(), uuid) !=
-            m_lruFileList.end());
+    auto res = MetadataCache::rename(uuid, newParentUuid, newName, newUuid,
+        /* renewSubscriptions */ true, invalidateAttrSize);
 
-    return MetadataCache::rename(
-        uuid, newParentUuid, newName, newUuid, renewSubscriptions);
+    return res;
 }
 
 void OpenFileMetadataCache::truncate(
@@ -537,20 +534,34 @@ std::shared_ptr<FileLocation> OpenFileMetadataCache::getLocation(
 
     assertInFiber();
 
+    auto it = m_lruFileData.find(uuid);
     // Check if the file is opened
-    if ((m_lruFileData.find(uuid) != m_lruFileData.end())) {
+    if ((it != m_lruFileData.end())) {
         // If this request doesn't require updating the location,
         // just return the cached version
         if (!forceUpdate)
             return m_lruFileData.at(uuid).location;
 
+        const bool isDeleted = MetadataCache::isDeleted(uuid);
+        auto attr = it->second.attr;
+
         // If the file is deleted, or this is a forced update (e.g. after
         // read error) request the file location from the server
-        if (MetadataCache::isDeleted(uuid) || forceUpdate) {
-            m_lruFileData.find(uuid)->second.location =
-                MetadataCache::getLocation(
-                    m_lruFileData.find(uuid)->second.attr);
+        if (isDeleted || forceUpdate) {
+            LOG_DBG(2) << "Getting location for file " << attr->name()
+                       << " isDeleted=" << isDeleted;
 
+            auto location = MetadataCache::getLocation(attr);
+
+            bool validLocation = location != nullptr;
+
+            LOG_DBG(2) << "Got valid location " << validLocation;
+
+            if ((m_lruFileData.find(uuid) == m_lruFileData.end())) {
+                return location;
+            }
+
+            m_lruFileData.find(uuid)->second.location = std::move(location);
             return m_lruFileData.find(uuid)->second.location;
         }
     }
@@ -859,15 +870,25 @@ void OpenFileMetadataCache::handleMarkDeleted(const folly::fbstring &uuid)
     m_onMarkDeleted(uuid);
 }
 
-void OpenFileMetadataCache::handleRename(
-    const folly::fbstring &oldUuid, const folly::fbstring &newUuid)
+void OpenFileMetadataCache::handleRename(const folly::fbstring &oldUuid,
+    const folly::fbstring &newUuid, const folly::fbstring &newParentUuid)
 {
     LOG_FCALL() << LOG_FARG(oldUuid) << LOG_FARG(newUuid);
 
     assertInFiber();
     assert(!newUuid.empty());
 
-    auto attr = getAttr(newUuid);
+    FileAttrPtr attr;
+    try {
+        attr = getAttr(oldUuid);
+    }
+    catch (const std::system_error &e) {
+        if (e.code().value() == ENOENT) {
+            LOG_DBG(2) << "File " << oldUuid
+                       << " already deleted - ignoring rename";
+            return;
+        }
+    }
 
     if (attr->type() == FileAttr::FileType::directory) {
         // Handle rename of a cached directory
@@ -934,7 +955,7 @@ void OpenFileMetadataCache::handleRename(
         }
     }
 
-    m_onRename(oldUuid, newUuid);
+    m_onRename(oldUuid, newUuid, newParentUuid);
 }
 
 } // namespace cache

@@ -1,13 +1,6 @@
 # distro for package building (oneof: xenial, centos-7-x86_64)
 RELEASE               ?= 2102
 DISTRIBUTION          ?= none
-DOCKER_RELEASE        ?= development
-DOCKER_REG_NAME       ?= "docker.onedata.org"
-DOCKER_REG_USER       ?= ""
-DOCKER_REG_PASSWORD   ?= ""
-DOCKER_BASE_IMAGE     ?= "ubuntu:20.04"
-DOCKER_DEV_BASE_IMAGE ?= "onedata/worker:2102-7"
-HTTP_PROXY            ?= "http://proxy.devel.onedata.org:3128"
 
 PKG_REVISION    ?= $(shell git describe --tags --always  --abbrev=7)
 PKG_VERSION     ?= $(shell git describe --tags --always  --abbrev=7 | tr - .)
@@ -44,13 +37,6 @@ PATCHELF_DOCKER_IMAGE   ?= docker.onedata.org/patchelf:0.9
 FPM_DOCKER_IMAGE        ?= docker.onedata.org/fpm:1.9.3
 GLUSTERFS_VERSION       ?= 7.2
 ONECLIENT_FPMPACKAGE_TMP := package_fpm
-
-ifeq ($(strip $(ONECLIENT_BASE_IMAGE)),)
-# Oneclient base image is an ID of the Docker container 'oneclient-base' with
-# containing Oneclient installed on a reference OS (currently Ubuntu Bionic).
-# This image is used to create self-contained binary packages for other distributions.
-ONECLIENT_BASE_IMAGE    := ID-$(shell git rev-parse HEAD | cut -c1-10)
-endif
 
 # Detect compilation on CentOS using Software Collections environment
 ifeq ($(shell awk -F= '/^ID=/{print $$2}' /etc/os-release), "centos")
@@ -464,47 +450,6 @@ oneclient_deb: $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz
 		   --maintainer "Onedata Package Maintainers <info@onedata.org>" \
 		   --description "Self-contained Onedata Oneclient command-line client package" \
 		   /data/oneclient-bin.tar.gz
-
-.PHONY: docker-base
-docker-base:
-	./docker_build.py --repository $(DOCKER_REG_NAME) --user $(DOCKER_REG_USER) \
-                          --password $(DOCKER_REG_PASSWORD) \
-                          --build-arg BASE_IMAGE=$(DOCKER_BASE_IMAGE) \
-                          --build-arg RELEASE_TYPE=$(DOCKER_RELEASE) \
-                          --build-arg RELEASE=$(RELEASE) \
-                          --build-arg VERSION=$(PKG_VERSION) \
-                          --build-arg FSONEDATAFS_VERSION=$(FSONEDATAFS_VERSION) \
-                          --build-arg HTTP_PROXY=$(HTTP_PROXY) \
-                          --build-arg ONECLIENT_PACKAGE=oneclient-base \
-                          --name oneclient-base --publish --remove docker
-
-.PHONY: docker
-docker: docker-dev
-	./docker_build.py --repository $(DOCKER_REG_NAME) \
-	                  --user $(DOCKER_REG_USER) \
-                      --password $(DOCKER_REG_PASSWORD) \
-                      --build-arg BASE_IMAGE=$(DOCKER_BASE_IMAGE) \
-                      --build-arg RELEASE_TYPE=$(DOCKER_RELEASE) \
-                      --build-arg RELEASE=$(RELEASE) \
-                      --build-arg VERSION=$(PKG_VERSION) \
-                      --build-arg FSONEDATAFS_VERSION=$(FSONEDATAFS_VERSION) \
-                      --build-arg HTTP_PROXY=$(HTTP_PROXY) \
-                      --build-arg ONECLIENT_PACKAGE=oneclient \
-                      --name oneclient --publish --remove docker
-
-docker-dev:
-	./docker_build.py --repository $(DOCKER_REG_NAME) \
-                      --user $(DOCKER_REG_USER) \
-                      --password $(DOCKER_REG_PASSWORD) \
-                      --build-arg BASE_IMAGE=$(DOCKER_DEV_BASE_IMAGE) \
-                      --build-arg RELEASE=$(RELEASE) \
-                      --build-arg VERSION=$(PKG_VERSION) \
-                      --build-arg FSONEDATAFS_VERSION=$(FSONEDATAFS_VERSION) \
-                      --build-arg HTTP_PROXY=$(HTTP_PROXY) \
-                      --build-arg ONECLIENT_PACKAGE=oneclient \
-                      --report docker-dev-build-report.txt \
-                      --short-report docker-dev-build-list.json \
-                      --name oneclient-dev --publish --remove docker
 
 .PHONY: clean
 clean:

@@ -4,6 +4,10 @@ Release notes for project oneclient
 CHANGELOG
 ---------
 
+### 21.02.0-alpha28
+
+### 21.02.0-alpha27
+
 ### 21.02.0-alpha26
 
 -   **VFS-9424** Fixed broken dependencies in Oneclient Conda packages.
@@ -152,6 +156,16 @@ CHANGELOG
     process, the mountpoint is properly released.
 -   **VFS-7256** Fixed OnedataFS token refresh, which caused
     disconnection from Oneprovider after the token expired.
+
+### 20.02.19
+
+-   **VFS-10008** Fixed race condition which occurred when a file
+    location was retrieved through getxattr call concurrently to file
+    release.
+
+### 20.02.18
+
+### 20.02.17
 
 ### 20.02.16
 

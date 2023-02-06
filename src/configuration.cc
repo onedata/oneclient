@@ -34,7 +34,8 @@ std::string generateSessionId()
 std::shared_ptr<communication::Communicator> handshake(
     const std::string &sessionId,
     std::shared_ptr<auth::AuthManager> authManager,
-    std::shared_ptr<Context> context)
+    std::shared_ptr<Context> context,
+    messages::handshake::ClientType clientType)
 {
     auto handshakeHandler = [&](const messages::HandshakeResponse &msg) {
         if (msg.isMacaroonError()) {
@@ -45,22 +46,12 @@ std::shared_ptr<communication::Communicator> handshake(
         return msg.status();
     };
 
-    auto testCommunicatorTuple =
-        authManager->createCommunicator(1, 1, sessionId, ONECLIENT_VERSION,
-            ONECLIENT_COMPATIBLE_ONEPROVIDER_VERSIONS, handshakeHandler);
+    auto testCommunicatorTuple = authManager->createCommunicator(1, 1,
+        sessionId, ONECLIENT_VERSION, ONECLIENT_COMPATIBLE_ONEPROVIDER_VERSIONS,
+        clientType, handshakeHandler);
     auto testCommunicator =
         std::get<std::shared_ptr<communication::Communicator>>(
             testCommunicatorTuple);
-
-    if (context->options()->isMessageTraceLoggerEnabled()) {
-        using namespace std::chrono;
-        auto messageLogPath = context->options()->getLogDirPath() /
-            fmt::format("message-log-{}.txt",
-                duration_cast<seconds>(system_clock::now().time_since_epoch())
-                    .count());
-        testCommunicator->enableMessageLog(
-            "handshake_message_trace_logger", messageLogPath.string());
-    }
 
     testCommunicator->setScheduler(context->scheduler());
     testCommunicator->connect();
@@ -83,7 +74,8 @@ std::shared_ptr<auth::AuthManager> getAuthManager(
 std::shared_ptr<messages::Configuration> getConfiguration(
     const std::string &sessionId,
     std::shared_ptr<auth::AuthManager> authManager,
-    std::shared_ptr<Context> context, bool quiet)
+    std::shared_ptr<Context> context,
+    messages::handshake::ClientType clientType, bool quiet)
 {
     auto options = context->options();
     if (!quiet)
@@ -92,8 +84,8 @@ std::shared_ptr<messages::Configuration> getConfiguration(
                   << options->getProviderPort() << "' using session ID: '"
                   << sessionId << "'..." << std::endl;
 
-    auto communicator =
-        handshake(sessionId, std::move(authManager), std::move(context));
+    auto communicator = handshake(
+        sessionId, std::move(authManager), std::move(context), clientType);
 
     if (!quiet)
         std::cout << "Getting configuration..." << std::endl;
@@ -111,7 +103,8 @@ std::shared_ptr<messages::Configuration> getConfiguration(
 std::shared_ptr<communication::Communicator> getCommunicator(
     const std::string &sessionId,
     std::shared_ptr<auth::AuthManager> authManager,
-    std::shared_ptr<Context> context)
+    std::shared_ptr<Context> context,
+    messages::handshake::ClientType clientType)
 {
     auto handshakeHandler = [](auto /*unused*/) { return std::error_code{}; };
 
@@ -119,7 +112,7 @@ std::shared_ptr<communication::Communicator> getCommunicator(
         context->options()->getCommunicatorConnectionPoolSize(),
         context->options()->getCommunicatorThreadCount(), sessionId,
         ONECLIENT_VERSION, ONECLIENT_COMPATIBLE_ONEPROVIDER_VERSIONS,
-        handshakeHandler);
+        clientType, handshakeHandler);
     auto communicator = std::get<std::shared_ptr<communication::Communicator>>(
         communicatorTuple);
 

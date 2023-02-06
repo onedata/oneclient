@@ -223,8 +223,9 @@ def prepare_attr_response(uuid, filetype, size=None, parent_uuid=None, name='fil
     repl.ctime = int(time.time()) - random.randint(0, 1000000)
     repl.type = filetype
     repl.size = size if size else random.randint(0, 1000000000)
-    repl.owner_id = b''
-    repl.provider_id = b''
+    repl.owner_id = ''
+    repl.provider_id = ''
+    repl.index = ''
 
     server_response = messages_pb2.ServerMessage()
     server_response.fuse_response.file_attr.CopyFrom(repl)
@@ -246,8 +247,9 @@ def prepare_attr_response_mode(uuid, filetype, mode, parent_uuid=None):
     repl.atime = int(time.time()) - random.randint(0, 1000000)
     repl.ctime = int(time.time()) - random.randint(0, 1000000)
     repl.type = filetype
-    repl.owner_id = b''
-    repl.provider_id = b''
+    repl.owner_id = ''
+    repl.provider_id = ''
+    repl.index = ''
 
     server_response = messages_pb2.ServerMessage()
     server_response.fuse_response.file_attr.CopyFrom(repl)
@@ -389,9 +391,10 @@ def prepare_file_attr_changed_event(uuid, type, size, parent_uuid, mode=None):
     attr.type = type
     if size:
         attr.size = size
-    attr.owner_id = b''
-    attr.provider_id = b''
-    attr.parent_uuid = parent_uuid.encode('utf-8')
+    attr.owner_id = ''
+    attr.provider_id = ''
+    attr.parent_uuid = parent_uuid
+    attr.index = ''
 
     attr_evt = event_messages_pb2.FileAttrChangedEvent()
     attr_evt.file_attr.CopyFrom(attr)
@@ -1330,7 +1333,7 @@ def test_readdir_should_handle_fileattrchanged_event(appmock_client, endpoint, f
     attr = fl.getattr(file_uuid)
 
     evt = prepare_file_attr_changed_event(
-            file_uuid, fuse_messages_pb2.REG, 12345, 'parentUuid')
+            file_uuid, fuse_messages_pb2.REG, 12345, parentUuid)
     with send(endpoint, [evt]):
         pass
 
@@ -2640,6 +2643,7 @@ def test_readdir_should_handle_archivematica_metadata(appmock_client, endpoint, 
         assert len(children_chunk) == 14
         assert "processingMCP.xml" in children_chunk
         assert "metadata" in children_chunk
+
 
 @pytest.mark.skip
 def test_read_should_read_archivematica_processingmcp(appmock_client, endpoint, fl_archivematica):

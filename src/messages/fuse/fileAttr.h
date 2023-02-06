@@ -183,6 +183,8 @@ public:
      */
     void size(const off_t size);
 
+    void resetSize() { m_size.reset(); }
+
     /**
      * Set number of hard links to file.
      */

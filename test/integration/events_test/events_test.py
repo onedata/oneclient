@@ -114,7 +114,24 @@ def prepare_cancellation(sid):
 
 
 def prepare_file_attr_changed_event(uuid):
-    msg = messages_pb2.ServerMessage()
+    attr = fuse_messages_pb2.FileAttr()
+    attr.uuid = uuid
+    attr.name = 'filename'
+    attr.mode = random_int(upper_bound=1023)
+    attr.uid = random_int(upper_bound=20000)
+    attr.gid = random_int(upper_bound=20000)
+    attr.mtime = int(time.time()) - random_int(upper_bound=1000000)
+    attr.atime = attr.mtime - random_int(upper_bound=1000000)
+    attr.ctime = attr.atime - random_int(upper_bound=1000000)
+    attr.type = fuse_messages_pb2.REG
+    attr.size = random_int(upper_bound=1000000000)
+    attr.owner_id = ''
+    attr.provider_id = ''
+    attr.index = ''
+
+    attr_evt = event_messages_pb2.FileAttrChangedEvent()
+    attr_evt.file_attr.CopyFrom(attr)
+
     evt = event_messages_pb2.Event()
 
     evt.file_attr_changed.file_attr.uuid = uuid.encode('utf-8')

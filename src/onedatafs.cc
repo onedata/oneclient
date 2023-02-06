@@ -711,13 +711,14 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(
     auto authManager = getAuthManager(context);
     auto sessionId = generateSessionId();
 
-    auto configuration =
-        getConfiguration(sessionId, authManager, context, true);
+    auto configuration = getConfiguration(sessionId, authManager, context,
+        messages::handshake::ClientType::onedatafs, true);
 
     if (!configuration)
         throw std::runtime_error("Authentication to Oneprovider failed...");
 
-    auto communicator = getCommunicator(sessionId, authManager, context);
+    auto communicator = getCommunicator(sessionId, authManager, context,
+        messages::handshake::ClientType::onedatafs);
     context->setCommunicator(communicator);
     communicator->connect();
     communicator->schedulePeriodicMessageRequest();

@@ -211,8 +211,8 @@ public:
      * @copydoc MetadataCache::onRename(std::function<void(const folly::fbstring
      * &, const folly::fbstring &)>)
      */
-    void onRename(
-        std::function<void(const folly::fbstring &, const folly::fbstring &)>
+    void onRename(std::function<void(const folly::fbstring &,
+            const folly::fbstring &, const folly::fbstring &)>
             cb)
     {
         m_onRename = std::move(cb);
@@ -224,7 +224,7 @@ public:
      */
     bool rename(const folly::fbstring &uuid,
         const folly::fbstring &newParentUuid, const folly::fbstring &newName,
-        const folly::fbstring &newUuid);
+        const folly::fbstring &newUuid, bool invalidateAttrSize);
 
     /**
      * @copydoc MetadataCache::truncate(const folly::fbstring &, const
@@ -428,8 +428,8 @@ private:
 
     void handleMarkDeleted(const folly::fbstring &uuid);
 
-    void handleRename(
-        const folly::fbstring &oldUuid, const folly::fbstring &newUuid);
+    void handleRename(const folly::fbstring &oldUuid,
+        const folly::fbstring &newUuid, const folly::fbstring &newParentUuid);
 
     const std::size_t m_targetSize;
     const std::chrono::seconds m_directoryCacheDropAfter;
@@ -447,8 +447,9 @@ private:
     std::function<void(const folly::fbstring &)> m_onDropDirectory =
         [](auto &) {};
     std::function<void(const folly::fbstring &)> m_onMarkDeleted = [](auto) {};
-    std::function<void(const folly::fbstring &, const folly::fbstring &)>
-        m_onRename = [](auto, auto) {};
+    std::function<void(const folly::fbstring &, const folly::fbstring &,
+        const folly::fbstring &)>
+        m_onRename = [](auto, auto, auto) {};
 };
 
 } // namespace cache

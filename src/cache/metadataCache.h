@@ -228,7 +228,7 @@ public:
      */
     bool rename(const folly::fbstring &uuid, folly::fbstring newParentUuid,
         folly::fbstring newName, folly::fbstring newUuid,
-        bool renewSubscriptions);
+        bool renewSubscriptions, bool invalidateAttrSize);
 
     /**
      * Perform any necessary action on the metadata after the file has been
@@ -275,8 +275,8 @@ public:
      * Sets a callback that will be called after a file is renamed.
      * @param cb The callback which takes uuid and newUuid as parameters.
      */
-    void onRename(
-        std::function<void(const folly::fbstring &, const folly::fbstring &)>
+    void onRename(std::function<void(const folly::fbstring &,
+            const folly::fbstring &, const folly::fbstring &)>
             cb)
     {
         m_onRename = std::move(cb);
@@ -392,8 +392,9 @@ private:
 
     std::function<void(const folly::fbstring &)> m_onAdd = [](auto) {};
     std::function<void(const folly::fbstring &)> m_onMarkDeleted = [](auto) {};
-    std::function<void(const folly::fbstring &, const folly::fbstring &)>
-        m_onRename = [](auto, auto) {};
+    std::function<void(const folly::fbstring &, const folly::fbstring &,
+        const folly::fbstring &)>
+        m_onRename = [](auto, auto, auto) {};
 
     std::shared_ptr<ReaddirCache> m_readdirCache;
 
