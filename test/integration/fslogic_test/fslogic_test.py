@@ -223,9 +223,9 @@ def prepare_attr_response(uuid, filetype, size=None, parent_uuid=None, name='fil
     repl.ctime = int(time.time()) - random.randint(0, 1000000)
     repl.type = filetype
     repl.size = size if size else random.randint(0, 1000000000)
-    repl.owner_id = ''
-    repl.provider_id = ''
-    repl.index = ''
+    repl.owner_id = b''
+    repl.provider_id = b''
+    repl.index = b''
 
     server_response = messages_pb2.ServerMessage()
     server_response.fuse_response.file_attr.CopyFrom(repl)
@@ -247,9 +247,9 @@ def prepare_attr_response_mode(uuid, filetype, mode, parent_uuid=None):
     repl.atime = int(time.time()) - random.randint(0, 1000000)
     repl.ctime = int(time.time()) - random.randint(0, 1000000)
     repl.type = filetype
-    repl.owner_id = ''
-    repl.provider_id = ''
-    repl.index = ''
+    repl.owner_id = b''
+    repl.provider_id = b''
+    repl.index = b''
 
     server_response = messages_pb2.ServerMessage()
     server_response.fuse_response.file_attr.CopyFrom(repl)
@@ -288,7 +288,7 @@ def prepare_fsstat_response(uuid, space_id, storage_count=1, size=1024*1024, occ
 
 def prepare_helper_response():
     repl = fuse_messages_pb2.HelperParams()
-    repl.helper_name = 'null'
+    repl.helper_name = b'null'
 
     server_response = messages_pb2.ServerMessage()
     server_response.fuse_response.helper_params.CopyFrom(repl)
@@ -381,7 +381,7 @@ def prepare_events(evt_list):
 def prepare_file_attr_changed_event(uuid, type, size, parent_uuid, mode=None):
     attr = fuse_messages_pb2.FileAttr()
     attr.uuid = uuid if isinstance(uuid, bytes) else uuid.encode('utf-8')
-    attr.name = 'filename'.encode('utf-8')
+    attr.name = b'filename'
     attr.mode = mode if mode else random_int(upper_bound=0o777)
     attr.uid = random_int(upper_bound=20000)
     attr.gid = random_int(upper_bound=20000)
@@ -391,10 +391,10 @@ def prepare_file_attr_changed_event(uuid, type, size, parent_uuid, mode=None):
     attr.type = type
     if size:
         attr.size = size
-    attr.owner_id = ''
-    attr.provider_id = ''
-    attr.parent_uuid = parent_uuid
-    attr.index = ''
+    attr.owner_id = b''
+    attr.provider_id = b''
+    attr.parent_uuid = parent_uuid.encode('utf-8')
+    attr.index = b''
 
     attr_evt = event_messages_pb2.FileAttrChangedEvent()
     attr_evt.file_attr.CopyFrom(attr)
@@ -577,7 +577,7 @@ def test_mkdir_should_mkdir(appmock_client, endpoint, fl):
     assert client_message.fuse_request.HasField('file_request')
 
     file_request = client_message.fuse_request.file_request
-    assert file_request.context_guid == 'parentUuid'.encode('utf-8')
+    assert file_request.context_guid == b'parentUuid'
 
     assert file_request.HasField('create_dir')
     create_dir = file_request.create_dir
@@ -602,7 +602,7 @@ def test_mkdir_should_recreate_dir(appmock_client, endpoint, fl):
         assert client_message.fuse_request.HasField('file_request')
 
         file_request = client_message.fuse_request.file_request
-        assert file_request.context_guid == 'parentUuid'.encode('utf-8')
+        assert file_request.context_guid == b'parentUuid'
 
         assert file_request.HasField('create_dir')
         create_dir = file_request.create_dir

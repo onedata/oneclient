@@ -114,42 +114,22 @@ def prepare_cancellation(sid):
 
 
 def prepare_file_attr_changed_event(uuid):
-    attr = fuse_messages_pb2.FileAttr()
-    attr.uuid = uuid
-    attr.name = 'filename'
-    attr.mode = random_int(upper_bound=1023)
-    attr.uid = random_int(upper_bound=20000)
-    attr.gid = random_int(upper_bound=20000)
-    attr.mtime = int(time.time()) - random_int(upper_bound=1000000)
-    attr.atime = attr.mtime - random_int(upper_bound=1000000)
-    attr.ctime = attr.atime - random_int(upper_bound=1000000)
-    attr.type = fuse_messages_pb2.REG
-    attr.size = random_int(upper_bound=1000000000)
-    attr.owner_id = ''
-    attr.provider_id = ''
-    attr.index = ''
-
-    attr_evt = event_messages_pb2.FileAttrChangedEvent()
-    attr_evt.file_attr.CopyFrom(attr)
-
     evt = event_messages_pb2.Event()
-
     evt.file_attr_changed.file_attr.uuid = uuid.encode('utf-8')
-    evt.file_attr_changed.file_attr.name = 'filename'.encode('utf-8')
+    evt.file_attr_changed.file_attr.name = b'filename'
     evt.file_attr_changed.file_attr.mode = random_int(upper_bound=1023)
     evt.file_attr_changed.file_attr.uid = random_int(upper_bound=20000)
     evt.file_attr_changed.file_attr.gid = random_int(upper_bound=20000)
     evt.file_attr_changed.file_attr.mtime = int(time.time()) - random_int(upper_bound=1000000)
-    evt.file_attr_changed.file_attr.atime = int(time.time()) - random_int(upper_bound=1000000)
-    evt.file_attr_changed.file_attr.ctime = int(time.time()) - random_int(upper_bound=1000000)
+    evt.file_attr_changed.file_attr.atime = evt.file_attr_changed.file_attr.mtime - random_int(upper_bound=1000000)
+    evt.file_attr_changed.file_attr.ctime = evt.file_attr_changed.file_attr.atime - random_int(upper_bound=1000000)
     evt.file_attr_changed.file_attr.type = fuse_messages_pb2.REG
     evt.file_attr_changed.file_attr.size = random_int(upper_bound=1000000000)
     evt.file_attr_changed.file_attr.owner_id = b''
     evt.file_attr_changed.file_attr.provider_id = b''
+    evt.file_attr_changed.file_attr.index = b''
 
-    msg.events.events.append(evt)
-
-    return msg
+    return prepare_events([evt])
 
 
 def prepare_file_location_changed_event(uuid):

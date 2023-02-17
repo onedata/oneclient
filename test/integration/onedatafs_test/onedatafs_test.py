@@ -93,8 +93,6 @@ def test_onedatafs_should_connect_to_provider(endpoint, uuid, token):
 
     configuration_response = prepare_configuration_response(uuid)
 
-    print("AAAAAAAAAAA")
-
     stat_response = prepare_attr_response(uuid, fuse_messages_pb2.REG, 1000, None, 'file.txt')
 
     with reply(endpoint, [response_ok, handshake_response,
@@ -104,7 +102,6 @@ def test_onedatafs_should_connect_to_provider(endpoint, uuid, token):
                           response_ok,
                           response_ok,
                           stat_response], True) as queue:
-        print(f"BBBBBBBBBB {endpoint.ip}, {endpoint.port}, {token}")
         odfs = onedatafs.OnedataFS(
             endpoint.ip,
             token,
@@ -120,8 +117,6 @@ def test_onedatafs_should_connect_to_provider(endpoint, uuid, token):
             drop_dir_cache_after=30,
             log_level=0,
             cli_args="--communicator-pool-size 1 --communicator-thread-count 3 --storage-helper-thread-count 3")
-
-        print("CCCCCCCCCC")
 
         attr = odfs.stat('file.txt')
 
