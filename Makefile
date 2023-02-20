@@ -170,8 +170,8 @@ docs:
 #
 .PHONY: coverage
 coverage_cunit coverage:
-	lcov --quiet --directory `pwd`/debug --capture --output-file `pwd`/oneclient.info
-	lcov --quiet --remove `pwd`/oneclient.info 'test/*' '/usr/*' 'asio/*' '**/messages/*' \
+	lcov --quiet --base-directory `pwd`/debug --directory `pwd`/debug --capture --output-file `pwd`/oneclient.info
+	lcov --quiet --base-directory `pwd`/debug --remove `pwd`/oneclient.info 'test/*' '/usr/*' 'asio/*' '**/messages/*' \
 	                                   'relwithdebinfo/*' 'debug/*' 'release/*' \
 	                                   '**/helpers/*' 'deps/*' \
 	     --output-file `pwd`/oneclient_cunit.info.cleaned
@@ -181,8 +181,8 @@ coverage_cunit coverage:
 
 .PHONY: coverage/%
 coverage/%:
-	lcov --quiet --directory `pwd`/debug --capture --output-file `pwd`/oneclient.info
-	lcov --quiet --remove `pwd`/oneclient.info 'test/*' '/usr/*' 'asio/*' '**/messages/*' \
+	lcov --quiet --base-directory `pwd`/debug --directory `pwd`/debug --capture --output-file `pwd`/oneclient.info
+	lcov --quiet --base-directory `pwd`/debug --remove `pwd`/oneclient.info 'test/*' '/usr/*' 'asio/*' '**/messages/*' \
 	                                   'relwithdebinfo/*' 'debug/*' 'release/*' \
 	                                   '**/helpers/*' 'deps/*' \
 	     --output-file `pwd`/oneclient_integration_$*.info.cleaned
