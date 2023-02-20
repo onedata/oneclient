@@ -6,6 +6,10 @@ CHANGELOG
 
 ### 21.02.0-rc2
 
+-   **VFS-10502** Added option to null device enabling verification of
+    whether read data matches written data based on offset and size of
+    request, which can be used to test for instance transfer data
+    consistency.
 -   **VFS-10264** Added parameter to oneclient handshake protocol to
     distinguish between different oneclient modes of operation.
 -   **VFS-10174** Fixed possible crash in the nulldevice helper when
