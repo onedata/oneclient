@@ -4,6 +4,8 @@ Release notes for project oneclient
 CHANGELOG
 ---------
 
+### 20.02.20
+
 ### 20.02.19
 
 -   **VFS-10008** Fixed race condition which occurred when a file
