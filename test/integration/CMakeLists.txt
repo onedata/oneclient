@@ -64,6 +64,7 @@ foreach(TEST_DIR ${TEST_DIRS})
             clientShared
             ${SPDLOG_LIBRARY}
             ${FMT_LIBRARY}
+            ${BACKWARD_CPP_LIBRARIES}
             gmock_main
             gtest
             ${Boost_LIBRARIES}
