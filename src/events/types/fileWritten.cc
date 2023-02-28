@@ -26,7 +26,7 @@ FileWritten::FileWritten(std::string fileUuid, off_t offset, size_t size,
     , m_blocks{{boost::icl::discrete_interval<off_t>::right_open(
                     offset, offset + size),
           FileBlock{std::move(storageId), std::move(fileId)}}}
-    , m_fileSize{std::move(fileSize)}
+    , m_fileSize{fileSize}
 {
 }
 

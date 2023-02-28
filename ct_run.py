@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """Runs integration tests."""
 
@@ -11,7 +11,7 @@ script_dir = os.path.dirname(os.path.realpath(__file__))
 helpers_dir = os.path.join(script_dir, 'helpers')
 docker_dir = os.path.join(helpers_dir, 'bamboos', 'docker')
 sys.path.insert(0, docker_dir)
-from environment import docker
+from environment import docker, dockers_config
 
 parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -26,7 +26,7 @@ parser.add_argument(
 parser.add_argument(
     '--image', '-i',
     action='store',
-    default='onedata/builder:2102-6',
+    default=None,
     help='docker image to use as a test master',
     dest='image')
 
@@ -45,6 +45,8 @@ parser.add_argument(
     dest='suites')
 
 [args, pass_args] = parser.parse_known_args()
+dockers_config.ensure_image(args, 'image', 'builder')
+
 script_dir = os.path.dirname(os.path.realpath(__file__))
 base_test_dir = os.path.join(os.path.realpath(args.release), 'test',
                              'integration')
@@ -64,11 +66,11 @@ if {shed_privileges}:
     os.setreuid({uid}, {uid})
 
 if {gdb}:
-    command = ['gdb', 'python', '-silent', '-statistics', '-ex', """run -c "
+    command = ['gdb', 'python3', '-silent', '-statistics', '-ex', """run -c "
 import pytest
 pytest.main({args} + ['{test_dirs}'])" """]
 else:
-    command = ['py.test'] + {args} + ['{test_dirs}']
+    command = ['python3'] + ['-m'] + ['pytest'] + {args} + ['{test_dirs}']
 
 if(not os.path.exists('{script_dir}/{release}/test/integration/onedatafs_test/onedatafs.so')):
     shutil.copyfile('{script_dir}/{release}/onedatafs_py3.so',

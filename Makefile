@@ -35,7 +35,7 @@ WITH_FUSE_VERSION ?= 3
 # Oneclient FPM packaging variables
 PATCHELF_DOCKER_IMAGE   ?= docker.onedata.org/patchelf:0.9
 FPM_DOCKER_IMAGE        ?= docker.onedata.org/fpm:1.9.3
-GLUSTERFS_VERSION       ?= 3.13.2
+GLUSTERFS_VERSION       ?= 7.2
 ONECLIENT_FPMPACKAGE_TMP := package_fpm
 
 # Detect compilation on CentOS using Software Collections environment
@@ -170,8 +170,8 @@ docs:
 #
 .PHONY: coverage
 coverage_cunit coverage:
-	lcov --quiet --directory `pwd`/debug --capture --output-file `pwd`/oneclient.info
-	lcov --quiet --remove `pwd`/oneclient.info 'test/*' '/usr/*' 'asio/*' '**/messages/*' \
+	lcov --quiet --base-directory `pwd`/debug --directory `pwd`/debug --capture --output-file `pwd`/oneclient.info
+	lcov --quiet --base-directory `pwd`/debug --remove `pwd`/oneclient.info 'test/*' '/usr/*' 'asio/*' '**/messages/*' \
 	                                   'relwithdebinfo/*' 'debug/*' 'release/*' \
 	                                   '**/helpers/*' 'deps/*' \
 	     --output-file `pwd`/oneclient_cunit.info.cleaned
@@ -181,8 +181,8 @@ coverage_cunit coverage:
 
 .PHONY: coverage/%
 coverage/%:
-	lcov --quiet --directory `pwd`/debug --capture --output-file `pwd`/oneclient.info
-	lcov --quiet --remove `pwd`/oneclient.info 'test/*' '/usr/*' 'asio/*' '**/messages/*' \
+	lcov --quiet --base-directory `pwd`/debug --directory `pwd`/debug --capture --output-file `pwd`/oneclient.info
+	lcov --quiet --base-directory `pwd`/debug --remove `pwd`/oneclient.info 'test/*' '/usr/*' 'asio/*' '**/messages/*' \
 	                                   'relwithdebinfo/*' 'debug/*' 'release/*' \
 	                                   '**/helpers/*' 'deps/*' \
 	     --output-file `pwd`/oneclient_integration_$*.info.cleaned
@@ -290,7 +290,7 @@ deb: check_distribution package/$(PKG_ID).tar.gz
 	sed -i "s/{{distribution}}/$(DISTRIBUTION)/g" package/$(PKG_ID)/debian/changelog
 	sed -i "s/{{date}}/`date -R`/g" package/$(PKG_ID)/debian/changelog
 
-	cd package/$(PKG_ID) && sg sbuild -c "sbuild -sd $(DISTRIBUTION) -j$$(nproc)"
+	cd package/$(PKG_ID) && sudo sg sbuild -c "sbuild -sd $(DISTRIBUTION) -j$$(nproc)"
 	mv package/*$(PKG_VERSION).orig.tar.gz package/packages/
 	mv package/*$(PKG_VERSION)-$(PKG_BUILD)*.deb package/packages/
 	mv package/*$(PKG_VERSION)-$(PKG_BUILD)*.dsc package/packages/
@@ -306,7 +306,6 @@ rpm: check_distribution package/$(PKG_ID).tar.gz
 	patch -d package/ -p1 -i $(PKG_ID)/pkg_config/$(DISTRIBUTION).patch
 	sed -i "s/{{version}}/$(PKG_VERSION)/g" package/oneclient.spec
 	sed -i "s/{{build}}/$(PKG_BUILD)/g" package/oneclient.spec
-
 	mock --root $(DISTRIBUTION) --buildsrpm --spec package/oneclient.spec --resultdir=package/packages \
 		--sources package/$(PKG_ID).orig.tar.gz
 	mock --root $(DISTRIBUTION) --resultdir=package/packages --rebuild package/packages/onedata$(RELEASE)-$(PKG_ID)*.src.rpm
@@ -375,7 +374,6 @@ oneclient_tar $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz:
 		    cp /var/lib/oneclient/_oneclient /output/share/zsh/site-functions/ && \
 		    cp /var/lib/oneclient/oneclient.bash-completion /output/etc/bash_completion.d/ && \
 		    cp -r /lib/x86_64-linux-gnu/* /output/lib/ && \
-		    cp -r /usr/lib/x86_64-linux-gnu/nss/* /output/lib/ && \
 	        cp -r /usr/lib/x86_64-linux-gnu/libXrd* /output/lib/ && \
 	        cp -r /usr/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/xlator/* /output/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/xlator/ && \
 	        cp -r /usr/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/rpc-transport/* /output/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/rpc-transport/'
@@ -397,7 +395,7 @@ oneclient_tar $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz:
 		/output/bin/onebench
 	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
 		--entrypoint /bin/sh -t $(PATCHELF_DOCKER_IMAGE) -c \
-		"find /output/lib -name '*so*' -type f ! -path '*ld-2.27.so' ! -path '*ld-linux-x86-64.so.2' -exec patchelf --set-rpath /opt/oneclient/lib --force-rpath {} \;"
+		"find /output/lib -name '*so*' -type f ! -path '*ld-[0-9]*.[0-9]*.so' ! -path '*ld-linux-x86-64.so.2' -exec patchelf --set-rpath /opt/oneclient/lib --force-rpath {} \;"
 	# Create binary archive
 	cd $(ONECLIENT_FPMPACKAGE_TMP)/root && \
 		tar -cf oneclient-bin.tar * && \
@@ -436,6 +434,7 @@ oneclient_rpm: $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz
 #
 oneclient_deb: $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz
 	# Build DEB package for the distribution specified using FPM
+	@echo "========== oneclient_deb =========="
 	cp pkg_config/fpm/oneclient_deb.pre $(ONECLIENT_FPMPACKAGE_TMP)/
 	cp pkg_config/fpm/oneclient_deb.post $(ONECLIENT_FPMPACKAGE_TMP)/
 	docker run -u=$$UID:$$GID -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro \
