@@ -12,6 +12,8 @@ oneclient.info.cleaned
 oneclient_cunit.info.cleaned
 /_build
 .gdb_history
+.cache
+__pycache__
 
 # Compiled Object files
 *.slo

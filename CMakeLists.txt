@@ -23,6 +23,8 @@ option(ONEDATAFS_PYTHON_VERSION "Build onedatafs for specific Python version" ""
 option(GIT_VERSION "Version of the Oneclient" "1.0.0")
 option(FETCH_FOLLY "Fetch folly, fizz, wangle and proxygen and build in-place" OFF)
 
+string(TOLOWER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE_LOWERCASE)
+message(STATUS "Build type: ${CMAKE_BUILD_TYPE_LOWERCASE}")
 
 # CMake config
 set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY True)
@@ -52,6 +54,15 @@ configure_file(include/version.h.in ${PROJECT_BINARY_DIR}/version/version.h)
 # Deps
 add_subdirectory(deps/libmacaroons)
 add_subdirectory(deps/libmacaroons-cpp)
+
+if(CMAKE_BUILD_TYPE_LOWERCASE MATCHES "debug")
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(DW REQUIRED IMPORTED_TARGET libdw)
+    pkg_check_modules(UNWIND REQUIRED IMPORTED_TARGET libunwind)
+    set(BACKWARD_CPP_LIBRARIES PkgConfig::DW PkgConfig::UNWIND)
+    set(ENABLE_BACKWARD_CPP -DENABLE_BACKWARD_CPP)
+    message(STATUS "Enabled backward-cpp with libraries: ${BACKWARD_CPP_LIBRARIES}")
+endif()
 
 # Setup fuse, on Linux default required version is >= 3
 # On other platforms it is not yet supported
@@ -199,6 +210,8 @@ set(HELPERS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/helpers)
 set(ASIO_INCLUDE_DIRS ${HELPERS_DIR}/deps/asio/asio/include)
 # Setup cppmetrics
 set(CPPMETRICS_INCLUDE_DIRS ${HELPERS_DIR}/deps/cppmetrics)
+# Setup backward-cpp
+set(BACKWARD_CPP_INCLUDE_DIRS ${HELPERS_DIR}/deps/backward-cpp)
 
 # Setup spdlog and fmt
 if(FOLLY_SHARED)
@@ -351,6 +364,7 @@ endif(APPLE)
 # Define build settings
 add_compile_options(${SECTION_FRAGMENTATION_FLAGS} -Wall -Wno-unused-result)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -fdiagnostics-color")
+
 add_definitions(
     ${FUSE_DEFINITIONS}
     -DFUSE_USE_VERSION=${FUSE_USE_VERSION}
@@ -424,7 +438,8 @@ include_directories(SYSTEM
     ${WANGLE_INCLUDE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/deps/libmacaroons
     ${CMAKE_CURRENT_SOURCE_DIR}/deps/libmacaroons-cpp
-    ${OPENSSL_INCLUDE_DIR})
+    ${OPENSSL_INCLUDE_DIR}
+    ${BACKWARD_CPP_INCLUDE_DIRS})
 
 set(CLIENT_LIBRARIES
     libmacaroons-cpp
@@ -437,7 +452,8 @@ set(CLIENT_LIBRARIES
     ${NSS_LIBRARIES}
     ${FOLLY_LIBRARIES}
     ${HELPERS_LIBRARIES}
-    ${OPENSSL_LIBRARIES})
+    ${OPENSSL_LIBRARIES}
+    ${BACKWARD_CPP_LIBRARIES})
 
 if(WITH_CEPH)
     list(APPEND CLIENT_LIBRARIES ${RADOSSTRIPER_LIBRARY} ${RADOS_LIBRARY} ${CEPHCOMMON_LIBRARY})

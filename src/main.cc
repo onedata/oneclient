@@ -61,6 +61,12 @@
 #include <regex>
 #include <string>
 
+#ifdef ENABLE_BACKWARD_CPP
+#define BACKWARD_HAS_DW 1
+#define BACKWARD_HAS_UNWIND 1
+#include <backward.hpp>
+#endif
+
 using namespace one;                  // NOLINT
 using namespace one::client;          // NOLINT
 using namespace one::client::logging; // NOLINT
@@ -89,6 +95,18 @@ void sigtermHandler(int signum)
     if (!__options)
         exit(signum);
 
+#ifdef ENABLE_BACKWARD_CPP
+    const auto crashDumpPath = __options->getLogDirPath() / "crash.log";
+    std::ofstream crashDumpStream(crashDumpPath.c_str(), std::ios::trunc);
+    if (crashDumpStream.is_open()) {
+        backward::StackTrace st;
+        st.load_here(48);
+        backward::Printer p;
+        p.print(st, crashDumpStream);
+    }
+    crashDumpStream.close();
+#endif
+
     fmt::print(stderr,
         "Oneclient received ({}) signal - releasing mountpoint: {}\n", signum,
         __options->getMountpoint().c_str());
@@ -101,7 +119,8 @@ void sigtermHandler(int signum)
     // NOLINTNEXTLINE(hicpp-vararg,cppcoreguidelines-pro-type-vararg)
     execl(exec, exec, "-uz", __options->getMountpoint().c_str(), NULL);
 
-    exit(signum);
+    // Raise signal again. Should usually terminate the program.
+    std::raise(signum);
 }
 
 void unmountFuse(std::shared_ptr<options::Options> options)
@@ -136,6 +155,7 @@ void unmountFuse(std::shared_ptr<options::Options> options)
 int main(int argc, char *argv[])
 {
     helpers::init();
+
     auto context = std::make_shared<Context>();
     auto options = getOptions(argc, argv);
     __options = options;
@@ -230,6 +250,7 @@ int main(int argc, char *argv[])
 
         std::signal(SIGINT, sigtermHandler);
         std::signal(SIGTERM, sigtermHandler);
+        std::signal(SIGSEGV, sigtermHandler);
 
         std::cout << "Oneclient has been successfully mounted in '"
                   << options->getMountpoint().c_str() << "'." << std::endl;
@@ -288,6 +309,7 @@ int main(int argc, char *argv[])
 
         std::signal(SIGINT, sigtermHandler);
         std::signal(SIGTERM, sigtermHandler);
+        std::signal(SIGSEGV, sigtermHandler);
 
         // NOLINTNEXTLINE(hicpp-vararg,cppcoreguidelines-pro-type-vararg)
         res = fcntl(fuse_chan_fd(ch), F_SETFD, FD_CLOEXEC);
