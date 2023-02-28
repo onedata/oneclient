@@ -17,8 +17,6 @@ CHANGELOG
 -   **VFS-9054** Improved connection closing in Oneclient.
 -   **VFS-9026** Added option \--message-trace-log to enable logging of
     protobuf messages with the server.
--   **VFS-8828** Fixed conda packages for the stable branch 20.02.\*,
-    starting with version 20.02.15 and Python 3.9.
 
 ### 21.02.0-alpha25
 
@@ -157,6 +155,8 @@ CHANGELOG
 -   **VFS-7256** Fixed OnedataFS token refresh, which caused
     disconnection from Oneprovider after the token expired.
 
+### 20.02.20
+
 ### 20.02.19
 
 -   **VFS-10008** Fixed race condition which occurred when a file
@@ -169,6 +169,8 @@ CHANGELOG
 
 ### 20.02.16
 
+-   **VFS-8828** Fixed conda packages for the stable branch 20.02.\*,
+    starting with version 20.02.15 and Python 3.9.
 -   **VFS-8747** Pinned boost dependency on conda to 1.76.0.
 
 ### 20.02.15
