@@ -97,10 +97,11 @@ void sigtermHandler(int signum)
 
 #ifdef ENABLE_BACKWARD_CPP
     const auto crashDumpPath = __options->getLogDirPath() / "crash.log";
+    constexpr auto kStackTraceSizeMax = 48U;
     std::ofstream crashDumpStream(crashDumpPath.c_str(), std::ios::trunc);
     if (crashDumpStream.is_open()) {
         backward::StackTrace st;
-        st.load_here(48);
+        st.load_here(kStackTraceSizeMax);
         backward::Printer p;
         p.print(st, crashDumpStream);
     }

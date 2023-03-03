@@ -96,7 +96,8 @@ ret = docker.run(tty=True,
                  reflect=[(script_dir, 'rw'),
                           ('/var/run/docker.sock', 'rw')],
                  image=args.image,
-                 envs={'BASE_TEST_DIR': base_test_dir},
+                 envs={'BASE_TEST_DIR': base_test_dir,
+                       'BACKWARD_CXX_SOURCE_PREFIXES': os.path.join(script_dir, args.release)},
                  run_params=['--privileged'] if args.gdb else [],
                  command=['python', '-c', command])
 sys.exit(ret)

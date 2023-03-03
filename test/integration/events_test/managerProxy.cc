@@ -25,6 +25,12 @@
 #include <memory>
 #include <unordered_map>
 
+#ifdef ENABLE_BACKWARD_CPP
+#define BACKWARD_HAS_DW 1
+#define BACKWARD_HAS_LIBUNWIND 1
+#include <backward.hpp>
+#endif
+
 using namespace one;
 using namespace one::client;
 using namespace one::client::events;
@@ -48,6 +54,9 @@ public:
         : m_context{std::move(context)}
         , m_manager{m_context}
     {
+#ifdef ENABLE_BACKWARD_CPP
+        backward::SignalHandling sh;
+#endif
     }
 
     ~ManagerProxy() { stop(); }

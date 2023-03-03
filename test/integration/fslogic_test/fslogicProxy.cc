@@ -35,6 +35,12 @@
 #include <atomic>
 #include <memory>
 
+#ifdef ENABLE_BACKWARD_CPP
+#define BACKWARD_HAS_DW 1
+#define BACKWARD_HAS_LIBUNWIND 1
+#include <backward.hpp>
+#endif
+
 using namespace one;
 using namespace one::client;
 using namespace one::communication;
@@ -114,6 +120,10 @@ public:
               makeRunInFiber() /*[](auto f) { f(); }*/, false}
         , m_context{context}
     {
+#ifdef ENABLE_BACKWARD_CPP
+        backward::SignalHandling sh;
+#endif
+
         m_fsLogic.setMaxRetryCount(FSLOGIC_PROXY_RETRY_COUNT);
         m_thread = std::thread{[this] {
             folly::setThreadName("InFiber");

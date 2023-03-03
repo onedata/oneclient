@@ -31,6 +31,12 @@
 
 #include <memory>
 
+#ifdef ENABLE_BACKWARD_CPP
+#define BACKWARD_HAS_DW 1
+#define BACKWARD_HAS_LIBUNWIND 1
+#include <backward.hpp>
+#endif
+
 using namespace one;
 using namespace one::client;
 using namespace one::client::cache;
@@ -90,6 +96,9 @@ public:
               *context->options(), 1)}
         , m_context{context}
     {
+#ifdef ENABLE_BACKWARD_CPP
+        backward::SignalHandling sh;
+#endif
     }
 
     ~HelpersCacheProxy() { stop(); }
