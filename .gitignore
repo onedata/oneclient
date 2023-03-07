@@ -14,6 +14,7 @@ oneclient_cunit.info.cleaned
 .gdb_history
 .cache
 __pycache__
+performance-tests-results.xml
 
 # Compiled Object files
 *.slo
