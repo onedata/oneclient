@@ -29,6 +29,7 @@ Checks: >-
   -modernize-avoid-c-arrays,
   -modernize-use-default-member-init,
   -modernize-use-trailing-return-type,
+  -readability-identifier-naming,
   -mpi*,
   -objc*,
   -openmp*,

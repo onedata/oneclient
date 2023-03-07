@@ -616,14 +616,16 @@ if(CLANG_TIDY)
     ProcessorCount(CLANG_TIDY_PARALLEL_JOBS)
     message(STATUS
         "run-clang-tidy script found: ${CLANG_TIDY} - adding target clang-tidy")
-    set(CLANG_TIDY_SOURCE_FILTER "src/*.cc s3/*.cc")
-    file(GLOB_RECURSE CLANG_TIDY_SOURCES
-         "${CMAKE_CURRENT_SOURCE_DIR}/${CLANG_TIDY_SOURCE_FILTER}")
+    set(CLANG_TIDY_ONECLIENT_SOURCE_FILTER "src/*.cc")
+    set(CLANG_TIDY_ONES3_SOURCE_FILTER "s3/*.cc")
+    file(GLOB_RECURSE CLANG_TIDY_ONECLIENT_SOURCES
+         "${CMAKE_CURRENT_SOURCE_DIR}/${CLANG_TIDY_ONECLIENT_SOURCE_FILTER}")
+    file(GLOB_RECURSE CLANG_TIDY_ONES3_SOURCES
+            "${CMAKE_CURRENT_SOURCE_DIR}/${CLANG_TIDY_ONES3_SOURCE_FILTER}")
     add_custom_target(clang-tidy COMMAND ${CLANG_TIDY}
         -export-fixes clang-tidy-suggested-fixes.yaml
         -j ${CLANG_TIDY_PARALLEL_JOBS}
-        -extra-arg=-DTBB_USE_GLIBCXX_VERSION=50400
-        ${CLANG_TIDY_SOURCES})
+        ${CLANG_TIDY_ONECLIENT_SOURCES} ${CLANG_TIDY_ONES3_SOURCES})
 else(CLANG_TIDY)
     message(STATUS "run-clang-tidy script not found - target clang-tidy not available")
 endif(CLANG_TIDY)
