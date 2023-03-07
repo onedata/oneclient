@@ -7,6 +7,7 @@
  */
 
 #include "configuration.h"
+#include "auth/authManager.h"
 #include "context.h"
 #include "messages/getConfiguration.h"
 #include "messages/handshakeResponse.h"
@@ -62,11 +63,22 @@ std::shared_ptr<communication::Communicator> handshake(
     return testCommunicator;
 }
 
-std::shared_ptr<auth::AuthManager> getAuthManager(
+std::shared_ptr<auth::AuthManager> getCLIAuthManager(
     std::shared_ptr<Context> context)
 {
     auto options = context->options();
-    return std::make_shared<auth::MacaroonAuthManager>(context,
+    return std::make_shared<
+        auth::MacaroonAuthManager<auth::CLIMacaroonHandler>>(context,
+        options->getProviderHost().get(), options->getProviderPort(),
+        !options->isInsecure(), options->getProviderTimeout());
+}
+
+std::shared_ptr<auth::AuthManager> getOptionsAuthManager(
+    std::shared_ptr<Context> context)
+{
+    auto options = context->options();
+    return std::make_shared<
+        auth::MacaroonAuthManager<auth::OptionsMacaroonHandler>>(context,
         options->getProviderHost().get(), options->getProviderPort(),
         !options->isInsecure(), options->getProviderTimeout());
 }

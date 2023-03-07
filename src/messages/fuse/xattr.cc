@@ -31,6 +31,12 @@ XAttr::XAttr(std::unique_ptr<ProtocolServerMessage> serverMessage)
     m_value = xattr->value();
 }
 
+XAttr::XAttr(std::string name, std::string value)
+    : m_name{std::move(name)}
+    , m_value{std::move(value)}
+{
+}
+
 const std::string &XAttr::name() const { return m_name; }
 
 const std::string &XAttr::value() const { return m_value; }

@@ -223,7 +223,7 @@ int main(int argc, char *argv[])
 
         // Create test communicator with single connection to test the
         // authentication and get protocol configuration
-        auto authManager = getAuthManager(context);
+        auto authManager = getCLIAuthManager(context);
         auto sessionId = generateSessionId();
         auto configuration = getConfiguration(sessionId, authManager, context,
             messages::handshake::ClientType::oneclient);

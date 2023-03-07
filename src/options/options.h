@@ -10,6 +10,7 @@
 #define ONECLIENT_OPTIONS_H
 
 #include "helpers/logging.h"
+#include "messages/common.h"
 
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/join.hpp>
@@ -65,6 +66,13 @@ static constexpr auto DEFAULT_DIR_CACHE_DROP_AFTER_IN_OPEN_SHARE_MODE = 10;
 static constexpr auto DEFAULT_PROVIDER_TIMEOUT = 2 * 60;
 static constexpr auto DEFAULT_STORAGE_TIMEOUT = 2 * 60;
 static constexpr auto DEFAULT_MONITORING_PERIOD_SECONDS = 30;
+static constexpr auto DEFAULT_ONES3_STORAGE_SUPPORT_SIZE =
+    10 * 1024 * 1024 * 1024ULL;
+static constexpr auto DEFAULT_ONES3_MAX_BODY_SIZE = 128 * 1024 * 1024ULL;
+static constexpr auto DEFAULT_ONES3_MAX_BODY_MEMORY_SIZE = 16 * 1024 * 1024ULL;
+static constexpr auto DEFAULT_ONES3_IDLE_CONNECTION_TIMEOUT = 180;
+static constexpr auto DEFAULT_ONES3_KEEPALIVE_REQUESTS_MAX = 1024;
+
 #if defined(__APPLE__)
 static constexpr auto DEFAULT_EMULATE_AVAILABLE_SPACE =
     1024 * 1024 * 1024 * 1024ULL;
@@ -84,10 +92,11 @@ enum class OptionGroup;
 class Options {
 public:
     /*
-     * Construstor.
+     * Constructor.
      * Builds list of supported client options.
      */
-    Options();
+    Options(messages::handshake::ClientType clientType =
+                messages::handshake::ClientType::oneclient);
 
     virtual ~Options() = default;
 
@@ -116,6 +125,7 @@ public:
      * @return Formatted help message.
      */
     std::string formatHelp(const char *programName) const;
+    std::string formatHelpOneS3(const char *programName) const;
 
     /*
      * @return true if 'help' option has been provided or if arguments list was
@@ -158,6 +168,48 @@ public:
      * @return Provider hostname if option has been provided.
      */
     boost::optional<std::string> getProviderHost() const;
+
+    /*
+     * @return Onezone hostname if option has been provided.
+     */
+    boost::optional<std::string> getOnezoneHost() const;
+
+    /*
+     * @return OneS3 readiness probe authentication if option has been provided.
+     */
+    boost::optional<std::string> getOneS3ReadinessProbeBasicAuth() const;
+
+    std::string getOneS3AddressBind() const;
+
+    /*
+     * @return OneS3 HTTP port - if provided.
+     */
+    boost::optional<unsigned int> getOneS3HTTPPort() const;
+
+    /*
+     * @return OneS3 HTTPS port - if provided.
+     */
+    boost::optional<unsigned int> getOneS3HTTPSPort() const;
+
+    /*
+     * @return Path to OneS3 SSL certificate n PEM format.
+     */
+    boost::optional<boost::filesystem::path> getOneS3SSLCertificatePath() const;
+
+    /*
+     * @return Path to OneS3 SSL key in PEM format.
+     */
+    boost::optional<boost::filesystem::path> getOneS3SSLKeyPath() const;
+
+    unsigned int getOneS3ThreadNum() const;
+
+    unsigned int getOneS3KeepaliveRequests() const;
+
+    size_t getOneS3MaxBodySize() const;
+
+    size_t getOneS3MaxBodyMemorySize() const;
+
+    unsigned int getOneS3IdleConnectionTimeout() const;
 
     /*
      * @return Provider port.
@@ -466,6 +518,12 @@ public:
      */
     unsigned int getMonitoringReportingPeriod() const;
 
+    boost::optional<std::string> getOneS3SupportAdminGroupId() const;
+
+    size_t getOneS3SupportStorageSize() const;
+
+    boost::optional<std::string> getOneS3SupportStorageId() const;
+
     /*
      * @return Mountpoint path.
      */
@@ -571,6 +629,7 @@ private:
 
     std::vector<std::string> selectDeprecated() const;
 
+    messages::handshake::ClientType m_clientType;
     boost::program_options::variables_map m_vm;
     boost::filesystem::path m_defaultConfigFilePath;
     boost::filesystem::path m_defaultLogDirPath;

@@ -29,12 +29,21 @@ namespace fuse {
  */
 class FileChildrenAttrs : public FuseResponse {
 public:
+    FileChildrenAttrs();
+
     /**
      * Constructor.
      * @param serverMessage Protocol Buffers message representing
      * @c FileChildrenAttrs counterpart.
      */
     FileChildrenAttrs(std::unique_ptr<ProtocolServerMessage> serverMessage);
+
+    /**
+     * Constructor from a single file attr.
+     *
+     * @param attr
+     */
+    FileChildrenAttrs(FileAttr &&attr);
 
     /**
      * @return A list of directory's children, specified by their UUID and

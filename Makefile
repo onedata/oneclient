@@ -27,6 +27,8 @@ WITH_XROOTD       ?= ON
 WITH_NFS          ?= ON
 # Build with onedatafs Python library
 WITH_ONEDATAFS    ?= ON
+# Build with ones3
+WITH_ONES3        ?= ON
 # Build with code coverage
 WITH_COVERAGE     ?= ON
 # Set Fuse version (2 or 3)
@@ -65,6 +67,7 @@ all: debug test
 	                       -DWITH_XROOTD=${WITH_XROOTD} \
 	                       -DWITH_NFS=${WITH_NFS} \
 	                       -DWITH_ONEDATAFS=${WITH_ONEDATAFS} \
+	                       -DWITH_ONES3=${WITH_ONES3} \
 	                       -DWITH_FUSE_VERSION=${WITH_FUSE_VERSION} \
 	                       -DCMAKE_INSTALL_PREFIX=${PWD}/debug/PREFIX \
 	                       -DTBB_INSTALL_DIR=${TBB_INSTALL_DIR} \
@@ -86,6 +89,7 @@ all: debug test
 			-DWITH_NFS=${WITH_NFS} \
 			-DWITH_ONECLIENT=ON \
 			-DWITH_ONEBENCH=ON \
+			-DWITH_ONES3=${WITH_ONES3} \
 			-DWITH_ONEDATAFS=OFF \
 			-DWITH_FUSE_VERSION=${WITH_FUSE_VERSION} \
 			-DFOLLY_SHARED=ON \
@@ -367,6 +371,7 @@ oneclient_tar $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz:
 		-t docker.onedata.org/oneclient-base:$(ONECLIENT_BASE_IMAGE) \
 		-c 'cp /usr/bin/oneclient /output/bin && \
 		    cp /usr/bin/onebench /output/bin && \
+		    cp /usr/bin/ones3 /output/bin && \
 		    cp /etc/oneclient.conf /output/etc && \
 		    cp /usr/share/man/man1/oneclient.1.gz /output/share/man/man1/ && \
 		    cp /usr/share/man/man5/oneclient.conf.5.gz /output/share/man/man5/ && \

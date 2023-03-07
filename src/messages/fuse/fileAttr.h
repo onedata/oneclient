@@ -250,6 +250,21 @@ public:
      */
     std::shared_ptr<VirtualFsAdapter> getVirtualFsAdapter() const;
 
+    bool has_xattr(const std::string &name) const
+    {
+        return m_xattrs.find(name) != m_xattrs.end();
+    }
+
+    const std::string &xattr(const std::string &name) const
+    {
+        return m_xattrs.at(name);
+    }
+
+    const std::map<std::string, std::string> &xattrs() const
+    {
+        return m_xattrs;
+    }
+
 private:
     void deserialize(const ProtocolMessage &message);
 
@@ -268,6 +283,7 @@ private:
     std::shared_ptr<VirtualFsAdapter> m_virtualFsAdapter{};
     bool m_isVirtualEntrypoint{false};
     folly::Optional<int> m_nlink{1};
+    std::map<std::string, std::string> m_xattrs;
 };
 
 } // namespace fuse

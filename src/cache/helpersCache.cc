@@ -26,6 +26,48 @@ namespace one {
 namespace client {
 namespace cache {
 
+HelpersCacheThreadSafeAdapter::HelpersCacheThreadSafeAdapter(
+    std::unique_ptr<HelpersCacheBase> cache)
+    : m_cache{std::move(cache)}
+{
+}
+
+void HelpersCacheThreadSafeAdapter::setCache(
+    std::unique_ptr<HelpersCacheBase> cache)
+{
+    m_cache = std::move(cache);
+}
+
+folly::Future<HelpersCacheBase::HelperPtr> HelpersCacheThreadSafeAdapter::get(
+    const folly::fbstring &fileUuid, const folly::fbstring &spaceId,
+    const folly::fbstring &storageId, bool forceProxyIO, bool proxyFallback)
+{
+    assert(m_cache);
+
+    std::lock_guard<std::mutex> l{m_cacheMutex};
+    return m_cache->get(
+        fileUuid, spaceId, storageId, forceProxyIO, proxyFallback);
+}
+
+HelpersCacheBase::AccessType HelpersCacheThreadSafeAdapter::getAccessType(
+    const folly::fbstring &storageId)
+{
+    assert(m_cache);
+
+    std::lock_guard<std::mutex> l{m_cacheMutex};
+    return m_cache->getAccessType(storageId);
+}
+
+folly::Future<folly::Unit>
+HelpersCacheThreadSafeAdapter::refreshHelperParameters(
+    const folly::fbstring &storageId, const folly::fbstring &spaceId)
+{
+    assert(m_cache);
+
+    std::lock_guard<std::mutex> l{m_cacheMutex};
+    return m_cache->refreshHelperParameters(storageId, spaceId);
+}
+
 HelpersCache::HelpersCache(communication::Communicator &communicator,
     std::shared_ptr<Scheduler> scheduler, const options::Options &options,
     int maxAttempts)

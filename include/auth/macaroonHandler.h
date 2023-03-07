@@ -9,6 +9,7 @@
 #ifndef ONECLIENT_MACAROON_HANDLER_H
 #define ONECLIENT_MACAROON_HANDLER_H
 
+#include "auth/authException.h"
 #include "options/options.h"
 
 #include <boost/filesystem/path.hpp>
@@ -18,6 +19,15 @@
 #include <chrono>
 #include <string>
 
+#include <cerrno>
+#include <cstdlib>
+#include <fstream>
+#include <ios>
+#include <iostream>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <system_error>
+
 namespace one {
 namespace client {
 namespace auth {
@@ -25,76 +35,115 @@ namespace auth {
 constexpr std::chrono::minutes RESTRICTED_MACAROON_EXPIRATION{20};
 constexpr std::chrono::minutes RESTRICTED_MACAROON_REFRESH{10};
 
+std::string decode62(std::string macaroon62);
+std::string encode62(const std::string &macaroon64);
+macaroons::Macaroon restrictMacaroon(const macaroons::Macaroon &macaroon);
+
 /**
- * The @c MacaroonHandler class is responsible for retrieving and manipulating
- * an authorization macaroon, either from file or from user interaction.
+ * Tries to deserialize macaroon assuming it is in base62 format.
+ * If it fails, tries again assuming base64 format.
+ * @param macaron Macaroon to deserialize.
+ * @return Deserialized macaroon.
  */
+macaroons::Macaroon deserialize(const std::string &macaroon);
+
+class MacaroonRetrievePolicyFromOptions {
+public:
+    MacaroonRetrievePolicyFromOptions(options::Options &options);
+
+    macaroons::Macaroon retrieveMacaroon() const;
+
+private:
+    options::Options &m_options;
+};
+
+class MacaroonRetrievePolicyFromCLI {
+public:
+    MacaroonRetrievePolicyFromCLI(
+        options::Options &options, const boost::filesystem::path userDataDir);
+
+    macaroons::Macaroon retrieveMacaroon() const;
+
+private:
+    boost::optional<macaroons::Macaroon> readMacaroonFromFile() const;
+
+    boost::optional<macaroons::Macaroon> getMacaroonFromOptions() const;
+
+    macaroons::Macaroon getMacaroonFromUser() const;
+
+    boost::filesystem::path macaroonFilePath() const;
+
+    options::Options &m_options;
+    boost::filesystem::path m_userDataDir;
+};
+
+class MacaroonPersistPolicyNone {
+public:
+    void persistMacaroon(macaroons::Macaroon macaroon) { }
+    void removeMacaroon() { }
+};
+
+class MacaroonPersistPolicyFile {
+public:
+    MacaroonPersistPolicyFile(const boost::filesystem::path &userDataDir);
+
+    void persistMacaroon(macaroons::Macaroon macaroon);
+
+    void removeMacaroon();
+
+private:
+    boost::filesystem::path macaroonFilePath() const;
+
+    boost::filesystem::path m_userDataDir;
+};
+
+template <typename RetrievePolicyT,
+    typename PersistPolicyT = MacaroonPersistPolicyNone>
 class MacaroonHandler {
 public:
-    /**
-     * Constructor.
-     * Schedules a refresh task for a restricted macaroon.
-     * @param options An instance of @c options::Options for macaroon retrieval.
-     * @param userDataDir Directory where user's application data is saved.
-     * @param providerId ID of the provider who will be a recipient of
-     * restricted macaroons.
-     */
-    MacaroonHandler(options::Options &options,
-        boost::filesystem::path userDataDir, std::string providerId);
+    MacaroonHandler(
+        RetrievePolicyT retrievePolicy, PersistPolicyT persistPolicy = {})
+        : m_macaroonRetrievePolicy{std::move(retrievePolicy)}
+        , m_macaroonPersistPolicy{std::move(persistPolicy)}
+        , m_macaroon{m_macaroonRetrievePolicy.retrieveMacaroon()}
+        , m_restrictedMacaroon{restrictMacaroon(m_macaroon)}
+    {
+        m_macaroonPersistPolicy.persistMacaroon(m_macaroon);
+    }
 
     /**
-     * @return A provider- and time-restricted macaroon.
+     * @return A time-restricted macaroon.
      */
-    std::string restrictedMacaroon() const;
+    std::string restrictedMacaroon() const
+    {
+        return encode62(m_restrictedMacaroon.serialize());
+    }
 
     /**
      * Refreshes a restricted macaroon saved in this handler.
      */
-    std::string refreshRestrictedMacaroon();
+    std::string refreshRestrictedMacaroon()
+    {
+        LOG_FCALL();
 
-    /**
-     * Tries to deserialize macaroon assuming it is in base62 format.
-     * If it fails, tries again assuming base64 format.
-     * @param macaron Macaroon to deserialize.
-     * @return Deserialized macaroon.
-     */
-    static macaroons::Macaroon deserialize(const std::string &macaroon);
+        m_restrictedMacaroon = restrictMacaroon(m_macaroon);
+        return restrictedMacaroon();
+    }
 
-    /**
-     * Decodes macaroon in base62 format to base64 format.
-     * @param macaroon62 Macaroon to decode.
-     * @return Decoded macaroon in base64 format.
-     */
-    static std::string decode62(std::string macaroon62);
+    virtual void cleanup() { m_macaroonPersistPolicy.removeMacaroon(); }
 
-    /**
-     * Encodes macaroon in base64 format to base62 format.
-     * @param macaroon 64 Macaroon to encode.
-     * @return Encoded macaroon in base62 format.
-     */
-    static std::string encode62(const std::string &macaroon64);
-
-    /**
-     * Removes file where macaroon is cached.
-     */
-    void removeMacaroonFile() const;
-
-private:
-    macaroons::Macaroon retrieveMacaroon() const;
-    boost::optional<macaroons::Macaroon> readMacaroonFromFile() const;
-    boost::optional<macaroons::Macaroon> getMacaroonFromOptions() const;
-    static macaroons::Macaroon getMacaroonFromUser();
-    boost::filesystem::path macaroonFilePath() const;
-    void persistMacaroon(const macaroons::Macaroon &) const;
-
-    options::Options &m_options;
-
-    boost::filesystem::path m_userDataDir;
-    std::string m_providerId;
+protected:
+    RetrievePolicyT m_macaroonRetrievePolicy;
+    PersistPolicyT m_macaroonPersistPolicy;
 
     macaroons::Macaroon m_macaroon;
     macaroons::Macaroon m_restrictedMacaroon;
 };
+
+using OptionsMacaroonHandler =
+    MacaroonHandler<MacaroonRetrievePolicyFromOptions>;
+using CLIMacaroonHandler =
+    MacaroonHandler<MacaroonRetrievePolicyFromCLI, MacaroonPersistPolicyFile>;
 
 } // namespace auth
 } // namespace client

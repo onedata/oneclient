@@ -20,6 +20,8 @@ namespace one {
 namespace messages {
 namespace fuse {
 
+FileChildrenAttrs::FileChildrenAttrs() { m_isLast = true; }
+
 FileChildrenAttrs::FileChildrenAttrs(
     std::unique_ptr<ProtocolServerMessage> serverMessage)
     : FuseResponse{serverMessage}
@@ -43,6 +45,12 @@ FileChildrenAttrs::FileChildrenAttrs(
 
     if (fileChildrenAttrs->has_is_last())
         m_isLast = fileChildrenAttrs->is_last();
+}
+
+FileChildrenAttrs::FileChildrenAttrs(FileAttr &&attr)
+{
+    m_isLast = true;
+    m_childrenAttrs.emplace_back(std::move(attr));
 }
 
 std::string FileChildrenAttrs::toString() const

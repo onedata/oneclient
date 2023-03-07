@@ -22,7 +22,10 @@ std::shared_ptr<communication::Communicator> handshake(
     std::shared_ptr<Context> context,
     messages::handshake::ClientType clientType);
 
-std::shared_ptr<auth::AuthManager> getAuthManager(
+std::shared_ptr<auth::AuthManager> getCLIAuthManager(
+    std::shared_ptr<Context> context);
+
+std::shared_ptr<auth::AuthManager> getOptionsAuthManager(
     std::shared_ptr<Context> context);
 
 std::shared_ptr<messages::Configuration> getConfiguration(

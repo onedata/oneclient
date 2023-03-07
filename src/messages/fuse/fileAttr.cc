@@ -200,6 +200,12 @@ void FileAttr::deserialize(const ProtocolMessage &message)
     else
         throw std::system_error{
             std::make_error_code(std::errc::protocol_error), "bad filetype"};
+
+    for (auto i = 0; i < message.xattrs_size(); i++) {
+        if (message.xattrs(i).has_name() && message.xattrs(i).has_value())
+            m_xattrs.emplace(
+                message.xattrs(i).name(), message.xattrs(i).value());
+    }
 }
 
 } // namespace fuse
