@@ -828,7 +828,7 @@ Options::Options(messages::handshake::ClientType clientType)
             .withLongName("ones3-idle-connection-timeout")
             .withConfigName("ones3_idle_connection_timeout")
             .withValueName("<seconds>")
-            .withDefaultValue(60, "")
+            .withDefaultValue(DEFAULT_ONES3_IDLE_CONNECTION_TIMEOUT, "")
             .withGroup(OptionGroup::ONES3)
             .withDescription(
                 "Time in seconds after which idle connections to OneS3 "

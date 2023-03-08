@@ -32,8 +32,8 @@ public:
      * @param path
      * @param xattrs
      */
-    GetFileAttrByPath(const folly::fbstring &uuid, const folly::fbstring &path,
-        const folly::fbvector<folly::fbstring> &xattrs);
+    GetFileAttrByPath(const folly::fbstring &uuid, folly::fbstring path,
+        folly::fbvector<folly::fbstring> xattrs);
 
     std::string toString() const override;
 

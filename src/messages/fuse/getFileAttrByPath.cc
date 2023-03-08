@@ -18,10 +18,10 @@ namespace messages {
 namespace fuse {
 
 GetFileAttrByPath::GetFileAttrByPath(const folly::fbstring &uuid,
-    const folly::fbstring &path, const folly::fbvector<folly::fbstring> &xattrs)
+    folly::fbstring path, folly::fbvector<folly::fbstring> xattrs)
     : FileRequest{uuid.toStdString()}
-    , m_path{path}
-    , m_xattrs{xattrs}
+    , m_path{std::move(path)}
+    , m_xattrs{std::move(xattrs)}
 {
 }
 

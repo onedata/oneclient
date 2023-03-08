@@ -20,12 +20,12 @@ namespace md5 {
 std::string md5(const char *input, size_t inputSize)
 {
     unsigned char result[MD5_DIGEST_LENGTH];
-    MD5((unsigned char *)input, inputSize, result);
+    MD5((unsigned char *)input, inputSize, result); // NOLINT
 
     std::ostringstream sout;
     sout << std::hex << std::setfill('0');
-    for (long long c : result) {
-        sout << std::setw(2) << (long long)c;
+    for (int64_t c : result) {
+        sout << std::setw(2) << c;
     }
     return sout.str();
 }
@@ -35,7 +35,7 @@ std::string md5(const std::string &input)
     return md5(input.data(), input.size());
 }
 
-}
-}
-}
-}
+} // namespace md5
+} // namespace util
+} // namespace client
+} // namespace one

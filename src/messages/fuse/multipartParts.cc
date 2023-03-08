@@ -51,7 +51,7 @@ const folly::fbvector<MultipartPart> &MultipartParts::parts() const
     return m_parts;
 }
 
-const bool MultipartParts::isLast() const { return m_isLast; }
+bool MultipartParts::isLast() const { return m_isLast; }
 
 folly::Optional<size_t> MultipartParts::nextPartMarker() const
 {

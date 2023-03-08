@@ -140,7 +140,7 @@ public:
     {
     }
 
-    ~MacaroonAuthManager() { m_cancelRefresh(); }
+    virtual ~MacaroonAuthManager() { m_cancelRefresh(); }
 
     std::tuple<std::shared_ptr<communication::Communicator>,
         folly::Future<folly::Unit>>

@@ -143,8 +143,10 @@ bool OnepanelClient::ensureSpaceIsSupported(
 
     const std::string providerId = getProviderId();
 
-    auto retry_count = 100;
-    while (retry_count--) {
+    constexpr auto kRetryCountMax = 100UL;
+
+    auto retryCount = kRetryCountMax;
+    while (retryCount-- != 0) {
         if (isSpaceSupported(token, spaceId, providerId))
             return true;
 
@@ -153,6 +155,6 @@ bool OnepanelClient::ensureSpaceIsSupported(
 
     return false;
 }
-}
-}
-}
+} // namespace onepanel
+} // namespace rest
+} // namespace one

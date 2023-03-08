@@ -12,7 +12,7 @@ namespace one {
 namespace s3 {
 namespace error {
 
-void S3Exception::raiseFromPocoNetException(const Poco::Net::NetException &e,
+void S3Exception::raiseFromPocoNetException(const Poco::Net::NetException &/*e*/,
     const std::string &bucket, const std::string &path,
     const std::string &requestId)
 {
@@ -35,6 +35,6 @@ void S3Exception::raiseFromPocoHTTPException(const Poco::Net::HTTPException &e,
     }
 }
 
-}
-}
-}
+} // namespace error
+} // namespace s3
+} // namespace one

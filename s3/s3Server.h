@@ -22,6 +22,8 @@ namespace one {
 namespace s3 {
 
 struct S3Authorization {
+    virtual ~S3Authorization() = default;
+
     virtual std::string getToken() const = 0;
 
     static std::unique_ptr<S3Authorization> fromHttpRequest(
@@ -40,7 +42,7 @@ struct S3AuthorizationV4 : public S3Authorization {
 
     std::string getToken() const override { return accessKeyId; }
 
-    void parseCredential(const std::string &authorizationHeader);
+    void parseCredential(const std::string &credential);
 
     // E.g. AWS4-HMAC-SHA256
     std::string algorithm;
@@ -202,14 +204,14 @@ public:
 private:
     std::string getRequestId() const;
 
-    bool bucketNameCached(std::string name) const;
+    bool bucketNameCached(const std::string &name) const;
 
-    std::string getCachedBucketId(std::string name) const;
+    std::string getCachedBucketId(const std::string &name) const;
 
-    void cacheBucketName(std::string name, std::string id) const;
+    void cacheBucketName(const std::string &name, const std::string &id) const;
 
     bool ensureSpaceIsSupported(const std::string &bucket,
-        HttpResponseCallback callback, const std::string &requestId,
+        const HttpResponseCallback &callback, const std::string &requestId,
         const std::string &token) const;
 
     std::string toMetricName(

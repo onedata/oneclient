@@ -128,10 +128,11 @@ folly::Future<std::shared_ptr<S3Logic>> S3Logic::connect()
 folly::Future<Aws::S3::Model::ListBucketsResult> S3Logic::listBuckets()
 {
     folly::Optional<folly::fbstring> indexToken;
+    constexpr auto kMaxFetchSize{10000};
 
     return communicate<one::messages::fuse::FileChildrenAttrs>(
         one::messages::fuse::GetFileChildrenAttrs{
-            m_rootUuid, 0, 10000, indexToken, false, false},
+            m_rootUuid, 0, kMaxFetchSize, indexToken, false, false},
         m_providerTimeout)
         .thenValue([](auto &&msg) {
             Aws::Vector<Aws::S3::Model::Bucket> buckets;
@@ -164,7 +165,8 @@ S3Logic::createMultipartUpload(const folly::fbstring &bucket,
         //
         // Create multipart upload on the server
         //
-        .thenTry([path, bucket, requestId, this](auto &&bucketAttr) {
+        .thenTry([path, bucket, requestId, this](
+                     folly::Try<messages::fuse::FileAttr> &&bucketAttr) {
             if (bucketAttr.hasException()) {
                 throw one::s3::error::NoSuchBucket{bucket.toStdString(),
                     path.toStdString(), requestId.toStdString()};
@@ -238,6 +240,8 @@ S3Logic::abortMultipartUpload(
     assert(!bucket.empty());
     assert(!uploadId.empty());
 
+    constexpr auto kMaxListSize{10000};
+
     return getBucketAttr(bucket)
         //
         // Get the uuid of the temporary upload directory
@@ -257,7 +261,7 @@ S3Logic::abortMultipartUpload(
         .thenValue([this](messages::fuse::FileAttr &&attr) {
             return communicate<one::messages::fuse::FileChildrenAttrs>(
                 one::messages::fuse::GetFileChildrenAttrs{
-                    attr.uuid().toStdString(), 0, 10000},
+                    attr.uuid().toStdString(), 0, kMaxListSize},
                 m_providerTimeout);
         })
         //
@@ -275,7 +279,7 @@ S3Logic::abortMultipartUpload(
         //
         // Abort multipart upload
         //
-        .thenValue([this, uploadId](auto &&response) {
+        .thenValue([this, uploadId](auto && /*response*/) {
             return communicate(
                 one::messages::fuse::AbortMultipartUpload{
                     uploadId.toStdString()},
@@ -284,14 +288,14 @@ S3Logic::abortMultipartUpload(
         //
         // Generate unit response on success
         //
-        .thenValue([this, uploadId](auto &&response) {
+        .thenValue([](auto && /*response*/) {
             Aws::S3::Model::AbortMultipartUploadResult result;
             return result;
         });
 }
 
 folly::Future<Aws::S3::Model::UploadPartResult> S3Logic::uploadMultipartPart(
-    const std::string requestId, const folly::fbstring &bucket,
+    const std::string &requestId, const folly::fbstring &bucket,
     const folly::fbstring &path, const folly::fbstring &uploadId,
     const size_t partNumber, const size_t partSize,
     const folly::fbstring &partMD5, std::shared_ptr<folly::IOBuf> buf)
@@ -303,6 +307,8 @@ folly::Future<Aws::S3::Model::UploadPartResult> S3Logic::uploadMultipartPart(
         //
         .thenValue([this, requestId, partSize, path, uploadId](
                        auto &&bucketAttr) {
+            constexpr auto kDefaultFilePerms{0655};
+
             const auto tmpPath = fmt::format("{}-{}",
                 getMultipartUploadTemporaryFileName(path, uploadId)
                     .toStdString(),
@@ -315,7 +321,7 @@ folly::Future<Aws::S3::Model::UploadPartResult> S3Logic::uploadMultipartPart(
                                 [this, tmpPath, parentUuid = bucketAttr.uuid(),
                                     requestId, path](auto && /*e*/) {
                                     return create(requestId, parentUuid,
-                                        tmpPath, S_IFREG, 0655);
+                                        tmpPath, S_IFREG, kDefaultFilePerms);
                                 })
                             .thenError(folly::tag_t<std::system_error>{},
                                 [this, tmpPath, parentUuid = bucketAttr.uuid(),
@@ -356,16 +362,14 @@ folly::Future<Aws::S3::Model::UploadPartResult> S3Logic::uploadMultipartPart(
         // Write the part contents to the temporary file
         //
         .thenValue([this, requestId, partSize, partNumber,
-                       buf = std::move(buf)](auto &&args) {
-            auto &bucketAttr = std::get<0>(args).value();
+                       buf = std::move(buf)](auto &&args) mutable {
             auto &attr = std::get<1>(args).value();
             auto &fileHandle = std::get<2>(args).value();
-            auto &tmpPath = std::get<3>(args).value();
 
             auto arg0 = folly::makeFuture(fileHandle);
             auto arg1 = folly::makeFuture(attr);
             auto arg2 = write(fileHandle, attr.uuid(), requestId,
-                bucketAttr.name(), tmpPath, buf, (partNumber - 1) * partSize);
+                std::move(buf), (partNumber - 1) * partSize);
 
             return folly::collectAll(
                 std::move(arg0), std::move(arg1), std::move(arg2));
@@ -385,17 +389,18 @@ folly::Future<Aws::S3::Model::UploadPartResult> S3Logic::uploadMultipartPart(
         // Report multipart part upload complete
         //
         .thenValue(
-            [this, uploadId, partMD5, partNumber, partSize](auto &&unit) {
+            [this, uploadId, partMD5, partNumber, partSize](auto && /*unit*/) {
                 return communicate(
                     messages::fuse::UploadMultipartPart{uploadId.toStdString(),
-                        partMD5.toStdString(), (uint64_t)std::time(0),
-                        partNumber, partSize},
+                        partMD5.toStdString(),
+                        static_cast<uint64_t>(std::time(nullptr)), partNumber,
+                        partSize},
                     m_providerTimeout);
             })
         //
         // Generate UploadPartResult response
         //
-        .thenValue([partMD5](auto &&unit) {
+        .thenValue([partMD5](auto && /*unit*/) {
             Aws::S3::Model::UploadPartResult result;
             result.SetETag(fmt::format("\"{}\"", partMD5.toStdString()));
             return result;
@@ -413,8 +418,10 @@ S3Logic::completeMultipartUpload(const std::string requestId,
 
     LOG_DBG(2) << "Completing multipart upload " << uploadId;
 
+    constexpr auto kMaxPartsList{10000};
     auto arg0 = getBucketAttr(bucket);
-    auto arg1 = listMultipartUploadParts(uploadId, bucket, path, 10000, {0});
+    auto arg1 =
+        listMultipartUploadParts(uploadId, bucket, path, kMaxPartsList, {0});
 
     return folly::collectAll(std::move(arg0), std::move(arg1))
         .via(folly::getGlobalCPUExecutor().get())
@@ -541,9 +548,9 @@ S3Logic::completeMultipartUpload(const std::string requestId,
             auto arg5 = isLastPartSizeEqualFirst
                 ? folly::makeFuture(folly::IOBufQueue{})
                 : read(tmpLastPartFileHandle,
-                      fmt::format("{}-{}", requestId, lastPartNumber), bucket,
-                      path, lastPartAttr.value(),
-                      lastPartSize * (lastPartNumber - 1), lastPartSize);
+                      fmt::format("{}-{}", requestId, lastPartNumber),
+                      lastPartAttr.value(), lastPartSize * (lastPartNumber - 1),
+                      lastPartSize);
             auto arg6 = isLastPartSizeEqualFirst
                 ? folly::makeFuture(
                       std::shared_ptr<one::client::fslogic::FuseFileHandle>{})
@@ -586,7 +593,7 @@ S3Logic::completeMultipartUpload(const std::string requestId,
             auto arg3 = isLastPartSizeEqualFirst
                 ? folly::makeFuture<size_t>(0)
                 : write(tmpTargetFileHandle, firstPartAttr.value().uuid(),
-                      fmt::format("{}-{}", requestId, 1), bucket, firstPartPath,
+                      fmt::format("{}-{}", requestId, 1),
                       std::make_shared<folly::IOBuf>(bufQueue.moveAsValue()),
                       firstPartSize * (lastPartNumber - 1));
             auto arg4 = getFileAttrByPath(bucketAttr.value().uuid(),
@@ -619,8 +626,6 @@ S3Logic::completeMultipartUpload(const std::string requestId,
 
             const auto &firstPartUuid =
                 firstPartAttr.value().uuid().toStdString();
-            const auto &lastPartUuid =
-                lastPartAttr.value().uuid().toStdString();
             const auto &newParentUuid =
                 targetParentAttr.value().uuid().toStdString();
             const auto &newName = getFileNameFromPath(path).toStdString();
@@ -657,6 +662,7 @@ S3Logic::completeMultipartUpload(const std::string requestId,
         // List the temporary upload files
         //
         .thenValue([this, uploadId](auto &&args) {
+            constexpr auto kMaxTemporaryUploadFileChildren = 10000;
             auto &bucketAttr = std::get<0>(args);
             auto &firstPartAttr = std::get<1>(args);
             auto &lastPartAttr = std::get<2>(args);
@@ -668,7 +674,8 @@ S3Logic::completeMultipartUpload(const std::string requestId,
             auto arg2 = folly::makeFuture(lastPartAttr);
             auto arg3 = communicate<one::messages::fuse::FileChildrenAttrs>(
                 one::messages::fuse::GetFileChildrenAttrs{
-                    temporaryDirAttr.value().uuid(), 0, 10000},
+                    temporaryDirAttr.value().uuid(), 0,
+                    kMaxTemporaryUploadFileChildren},
                 m_providerTimeout);
             auto arg4 = folly::makeFuture(multipartETagMd5);
             auto arg5 = communicate<one::messages::fuse::XAttr>(
@@ -800,7 +807,7 @@ S3Logic::listMultipartUploadParts(const folly::fbstring &uploadId,
         })
         .thenError(folly::tag_t<std::system_error>{},
             [bucket, path, uploadId](
-                auto &&e) -> Aws::S3::Model::ListPartsResult {
+                auto && /*e*/) -> Aws::S3::Model::ListPartsResult {
                 throw one::s3::error::NoSuchUpload{bucket.toStdString(),
                     path.toStdString(), uploadId.toStdString()};
             });
@@ -808,7 +815,7 @@ S3Logic::listMultipartUploadParts(const folly::fbstring &uploadId,
 
 folly::Future<Aws::S3::Model::ListMultipartUploadsResult>
 S3Logic::listMultipartUploads(const folly::fbstring &bucket, size_t maxUploads,
-    folly::Optional<folly::fbstring> indexToken)
+    const folly::Optional<folly::fbstring> &indexToken)
 {
     return getBucketAttr(bucket)
         .thenValue([this, bucket, maxUploads, indexToken](auto &&attr) {
@@ -832,8 +839,9 @@ S3Logic::listMultipartUploads(const folly::fbstring &bucket, size_t maxUploads,
 
 folly::Future<std::pair<Aws::S3::Model::HeadObjectResult,
     std::function<std::size_t(char *, std::size_t)>>>
-S3Logic::getObject(folly::fbstring bucket, folly::fbstring path,
-    const std::string requestId, folly::Optional<folly::fbstring> rangeHeader,
+S3Logic::getObject(const folly::fbstring &bucket, const folly::fbstring &path,
+    const std::string &requestId,
+    const folly::Optional<folly::fbstring> &rangeHeader,
     std::function<void(size_t)> completionCallback)
 {
     return getBucketAttr(bucket)
@@ -876,7 +884,7 @@ S3Logic::getObject(folly::fbstring bucket, folly::fbstring path,
                 auto rangeResult = drogon::parseRangeHeader(
                     rangeHeader.value().toStdString(), requestSize, ranges);
                 // only support one range for now
-                if (rangeResult == drogon::SinglePart && ranges.size() > 0) {
+                if (rangeResult == drogon::SinglePart && !ranges.empty()) {
                     requestOffset = ranges[0].start;
                     requestSize = ranges[0].end - requestOffset;
                 }
@@ -903,7 +911,7 @@ S3Logic::getObject(folly::fbstring bucket, folly::fbstring path,
         //
         .thenValue([this, bucket, path, requestId,
                        completionCallback = std::move(completionCallback)](
-                       auto &&args) {
+                       auto &&args) mutable {
             auto bucketAttr = std::get<0>(args).value();
             auto attr = std::get<1>(args).value();
             auto requestOffset = std::get<2>(args).value();
@@ -932,11 +940,12 @@ S3Logic::getObject(folly::fbstring bucket, folly::fbstring path,
 
                     return open(requestId, spaceId, attr, 0UL, O_RDONLY)
                         .via(m_executor.get())
-                        .thenValue([this, requestId, bucket, path, size,
-                                       requestOffset,
-                                       requestSize](auto &&fileHandle) mutable {
+                        .thenValue([this, requestId, size, requestOffset,
+                                       requestSize](std::shared_ptr<
+                                       one::client::fslogic::FuseFileHandle>
+                                           &&fileHandle) mutable {
                             auto arg0 = read(std::move(fileHandle), requestId,
-                                bucket, path, size, requestOffset, requestSize);
+                                size, requestOffset, requestSize);
 
                             return folly::collectAll(std::move(arg0));
                         })
@@ -993,7 +1002,7 @@ S3Logic::getObject(folly::fbstring bucket, folly::fbstring path,
                     messages::fuse::GetXAttr{
                         attr.uuid(), ONEDATA_S3_XATTR_CONTENT_MD5},
                     m_providerTimeout)
-                    .thenTry([this](folly::Try<messages::fuse::XAttr> &&xattr) {
+                    .thenTry([](folly::Try<messages::fuse::XAttr> &&xattr) {
                         if (xattr.hasException())
                             return std::string{"\"\""};
 
@@ -1005,7 +1014,7 @@ S3Logic::getObject(folly::fbstring bucket, folly::fbstring path,
                     messages::fuse::GetXAttr{
                         attr.uuid(), ONEDATA_S3_XATTR_CONTENT_TYPE},
                     m_providerTimeout)
-                    .thenTry([this](folly::Try<messages::fuse::XAttr> &&xattr) {
+                    .thenTry([](folly::Try<messages::fuse::XAttr> &&xattr) {
                         if (xattr.hasException())
                             return std::string{"\"application/octet-stream\""};
 
@@ -1018,7 +1027,7 @@ S3Logic::getObject(folly::fbstring bucket, folly::fbstring path,
                 std::move(arg2), std::move(arg3), std::move(arg4),
                 std::move(arg5));
         })
-        .thenValue([this](auto &&args) {
+        .thenValue([](auto &&args) {
             auto bucketAttr = std::get<0>(args);
             auto attr = std::get<1>(args).value();
             auto streamReader = std::get<2>(args);
@@ -1245,18 +1254,18 @@ folly::Future<Aws::S3::Model::ListObjectsResult> S3Logic::readDirRecursive(
 folly::Future<Aws::S3::Model::ListObjectsResult> S3Logic::readDir(
     const folly::fbstring &bucket, const folly::fbstring &prefix,
     const folly::Optional<folly::fbstring> &marker,
-    const folly::fbstring &delimiter, const size_t maxKeys)
+    const folly::fbstring & /*delimiter*/, const size_t maxKeys)
 {
     using one::messages::fuse::FileAttr;
     using one::messages::fuse::FileChildrenAttrs;
     using one::messages::fuse::GetFileChildrenAttrs;
 
     return getBucketAttr(bucket)
-        .thenValue([this, prefix](auto &&attr) {
+        .thenValue([this, prefix](FileAttr &&attr) {
             if (prefix.empty())
                 return folly::makeFuture<FileAttr>(std::move(attr));
-            else
-                return getFileAttr(attr.uuid(), prefix);
+
+            return getFileAttr(attr.uuid(), prefix);
         })
         .thenTry([this, maxKeys, marker](auto &&attr) {
             if (attr.hasException()) {
@@ -1273,10 +1282,10 @@ folly::Future<Aws::S3::Model::ListObjectsResult> S3Logic::readDir(
                             {ONEDATA_S3_XATTR_CONTENT_MD5}},
                         m_providerTimeout),
                     folly::makeFuture(false));
-            else
-                return folly::collectAll(folly::makeFuture(FileChildrenAttrs{
-                                             std::move(attr.value())}),
-                    folly::makeFuture(true));
+
+            return folly::collectAll(
+                folly::makeFuture(FileChildrenAttrs{std::move(attr.value())}),
+                folly::makeFuture(true));
         })
         .thenTry([prefix, bucket, marker, maxKeys](auto &&args) {
             const auto &attrs = std::get<0>(args.value()).value();
@@ -1343,18 +1352,18 @@ folly::Future<Aws::S3::Model::ListObjectsResult> S3Logic::readDir(
 folly::Future<Aws::S3::Model::ListObjectsV2Result> S3Logic::readDirV2(
     const folly::fbstring &bucket, const folly::fbstring &prefix,
     const folly::Optional<folly::fbstring> &marker,
-    const folly::fbstring &delimiter, const size_t maxKeys)
+    const folly::fbstring & /*delimiter*/, const size_t maxKeys)
 {
     using one::messages::fuse::FileAttr;
     using one::messages::fuse::FileChildrenAttrs;
     using one::messages::fuse::GetFileChildrenAttrs;
 
     return getBucketAttr(bucket)
-        .thenValue([this, prefix](auto &&attr) {
+        .thenValue([this, prefix](messages::fuse::FileAttr &&attr) {
             if (prefix.empty())
                 return folly::makeFuture<FileAttr>(std::move(attr));
-            else
-                return getFileAttr(attr.uuid(), prefix);
+
+            return getFileAttr(attr.uuid(), prefix);
         })
         .thenTry([this, maxKeys, marker](auto &&attr) {
             if (attr.hasException()) {
@@ -1370,10 +1379,10 @@ folly::Future<Aws::S3::Model::ListObjectsV2Result> S3Logic::readDirV2(
                             marker, false, false},
                         m_providerTimeout),
                     folly::makeFuture(false));
-            else
-                return folly::collectAll(folly::makeFuture(FileChildrenAttrs{
-                                             std::move(attr.value())}),
-                    folly::makeFuture(true));
+
+            return folly::collectAll(
+                folly::makeFuture(FileChildrenAttrs{std::move(attr.value())}),
+                folly::makeFuture(true));
         })
         .thenTry([prefix, bucket, marker, maxKeys](auto &&args) {
             const auto &attrs = std::get<0>(args.value()).value();
@@ -1441,7 +1450,7 @@ folly::Future<Aws::S3::Model::ListObjectsV2Result> S3Logic::readDirV2(
 }
 
 folly::Future<Aws::S3::Model::HeadObjectResult> S3Logic::headBucket(
-    const folly::fbstring &bucket, const folly::fbstring &requestId)
+    const folly::fbstring &bucket, const folly::fbstring & /*requestId*/)
 {
     return getBucketAttr(bucket).thenValue([](auto &&attr) {
         Aws::S3::Model::HeadObjectResult result;
@@ -1454,7 +1463,8 @@ folly::Future<Aws::S3::Model::HeadObjectResult> S3Logic::headBucket(
 }
 
 folly::Future<Aws::S3::Model::HeadObjectResult> S3Logic::headObject(
-    folly::fbstring bucket, folly::fbstring path, std::string requestId)
+    const folly::fbstring &bucket, const folly::fbstring &path,
+    const std::string &requestId)
 {
     if (path.empty()) {
         return headBucket(bucket, requestId);
@@ -1494,18 +1504,16 @@ folly::Future<Aws::S3::Model::HeadObjectResult> S3Logic::headObject(
                 return folly::collectAll(
                     std::move(arg0), std::move(arg1), std::move(arg2));
             }
-            else {
-                auto arg1 = folly::makeFuture(
-                    messages::fuse::XAttr{ONEDATA_S3_XATTR_CONTENT_MD5,
-                        fmt::format("\"{}\"",
-                            one::client::util::md5::md5(uuid.toStdString()))});
-                auto arg2 = folly::makeFuture(
-                    messages::fuse::XAttr{ONEDATA_S3_XATTR_CONTENT_TYPE,
-                        "application/octect-stream"});
 
-                return folly::collectAll(
-                    std::move(arg0), std::move(arg1), std::move(arg2));
-            }
+            auto arg1 = folly::makeFuture(
+                messages::fuse::XAttr{ONEDATA_S3_XATTR_CONTENT_MD5,
+                    fmt::format("\"{}\"",
+                        one::client::util::md5::md5(uuid.toStdString()))});
+            auto arg2 = folly::makeFuture(messages::fuse::XAttr{
+                ONEDATA_S3_XATTR_CONTENT_TYPE, "application/octect-stream"});
+
+            return folly::collectAll(
+                std::move(arg0), std::move(arg1), std::move(arg2));
         })
         .thenValue([](auto &&args) {
             auto attr = std::get<0>(args).value();
@@ -1565,7 +1573,7 @@ folly::Future<folly::Unit> S3Logic::close(
                         uuid.toStdString(), fileHandleId},
                     m_providerTimeout);
             })
-        .thenTry([this, requestId](auto &&unit) {
+        .thenTry([this, requestId](auto && /*unit*/) {
             std::lock_guard<std::mutex> lockGuard{m_handleMutex};
             if (m_requestHandles.find(requestId) != m_requestHandles.end()) {
                 m_requestFileHandleFlags.erase(requestId);
@@ -1575,7 +1583,7 @@ folly::Future<folly::Unit> S3Logic::close(
         });
 }
 
-S3RequestContext &S3Logic::getRequestContext(const std::string requestId)
+S3RequestContext &S3Logic::getRequestContext(const std::string &requestId)
 {
     std::lock_guard<std::mutex> lockGuard{m_handleMutex};
     return m_requestContext.at(requestId);
@@ -1583,8 +1591,7 @@ S3RequestContext &S3Logic::getRequestContext(const std::string requestId)
 
 folly::Future<std::size_t> S3Logic::write(
     std::shared_ptr<one::client::fslogic::FuseFileHandle> fileHandle,
-    folly::fbstring uuid, const std::string requestId,
-    const folly::fbstring &bucket, const folly::fbstring &path,
+    folly::fbstring uuid, const std::string &requestId,
     std::shared_ptr<folly::IOBuf> buf, const size_t baseOffset)
 {
     if (buf->empty()) {
@@ -1615,7 +1622,7 @@ folly::Future<std::size_t> S3Logic::write(
                << offset;
 
     return helperHandle->write(offset, std::move(bufq), {})
-        .thenTry([this, uuid, offset](auto &&written) {
+        .thenTry([this, uuid = std::move(uuid), offset](auto &&written) {
             return communicate(
                 messages::fuse::ReportFileWritten{
                     uuid.toStdString(), offset, written.value()},
@@ -1627,15 +1634,13 @@ folly::Future<std::size_t> S3Logic::write(
 
 folly::Future<folly::IOBufQueue> S3Logic::read(
     std::shared_ptr<one::client::fslogic::FuseFileHandle> fileHandle,
-    const folly::fbstring &spaceId, const folly::fbstring &bucket,
-    const folly::fbstring &path, const one::messages::fuse::FileAttr attr,
-    const std::size_t offset, const std::size_t size,
-    folly::Optional<folly::fbstring> checksum)
+    const folly::fbstring &spaceId, const one::messages::fuse::FileAttr &attr,
+    const std::size_t offset, const std::size_t size)
 {
     return communicate<one::messages::fuse::FileLocation>(
         one::messages::fuse::GetFileLocation{attr.uuid().toStdString()},
         m_providerTimeout)
-        .thenTry([this, attr, offset, size, spaceId, fileHandle](
+        .thenTry([attr, offset, size, spaceId, fileHandle](
                      auto &&location) -> folly::Future<folly::IOBufQueue> {
             const auto fileSize = *attr.size();
             const auto possibleRange =
@@ -1681,10 +1686,9 @@ folly::Future<folly::IOBufQueue> S3Logic::read(
 
 folly::Future<folly::IOBufQueue> S3Logic::read(
     std::shared_ptr<one::client::fslogic::FuseFileHandle> fileHandle,
-    const std::string requestId, const folly::fbstring &bucket,
-    const folly::fbstring &path, const std::size_t size,
+    const std::string &requestId, const std::size_t size,
     const std::size_t requestOffset, const std::size_t requestSize,
-    folly::Optional<folly::fbstring> checksum)
+    const folly::Optional<folly::fbstring> & /*checksum*/)
 {
     auto &context = getRequestContext(requestId);
     const auto &attr = context.attr;
@@ -1738,7 +1742,7 @@ folly::Future<folly::IOBufQueue> S3Logic::read(
         ->readContinuous(
             offset + requestOffset, wantedAvailableSize, continuousSize)
         .thenValue([this, requestId, size, offset, requestOffset, requestSize](
-                       auto &&buf) {
+                       folly::IOBufQueue &&buf) {
             LOG_DBG(3) << "[" << requestId << ", " << offset + requestOffset
                        << ", " << requestSize << "] Read from helper "
                        << buf.chainLength() << "/" << size << " at offset "
@@ -1777,36 +1781,35 @@ folly::Future<one::messages::fuse::FileAttr> S3Logic::getBucketAttr(
     return communicate<one::messages::fuse::FileAttr>(
         one::messages::fuse::GetChildAttr{m_rootUuid, bucket},
         m_providerTimeout)
-        .thenTry([this, bucket](auto &&bucketAttr) {
+        .thenTry([this, bucket](
+                     folly::Try<one::messages::fuse::FileAttr> &&bucketAttr) {
             m_bucketIdCache.emplace(bucket, bucketAttr.value());
-            return bucketAttr;
+            return std::move(bucketAttr);
         });
 }
 
 folly::Future<one::messages::fuse::FileAttr> S3Logic::getFileAttr(
     const folly::fbstring &parentId, std::vector<std::string> path)
 {
-    assert(path.size() > 0);
+    assert(!path.empty());
 
     if (path.size() == 1) {
         return communicate<one::messages::fuse::FileAttr>(
             one::messages::fuse::GetChildAttr{parentId, path[0]},
             m_providerTimeout);
     }
-    else {
-        auto nextChildName = path.back();
-        path.pop_back();
 
-        return communicate<one::messages::fuse::FileAttr>(
-            one::messages::fuse::GetChildAttr{parentId, nextChildName},
-            m_providerTimeout)
-            .thenValue(
-                [this, nextChildName, path = std::move(path)](
-                    auto &&attr) { return getFileAttr(attr.uuid(), path); });
-    }
+    auto nextChildName = path.back();
+    path.pop_back();
+
+    return communicate<one::messages::fuse::FileAttr>(
+        one::messages::fuse::GetChildAttr{parentId, nextChildName},
+        m_providerTimeout)
+        .thenValue([this, nextChildName, path = std::move(path)](
+                       auto &&attr) { return getFileAttr(attr.uuid(), path); });
 }
 
-folly::Future<size_t> S3Logic::uploadObject(std::string requestId,
+folly::Future<size_t> S3Logic::uploadObject(const std::string &requestId,
     const folly::fbstring &bucket, const folly::fbstring &path,
     const folly::fbstring &md5, const folly::fbstring &contentType,
     std::shared_ptr<folly::IOBuf> buf)
@@ -1833,6 +1836,7 @@ folly::Future<size_t> S3Logic::uploadObject(std::string requestId,
         // Create temporary file for upload
         //
         .thenValue([this, requestId](auto &&args) {
+            constexpr auto kDefaultFilePerms{0655};
             auto &bucketAttr = std::get<0>(args);
             auto &tmpDirAttr = std::get<1>(args);
 
@@ -1842,8 +1846,8 @@ folly::Future<size_t> S3Logic::uploadObject(std::string requestId,
                 getCompleteUploadTemporaryFileName(requestId);
 
             auto arg0 = folly::makeFuture(std::move(bucketAttr));
-            auto arg1 =
-                create(requestId, parentUuid, tmpFileName, S_IFREG, 0655);
+            auto arg1 = create(
+                requestId, parentUuid, tmpFileName, S_IFREG, kDefaultFilePerms);
 
             return folly::collectAll(std::move(arg0), std::move(arg1));
         })
@@ -1867,22 +1871,21 @@ folly::Future<size_t> S3Logic::uploadObject(std::string requestId,
         // Write data to the temporary file and create target path if
         // necessary
         //
-        .thenValue(
-            [this, requestId, bucket, path, buf = std::move(buf)](auto &&args) {
-                const auto &bucketAttr = std::get<0>(args).value();
-                const auto &attr = std::get<1>(args);
-                const auto &fileHandle = std::get<2>(args).value();
+        .thenValue([this, requestId, path, buf = std::move(buf)](
+                       auto &&args) mutable {
+            const auto &bucketAttr = std::get<0>(args).value();
+            const auto &attr = std::get<1>(args);
+            const auto &fileHandle = std::get<2>(args).value();
 
-                folly::fbstring spaceId = attr.value().uuid();
-                auto arg0 = folly::makeFuture(std::move(attr));
-                auto arg1 = getFileParentAttrByPath(bucketAttr, path);
-                auto arg2 = write(fileHandle, spaceId, requestId, bucket, path,
-                    std::move(buf));
-                auto arg3 = folly::makeFuture(fileHandle);
+            folly::fbstring spaceId = attr.value().uuid();
+            auto arg0 = folly::makeFuture(std::move(attr));
+            auto arg1 = getFileParentAttrByPath(bucketAttr, path);
+            auto arg2 = write(fileHandle, spaceId, requestId, std::move(buf));
+            auto arg3 = folly::makeFuture(fileHandle);
 
-                return folly::collectAll(std::move(arg0), std::move(arg1),
-                    std::move(arg2), std::move(arg3));
-            })
+            return folly::collectAll(std::move(arg0), std::move(arg1),
+                std::move(arg2), std::move(arg3));
+        })
         //
         // Release temporary file handle
         //
@@ -1948,18 +1951,18 @@ folly::Future<size_t> S3Logic::uploadObject(std::string requestId,
 
             return folly::collectAll(std::move(arg0), std::move(arg1));
         })
-        .thenValue([this](auto &&args) { return std::get<0>(args).value(); });
+        .thenValue([](auto &&args) { return std::get<0>(args).value(); });
 }
 
-folly::Future<folly::Unit> S3Logic::deleteObject(std::string requestId,
-    const folly::fbstring &bucket, const folly::fbstring &path)
+folly::Future<folly::Unit> S3Logic::deleteObject(
+    const std::string & /*requestId*/, const folly::fbstring &bucket,
+    const folly::fbstring &path)
 {
     return getBucketAttr(bucket)
         .thenValue([this, path](auto &&attr) {
             return getFileAttrByPath(attr.uuid(), path);
         })
-        .thenTry([this, requestId](
-                     folly::Try<one::messages::fuse::FileAttr> &&value) {
+        .thenTry([this](folly::Try<one::messages::fuse::FileAttr> &&value) {
             if (value.hasException()) {
                 value.throwIfFailed();
             }
@@ -1973,7 +1976,8 @@ folly::Future<folly::Unit> S3Logic::deleteObject(std::string requestId,
 
 folly::Future<std::shared_ptr<one::client::fslogic::FuseFileHandle>>
 S3Logic::open(std::string requestId, const folly::fbstring &spaceId,
-    one::messages::fuse::FileAttr attr, const size_t offset, const int flags)
+    const one::messages::fuse::FileAttr &attr, const size_t offset,
+    const int flags)
 {
     LOG_FCALL() << LOG_FARG(spaceId) << LOG_FARGH(flags);
 
@@ -2009,19 +2013,19 @@ S3Logic::open(std::string requestId, const folly::fbstring &spaceId,
                 one::messages::fuse::GetFileLocation{attr.uuid().toStdString()},
                 m_providerTimeout);
         })
-        .thenValue(
-            [this, spaceId, offset, attr, requestId](auto &&fileLocation) {
-                S3RequestContext context{};
-                context.spaceId = spaceId;
-                context.location = std::move(fileLocation);
-                context.attr = std::move(attr);
-                context.offset = offset;
+        .thenValue([this, spaceId, offset, attr, requestId](
+                       one::messages::fuse::FileLocation &&fileLocation) {
+            S3RequestContext context{};
+            context.spaceId = spaceId;
+            context.location = fileLocation;
+            context.attr = attr;
+            context.offset = offset;
 
-                std::lock_guard<std::mutex> lockGuard{m_handleMutex};
-                m_requestContext.emplace(requestId, std::move(context));
+            std::lock_guard<std::mutex> lockGuard{m_handleMutex};
+            m_requestContext.emplace(requestId, std::move(context));
 
-                return m_requestHandles.at(requestId);
-            });
+            return m_requestHandles.at(requestId);
+        });
 }
 
 folly::Future<one::messages::fuse::FileAttr> S3Logic::create(
@@ -2058,10 +2062,9 @@ folly::Future<one::messages::fuse::FileAttr> S3Logic::create(
                                          }),
                 folly::makeFuture(pathTokens.back()));
         }
-        else {
-            return folly::collectAll(folly::makeFuture(parentUuid),
-                folly::makeFuture(pathTokens.back()));
-        }
+
+        return folly::collectAll(folly::makeFuture(parentUuid),
+            folly::makeFuture(pathTokens.back()));
     })
         .via(m_executor.get())
         .thenValue([this, mode, flags](auto &&args) {
@@ -2116,13 +2119,13 @@ folly::Future<folly::Unit> S3Logic::releaseFileHandle(
 
     return folly::collectAll(std::move(releaseFutures))
         .via(m_executor.get())
-        .thenValue([this, fileHandle, uuid](auto &&futs) {
+        .thenValue([this, fileHandle, uuid](auto && /*futs*/) {
             return communicate(
                 messages::fuse::Release{uuid.toStdString(),
                     fileHandle->providerHandleId()->toStdString()},
                 m_providerTimeout);
         })
-        .thenValue([](auto &&status) { return folly::makeFuture(); });
+        .thenValue([](auto && /*status*/) { return folly::makeFuture(); });
 }
 
 folly::Future<messages::fuse::FileAttr> S3Logic::getFileAttrByPath(
@@ -2155,9 +2158,10 @@ folly::Future<messages::fuse::FileAttr> S3Logic::getFileParentAttrByPath(
 
 S3LogicCache::S3LogicCache(
     std::shared_ptr<one::client::options::Options> options)
-    : m_options{options}
+    : m_options{std::move(options)}
     , m_initialized{true}
-    , m_executor{std::make_shared<folly::IOThreadPoolExecutor>(32)}
+    , m_executor{std::make_shared<folly::IOThreadPoolExecutor>(
+          std::thread::hardware_concurrency())}
 {
 }
 
@@ -2189,9 +2193,8 @@ folly::Future<std::shared_ptr<S3Logic>> S3LogicCache::get(
                         m_cache.erase(effectiveToken);
                         throw one::s3::error::AccessDenied("", "", "");
                     }
-                    else {
-                        p->setValue(std::move(s3Logic.value()));
-                    }
+
+                    p->setValue(std::move(s3Logic.value()));
                 });
         }
 
@@ -2206,5 +2209,5 @@ folly::Future<std::shared_ptr<S3Logic>> S3LogicCache::get(
     }
 }
 
-}
-}
+} // namespace s3
+} // namespace one

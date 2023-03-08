@@ -19,5 +19,5 @@ namespace s3 {
 using HttpResponseCallback =
     std::function<void(const drogon::HttpResponsePtr &)>;
 
-}
-}
+} // namespace s3
+} // namespace one

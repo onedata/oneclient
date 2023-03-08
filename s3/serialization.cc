@@ -95,10 +95,8 @@ std::string serialize<Aws::S3::Model::ListObjectsResult>(
         rootElement, "IsTruncated", toString(objects.GetIsTruncated()));
     addTextElement(rootElement, "Prefix", objects.GetPrefix());
     addTextElement(rootElement, "Name", objects.GetName());
-    addTextElement(rootElement, "Marker",
-        objects.GetMarker());
-    addTextElement(rootElement, "NextMarker",
-        objects.GetNextMarker());
+    addTextElement(rootElement, "Marker", objects.GetMarker());
+    addTextElement(rootElement, "NextMarker", objects.GetNextMarker());
     addTextElement(rootElement, "Delimiter", "");
     addTextElement(rootElement, "EncodingType", "url");
     addTextElement(
@@ -106,7 +104,6 @@ std::string serialize<Aws::S3::Model::ListObjectsResult>(
 
     return toString(doc);
 }
-
 
 template <>
 std::string serialize<Aws::S3::Model::ListObjectsV2Result>(
@@ -130,8 +127,8 @@ std::string serialize<Aws::S3::Model::ListObjectsV2Result>(
         rootElement, "KeyCount", std::to_string(objects.GetKeyCount()));
     addTextElement(rootElement, "NextContinuationToken",
         objects.GetNextContinuationToken());
-    addTextElement(rootElement, "ContinuationToken",
-        objects.GetContinuationToken());
+    addTextElement(
+        rootElement, "ContinuationToken", objects.GetContinuationToken());
     addTextElement(rootElement, "Delimiter", "");
     addTextElement(rootElement, "EncodingType", "url");
     addTextElement(
@@ -170,16 +167,17 @@ std::string serialize<Aws::S3::Model::CompleteMultipartUploadResult>(
 
 template <>
 std::string serialize<Aws::S3::Model::DeleteObjectsResult>(
-    const Aws::S3::Model::DeleteObjectsResult &result) {
+    const Aws::S3::Model::DeleteObjectsResult &result)
+{
     XMLPtr<XMLDocument> doc = new XMLDocument;
     auto rootElement = addElement(doc, "DeleteResult");
 
-    for(const auto &deleted : result.GetDeleted()) {
+    for (const auto &deleted : result.GetDeleted()) {
         auto deletedElement = addElement(rootElement, "Deleted");
         addTextElement(deletedElement, "Key", deleted.GetKey());
     }
 
-    for(const auto &error : result.GetErrors()) {
+    for (const auto &error : result.GetErrors()) {
         auto errorElement = addElement(rootElement, "Error");
         addTextElement(errorElement, "Key", error.GetKey());
         addTextElement(errorElement, "Code", error.GetCode());
@@ -217,7 +215,7 @@ std::string serialize<Aws::S3::Model::ListPartsResult>(
 }
 
 template <>
-void serialize(XMLPtr<XMLElement> parent,
+void serialize(const XMLPtr<XMLElement> &parent,
     const Aws::Vector<Aws::S3::Model::Bucket> &buckets)
 {
     for (const auto &bucket : buckets) {
@@ -231,7 +229,7 @@ void serialize(XMLPtr<XMLElement> parent,
 }
 
 template <>
-void serialize(XMLPtr<XMLElement> parent,
+void serialize(const XMLPtr<XMLElement> &parent,
     const Aws::Vector<Aws::S3::Model::CommonPrefix> &prefixes)
 {
     for (const auto &prefix : prefixes) {
@@ -242,7 +240,7 @@ void serialize(XMLPtr<XMLElement> parent,
 }
 
 template <>
-void serialize(XMLPtr<XMLElement> parent,
+void serialize(const XMLPtr<XMLElement> &parent,
     const Aws::Vector<Aws::S3::Model::Object> &objects)
 {
     for (const auto &object : objects) {
@@ -250,8 +248,7 @@ void serialize(XMLPtr<XMLElement> parent,
 
         addTextElement(node, "Key", object.GetKey());
         addTextElement(node, "Size", std::to_string(object.GetSize()));
-        addTextElement(
-            node, "ETag", fmt::format("{}", object.GetETag()));
+        addTextElement(node, "ETag", fmt::format("{}", object.GetETag()));
         addTextElement(node, "LastModified",
             object.GetLastModified().ToGmtString(
                 Aws::Utils::DateFormat::ISO_8601));
@@ -260,8 +257,8 @@ void serialize(XMLPtr<XMLElement> parent,
 }
 
 template <>
-void serialize(
-    XMLPtr<XMLElement> parent, const Aws::Vector<Aws::S3::Model::Part> &parts)
+void serialize(const XMLPtr<XMLElement> &parent,
+    const Aws::Vector<Aws::S3::Model::Part> &parts)
 {
     for (const auto &part : parts) {
         auto node = addElement(parent, "Part");
@@ -275,5 +272,5 @@ void serialize(
     }
 }
 
-}
-}
+} // namespace s3
+} // namespace one

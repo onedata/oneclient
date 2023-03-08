@@ -49,5 +49,5 @@ void BucketAPI::deleteBucket(const HttpRequestPtr &req,
 {
 }
 
-}
-}
+} // namespace s3
+} // namespace one

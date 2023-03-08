@@ -45,7 +45,7 @@ std::shared_ptr<options::Options> getOptions(int argc, char *argv[])
 class InsecureCertificateHandler : public Poco::Net::InvalidCertificateHandler {
     using Poco::Net::InvalidCertificateHandler::InvalidCertificateHandler;
 
-    void onInvalidCertificate(const void *pSender,
+    void onInvalidCertificate(const void * /*pSender*/,
         Poco::Net::VerificationErrorArgs &errorCert) override
     {
         errorCert.setIgnoreError(true);
@@ -54,6 +54,10 @@ class InsecureCertificateHandler : public Poco::Net::InvalidCertificateHandler {
 
 int main(int argc, char *argv[])
 {
+    constexpr auto kVerificationDepth{9};
+    constexpr auto kDefaultHTTPPort{80};
+    constexpr auto kOneS3MaxConnectionNum{64000};
+
     one::helpers::init();
 
     auto options = getOptions(argc, argv);
@@ -62,7 +66,7 @@ int main(int argc, char *argv[])
         // Initialize insecure access to Onedata REST services
         Poco::Net::Context::Ptr pContext =
             new Poco::Net::Context(Poco::Net::Context::CLIENT_USE, "", "", "",
-                Poco::Net::Context::VERIFY_NONE, 9, true,
+                Poco::Net::Context::VERIFY_NONE, kVerificationDepth, true,
                 "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
         Poco::Net::SSLManager::instance().initializeClient({},
             Poco::SharedPtr<InsecureCertificateHandler>(
@@ -97,7 +101,7 @@ int main(int argc, char *argv[])
     if (!options->getOneS3HTTPPort().has_value() &&
         !options->getOneS3HTTPSPort().has_value()) {
         // If no port is provided on command line - start only HTTP endpoint
-        app().addListener(bind_address, 80);
+        app().addListener(bind_address, kDefaultHTTPPort);
     }
     else {
         if (options->getOneS3HTTPPort().has_value())
@@ -124,7 +128,7 @@ int main(int argc, char *argv[])
     app().setClientMaxBodySize(options->getOneS3MaxBodySize());
     app().setClientMaxMemoryBodySize(options->getOneS3MaxBodyMemorySize());
     app().setIdleConnectionTimeout(options->getOneS3IdleConnectionTimeout());
-    app().setMaxConnectionNum(64000);
+    app().setMaxConnectionNum(kOneS3MaxConnectionNum);
 
     app().run();
 }

@@ -58,8 +58,7 @@ template <int N, typename T> auto farg(T &&arg)
 {
     return folly::makeFuture(std::forward<T>(arg));
 }
-
-}
+} // namespace
 
 namespace detail {
 /**
@@ -78,7 +77,7 @@ inline helpers::Flag getOpenFlag(const helpers::FlagsSet &flagsSet)
 
     return one::helpers::Flag::RDONLY;
 }
-}
+} // namespace detail
 
 struct S3RequestContext {
     folly::fbstring spaceId{};
@@ -121,7 +120,7 @@ public:
         const folly::fbstring &bucket, const folly::fbstring &uploadId);
 
     folly::Future<Aws::S3::Model::UploadPartResult> uploadMultipartPart(
-        const std::string requestId, const folly::fbstring &bucket,
+        const std::string &requestId, const folly::fbstring &bucket,
         const folly::fbstring &path, const folly::fbstring &uploadId,
         const size_t partNumber, const size_t partSize,
         const folly::fbstring &partMD5, std::shared_ptr<folly::IOBuf> buf);
@@ -138,13 +137,13 @@ public:
 
     folly::Future<Aws::S3::Model::ListMultipartUploadsResult>
     listMultipartUploads(const folly::fbstring &bucket, size_t maxUploads,
-        folly::Optional<folly::fbstring> indexToken);
+        const folly::Optional<folly::fbstring> &indexToken);
 
     folly::Future<std::pair<Aws::S3::Model::HeadObjectResult,
         std::function<std::size_t(char *, std::size_t)>>>
-    getObject(folly::fbstring bucket, folly::fbstring path,
-        const std::string requestId,
-        folly::Optional<folly::fbstring> rangeHeader,
+    getObject(const folly::fbstring &bucket, const folly::fbstring &path,
+        const std::string &requestId,
+        const folly::Optional<folly::fbstring> &rangeHeader,
         std::function<void(size_t)> completionCallback);
 
     folly::Future<Aws::S3::Model::ListObjectsV2Result> readDirV2Recursive(
@@ -170,32 +169,30 @@ public:
         const folly::fbstring &bucket, const folly::fbstring &requestId);
 
     folly::Future<Aws::S3::Model::HeadObjectResult> headObject(
-        folly::fbstring bucket, folly::fbstring path, std::string requestId);
+        const folly::fbstring &bucket, const folly::fbstring &path,
+        const std::string &requestId);
 
     folly::Future<folly::Unit> close(
         const folly::fbstring &uuid, const std::string &requestId);
 
-    S3RequestContext &getRequestContext(const std::string requestId);
+    S3RequestContext &getRequestContext(const std::string &requestId);
 
     folly::Future<std::size_t> write(
         std::shared_ptr<one::client::fslogic::FuseFileHandle> fileHandle,
-        folly::fbstring uuid, const std::string requestId,
-        const folly::fbstring &bucket, const folly::fbstring &path,
+        folly::fbstring uuid, const std::string &requestId,
         std::shared_ptr<folly::IOBuf> buf, const size_t baseOffset = 0);
 
     folly::Future<folly::IOBufQueue> read(
         std::shared_ptr<one::client::fslogic::FuseFileHandle> fileHandle,
-        const folly::fbstring &spaceId, const folly::fbstring &bucket,
-        const folly::fbstring &path, const one::messages::fuse::FileAttr attr,
-        const std::size_t offset, const std::size_t size,
-        folly::Optional<folly::fbstring> checksum = {});
+        const folly::fbstring &spaceId,
+        const one::messages::fuse::FileAttr &attr, const std::size_t offset,
+        const std::size_t size);
 
     folly::Future<folly::IOBufQueue> read(
         std::shared_ptr<one::client::fslogic::FuseFileHandle> fileHandle,
-        const std::string requestId, const folly::fbstring &bucket,
-        const folly::fbstring &path, const std::size_t size,
+        const std::string &requestId, const std::size_t size,
         const std::size_t requestOffset, const std::size_t requestSize,
-        folly::Optional<folly::fbstring> checksum = {});
+        const folly::Optional<folly::fbstring> &checksum = {});
 
     folly::Future<one::messages::fuse::Uuid> resolveGuid(
         const folly::fbstring &path);
@@ -209,17 +206,17 @@ public:
     folly::Future<one::messages::fuse::FileAttr> getFileAttr(
         const folly::fbstring &parentId, std::vector<std::string> path);
 
-    folly::Future<size_t> uploadObject(std::string requestId,
+    folly::Future<size_t> uploadObject(const std::string &requestId,
         const folly::fbstring &bucket, const folly::fbstring &path,
         const folly::fbstring &md5, const folly::fbstring &contentType,
         std::shared_ptr<folly::IOBuf> buf);
 
-    folly::Future<folly::Unit> deleteObject(std::string requestId,
+    folly::Future<folly::Unit> deleteObject(const std::string &requestId,
         const folly::fbstring &bucket, const folly::fbstring &path);
 
     folly::Future<std::shared_ptr<one::client::fslogic::FuseFileHandle>> open(
         std::string requestId, const folly::fbstring &spaceId,
-        one::messages::fuse::FileAttr attr, const size_t offset,
+        const one::messages::fuse::FileAttr &attr, const size_t offset,
         const int flags);
 
     folly::Future<one::messages::fuse::FileAttr> create(std::string requestId,
@@ -367,5 +364,5 @@ private:
 
     std::shared_ptr<folly::IOThreadPoolExecutor> m_executor;
 };
-}
-}
+} // namespace s3
+} // namespace one

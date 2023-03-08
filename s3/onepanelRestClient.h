@@ -25,10 +25,6 @@ namespace one {
 namespace rest {
 namespace onepanel {
 
-namespace model {
-
-}
-
 class OnepanelClient {
 public:
     OnepanelClient(const std::string &hostname);
@@ -51,6 +47,6 @@ public:
 private:
     Poco::Net::HTTPSClientSession session_;
 };
-}
-}
-}
+} // namespace onepanel
+} // namespace rest
+} // namespace one

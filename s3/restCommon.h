@@ -24,5 +24,5 @@ std::string toString(const Poco::JSON::Object &o);
 
 std::string toString(std::istream &is);
 
-}
-}
+} // namespace rest
+} // namespace one

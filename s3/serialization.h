@@ -8,13 +8,13 @@
 
 #pragma once
 
-#include <aws/s3/model/CreateMultipartUploadResult.h>
 #include <aws/s3/model/CompleteMultipartUploadResult.h>
-#include <aws/s3/model/ListBucketsResult.h>
-#include <aws/s3/model/ListObjectsV2Result.h>
-#include <aws/s3/model/ListObjectsResult.h>
-#include <aws/s3/model/ListPartsResult.h>
+#include <aws/s3/model/CreateMultipartUploadResult.h>
 #include <aws/s3/model/DeleteObjectsResult.h>
+#include <aws/s3/model/ListBucketsResult.h>
+#include <aws/s3/model/ListObjectsResult.h>
+#include <aws/s3/model/ListObjectsV2Result.h>
+#include <aws/s3/model/ListPartsResult.h>
 
 #include <Poco/DOM/AutoPtr.h>
 #include <Poco/DOM/Document.h>
@@ -32,7 +32,7 @@ using XMLDocument = Poco::XML::Document;
 
 template <typename T> std::string serialize(const T &);
 
-template <typename T> void serialize(XMLPtr<XMLElement>, const T &);
+template <typename T> void serialize(const XMLPtr<XMLElement> &, const T &);
 
 template <>
 std::string serialize<Aws::S3::Model::ListBucketsResult>(
@@ -63,20 +63,20 @@ std::string serialize<Aws::S3::Model::DeleteObjectsResult>(
     const Aws::S3::Model::DeleteObjectsResult &);
 
 template <>
-void serialize(XMLPtr<XMLElement> parent,
+void serialize(const XMLPtr<XMLElement> &parent,
     const Aws::Vector<Aws::S3::Model::Bucket> &buckets);
 
 template <>
-void serialize(XMLPtr<XMLElement> parent,
+void serialize(const XMLPtr<XMLElement> &parent,
     const Aws::Vector<Aws::S3::Model::CommonPrefix> &prefixes);
 
 template <>
-void serialize(XMLPtr<XMLElement> parent,
+void serialize(const XMLPtr<XMLElement> &parent,
     const Aws::Vector<Aws::S3::Model::Object> &objects);
 
 template <>
-void serialize(
-    XMLPtr<XMLElement> parent, const Aws::Vector<Aws::S3::Model::Part> &parts);
-}
+void serialize(const XMLPtr<XMLElement> &parent,
+    const Aws::Vector<Aws::S3::Model::Part> &parts);
 
-}
+} // namespace s3
+} // namespace one

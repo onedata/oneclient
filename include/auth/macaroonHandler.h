@@ -60,7 +60,7 @@ private:
 class MacaroonRetrievePolicyFromCLI {
 public:
     MacaroonRetrievePolicyFromCLI(
-        options::Options &options, const boost::filesystem::path userDataDir);
+        options::Options &options, boost::filesystem::path userDataDir);
 
     macaroons::Macaroon retrieveMacaroon() const;
 
@@ -79,15 +79,15 @@ private:
 
 class MacaroonPersistPolicyNone {
 public:
-    void persistMacaroon(macaroons::Macaroon macaroon) { }
+    void persistMacaroon(const macaroons::Macaroon &macaroon) { }
     void removeMacaroon() { }
 };
 
 class MacaroonPersistPolicyFile {
 public:
-    MacaroonPersistPolicyFile(const boost::filesystem::path &userDataDir);
+    MacaroonPersistPolicyFile(boost::filesystem::path userDataDir);
 
-    void persistMacaroon(macaroons::Macaroon macaroon);
+    void persistMacaroon(const macaroons::Macaroon &macaroon);
 
     void removeMacaroon();
 
@@ -130,7 +130,7 @@ public:
         return restrictedMacaroon();
     }
 
-    virtual void cleanup() { m_macaroonPersistPolicy.removeMacaroon(); }
+    void cleanup() { m_macaroonPersistPolicy.removeMacaroon(); }
 
 protected:
     RetrievePolicyT m_macaroonRetrievePolicy;

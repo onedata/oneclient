@@ -4,11 +4,13 @@ Checks: >-
   -*osx*,
   -abseil*,
   -android*,
+  -cert-err60-cpp,
   -clang-analyzer-alpha.*,
   -clang-analyzer-cplusplus.NewDelete,
   -clang-analyzer-cplusplus.NewDeleteLeaks,
   -clang-analyzer-optin.cplusplus.VirtualCall,
   -clang-analyzer-core.UndefinedBinaryOperatorResult,
+  -cppcoreguidelines-avoid-magic-numbers,
   -cppcoreguidelines-avoid-c-arrays,
   -cppcoreguidelines-macro-usage,
   -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
@@ -23,13 +25,14 @@ Checks: >-
   -hicpp-no-array-decay,
   -hicpp-signed-bitwise,
   -google-runtime-references,
-  -llvm-header-guard,
+  -llvm-*,
   -misc-definitions-in-headers,
   -modernize-avoid-bind,
   -modernize-avoid-c-arrays,
   -modernize-use-default-member-init,
   -modernize-use-trailing-return-type,
   -readability-identifier-naming,
+  -readability-convert-member-functions-to-static,
   -mpi*,
   -objc*,
   -openmp*,
@@ -50,3 +53,5 @@ CheckOptions:
     value:           1
   - key:             cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor
     value:           1
+  - key:             readability-magic-numbers.IgnoredIntegerValues
+    value:           0;1;2;3;4;5;6;7;8;9

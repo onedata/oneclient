@@ -23,15 +23,13 @@ namespace rest {
 namespace onezone {
 
 namespace model {
-
 struct UserSpaceDetails {
     std::string spaceId;
     std::string name;
     std::map<std::string, size_t> providers;
     unsigned long long creationTime;
 };
-
-}
+} // namespace model
 
 class OnezoneClient {
 public:
@@ -50,9 +48,10 @@ public:
     std::string createSpace(const std::string &token, const std::string &name);
 
     void deleteSpace(const std::string &token, const std::string &spaceId);
+
 private:
     Poco::Net::HTTPSClientSession session_;
 };
-}
-}
-}
+} // namespace onezone
+} // namespace rest
+} // namespace one

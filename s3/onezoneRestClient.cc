@@ -25,6 +25,8 @@ OnezoneClient::~OnezoneClient() { session_.reset(); }
 std::string OnezoneClient::createSpaceSupportToken(
     const std::string &token, const std::string &spaceId)
 {
+    constexpr auto kCaveatValidTime = 36000UL;
+
     std::string result;
 
     Poco::JSON::Object inviteToken;
@@ -36,7 +38,7 @@ std::string OnezoneClient::createSpaceSupportToken(
 
     Poco::JSON::Object caveat;
     caveat.set("type", "time");
-    caveat.set("validUntil", std::time(0) + 36000);
+    caveat.set("validUntil", std::time(nullptr) + kCaveatValidTime);
 
     Poco::JSON::Array caveats;
     caveats.add(caveat);
@@ -131,7 +133,7 @@ model::UserSpaceDetails OnezoneClient::getUserSpace(
     model::UserSpaceDetails result;
     result.spaceId = object->getValue<std::string>("spaceId");
     result.name = object->getValue<std::string>("name");
-    result.creationTime = object->getValue<unsigned long long>("creationTime");
+    result.creationTime = object->getValue<uint64_t>("creationTime");
 
     return result;
 }
@@ -193,6 +195,6 @@ void OnezoneClient::deleteSpace(
     }
 }
 
-}
-}
-}
+} // namespace onezone
+} // namespace rest
+} // namespace one

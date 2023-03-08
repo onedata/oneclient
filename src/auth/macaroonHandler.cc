@@ -143,9 +143,9 @@ macaroons::Macaroon MacaroonRetrievePolicyFromOptions::retrieveMacaroon() const
 }
 
 MacaroonRetrievePolicyFromCLI::MacaroonRetrievePolicyFromCLI(
-    options::Options &options, const boost::filesystem::path userDataDir)
+    options::Options &options, boost::filesystem::path userDataDir)
     : m_options{options}
-    , m_userDataDir{userDataDir}
+    , m_userDataDir{std::move(userDataDir)}
 {
 }
 
@@ -237,12 +237,13 @@ boost::filesystem::path MacaroonRetrievePolicyFromCLI::macaroonFilePath() const
 }
 
 MacaroonPersistPolicyFile::MacaroonPersistPolicyFile(
-    const boost::filesystem::path &userDataDir)
-    : m_userDataDir{userDataDir}
+    boost::filesystem::path userDataDir)
+    : m_userDataDir{std::move(userDataDir)}
 {
 }
 
-void MacaroonPersistPolicyFile::persistMacaroon(macaroons::Macaroon macaroon)
+void MacaroonPersistPolicyFile::persistMacaroon(
+    const macaroons::Macaroon &macaroon)
 {
     LOG_FCALL();
 

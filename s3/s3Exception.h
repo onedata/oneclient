@@ -154,6 +154,6 @@ S3_EXCEPTION(XAMZContentSHA256Mismatch, k400BadRequest,
     "The provided 'x-amz-content-sha256' header does not match what was "
     "computed.")
 
-}
-}
-}
+} // namespace error
+} // namespace s3
+} // namespace one

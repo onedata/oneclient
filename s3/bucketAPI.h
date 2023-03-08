@@ -43,5 +43,6 @@ public:
 private:
     std::shared_ptr<S3LogicCache> m_logicCache;
 };
-}
-}
+
+} // namespace s3
+} // namespace one

@@ -71,9 +71,10 @@ folly::Optional<size_t> getParameter(
     LOG_DBG(1) << fmt::format("ones3 [{}] {} {} {}{}{}", requestId,            \
         Poco::DateTimeFormatter::format(                                       \
             Poco::Timestamp{}, Poco::DateTimeFormat::ISO8601_FORMAT),          \
-        op, req->getPath(),                                                    \
-        req->getQuery().empty() ? "" : fmt::format("?{}", req->getQuery()),    \
-        other.empty() ? "" : fmt::format(" ({})", other));
+        op, (req)->getPath(),                                                  \
+        (req)->getQuery().empty() ? ""                                         \
+                                  : fmt::format("?{}", (req)->getQuery()),     \
+        (other).empty() ? "" : fmt::format(" ({})", (other)));
 
 #define LOG_REQUEST_4(op, bucket, requestId, req)                              \
     LOG_REQUEST_5(op, bucket, requestId, req, std::string{""})
@@ -85,17 +86,18 @@ folly::Optional<size_t> getParameter(
     LOG_DBG(1) << fmt::format(                                                 \
         "ones3 [{}] ERROR: {}: {}", REQUEST_ID_, MESSAGE_, REASON_);
 
-bool S3Server::bucketNameCached(std::string name) const
+bool S3Server::bucketNameCached(const std::string &name) const
 {
     return m_bucketNameCache.find(name) != m_bucketNameCache.end();
 }
 
-std::string S3Server::getCachedBucketId(std::string name) const
+std::string S3Server::getCachedBucketId(const std::string &name) const
 {
     return m_bucketNameCache.at(name);
 }
 
-void S3Server::cacheBucketName(std::string name, std::string id) const
+void S3Server::cacheBucketName(
+    const std::string &name, const std::string &id) const
 {
     LOG_DBG(3) << "Caching bucket " << name << " --> " << id;
     m_bucketNameCache.emplace(name, id);
@@ -145,7 +147,8 @@ std::unique_ptr<S3Authorization> S3Authorization::fromHttpRequest(
 
         return std::make_unique<S3AuthorizationNone>();
     }
-    else if (authorizationHeader.find("AWS4-HMAC-SHA256") == 0) {
+
+    if (authorizationHeader.find("AWS4-HMAC-SHA256") == 0) {
         // This is a V4 request
 
         auto auth = std::make_unique<S3AuthorizationV4>();
@@ -154,14 +157,14 @@ std::unique_ptr<S3Authorization> S3Authorization::fromHttpRequest(
         auto credentialsIdx = authorizationHeader.find("Credential=");
         credentialsIdx += strlen("Credential=");
         std::string credential = authorizationHeader.substr(
-            credentialsIdx, authorizationHeader.find(",") - credentialsIdx);
+            credentialsIdx, authorizationHeader.find(',') - credentialsIdx);
         auth->parseCredential(credential);
 
         auto signedHeadersIdx = authorizationHeader.find("SignedHeaders=");
         signedHeadersIdx += strlen("SignedHeaders=");
         auto signedHeaders = authorizationHeader.substr(signedHeadersIdx,
-            authorizationHeader.find(",", signedHeadersIdx) - signedHeadersIdx);
-        folly::split(";", signedHeaders, auth->signedHeaders, false);
+            authorizationHeader.find(',', signedHeadersIdx) - signedHeadersIdx);
+        folly::split(';', signedHeaders, auth->signedHeaders, false);
 
         auto signatureIdx = authorizationHeader.find("Signature=");
         signatureIdx += strlen("Signature=");
@@ -215,7 +218,7 @@ void S3Server::listBuckets(
                 callback(response);
             })
         .thenError(
-            folly::tag_t<std::exception>{}, [callback](auto &&e) mutable {
+            folly::tag_t<std::exception>{}, [callback](auto && /*e*/) mutable {
                 auto response = HttpResponse::newHttpResponse();
                 response->setStatusCode(drogon::k500InternalServerError);
                 callback(response);
@@ -303,11 +306,13 @@ void S3Server::putBucket(const HttpRequestPtr &req,
                 // Why do I have to do this? Shouldn't ensureSpaceIsSupported()
                 // be enough
                 const int kEnsureSpaceSupportRetryCount = 100;
+                const int kEnsureSpaceSupportDelayMS = 100;
                 auto retries = kEnsureSpaceSupportRetryCount;
                 while (retries-- > 0) {
                     auto buckets = m_logicCache->get(auth->getToken())
-                                       .delayed(std::chrono::milliseconds(100))
-                                       .thenTry([&req](auto &&s3) {
+                                       .delayed(std::chrono::milliseconds(
+                                           kEnsureSpaceSupportDelayMS))
+                                       .thenTry([](auto &&s3) {
                                            return s3.value()->listBuckets();
                                        })
                                        .get();
@@ -346,7 +351,7 @@ void S3Server::putBucket(const HttpRequestPtr &req,
 }
 
 bool S3Server::ensureSpaceIsSupported(const std::string &bucket,
-    HttpResponseCallback callback, const std::string &requestId,
+    const HttpResponseCallback &callback, const std::string &requestId,
     const std::string &token) const
 {
     if (bucketNameCached(bucket))
@@ -361,7 +366,6 @@ bool S3Server::ensureSpaceIsSupported(const std::string &bucket,
 
     try {
         try {
-
             // Get the space id
             std::string spaceId;
             for (const auto &space : onezoneClient.listUserSpaces(token)) {
@@ -379,10 +383,13 @@ bool S3Server::ensureSpaceIsSupported(const std::string &bucket,
                 // Why do I have to do this? Shouldn't ensureSpaceIsSupported()
                 // be enough
                 const int kEnsureSpaceSupportRetryCount = 100;
+                const int kEnsureSpaceSupportDelayMS = 100;
+
                 auto retries = kEnsureSpaceSupportRetryCount;
                 while (retries-- > 0) {
                     auto buckets = m_logicCache->get(token)
-                                       .delayed(std::chrono::milliseconds(100))
+                                       .delayed(std::chrono::milliseconds(
+                                           kEnsureSpaceSupportDelayMS))
                                        .thenTry([](auto &&s3) {
                                            return s3.value()->listBuckets();
                                        })
@@ -437,7 +444,7 @@ void S3Server::headBucket(const HttpRequestPtr &req,
     m_logicCache->get(auth->getToken())
         .thenTry(
             [bucket](auto &&s3) { return s3.value()->getBucketAttr(bucket); })
-        .thenValue([callback](messages::fuse::FileAttr &&bucketAttr) {
+        .thenValue([callback](messages::fuse::FileAttr && /*bucketAttr*/) {
             auto response = HttpResponse::newHttpResponse();
             callback(response);
         })
@@ -448,7 +455,7 @@ void S3Server::headBucket(const HttpRequestPtr &req,
                 callback(response);
             })
         .thenError(
-            folly::tag_t<std::exception>{}, [callback](auto &&e) mutable {
+            folly::tag_t<std::exception>{}, [callback](auto && /*e*/) mutable {
                 auto response = HttpResponse::newHttpResponse();
                 response->setStatusCode(drogon::k500InternalServerError);
                 callback(response);
@@ -490,7 +497,7 @@ void S3Server::deleteBucket(const HttpRequestPtr &req,
 
         bool isEmpty =
             m_logicCache->get(auth->getToken())
-                .thenValue([&bucket, this](std::shared_ptr<S3Logic> &&s3) {
+                .thenValue([&bucket](std::shared_ptr<S3Logic> &&s3) {
                     return s3->readDirV2Recursive(bucket, "", {}, 1, false)
                         .thenValue(
                             [](Aws::S3::Model::ListObjectsV2Result &&result) {
@@ -504,17 +511,19 @@ void S3Server::deleteBucket(const HttpRequestPtr &req,
 
         onezoneClient.deleteSpace(auth->getToken(), spaceIdToDelete.value());
 
-        auto retries = 2 * 60;
+        constexpr auto kRetryCount{120};
+        constexpr auto kRetryDelay{500};
+        auto retries = kRetryCount;
+
         while (retries-- > 0) {
             bool bucketStillListing{false};
 
-            auto buckets =
-                m_logicCache->get(auth->getToken())
-                    .delayed(std::chrono::milliseconds(500))
-                    .thenValue([&req](std::shared_ptr<S3Logic> &&s3) {
-                        return s3->listBuckets();
-                    })
-                    .get();
+            auto buckets = m_logicCache->get(auth->getToken())
+                               .delayed(std::chrono::milliseconds(kRetryDelay))
+                               .thenValue([](std::shared_ptr<S3Logic> &&s3) {
+                                   return s3->listBuckets();
+                               })
+                               .get();
 
             for (const auto &listedBucket : buckets.GetBuckets()) {
                 if (listedBucket.GetName() == bucket) {
@@ -572,7 +581,7 @@ void S3Server::getLocationConstraint(const HttpRequestPtr &req,
                 callback(response);
             })
         .thenError(
-            folly::tag_t<std::exception>{}, [callback](auto &&e) mutable {
+            folly::tag_t<std::exception>{}, [callback](auto && /*e*/) mutable {
                 auto response = HttpResponse::newHttpResponse();
                 response->setStatusCode(drogon::k500InternalServerError);
                 callback(response);
@@ -594,8 +603,8 @@ void S3Server::getVersioning(const HttpRequestPtr &req,
     }
 
     m_logicCache->get(auth->getToken())
-        .thenTry([&req, &bucket](
-                     auto &&s3) { return s3.value()->getBucketAttr(bucket); })
+        .thenTry(
+            [&bucket](auto &&s3) { return s3.value()->getBucketAttr(bucket); })
         .thenTry([callback](auto &&bucketAttr) {
             bucketAttr.value();
 
@@ -612,7 +621,7 @@ void S3Server::getVersioning(const HttpRequestPtr &req,
                 callback(response);
             })
         .thenError(
-            folly::tag_t<std::exception>{}, [callback](auto &&e) mutable {
+            folly::tag_t<std::exception>{}, [callback](auto && /*e*/) mutable {
                 auto response = HttpResponse::newHttpResponse();
                 response->setStatusCode(drogon::k500InternalServerError);
                 callback(response);
@@ -644,7 +653,7 @@ void S3Server::headObject(const HttpRequestPtr &req,
             auto response = HttpResponse::newHttpResponse();
             response->addHeader("content-length",
                 std::to_string(headResult.value().GetContentLength()));
-            if (path.size() > 0 && path.back() == '/')
+            if (!path.empty() && path.back() == '/')
                 // This is required for handling empty directories
                 response->setContentTypeString("application/octet-stream");
             else
@@ -866,7 +875,7 @@ void S3Server::putMultipartPart(const HttpRequestPtr &req,
                         bucket, path, requestId);
                 }
 
-                auto &file = fileUpload.getFiles()[0];
+                const auto &file = fileUpload.getFiles()[0];
                 bodyData = file.fileData();
                 bodyLength = file.fileLength();
                 bodyMD5 = file.getMd5();
@@ -881,9 +890,8 @@ void S3Server::putMultipartPart(const HttpRequestPtr &req,
             return s3.value()
                 ->uploadMultipartPart(requestId, bucket, path, uploadId,
                     partNumber, bodyLength, bodyMD5, buf)
-                .thenValue([bodyMD5, bodyLength, response,
-                               callback = std::move(callback),
-                               timer](auto &&unit) {
+                .thenValue([bodyMD5, bodyLength, response, callback, timer](
+                               auto && /*unit*/) {
                     LOG_DBG(2) << "File uploaded";
 
                     response->addHeader("etag", fmt::format("\"{}\"", bodyMD5));
@@ -940,7 +948,7 @@ void S3Server::putCompleteObject(const HttpRequestPtr &req,
 
             MultiPartParser fileUpload;
 
-            if (req->bodyLength() && req->bodyData() != nullptr) {
+            if (req->bodyLength() > 0 && req->bodyData() != nullptr) {
                 bodyData = req->getBody().data();
                 bodyLength = req->bodyLength();
             }
@@ -952,11 +960,12 @@ void S3Server::putCompleteObject(const HttpRequestPtr &req,
                     callback(response);
                     return folly::makeFuture();
                 }
-                else if (fileUpload.getFiles().size() == 0) {
+
+                if (fileUpload.getFiles().empty()) {
                     bodyLength = 0;
                 }
                 else {
-                    auto &file = fileUpload.getFiles()[0];
+                    const auto &file = fileUpload.getFiles()[0];
                     bodyData = file.fileData();
                     bodyLength = file.fileLength();
                     bodyMD5 = file.getMd5();
@@ -983,8 +992,8 @@ void S3Server::putCompleteObject(const HttpRequestPtr &req,
             return s3
                 ->uploadObject(requestId, bucket, path, bodyMD5,
                     bodyContentType, std::move(buf))
-                .thenValue([callback = std::move(callback), response, bodyMD5,
-                               timer](auto &&written) {
+                .thenValue([callback, response, bodyMD5, timer](
+                               auto &&written) {
                     LOG_DBG(2) << "File uploaded";
 
                     response->addHeader("etag", fmt::format("\"{}\"", bodyMD5));
@@ -1032,11 +1041,10 @@ void S3Server::deleteObject(const HttpRequestPtr &req,
     ONE_METRIC_COUNTER_INC(toMetricName("delete_object", bucket));
 
     m_logicCache->get(auth->getToken())
-        .thenValue([callback = std::move(callback), &bucket, &path, requestId,
-                       this](std::shared_ptr<S3Logic> &&s3) {
+        .thenValue([callback, &bucket, &path, requestId](
+                       std::shared_ptr<S3Logic> &&s3) {
             return s3->deleteObject(requestId, bucket, path)
-                .thenTry([callback = std::move(callback)](
-                             folly::Try<folly::Unit> &&value) {
+                .thenTry([callback](folly::Try<folly::Unit> &&value) {
                     if (value.hasException()) {
                         auto response = HttpResponse::newHttpResponse();
                         response->setStatusCode(HttpStatusCode::k404NotFound);
@@ -1089,8 +1097,8 @@ void S3Server::deleteObjects(const HttpRequestPtr &req,
     ONE_METRIC_COUNTER_INC(toMetricName("delete_objects", bucket));
 
     m_logicCache->get(auth->getToken())
-        .thenValue([deleteRequest = std::move(deleteRequest), bucket, requestId,
-                       this](auto &&s3) {
+        .thenValue([deleteRequest = std::move(deleteRequest), bucket,
+                       requestId](auto &&s3) {
             std::vector<folly::Future<
                 std::pair<std::string, folly::Optional<std::string>>>>
                 futs;
@@ -1220,7 +1228,8 @@ void S3Server::listObjects(const HttpRequestPtr &req,
         return;
     }
 
-    size_t maxKeys{1000};
+    constexpr auto kMaxKeysDefault{1000};
+    size_t maxKeys{kMaxKeysDefault};
     if (getParameter(req, "max-keys")) {
         maxKeys = std::min<size_t>(
             maxKeys, std::stoull(getParameter(req, "max-keys").value()));
@@ -1229,8 +1238,9 @@ void S3Server::listObjects(const HttpRequestPtr &req,
     auto tokenFuture = m_logicCache->get(auth->getToken());
     if (delimiter.empty()) {
         std::move(tokenFuture)
-            .thenValue([&req, listVersion, callback, bucket, prefix, marker,
-                           maxKeys, this](std::shared_ptr<S3Logic> &&s3) {
+            .thenValue([listVersion, callback = std::move(callback), bucket,
+                           prefix, marker,
+                           maxKeys](std::shared_ptr<S3Logic> &&s3) mutable {
                 if (listVersion == 2)
                     s3->readDirV2Recursive(bucket, prefix, marker, maxKeys)
                         .thenValue([callback](auto &&result) {
@@ -1257,12 +1267,12 @@ void S3Server::listObjects(const HttpRequestPtr &req,
     }
     else {
         std::move(tokenFuture)
-            .thenValue([&req, listVersion, callback, bucket, prefix, marker,
-                           &delimiter, maxKeys,
-                           this](std::shared_ptr<S3Logic> &&s3) {
+            .thenValue([listVersion, callback = std::move(callback), bucket,
+                           prefix, marker, &delimiter,
+                           maxKeys](std::shared_ptr<S3Logic> &&s3) mutable {
                 if (listVersion == 2)
                     s3->readDirV2(bucket, prefix, marker, delimiter, maxKeys)
-                        .thenTry([callback = std::move(callback), maxKeys](
+                        .thenTry([callback = std::move(callback)](
                                      auto &&result) {
                             auto response = HttpResponse::newHttpResponse();
                             response->setContentTypeString("application/xml");
@@ -1313,8 +1323,9 @@ void S3Server::createMultipartUpload(const HttpRequestPtr &req,
         contentType = req->headers().at("content-type");
 
     m_logicCache->get(auth->getToken())
-        .thenValue([requestId, callback, response, bucket, path, contentType](
-                       std::shared_ptr<S3Logic> &&s3) {
+        .thenValue([requestId, callback = std::move(callback), response, bucket,
+                       path,
+                       contentType](std::shared_ptr<S3Logic> &&s3) mutable {
             return s3
                 ->createMultipartUpload(bucket, path, requestId, contentType)
                 .thenTry([response, callback = std::move(callback)](folly::Try<
@@ -1364,15 +1375,15 @@ void S3Server::abortMultipartUpload(const HttpRequestPtr &req,
     auto response = HttpResponse::newHttpResponse();
 
     m_logicCache->get(auth->getToken())
-        .thenValue(
-            [response, callback, bucket, path](std::shared_ptr<S3Logic> &&s3) {
-                return s3->abortMultipartUpload(bucket, path)
-                    .thenValue([response, callback = std::move(callback)](
-                                   auto &&result) {
-                        response->setStatusCode(HttpStatusCode::k204NoContent);
-                        callback(response);
-                    });
-            })
+        .thenValue([response, callback = std::move(callback), bucket, path](
+                       std::shared_ptr<S3Logic> &&s3) mutable {
+            return s3->abortMultipartUpload(bucket, path)
+                .thenValue([response, callback = std::move(callback)](
+                               auto && /*result*/) {
+                    response->setStatusCode(HttpStatusCode::k204NoContent);
+                    callback(response);
+                });
+        })
         .thenError(folly::tag_t<one::s3::error::S3Exception>{},
             [response, callback, requestId](auto &&e) mutable {
                 LOG_REQUEST_ERROR(requestId,
@@ -1457,9 +1468,9 @@ void S3Server::listMultipartUploadParts(const HttpRequestPtr &req,
     ONE_METRIC_COUNTER_INC(toMetricName("list_multipart_uploads", bucket));
 
     m_logicCache->get(auth->getToken())
-        .thenValue([response, callback, requestId, path, bucket, uploadId,
-                       maxParts,
-                       partNumberMarker](std::shared_ptr<S3Logic> &&s3) {
+        .thenValue([response, callback = std::move(callback), requestId, path,
+                       bucket, uploadId, maxParts, partNumberMarker](
+                       std::shared_ptr<S3Logic> &&s3) mutable {
             return s3
                 ->listMultipartUploadParts(
                     uploadId, bucket, path, maxParts, partNumberMarker)
@@ -1522,7 +1533,7 @@ void S3Server::readinessProbe(
 
         isOk = m_logicCache->updateClientStatus(clients);
 
-        body.set("clients", std::move(clients));
+        body.set("clients", clients);
         body.set("isOk", isOk);
 
         auto bodyStr = rest::toString(body);
@@ -1548,5 +1559,5 @@ std::string S3Server::toMetricName(
     return fmt::format(
         "comp.ones3.mod.s3server.{}.{}", op, getCachedBucketId(bucket));
 }
-}
-}
+} // namespace s3
+} // namespace one
