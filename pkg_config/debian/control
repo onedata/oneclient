@@ -21,6 +21,7 @@ Build-Depends:
     libfuse3-dev (>= 3.6),
     libgoogle-glog-dev (>= 0.3.4),
     libiberty-dev,
+    libjsoncpp-dev,
     libltdl-dev,
     libnspr4-dev,
     libnss3-dev,

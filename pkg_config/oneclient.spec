@@ -71,6 +71,7 @@ BuildRequires: fuse3-devel >= 3.6
 BuildRequires: git
 BuildRequires: glusterfs-api-devel >= 6.0
 BuildRequires: golang
+BuildRequires: jsoncpp-devel
 BuildRequires: libcurl-devel
 BuildRequires: libevent-devel
 BuildRequires: libunwind-devel
