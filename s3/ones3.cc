@@ -83,7 +83,7 @@ int main(int argc, char *argv[])
         return EXIT_SUCCESS;
     }
 
-    one::client::logging::startLogging(argv[0], options);
+    one::client::logging::startLoggingOneS3(argv[0], options);
 
     if (one::client::logging::startPerformanceMonitoring(options) !=
         EXIT_SUCCESS)

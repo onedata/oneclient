@@ -142,6 +142,25 @@ macaroons::Macaroon MacaroonRetrievePolicyFromOptions::retrieveMacaroon() const
     }
 }
 
+MacaroonRetrievePolicyFromToken::MacaroonRetrievePolicyFromToken(
+    folly::fbstring token)
+    : m_token{std::move(token)}
+{
+}
+
+macaroons::Macaroon MacaroonRetrievePolicyFromToken::retrieveMacaroon() const
+{
+    try {
+        return deserialize(m_token.toStdString());
+    }
+    catch (const macaroons::exception::Exception &e) {
+        LOG(ERROR) << "Failed to parse access token passed on command line: "
+                   << e.what();
+
+        throw;
+    }
+}
+
 MacaroonRetrievePolicyFromCLI::MacaroonRetrievePolicyFromCLI(
     options::Options &options, boost::filesystem::path userDataDir)
     : m_options{options}

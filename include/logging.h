@@ -25,6 +25,16 @@ void startLogging(
     const char *programName, std::shared_ptr<options::Options> options);
 
 /**
+ * Starts OneS3 logging to stderr and directory specified in the options.
+ *
+ * @param programName Program name which will be used as the prefix for
+ *                    generated log files.
+ * @param options Command line options passed to the oneclient or onedatafs.
+ */
+void startLoggingOneS3(
+    const char *programName, std::shared_ptr<options::Options> options);
+
+/**
  * Starts performance metrics logging.
  *
  * @param options Command line options passed to the oneclient or onedatafs.

@@ -51,6 +51,7 @@ if(PYTHON3_CONFIG)
                                         libboost_python37.so.1.76.0
                                         libboost_python37.so.1.76.0
                                         libboost_python38.so.1.71.0
+                                        libboost_python310.so.1.74.0
                                         libboost_python38.so.1.76.0
                                         libboost_python39.so.1.76.0
                                         libboost_python39.so.1.77.0

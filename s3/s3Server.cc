@@ -205,10 +205,10 @@ void S3Server::listBuckets(
             s3.throwIfFailed();
             return s3.value()->listBuckets();
         })
-        .thenTry([callback](auto &&buckets) {
+        .thenValue([callback](auto &&buckets) {
             auto response = HttpResponse::newHttpResponse();
             response->setBody(
-                serialize<Aws::S3::Model::ListBucketsResult>(buckets.value()));
+                serialize<Aws::S3::Model::ListBucketsResult>(buckets));
             callback(response);
         })
         .thenError(folly::tag_t<one::s3::error::S3Exception>{},

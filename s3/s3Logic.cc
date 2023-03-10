@@ -92,7 +92,7 @@ folly::Future<std::shared_ptr<S3Logic>> S3Logic::connect()
     if (m_connected)
         return shared_from_this();
 
-    m_authManager = one::client::getOptionsAuthManager(m_context);
+    m_authManager = one::client::getTokenAuthManager(m_context, m_token);
     auto sessionId = one::client::generateSessionId();
     m_configuration = one::client::getConfiguration(sessionId, m_authManager,
         m_context, messages::handshake::ClientType::ones3);

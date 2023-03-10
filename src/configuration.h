@@ -28,6 +28,9 @@ std::shared_ptr<auth::AuthManager> getCLIAuthManager(
 std::shared_ptr<auth::AuthManager> getOptionsAuthManager(
     std::shared_ptr<Context> context);
 
+std::shared_ptr<auth::AuthManager> getTokenAuthManager(
+    std::shared_ptr<Context> context, const folly::fbstring &token);
+
 std::shared_ptr<messages::Configuration> getConfiguration(
     const std::string &sessionId,
     std::shared_ptr<auth::AuthManager> authManager,

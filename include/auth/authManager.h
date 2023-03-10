@@ -140,6 +140,20 @@ public:
     {
     }
 
+    template <typename T = MacaroonHandlerT>
+    MacaroonAuthManager(std::weak_ptr<Context> context,
+        std::string defaultHostname, const unsigned int port,
+        const folly::fbstring &token, const bool checkCertificate,
+        const std::chrono::seconds providerTimeout,
+        typename std::enable_if_t<std::is_same<T, TokenMacaroonHandler>::value>
+            * = nullptr)
+        : AuthManager{context, std::move(defaultHostname), port,
+              checkCertificate, providerTimeout}
+        , m_macaroonHandler{
+              std::make_unique<T>(MacaroonRetrievePolicyFromToken{token})}
+    {
+    }
+
     virtual ~MacaroonAuthManager() { m_cancelRefresh(); }
 
     std::tuple<std::shared_ptr<communication::Communicator>,

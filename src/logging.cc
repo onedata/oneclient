@@ -31,8 +31,9 @@ namespace logging {
 
 using namespace one::monitoring; // NOLINT
 
-void startLogging(
-    const char *programName, std::shared_ptr<options::Options> options)
+namespace {
+void ensure_logging_directory_exists(
+    const std::shared_ptr<options::Options> &options)
 {
     try {
         boost::filesystem::create_directories(options->getLogDirPath());
@@ -42,6 +43,13 @@ void startLogging(
                   << options->getLogDirPath() << ": '" << e.what()
                   << "'. Aborting..." << std::endl;
     }
+}
+} // namespace
+
+void startLogging(
+    const char *programName, std::shared_ptr<options::Options> options)
+{
+    ensure_logging_directory_exists(options);
 
     if (options->isReadWritePerfEnabled()) {
         one::helpers::startReadWritePerfLogger(
@@ -94,6 +102,75 @@ void startLogging(
     LOG(INFO) << "Read/write perf log enabled: "
               << options->isReadWritePerfEnabled();
     LOG(INFO) << "Mountpoint: " << options->getMountpoint();
+
+    google::FlushLogFiles(google::GLOG_INFO);
+}
+
+void startLoggingOneS3(
+    const char *programName, std::shared_ptr<options::Options> options)
+{
+    ensure_logging_directory_exists(options);
+
+    if (options->isReadWritePerfEnabled()) {
+        one::helpers::startReadWritePerfLogger(
+            options->getLogDirPath().string());
+    }
+
+    FLAGS_log_dir = options->getLogDirPath().c_str();
+    FLAGS_stop_logging_if_full_disk = true;
+    FLAGS_logtostderr = true;
+    FLAGS_v = options->getVerboseLogLevel();
+    // Set maximum log size to 50MB plus 50MB for each verbosity level
+    constexpr auto kMaximumLogSizeMB = 50;
+    FLAGS_max_log_size =
+        kMaximumLogSizeMB * (1 + options->getVerboseLogLevel());
+    FLAGS_minloglevel = 0;
+
+    google::InitGoogleLogging(programName);
+
+    LOG(INFO) << "OneS3 version: " << ONECLIENT_VERSION;
+    LOG(INFO) << "OneS3 commit: " << ONECLIENT_GIT_COMMIT;
+    LOG(INFO) << "Helpers commit: " << HELPERS_GIT_COMMIT;
+    LOG(INFO) << "Verbose logging level: " << options->getVerboseLogLevel();
+    LOG(INFO) << "Connecting to Onezone: " << options->getOnezoneHost().get();
+    LOG(INFO) << "Connecting to Oneprovider: "
+              << options->getProviderHost().get();
+    LOG(INFO) << "Forced direct IO: " << options->isDirectIOForced();
+    LOG(INFO) << "Forced proxy IO: " << options->isProxyIOForced();
+    LOG(INFO) << "Verify server certificate: " << !options->isInsecure();
+    LOG(INFO) << "File read events disabled: "
+              << options->areFileReadEventsDisabled();
+    LOG(INFO) << "IO buffered: " << options->isIOBuffered();
+    LOG(INFO) << "Oneprovider connection timeout [s]: "
+              << options->getProviderTimeout().count();
+    LOG(INFO) << "Monitoring enabled: " << options->isMonitoringEnabled();
+    if (options->isMonitoringEnabled()) {
+        if (options->getMonitoringType())
+            LOG(INFO) << "Monitoring type: "
+                      << options->getMonitoringType().get();
+        LOG(INFO) << "Monitoring level basic: "
+                  << options->isMonitoringLevelBasic();
+        LOG(INFO) << "Monitoring level full: "
+                  << options->isMonitoringLevelFull();
+        if (options->getMonitoringGraphiteUrl())
+            LOG(INFO) << "Graphite URL: "
+                      << options->getMonitoringGraphiteUrl().get();
+        if (options->getMonitoringGraphiteNamespacePrefix())
+            LOG(INFO) << "Graphite namespace prefix: "
+                      << options->getMonitoringGraphiteNamespacePrefix().get();
+    }
+    LOG(INFO) << "Read/write perf log enabled: "
+              << options->isReadWritePerfEnabled();
+    LOG(INFO) << "OneS3 server address: " << options->getOneS3AddressBind();
+    if (options->getOneS3HTTPPort())
+        LOG(INFO) << "OneS3 server HTTP port: "
+                  << options->getOneS3HTTPPort().get();
+    if (options->getOneS3HTTPSPort())
+        LOG(INFO) << "OneS3 server HTTPS port: "
+                  << options->getOneS3HTTPSPort().get();
+    if (options->getOneS3SupportStorageId())
+        LOG(INFO) << "OneS3 storage support id: "
+                  << options->getOneS3SupportStorageId().get();
 
     google::FlushLogFiles(google::GLOG_INFO);
 }

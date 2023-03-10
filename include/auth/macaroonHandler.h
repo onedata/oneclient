@@ -57,6 +57,16 @@ private:
     options::Options &m_options;
 };
 
+class MacaroonRetrievePolicyFromToken {
+public:
+    MacaroonRetrievePolicyFromToken(folly::fbstring token);
+
+    macaroons::Macaroon retrieveMacaroon() const;
+
+private:
+    folly::fbstring m_token;
+};
+
 class MacaroonRetrievePolicyFromCLI {
 public:
     MacaroonRetrievePolicyFromCLI(
@@ -140,6 +150,7 @@ protected:
     macaroons::Macaroon m_restrictedMacaroon;
 };
 
+using TokenMacaroonHandler = MacaroonHandler<MacaroonRetrievePolicyFromToken>;
 using OptionsMacaroonHandler =
     MacaroonHandler<MacaroonRetrievePolicyFromOptions>;
 using CLIMacaroonHandler =

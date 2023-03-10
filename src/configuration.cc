@@ -83,6 +83,16 @@ std::shared_ptr<auth::AuthManager> getOptionsAuthManager(
         !options->isInsecure(), options->getProviderTimeout());
 }
 
+std::shared_ptr<auth::AuthManager> getTokenAuthManager(
+    std::shared_ptr<Context> context, const folly::fbstring &token)
+{
+    auto options = context->options();
+    return std::make_shared<
+        auth::MacaroonAuthManager<auth::TokenMacaroonHandler>>(context,
+        options->getProviderHost().get(), options->getProviderPort(), token,
+        !options->isInsecure(), options->getProviderTimeout());
+}
+
 std::shared_ptr<messages::Configuration> getConfiguration(
     const std::string &sessionId,
     std::shared_ptr<auth::AuthManager> authManager,
