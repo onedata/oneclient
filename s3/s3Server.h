@@ -12,6 +12,7 @@
 #include "types.h"
 
 #include <boost/lexical_cast.hpp>
+#include <boost/uuid/random_generator.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
@@ -111,7 +112,7 @@ public:
               m_options->getOneS3ReadinessProbeBasicAuth()}
     {
         m_randomGenerator.seed(std::random_device{}());
-        m_uuidGenerator = boost::uuids::basic_random_generator<std::mt19937>{
+        m_uuidGenerator = boost::uuids::basic_random_generator<boost::mt19937>{
             m_randomGenerator};
     }
 
@@ -228,8 +229,9 @@ private:
     const boost::optional<unsigned int> m_httpsPort;
 
     mutable std::mutex m_uuidGeneratorMutex;
-    std::mt19937 m_randomGenerator;
-    mutable boost::uuids::basic_random_generator<std::mt19937> m_uuidGenerator;
+    boost::mt19937 m_randomGenerator;
+    mutable boost::uuids::basic_random_generator<boost::mt19937>
+        m_uuidGenerator;
 
     mutable folly::ConcurrentHashMap<std::string /* bucketName */,
         std::string /* spaceId */>
