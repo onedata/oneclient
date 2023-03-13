@@ -117,6 +117,9 @@ phony:
 %/oneclient: %/CMakeCache.txt phony
 	cmake --build $* --target oneclient
 
+%/ones3: %/CMakeCache.txt phony
+	cmake --build $* --target ones3
+
 %/onebench: %/CMakeCache.txt phony
 	cmake --build $* --target onebench
 
@@ -130,10 +133,10 @@ phony:
 deb-info: relwithdebinfo/oneclient
 
 .PHONY: release
-release: release/oneclient release/onebench release/onedatafs-py3
+release: release/oneclient release/ones3 release/onebench release/onedatafs-py3
 
 .PHONY: debug
-debug: debug/oneclient debug/onebench debug/onedatafs-py3
+debug: debug/oneclient debug/ones3 debug/onebench debug/onedatafs-py3
 
 .PHONY: test
 test: debug
@@ -367,6 +370,10 @@ oneclient_tar $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz:
 		-t docker.onedata.org/oneclient-base:$(ONECLIENT_BASE_IMAGE) \
 		/usr/bin/oneclient /output/lib
 	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
+		-v $(CURDIR)/cpld.sh:/bin/cpld.sh --entrypoint /bin/cpld.sh \
+		-t docker.onedata.org/oneclient-base:$(ONECLIENT_BASE_IMAGE) \
+		/usr/bin/ones3 /output/lib
+	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
 		--entrypoint /bin/bash \
 		-t docker.onedata.org/oneclient-base:$(ONECLIENT_BASE_IMAGE) \
 		-c 'cp /usr/bin/oneclient /output/bin && \
@@ -393,6 +400,11 @@ oneclient_tar $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz:
 		--set-interpreter /opt/oneclient/lib/ld-linux-x86-64.so.2 \
 		--set-rpath /opt/oneclient/lib --force-rpath \
 		/output/bin/oneclient
+	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
+		-t $(PATCHELF_DOCKER_IMAGE) \
+		--set-interpreter /opt/oneclient/lib/ld-linux-x86-64.so.2 \
+		--set-rpath /opt/oneclient/lib --force-rpath \
+		/output/bin/ones3
 	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
 		-t $(PATCHELF_DOCKER_IMAGE) \
 		--set-interpreter /opt/oneclient/lib/ld-linux-x86-64.so.2 \
