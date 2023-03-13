@@ -515,6 +515,14 @@ set(CLIENT_SOURCES
     ${PROJECT_SOURCES})
 endif(WITH_ONECLIENT)
 
+if(WITH_ONEBENCH)
+    add_subdirectory(bench)
+endif(WITH_ONEBENCH)
+
+if(WITH_ONES3)
+    add_subdirectory(s3)
+endif(WITH_ONES3)
+
 if(WITH_ONEDATAFS)
   set(ONEDATAFS_SOURCES
       ${CMAKE_CURRENT_SOURCE_DIR}/src/onedatafs.cc
@@ -596,6 +604,7 @@ if(WITH_ONEDATAFS)
     install(FILES onedatafs/python/__init__.py DESTINATION ${PYTHON3_INSTALL_DIR}/onedatafs)
   endif(PYTHON3_FOUND)
 endif(WITH_ONEDATAFS)
+
 if(WITH_ONES3)
     install(TARGETS ones3 DESTINATION ${CMAKE_INSTALL_FULL_BINDIR})
 endif(WITH_ONES3)
@@ -632,14 +641,6 @@ if(CLANG_TIDY)
 else(CLANG_TIDY)
     message(STATUS "run-clang-tidy script not found - target clang-tidy not available")
 endif(CLANG_TIDY)
-
-if(WITH_ONEBENCH)
-add_subdirectory(bench)
-endif(WITH_ONEBENCH)
-
-if(WITH_ONES3)
-    add_subdirectory(s3)
-endif(WITH_ONES3)
 
 if(WITH_TESTS)
 enable_testing()
