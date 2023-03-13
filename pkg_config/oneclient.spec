@@ -138,6 +138,8 @@ LDFLAGS="-L/opt/onedata/%{scl}/root/usr/lib64" \
 CFLAGS="-I/opt/onedata/%{scl}/root/usr/include" \
 CXXFLAGS="-I/opt/onedata/%{scl}/root/usr/include" \
 TBB_INSTALL_DIR=/opt/onedata/%{scl}/root/usr \
+HTTP_PROXY=http://proxy.deve.onedata.org:3128 \
+HTTPS_PROXY=http://proxy.devel.onedata.org:3128 \
 cmake3 . -DLIB_INSTALL_DIR=lib64 \
          -DCMAKE_INSTALL_PREFIX=/usr \
          -DCMAKE_LIBRARY_PATH=/opt/onedata/%{scl}/root/usr/lib64 \
@@ -157,6 +159,7 @@ cmake3 . -DLIB_INSTALL_DIR=lib64 \
          -DPYTHON3_LDFLAGS="-lpython3.6m -lpthread -ldl  -lutil -lm  -Xlinker -export-dynamic" \
          -DSTATIC_LIBSTDCPP=ON -DSTATIC_BOOST=OFF -DSTATIC_PROTOBUF=ON
 make %{_smp_mflags} oneclient
+make %{_smp_mflags} ones3
 make %{_smp_mflags} onebench
 make %{_smp_mflags} onedatafs.py3
 SCL_EOF_MACRO
@@ -167,8 +170,10 @@ make install DESTDIR=$RPM_BUILD_ROOT/opt/onedata/%{scl}/root/
 
 %files
 %{_bindir}/oneclient
+%{_bindir}/ones3
 %{_bindir}/onebench
 /opt/onedata/%{scl}/root/etc/oneclient.conf
+/opt/onedata/%{scl}/root/etc/ones3.conf
 %{_mandir}/man1/oneclient.1.gz
 %{_mandir}/man5/oneclient.conf.5.gz
 /opt/onedata/%{scl}/root/var/lib/oneclient/*
