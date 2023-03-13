@@ -313,9 +313,9 @@ rpm: check_distribution package/$(PKG_ID).tar.gz
 	patch -d package/ -p1 -i $(PKG_ID)/pkg_config/$(DISTRIBUTION).patch
 	sed -i "s/{{version}}/$(PKG_VERSION)/g" package/oneclient.spec
 	sed -i "s/{{build}}/$(PKG_BUILD)/g" package/oneclient.spec
-	mock --root $(DISTRIBUTION) --buildsrpm --spec package/oneclient.spec --resultdir=package/packages \
+	mock --root $(DISTRIBUTION) --enable-network --buildsrpm --spec package/oneclient.spec --resultdir=package/packages \
 		--sources package/$(PKG_ID).orig.tar.gz
-	mock --root $(DISTRIBUTION) --resultdir=package/packages --rebuild package/packages/onedata$(RELEASE)-$(PKG_ID)*.src.rpm
+	mock --root $(DISTRIBUTION) --enable-network --resultdir=package/packages --rebuild package/packages/onedata$(RELEASE)-$(PKG_ID)*.src.rpm
 
 ##
 ## Oneclient self contained packages
