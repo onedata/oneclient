@@ -112,7 +112,7 @@ public:
               m_options->getOneS3ReadinessProbeBasicAuth()}
     {
         m_randomGenerator.seed(std::random_device{}());
-        m_uuidGenerator = boost::uuids::basic_random_generator<boost::mt19937>{
+        m_uuidGenerator = boost::uuids::basic_random_generator<std::mt19937>{
             m_randomGenerator};
     }
 
@@ -229,8 +229,8 @@ private:
     const boost::optional<unsigned int> m_httpsPort;
 
     mutable std::mutex m_uuidGeneratorMutex;
-    boost::mt19937 m_randomGenerator;
-    mutable boost::uuids::basic_random_generator<boost::mt19937>
+    std::mt19937 m_randomGenerator;
+    mutable boost::uuids::basic_random_generator<std::mt19937>
         m_uuidGenerator;
 
     mutable folly::ConcurrentHashMap<std::string /* bucketName */,

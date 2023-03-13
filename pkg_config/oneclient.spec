@@ -27,7 +27,6 @@ Requires: %scl_require_package %{scl} folly >= %{folly_version}
 Requires: %scl_require_package %{scl} openssl >= 1.1.0
 Requires: %scl_require_package %{scl} libnfs >= 4.0.0
 Requires: %scl_require_package %{scl} tbb >= 2018.5~
-Requires: %scl_require_package %{scl} jsoncpp >= 1.7.0
 BuildRequires: %scl_require_package %{scl} aws-c-common >= 0.4.49
 BuildRequires: %scl_require_package %{scl} aws-checksums >= 0.1.7
 BuildRequires: %scl_require_package %{scl} aws-c-event-stream >= 0.1.5
@@ -35,7 +34,6 @@ BuildRequires: %scl_require_package %{scl} aws-sdk-cpp-s3 >= 1.8.7
 BuildRequires: %scl_require_package %{scl} boost-devel >= 1.58.0
 BuildRequires: %scl_require_package %{scl} boost-python >= 1.58.0
 BuildRequires: %scl_require_package %{scl} boost-python3 >= 1.58.0
-BuildRequires: %scl_require_package %{scl} jsoncpp-devel >= 1.7.0
 BuildRequires: %scl_require_package %{scl} librados-devel
 BuildRequires: %scl_require_package %{scl} libradospp-devel
 BuildRequires: %scl_require_package %{scl} libradosstriper-devel
@@ -156,11 +154,10 @@ cmake3 . -DLIB_INSTALL_DIR=lib64 \
          -DProtobuf_INCLUDE_DIR=/opt/onedata/%{scl}/root/usr/include \
          -DOPENSSL_ROOT_DIR=/opt/onedata/%{scl}/root/usr \
          -DWITH_CEPH=ON -DWITH_GLUSTERFS=ON -DWITH_SWIFT=ON -DWITH_WEBDAV=ON -DWITH_XROOTD=ON \
-         -DCMAKE_BUILD_TYPE=Release -DBUILD_INTEGRATION_TESTS=OFF -DBUILD_SHARED_LIBS=ON \
+         -DWITH_ONES3=OFF -DCMAKE_BUILD_TYPE=Release -DBUILD_INTEGRATION_TESTS=OFF -DBUILD_SHARED_LIBS=ON \
          -DPYTHON3_LDFLAGS="-lpython3.6m -lpthread -ldl  -lutil -lm  -Xlinker -export-dynamic" \
          -DSTATIC_LIBSTDCPP=ON -DSTATIC_BOOST=OFF -DSTATIC_PROTOBUF=ON
 make %{_smp_mflags} oneclient
-make %{_smp_mflags} ones3
 make %{_smp_mflags} onebench
 make %{_smp_mflags} onedatafs.py3
 SCL_EOF_MACRO
@@ -171,10 +168,8 @@ make install DESTDIR=$RPM_BUILD_ROOT/opt/onedata/%{scl}/root/
 
 %files
 %{_bindir}/oneclient
-%{_bindir}/ones3
 %{_bindir}/onebench
 /opt/onedata/%{scl}/root/etc/oneclient.conf
-/opt/onedata/%{scl}/root/etc/ones3.conf
 %{_mandir}/man1/oneclient.1.gz
 %{_mandir}/man5/oneclient.conf.5.gz
 /opt/onedata/%{scl}/root/var/lib/oneclient/*
