@@ -380,6 +380,7 @@ oneclient_tar $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz:
 		    cp /usr/bin/onebench /output/bin && \
 		    cp /usr/bin/ones3 /output/bin && \
 		    cp /etc/oneclient.conf /output/etc && \
+		    cp /etc/ones3.conf /output/etc && \
 		    cp /usr/share/man/man1/oneclient.1.gz /output/share/man/man1/ && \
 		    cp /usr/share/man/man5/oneclient.conf.5.gz /output/share/man/man5/ && \
 		    cp /usr/share/doc/oneclient/* /output/share/doc/ && \
