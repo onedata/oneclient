@@ -27,6 +27,7 @@ Requires: %scl_require_package %{scl} folly >= %{folly_version}
 Requires: %scl_require_package %{scl} openssl >= 1.1.0
 Requires: %scl_require_package %{scl} libnfs >= 4.0.0
 Requires: %scl_require_package %{scl} tbb >= 2018.5~
+Requires: %scl_require_package %{scl} jsoncpp >= 1.7.0
 BuildRequires: %scl_require_package %{scl} aws-c-common >= 0.4.49
 BuildRequires: %scl_require_package %{scl} aws-checksums >= 0.1.7
 BuildRequires: %scl_require_package %{scl} aws-c-event-stream >= 0.1.5
@@ -34,6 +35,7 @@ BuildRequires: %scl_require_package %{scl} aws-sdk-cpp-s3 >= 1.8.7
 BuildRequires: %scl_require_package %{scl} boost-devel >= 1.58.0
 BuildRequires: %scl_require_package %{scl} boost-python >= 1.58.0
 BuildRequires: %scl_require_package %{scl} boost-python3 >= 1.58.0
+BuildRequires: %scl_require_package %{scl} jsoncpp-devel >= 1.7.0
 BuildRequires: %scl_require_package %{scl} librados-devel
 BuildRequires: %scl_require_package %{scl} libradospp-devel
 BuildRequires: %scl_require_package %{scl} libradosstriper-devel
@@ -71,7 +73,6 @@ BuildRequires: fuse3-devel >= 3.6
 BuildRequires: git
 BuildRequires: glusterfs-api-devel >= 6.0
 BuildRequires: golang
-BuildRequires: jsoncpp-devel
 BuildRequires: libcurl-devel
 BuildRequires: libevent-devel
 BuildRequires: libunwind-devel
