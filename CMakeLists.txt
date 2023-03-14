@@ -16,6 +16,8 @@ option(WITH_ONEBENCH "Include onebench binary" ON)
 option(WITH_ONEDATAFS "Build onedatafs library" ON)
 option(WITH_PYTHON2 "Build onedatafs for Python2" OFF)
 option(WITH_PYTHON3 "Build onedatafs for Python3" ON)
+option(WITH_ONES3 "Build ones3 binary" ON)
+
 option(WITH_LIBDL "Link with libdl" ON)
 option(WITH_LIBRT "Link with librt" ON)
 option(WITH_TESTS "Build and run tests" ON)
@@ -109,6 +111,21 @@ if(NOT (CONDA_BUILD_PREFIX STREQUAL ""))
     set(NSS_LIBRARIES "${CONDA_BUILD_PREFIX}/lib/libssl3.so;${CONDA_BUILD_PREFIX}/lib/libsmime3.so;${CONDA_BUILD_PREFIX}/lib/libnss3.so;${CONDA_BUILD_PREFIX}/lib/libnssutil3.so;${CONDA_BUILD_PREFIX}/lib/libnspr4.so")
 endif()
 find_package(NSS REQUIRED)
+
+# Setup POCO
+find_library(POCO_UTIL PocoUtil)
+find_library(POCO_NET PocoNet)
+find_library(POCO_NET_SSL PocoNetSSL)
+find_library(POCO_XML PocoXML)
+find_library(POCO_JSON PocoJSON)
+find_library(POCO_FOUNDATION PocoFoundation)
+set(POCO_LIBRARIES
+        ${POCO_UTIL}
+        ${POCO_NET}
+        ${POCO_NET_SSL}
+        ${POCO_XML}
+        ${POCO_JSON}
+        ${POCO_FOUNDATION})
 
 # Setup Folly
 option(FOLLY_SHARED "Link folly shared library" ON)
@@ -498,6 +515,14 @@ set(CLIENT_SOURCES
     ${PROJECT_SOURCES})
 endif(WITH_ONECLIENT)
 
+if(WITH_ONEBENCH)
+    add_subdirectory(bench)
+endif(WITH_ONEBENCH)
+
+if(WITH_ONES3)
+    add_subdirectory(s3)
+endif(WITH_ONES3)
+
 if(WITH_ONEDATAFS)
   set(ONEDATAFS_SOURCES
       ${CMAKE_CURRENT_SOURCE_DIR}/src/onedatafs.cc
@@ -580,6 +605,10 @@ if(WITH_ONEDATAFS)
   endif(PYTHON3_FOUND)
 endif(WITH_ONEDATAFS)
 
+if(WITH_ONES3)
+    install(TARGETS ones3 DESTINATION ${CMAKE_INSTALL_FULL_BINDIR})
+endif(WITH_ONES3)
+
 if(WITH_ONECLIENT)
   if(UNIX AND NOT APPLE)
       install(DIRECTORY autocomplete/linux/ DESTINATION ${CMAKE_INSTALL_FULL_LOCALSTATEDIR}/lib/oneclient)
@@ -599,21 +628,19 @@ if(CLANG_TIDY)
     ProcessorCount(CLANG_TIDY_PARALLEL_JOBS)
     message(STATUS
         "run-clang-tidy script found: ${CLANG_TIDY} - adding target clang-tidy")
-    set(CLANG_TIDY_SOURCE_FILTER "src/*.cc")
-    file(GLOB_RECURSE CLANG_TIDY_SOURCES
-         "${CMAKE_CURRENT_SOURCE_DIR}/${CLANG_TIDY_SOURCE_FILTER}")
+    set(CLANG_TIDY_ONECLIENT_SOURCE_FILTER "src/*.cc")
+    set(CLANG_TIDY_ONES3_SOURCE_FILTER "s3/*.cc")
+    file(GLOB_RECURSE CLANG_TIDY_ONECLIENT_SOURCES
+         "${CMAKE_CURRENT_SOURCE_DIR}/${CLANG_TIDY_ONECLIENT_SOURCE_FILTER}")
+    file(GLOB_RECURSE CLANG_TIDY_ONES3_SOURCES
+            "${CMAKE_CURRENT_SOURCE_DIR}/${CLANG_TIDY_ONES3_SOURCE_FILTER}")
     add_custom_target(clang-tidy COMMAND ${CLANG_TIDY}
         -export-fixes clang-tidy-suggested-fixes.yaml
         -j ${CLANG_TIDY_PARALLEL_JOBS}
-        -extra-arg=-DTBB_USE_GLIBCXX_VERSION=50400
-        ${CLANG_TIDY_SOURCES})
+        ${CLANG_TIDY_ONECLIENT_SOURCES} ${CLANG_TIDY_ONES3_SOURCES})
 else(CLANG_TIDY)
     message(STATUS "run-clang-tidy script not found - target clang-tidy not available")
 endif(CLANG_TIDY)
-
-if(WITH_ONEBENCH)
-add_subdirectory(bench)
-endif(WITH_ONEBENCH)
 
 if(WITH_TESTS)
 enable_testing()

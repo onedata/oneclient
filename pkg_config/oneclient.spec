@@ -137,6 +137,8 @@ LDFLAGS="-L/opt/onedata/%{scl}/root/usr/lib64" \
 CFLAGS="-I/opt/onedata/%{scl}/root/usr/include" \
 CXXFLAGS="-I/opt/onedata/%{scl}/root/usr/include" \
 TBB_INSTALL_DIR=/opt/onedata/%{scl}/root/usr \
+HTTP_PROXY=http://proxy.devel.onedata.org:3128 \
+HTTPS_PROXY=http://proxy.devel.onedata.org:3128 \
 cmake3 . -DLIB_INSTALL_DIR=lib64 \
          -DCMAKE_INSTALL_PREFIX=/usr \
          -DCMAKE_LIBRARY_PATH=/opt/onedata/%{scl}/root/usr/lib64 \
@@ -152,7 +154,7 @@ cmake3 . -DLIB_INSTALL_DIR=lib64 \
          -DProtobuf_INCLUDE_DIR=/opt/onedata/%{scl}/root/usr/include \
          -DOPENSSL_ROOT_DIR=/opt/onedata/%{scl}/root/usr \
          -DWITH_CEPH=ON -DWITH_GLUSTERFS=ON -DWITH_SWIFT=ON -DWITH_WEBDAV=ON -DWITH_XROOTD=ON \
-         -DCMAKE_BUILD_TYPE=Release -DBUILD_INTEGRATION_TESTS=OFF -DBUILD_SHARED_LIBS=ON \
+         -DWITH_ONES3=OFF -DCMAKE_BUILD_TYPE=Release -DBUILD_INTEGRATION_TESTS=OFF -DBUILD_SHARED_LIBS=ON \
          -DPYTHON3_LDFLAGS="-lpython3.6m -lpthread -ldl  -lutil -lm  -Xlinker -export-dynamic" \
          -DSTATIC_LIBSTDCPP=ON -DSTATIC_BOOST=OFF -DSTATIC_PROTOBUF=ON
 make %{_smp_mflags} oneclient

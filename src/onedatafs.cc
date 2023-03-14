@@ -708,7 +708,7 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(
     context->setScheduler(
         std::make_shared<Scheduler>(options->getSchedulerThreadCount()));
 
-    auto authManager = getAuthManager(context);
+    auto authManager = getOptionsAuthManager(context);
     auto sessionId = generateSessionId();
 
     auto configuration = getConfiguration(sessionId, authManager, context,

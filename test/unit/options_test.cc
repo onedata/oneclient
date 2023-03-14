@@ -28,7 +28,7 @@ struct OptionsTest : public ::testing::Test {
 
     ~OptionsTest()
     {
-        for (const std::string &env :
+        for (const std::string env :
             {"CONFIG", "PROVIDER_HOST", "PROVIDER_PORT", "INSECURE",
                 "ACCESS_TOKEN", "AUTHORIZATION_TOKEN", "LOG_DIR",
                 "FUSE_FOREGROUND", "FUSE_DEBUG", "FUSE_SINGLE_THREAD",

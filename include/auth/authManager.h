@@ -9,11 +9,16 @@
 #ifndef ONECLIENT_AUTH_MANAGER_H
 #define ONECLIENT_AUTH_MANAGER_H
 
+#include "auth/authException.h"
 #include "auth/macaroonHandler.h"
 #include "communication/communicator.h"
+#include "context.h"
 #include "environment.h"
 #include "messages/clientHandshakeRequest.h"
 #include "messages/handshakeResponse.h"
+#include "messages/macaroon.h"
+#include "options/options.h"
+#include "scheduler.h"
 
 #include <boost/optional.hpp>
 #include <folly/futures/Future.h>
@@ -104,14 +109,52 @@ protected:
  * The MacaroonAuthManager class is responsible for setting up user
  * authentication using a macaroon macaroon-based scheme.
  */
+template <typename MacaroonHandlerT>
 class MacaroonAuthManager : public AuthManager {
 public:
+    template <typename T = MacaroonHandlerT>
     MacaroonAuthManager(std::weak_ptr<Context> context,
         std::string defaultHostname, const unsigned int port,
-        const bool checkCertificate,
-        const std::chrono::seconds providerTimeout);
+        const bool checkCertificate, const std::chrono::seconds providerTimeout,
+        typename std::enable_if_t<std::is_same<T, CLIMacaroonHandler>::value>
+            * = nullptr)
+        : AuthManager{context, std::move(defaultHostname), port,
+              checkCertificate, providerTimeout}
+        , m_macaroonHandler{std::make_unique<T>(
+              MacaroonRetrievePolicyFromCLI{
+                  *context.lock()->options(), m_environment.userDataDir()},
+              MacaroonPersistPolicyFile{m_environment.userDataDir()})}
+    {
+    }
 
-    ~MacaroonAuthManager();
+    template <typename T = MacaroonHandlerT>
+    MacaroonAuthManager(std::weak_ptr<Context> context,
+        std::string defaultHostname, const unsigned int port,
+        const bool checkCertificate, const std::chrono::seconds providerTimeout,
+        typename std::enable_if_t<
+            std::is_same<T, OptionsMacaroonHandler>::value> * = nullptr)
+        : AuthManager{context, std::move(defaultHostname), port,
+              checkCertificate, providerTimeout}
+        , m_macaroonHandler{std::make_unique<T>(
+              MacaroonRetrievePolicyFromOptions{*context.lock()->options()})}
+    {
+    }
+
+    template <typename T = MacaroonHandlerT>
+    MacaroonAuthManager(std::weak_ptr<Context> context,
+        std::string defaultHostname, const unsigned int port,
+        const folly::fbstring &token, const bool checkCertificate,
+        const std::chrono::seconds providerTimeout,
+        typename std::enable_if_t<std::is_same<T, TokenMacaroonHandler>::value>
+            * = nullptr)
+        : AuthManager{context, std::move(defaultHostname), port,
+              checkCertificate, providerTimeout}
+        , m_macaroonHandler{
+              std::make_unique<T>(MacaroonRetrievePolicyFromToken{token})}
+    {
+    }
+
+    virtual ~MacaroonAuthManager() { m_cancelRefresh(); }
 
     std::tuple<std::shared_ptr<communication::Communicator>,
         folly::Future<folly::Unit>>
@@ -121,16 +164,90 @@ public:
         const std::vector<std::string> &compatibleOneproviderVersions,
         messages::handshake::ClientType clientType,
         std::function<std::error_code(messages::HandshakeResponse)>
-            onHandshakeResponse) override;
+            onHandshakeResponse) override
+    {
+        using one::messages::handshake::SessionMode;
 
-    void cleanup() override;
+        m_cancelRefresh();
 
-    void scheduleRefresh(const std::chrono::seconds after) override;
+        auto communicator = std::make_shared<communication::Communicator>(
+            poolSize, workerCount, m_hostname, m_port, m_checkCertificate, true,
+            true, m_providerTimeout);
+
+        auto sessionMode = SessionMode::normal;
+        auto context = m_context.lock();
+        if (!context)
+            throw std::runtime_error("Application context already released.");
+
+        if (context->options()->isMessageTraceLoggerEnabled()) {
+            using namespace std::chrono;
+            auto messageLogPath = context->options()->getLogDirPath() /
+                fmt::format("message-log-{}.txt",
+                    duration_cast<seconds>(
+                        system_clock::now().time_since_epoch())
+                        .count());
+            communicator->enableMessageLog(
+                "handshake_message_trace_logger", messageLogPath.string());
+        }
+
+        if (context->options()->isOpenSharesModeEnabled())
+            sessionMode = SessionMode::open_handle;
+
+        auto future = communicator->setHandshake(
+            [=] {
+                one::messages::ClientHandshakeRequest handshake{sessionId,
+                    m_macaroonHandler->restrictedMacaroon(), version,
+                    compatibleOneproviderVersions, sessionMode, clientType,
+                    context->options()->toKeyValueList(), {}};
+
+                return handshake;
+            },
+            std::move(onHandshakeResponse));
+
+        return std::forward_as_tuple(
+            std::move(communicator), std::move(future));
+    }
+
+    void cleanup() override
+    {
+        LOG_FCALL();
+        m_macaroonHandler->cleanup();
+    }
+
+    void scheduleRefresh(const std::chrono::seconds after) override
+    {
+        LOG_FCALL() << LOG_FARG(after.count());
+        LOG_DBG(1)
+            << "Scheduling next macaroon refresh in "
+            << std::chrono::duration_cast<std::chrono::seconds>(after).count()
+            << " seconds";
+
+        m_cancelRefresh = m_context.lock()->scheduler()->schedule(
+            after, std::bind(&MacaroonAuthManager::refreshMacaroon, this));
+    }
 
 private:
-    void refreshMacaroon();
+    void refreshMacaroon()
+    {
+        LOG_FCALL();
+        LOG_DBG(1) << "Sending a refreshed macaroon";
 
-    MacaroonHandler m_macaroonHandler;
+        try {
+            communication::wait(
+                m_context.lock()->communicator()->send(one::messages::Macaroon{
+                    m_macaroonHandler->refreshRestrictedMacaroon()}),
+                m_providerTimeout);
+            scheduleRefresh(RESTRICTED_MACAROON_REFRESH);
+        }
+        catch (const std::exception &e) {
+            LOG(WARNING) << "Sending a refreshed macaroon failed with error: "
+                         << e.what();
+
+            scheduleRefresh(FAILED_MACAROON_REFRESH_RETRY);
+        }
+    }
+
+    std::unique_ptr<MacaroonHandlerT> m_macaroonHandler;
     std::function<void()> m_cancelRefresh = [] {};
 };
 

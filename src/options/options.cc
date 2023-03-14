@@ -15,14 +15,17 @@
 
 #include <iostream>
 #include <sstream>
+#include <thread>
 #include <vector>
 
 namespace one {
+
 namespace client {
 namespace options {
 
-Options::Options()
-    : m_defaultConfigFilePath{boost::filesystem::path(ONECLIENT_CONFIG_DIR) /
+Options::Options(messages::handshake::ClientType clientType)
+    : m_clientType{clientType}
+    , m_defaultConfigFilePath{boost::filesystem::path(ONECLIENT_CONFIG_DIR) /
           boost::filesystem::path(CONFIG_FILE_NAME)}
     , m_defaultLogDirPath{"/tmp/oneclient/" + std::to_string(geteuid())}
 {
@@ -72,6 +75,18 @@ Options::Options()
         .withGroup(OptionGroup::GENERAL)
         .withDescription("Specify the hostname of the Oneprovider instance to "
                          "which the Oneclient should connect.");
+
+    if (m_clientType == messages::handshake::ClientType::ones3) {
+        add<std::string>()
+            ->withShortName("Z")
+            .withLongName("onezone-host")
+            .withEnvName("onezone_host")
+            .withConfigName("onezone_host")
+            .withValueName("<onezone_host>")
+            .withGroup(OptionGroup::GENERAL)
+            .withDescription("Specify the hostname of the Onezone instance to "
+                             "which the OneS3 should connect.");
+    }
 
     add<unsigned int>()
         ->withShortName("P")
@@ -692,14 +707,153 @@ Options::Options()
         .withGroup(OptionGroup::MONITORING)
         .withDescription("Graphite namespace prefix.");
 
-    add<boost::filesystem::path>()
-        ->required()
-        .positional("mountpoint", 1)
-        .withEnvName("mountpoint")
-        .withConfigName("mountpoint")
-        .withValueName("<path>")
-        .withGroup(OptionGroup::INVISIBLE)
-        .withDescription("Specify path for Oneclient mountpoint.");
+    if (m_clientType == messages::handshake::ClientType::ones3) {
+        add<std::string>()
+            ->withEnvName("ones3_support_admin_group")
+            .withLongName("ones3-support-admin-group")
+            .withConfigName("ones3_support_admin_group")
+            .withValueName("<support_admin_group>")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription("Specifies a Onedata group which will be added to "
+                             "each create and supported space.");
+
+        add<std::string>()
+            ->withEnvName("ones3_support_storage_id")
+            .withLongName("ones3-support-storage-id")
+            .withConfigName("ones3_support_storage_id")
+            .withValueName("<storage_id>")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription(
+                "Specifies default storage id for supporting new buckets.");
+
+        add<size_t>()
+            ->withEnvName("ones3_support_storage_size")
+            .withLongName("ones3-support-storage-size")
+            .withConfigName("ones3_support_storage_size")
+            .withValueName("<support_storage_size>")
+            .withDefaultValue(DEFAULT_ONES3_STORAGE_SUPPORT_SIZE, "")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription("Specifies default storage support size for new "
+                             "buckets in bytes.");
+
+        add<unsigned int>()
+            ->withEnvName("ones3_http_port")
+            .withLongName("ones3-http-port")
+            .withConfigName("ones3_http_port")
+            .withValueName("<port>")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription("HTTP port for OneS3 service, if not provided "
+                             "HTTP listener will "
+                             "be disabled if HTTPS port is provided.");
+
+        add<unsigned int>()
+            ->withEnvName("ones3_https_port")
+            .withLongName("ones3-https-port")
+            .withConfigName("ones3_https_port")
+            .withValueName("<port>")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription(
+                "HTTPS port for OneS3 service - if not provided HTTPS "
+                "endpoint will not be enabled.");
+
+        add<std::string>()
+            ->withEnvName("ones3_address_bind")
+            .withLongName("ones3-address-bind")
+            .withConfigName("ones3_address_bind")
+            .withValueName("<address>")
+            .withDefaultValue("0.0.0.0", "")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription("Address bind for OneS3 service.");
+
+        add<boost::filesystem::path>()
+            ->withEnvName("ones3_ssl_cert")
+            .withLongName("ones3-ssl-cert")
+            .withConfigName("ones3_ssl_cert")
+            .withValueName("<path>")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription(
+                "Path to OneS3 HTTPS endpoint SSL certificate in PEM format.");
+
+        add<boost::filesystem::path>()
+            ->withEnvName("ones3_ssl_key")
+            .withLongName("ones3-ssl-key")
+            .withConfigName("ones3_ssl_key")
+            .withValueName("<path>")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription(
+                "Path to OneS3 HTTPS endpoint SSL key in PEM format.");
+
+        add<unsigned int>()
+            ->withEnvName("ones3_thread_num")
+            .withLongName("ones3-thread-num")
+            .withConfigName("ones3_thread_num")
+            .withValueName("<port>")
+            .withDefaultValue(std::thread::hardware_concurrency(), "")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription("Number of threads of the OneS3 server.");
+
+        add<unsigned int>()
+            ->withEnvName("ones3_keepalive_requests")
+            .withLongName("ones3-keepalive-requests")
+            .withConfigName("ones3_keepalive_requests")
+            .withValueName("<num>")
+            .withDefaultValue(DEFAULT_ONES3_KEEPALIVE_REQUESTS_MAX, "")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription(
+                "Number of concurrent keepalive requests maintained "
+                "by OneS3 server.");
+
+        add<size_t>()
+            ->withEnvName("ones3_max_body_size")
+            .withLongName("ones3-max-body-size")
+            .withConfigName("ones3_max_body_size")
+            .withValueName("<bytes>")
+            .withDefaultValue(DEFAULT_ONES3_MAX_BODY_SIZE, "")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription(
+                "Maximum size of body accepted by OneS3 requests.");
+
+        add<size_t>()
+            ->withEnvName("ones3_max_body_memory_size")
+            .withLongName("ones3-max-body-memory-size")
+            .withConfigName("ones3_max_body_memory_size")
+            .withValueName("<bytes>")
+            .withDefaultValue(DEFAULT_ONES3_MAX_BODY_MEMORY_SIZE, "")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription("Maximum size of a single request body buffered "
+                             "by OneS3 server.");
+
+        add<unsigned int>()
+            ->withEnvName("ones3_idle_connection_timeout")
+            .withLongName("ones3-idle-connection-timeout")
+            .withConfigName("ones3_idle_connection_timeout")
+            .withValueName("<seconds>")
+            .withDefaultValue(DEFAULT_ONES3_IDLE_CONNECTION_TIMEOUT, "")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription(
+                "Time in seconds after which idle connections to OneS3 "
+                "server are closed.");
+
+        add<std::string>()
+            ->withEnvName("ones3_readiness_probe_auth")
+            .withLongName("ones3-readiness-probe-auth")
+            .withConfigName("ones3_readiness_probe_auth")
+            .withValueName("<readiness_probe_auth>")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription("Specifies the basic authentication for OneS3 "
+                             "readiness probe (default none).");
+    }
+
+    if (m_clientType == messages::handshake::ClientType::oneclient) {
+        add<boost::filesystem::path>()
+            ->positional("mountpoint", 1)
+            .required()
+            .withEnvName("mountpoint")
+            .withConfigName("mountpoint")
+            .withValueName("<path>")
+            .withGroup(OptionGroup::INVISIBLE)
+            .withDescription("Specify path for Oneclient mountpoint.");
+    }
 
     add<std::string>()
         ->withEnvName("authorization_token")
@@ -792,6 +946,36 @@ std::string Options::formatHelp(const char *programName) const
     return ss.str();
 }
 
+std::string Options::formatHelpOneS3(const char *programName) const
+{
+    boost::program_options::options_description general{"General options"};
+    selectCommandLine(general, OptionGroup::GENERAL);
+    boost::program_options::options_description ones3{
+        "Onedata S3 server options"};
+    selectCommandLine(ones3, OptionGroup::ONES3);
+    boost::program_options::options_description advanced{"Advanced options"};
+    selectCommandLine(advanced, OptionGroup::ADVANCED);
+    boost::program_options::options_description monitoring{
+        "Monitoring options"};
+    selectCommandLine(monitoring, OptionGroup::MONITORING);
+
+    std::stringstream ss;
+    ss << "Usage: " << programName << " [options]\n";
+    ss << "\n";
+    ss << "OneS3 - a Onedata scalable S3 proxy service.";
+    ss << "\n";
+    ss << "\n";
+    ss << general;
+    ss << "\n";
+    ss << ones3;
+    ss << "\n";
+    ss << advanced;
+    ss << "\n";
+    ss << monitoring;
+
+    return ss.str();
+}
+
 bool Options::hasDeprecated()
 {
     return !m_deprecatedEnvs.empty() || !selectDeprecated().empty();
@@ -824,7 +1008,9 @@ bool Options::getDebug() const
 
 unsigned int Options::getVerboseLogLevel() const
 {
-    return get<unsigned int>({"verbose-log-level"}).get_value_or(0);
+    return get<unsigned int>(
+        {"verbose-log-level", "verbose_log_level", "verbose_log_level"})
+        .get_value_or(0);
 }
 
 bool Options::getSingleThread() const
@@ -836,6 +1022,12 @@ bool Options::getSingleThread() const
 boost::optional<std::string> Options::getProviderHost() const
 {
     return get<std::string>({"host", "provider_host", "provider_hostname"});
+}
+
+boost::optional<std::string> Options::getOnezoneHost() const
+{
+    return get<std::string>(
+        {"onezone-host", "onezone_host", "onezone_hostname"});
 }
 
 unsigned int Options::getProviderPort() const
@@ -1210,20 +1402,117 @@ bool Options::isMonitoringLevelFull() const
 
 boost::optional<std::string> Options::getMonitoringGraphiteUrl() const
 {
-    return get<std::string>({"graphite-url", "graphite_url"});
+    return get<std::string>({"graphite-url", "graphite_url", "graphite_url"});
 }
 
 boost::optional<std::string>
 Options::getMonitoringGraphiteNamespacePrefix() const
 {
-    return get<std::string>(
-        {"graphite-namespace-prefix", "graphite_namespace_prefix"});
+    return get<std::string>({"graphite-namespace-prefix",
+        "graphite_namespace_prefix", "graphite_namespace_prefix"});
 }
 
 unsigned int Options::getMonitoringReportingPeriod() const
 {
-    return get<unsigned int>({"monitoring-period", "monitoring_period"})
+    return get<unsigned int>(
+        {"monitoring-period", "monitoring_period", "monitoring_period"})
         .get_value_or(DEFAULT_MONITORING_PERIOD_SECONDS);
+}
+
+boost::optional<std::string> Options::getOneS3SupportAdminGroupId() const
+{
+    return get<std::string>({"ones3-support-admin-group",
+        "ones3_support_admin_group", "ones3_support_admin_group"});
+}
+
+size_t Options::getOneS3SupportStorageSize() const
+{
+    return get<size_t>(
+        {"ones3-support-storage-size", "ones3_support_storage_size",
+            "ones3_support_storage_size"})
+        .get_value_or(DEFAULT_ONES3_STORAGE_SUPPORT_SIZE);
+}
+
+boost::optional<std::string> Options::getOneS3SupportStorageId() const
+{
+    return get<std::string>({"ones3-support-storage-id",
+        "ones3_support_storage_id", "ones3_support_storage_id"});
+}
+
+boost::optional<unsigned int> Options::getOneS3HTTPPort() const
+{
+    return get<unsigned int>(
+        {"ones3-http-port", "ones3_http_port", "ones3_http_port"});
+}
+
+boost::optional<unsigned int> Options::getOneS3HTTPSPort() const
+{
+    return get<unsigned int>(
+        {"ones3-https-port", "ones3_https_port", "ones3_https_port"});
+}
+
+boost::optional<boost::filesystem::path>
+Options::getOneS3SSLCertificatePath() const
+{
+    return get<boost::filesystem::path>(
+        {"ones3-ssl-cert", "ones3_ssl_cert", "ones3_ssl_cert"});
+}
+
+boost::optional<boost::filesystem::path> Options::getOneS3SSLKeyPath() const
+{
+    return get<boost::filesystem::path>(
+        {"ones3-ssl-key", "ones3_ssl_key", "ones3_ssl_key"});
+}
+
+boost::optional<std::string> Options::getOneS3ReadinessProbeBasicAuth() const
+{
+    return get<std::string>({"ones3-readiness-probe-auth",
+        "ones3_readiness_probe_auth", "ones3_readiness_probe_auth"});
+}
+
+unsigned int Options::getOneS3ThreadNum() const
+{
+    return get<unsigned int>(
+        {"ones3-thread-num", "ones3_thread_num", "ones3_thread_num"})
+        .get_value_or(std::thread::hardware_concurrency());
+}
+
+unsigned int Options::getOneS3KeepaliveRequests() const
+{
+    return get<unsigned int>(
+        {"ones3-keepalive-requests", "ones3_keepalive_requests",
+            "ones3_keepalive_requests"})
+        .get_value_or(DEFAULT_ONES3_KEEPALIVE_REQUESTS_MAX);
+}
+
+size_t Options::getOneS3MaxBodySize() const
+{
+    return get<size_t>(
+        {"ones3-max-body-size", "ones3_max_body_size", "ones3_max_body_size"})
+        .get_value_or(DEFAULT_ONES3_MAX_BODY_SIZE);
+}
+
+size_t Options::getOneS3MaxBodyMemorySize() const
+{
+    return get<size_t>(
+        {"ones3-max-memory-body-size", "ones3_max_memory_body_size",
+            "ones3_max_memory_body_size"})
+        .get_value_or(DEFAULT_ONES3_MAX_BODY_MEMORY_SIZE);
+}
+
+unsigned int Options::getOneS3IdleConnectionTimeout() const
+{
+    return get<unsigned int>(
+        {"ones3-idle-connection-timeout", "ones3_idle_connection_timeout",
+            "ones3_idle_connection_timeout"})
+        .get_value_or(DEFAULT_ONES3_IDLE_CONNECTION_TIMEOUT);
+}
+
+std::string Options::getOneS3AddressBind() const
+{
+    return get<std::string>(
+        {"ones3-address-bind", "ones3_address_bind", "ones3_address_bind"})
+        .get_value_or("0.0.0.0");
 }
 
 boost::filesystem::path Options::getMountpoint() const

@@ -26,10 +26,41 @@
 #include <sys/types.h>
 #include <system_error>
 
-namespace {
+namespace one {
+namespace client {
+namespace auth {
 
-macaroons::Macaroon restrictMacaroon(
-    const macaroons::Macaroon &macaroon, const std::string & /*providerId*/)
+namespace {
+using Coding = boost::bimap<char, std::string>;
+
+Coding createCoding()
+{
+    const std::vector<Coding::value_type> pairs{{'0', "00"}, {'_', "01"},
+        {'-', "02"}, {'/', "03"}, {'+', "04"}, {'=', "05"}};
+
+    return {pairs.begin(), pairs.end()};
+}
+
+const Coding coding = createCoding(); // NOLINT
+
+} // namespace
+
+macaroons::Macaroon deserialize(const std::string &macaroon)
+{
+    LOG_FCALL() << LOG_FARG(macaroon);
+
+    try {
+        return macaroons::Macaroon::deserialize(decode62(macaroon));
+    }
+    catch (const std::exception &e) {
+        LOG(WARNING) << "Failed to deserialize access token as base62: "
+                     << e.what() << ", trying to deserialize as base64";
+
+        return macaroons::Macaroon::deserialize(macaroon);
+    }
+}
+
+macaroons::Macaroon restrictMacaroon(const macaroons::Macaroon &macaroon)
 {
     auto expiration = std::chrono::system_clock::now() +
         one::client::auth::RESTRICTED_MACAROON_EXPIRATION;
@@ -41,41 +72,107 @@ macaroons::Macaroon restrictMacaroon(
         "time < " + std::to_string(expirationSinceEpoch));
 }
 
-} // namespace
+std::string decode62(std::string macaroon62)
+{
+    std::string macaroon64;
+    macaroon64.reserve(macaroon62.size());
 
-namespace one {
-namespace client {
-namespace auth {
+    for (auto it = macaroon62.begin(); it != macaroon62.end(); ++it) {
+        if (*it == '0') {
+            ++it;
+            if (it == macaroon62.end())
+                throw one::client::auth::AuthException{
+                    "Unable to decode access token."};
 
-MacaroonHandler::MacaroonHandler(options::Options &options,
-    boost::filesystem::path userDataDir, std::string providerId)
+            auto searchResult = coding.right.find(std::string{'0', *it});
+            if (searchResult == coding.right.end())
+                throw one::client::auth::AuthException{
+                    "Unable to decode access token."};
+
+            macaroon64 += searchResult->second;
+        }
+        else {
+            macaroon64 += *it;
+        }
+    }
+
+    return macaroon64;
+}
+
+std::string encode62(const std::string &macaroon64)
+{
+    std::string macaroon62;
+    macaroon62.reserve(macaroon64.size());
+
+    for (auto c : macaroon64) {
+        auto searchResult = coding.left.find(c);
+
+        if (searchResult == coding.left.end()) {
+            macaroon62 += c;
+        }
+        else {
+            macaroon62 += searchResult->second;
+        }
+    }
+
+    return macaroon62;
+}
+
+MacaroonRetrievePolicyFromOptions::MacaroonRetrievePolicyFromOptions(
+    options::Options &options)
+    : m_options{options}
+{
+}
+
+macaroons::Macaroon MacaroonRetrievePolicyFromOptions::retrieveMacaroon() const
+{
+    const auto &token = m_options.getAccessToken();
+    if (!token)
+        throw macaroons::exception::Exception{
+            "No token provided in options", EINVAL};
+
+    try {
+        return deserialize(token.get());
+    }
+    catch (const macaroons::exception::Exception &e) {
+        LOG(ERROR) << "Failed to parse access token passed on command line: "
+                   << e.what();
+
+        throw;
+    }
+}
+
+MacaroonRetrievePolicyFromToken::MacaroonRetrievePolicyFromToken(
+    folly::fbstring token)
+    : m_token{std::move(token)}
+{
+}
+
+macaroons::Macaroon MacaroonRetrievePolicyFromToken::retrieveMacaroon() const
+{
+    try {
+        return deserialize(m_token.toStdString());
+    }
+    catch (const macaroons::exception::Exception &e) {
+        LOG(ERROR) << "Failed to parse access token passed on command line: "
+                   << e.what();
+
+        throw;
+    }
+}
+
+MacaroonRetrievePolicyFromCLI::MacaroonRetrievePolicyFromCLI(
+    options::Options &options, boost::filesystem::path userDataDir)
     : m_options{options}
     , m_userDataDir{std::move(userDataDir)}
-    , m_providerId{std::move(providerId)}
-    , m_macaroon{retrieveMacaroon()}
-    , m_restrictedMacaroon{restrictMacaroon(m_macaroon, m_providerId)}
 {
 }
 
-std::string MacaroonHandler::refreshRestrictedMacaroon()
-{
-    LOG_FCALL();
-
-    m_restrictedMacaroon = restrictMacaroon(m_macaroon, m_providerId);
-    return restrictedMacaroon();
-}
-
-std::string MacaroonHandler::restrictedMacaroon() const
-{
-    return encode62(m_restrictedMacaroon.serialize());
-}
-
-macaroons::Macaroon MacaroonHandler::retrieveMacaroon() const
+macaroons::Macaroon MacaroonRetrievePolicyFromCLI::retrieveMacaroon() const
 {
     LOG_FCALL();
 
     if (auto macaroon = getMacaroonFromOptions()) {
-        persistMacaroon(macaroon.get());
         return macaroon.get();
     }
 
@@ -86,7 +183,6 @@ macaroons::Macaroon MacaroonHandler::retrieveMacaroon() const
 
     try {
         auto macaroon = getMacaroonFromUser();
-        persistMacaroon(macaroon);
         return macaroon;
     }
     catch (const std::exception &e) {
@@ -96,7 +192,7 @@ macaroons::Macaroon MacaroonHandler::retrieveMacaroon() const
 }
 
 boost::optional<macaroons::Macaroon>
-MacaroonHandler::readMacaroonFromFile() const
+MacaroonRetrievePolicyFromCLI::readMacaroonFromFile() const
 {
     LOG_FCALL();
 
@@ -121,16 +217,14 @@ MacaroonHandler::readMacaroonFromFile() const
 }
 
 boost::optional<macaroons::Macaroon>
-MacaroonHandler::getMacaroonFromOptions() const
+MacaroonRetrievePolicyFromCLI::getMacaroonFromOptions() const
 {
-    LOG_FCALL();
-
-    const auto &macaroon = m_options.getAccessToken();
-    if (!macaroon)
+    const auto &token = m_options.getAccessToken();
+    if (!token)
         return {};
 
     try {
-        return deserialize(macaroon.get());
+        return deserialize(token.get());
     }
     catch (const macaroons::exception::Exception &e) {
         LOG(ERROR) << "Failed to parse access token passed on command line: "
@@ -140,7 +234,7 @@ MacaroonHandler::getMacaroonFromOptions() const
     }
 }
 
-macaroons::Macaroon MacaroonHandler::getMacaroonFromUser()
+macaroons::Macaroon MacaroonRetrievePolicyFromCLI::getMacaroonFromUser() const
 {
     LOG_FCALL();
 
@@ -156,7 +250,19 @@ macaroons::Macaroon MacaroonHandler::getMacaroonFromUser()
     return deserialize(macaroon);
 }
 
-void MacaroonHandler::persistMacaroon(const macaroons::Macaroon &macaroon) const
+boost::filesystem::path MacaroonRetrievePolicyFromCLI::macaroonFilePath() const
+{
+    return m_userDataDir / "macaroon";
+}
+
+MacaroonPersistPolicyFile::MacaroonPersistPolicyFile(
+    boost::filesystem::path userDataDir)
+    : m_userDataDir{std::move(userDataDir)}
+{
+}
+
+void MacaroonPersistPolicyFile::persistMacaroon(
+    const macaroons::Macaroon &macaroon)
 {
     LOG_FCALL();
 
@@ -181,96 +287,17 @@ void MacaroonHandler::persistMacaroon(const macaroons::Macaroon &macaroon) const
     }
 }
 
-boost::filesystem::path MacaroonHandler::macaroonFilePath() const
-{
-    return m_userDataDir / "macaroon";
-}
-
-macaroons::Macaroon MacaroonHandler::deserialize(const std::string &macaroon)
-{
-    LOG_FCALL() << LOG_FARG(macaroon);
-
-    try {
-        return macaroons::Macaroon::deserialize(decode62(macaroon));
-    }
-    catch (const std::exception &e) {
-        LOG(WARNING) << "Failed to deserialize access token as base62: "
-                     << e.what() << ", trying to deserialize as base64";
-
-        return macaroons::Macaroon::deserialize(macaroon);
-    }
-}
-
-namespace {
-
-using Coding = boost::bimap<char, std::string>;
-
-Coding createCoding()
-{
-    const std::vector<Coding::value_type> pairs{{'0', "00"}, {'_', "01"},
-        {'-', "02"}, {'/', "03"}, {'+', "04"}, {'=', "05"}};
-
-    return {pairs.begin(), pairs.end()};
-}
-
-const Coding coding = createCoding(); // NOLINT
-
-} // namespace
-
-std::string MacaroonHandler::decode62(std::string macaroon62)
-{
-    LOG_FCALL() << LOG_FARG(macaroon62);
-
-    std::string macaroon64;
-    macaroon64.reserve(macaroon62.size());
-
-    for (auto it = macaroon62.begin(); it != macaroon62.end(); ++it) {
-        if (*it == '0') {
-            ++it;
-            if (it == macaroon62.end())
-                throw AuthException{"Unable to decode access token."};
-
-            auto searchResult = coding.right.find(std::string{'0', *it});
-            if (searchResult == coding.right.end())
-                throw AuthException{"Unable to decode access token."};
-
-            macaroon64 += searchResult->second;
-        }
-        else {
-            macaroon64 += *it;
-        }
-    }
-
-    return macaroon64;
-}
-
-std::string MacaroonHandler::encode62(const std::string &macaroon64)
-{
-    LOG_FCALL() << LOG_FARG(macaroon64);
-
-    std::string macaroon62;
-    macaroon62.reserve(macaroon64.size());
-
-    for (auto c : macaroon64) {
-        auto searchResult = coding.left.find(c);
-
-        if (searchResult == coding.left.end()) {
-            macaroon62 += c;
-        }
-        else {
-            macaroon62 += searchResult->second;
-        }
-    }
-
-    return macaroon62;
-}
-
-void MacaroonHandler::removeMacaroonFile() const
+void MacaroonPersistPolicyFile::removeMacaroon()
 {
     if (!boost::filesystem::remove(macaroonFilePath())) {
         LOG(WARNING) << "Failed to remove access token file '"
                      << macaroonFilePath() << "'";
     }
+}
+
+boost::filesystem::path MacaroonPersistPolicyFile::macaroonFilePath() const
+{
+    return m_userDataDir / "macaroon";
 }
 
 } // namespace auth

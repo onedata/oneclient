@@ -10,6 +10,8 @@
 
 #include "messages.pb.h"
 
+#include <fmt/format.h>
+
 #include <sstream>
 
 namespace one {
@@ -27,12 +29,13 @@ GetFileChildrenAttrs::GetFileChildrenAttrs(
 GetFileChildrenAttrs::GetFileChildrenAttrs(const folly::fbstring &uuid,
     const off_t offset, const std::size_t size,
     folly::Optional<folly::fbstring> indexToken, bool includeReplicationStatus,
-    bool includeHardLinkCount)
+    bool includeHardLinkCount, std::vector<std::string> xattrs)
     : GetFileChildrenAttrs{uuid, offset, size}
 {
     m_includeReplicationStatus = includeReplicationStatus;
     m_includeHardLinkCount = includeHardLinkCount;
     m_indexToken.assign(std::move(indexToken));
+    m_xattrs = std::move(xattrs);
 }
 
 std::string GetFileChildrenAttrs::toString() const
@@ -51,6 +54,9 @@ std::string GetFileChildrenAttrs::toString() const
 
     if (m_includeHardLinkCount)
         stream << ", include_hard_link_count: " << m_includeHardLinkCount;
+
+    if (!m_xattrs.empty())
+        stream << ", xattrs: " << fmt::format("({})", fmt::join(m_xattrs, ","));
 
     return stream.str();
 }
@@ -74,6 +80,11 @@ GetFileChildrenAttrs::serializeAndDestroy()
 
     if (m_includeHardLinkCount)
         gfc->set_include_link_count(m_includeReplicationStatus);
+
+    if (!m_xattrs.empty()) {
+        for (auto &xattr : m_xattrs)
+            gfc->add_xattrs(std::move(xattr));
+    }
 
     return msg;
 }

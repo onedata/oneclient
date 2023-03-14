@@ -50,10 +50,10 @@ public:
         boost::filesystem::remove_all(dataDir);
     }
 
-    bool verifyMacaroon(MacaroonHandler &macaroonHandler)
+    template <typename MacaroonHandlerT>
+    bool verifyMacaroon(MacaroonHandlerT &macaroonHandler)
     {
-        auto serialized =
-            MacaroonHandler::decode62(macaroonHandler.restrictedMacaroon());
+        auto serialized = decode62(macaroonHandler.restrictedMacaroon());
 
         auto restrictedM = macaroons::Macaroon::deserialize(serialized);
         return verifier.verifyUnsafe(restrictedM, key);
@@ -84,7 +84,9 @@ TEST_F(MacaroonHandlerTest, shouldUseOptionsMacaroon)
 {
     EXPECT_CALL(options, getAccessToken()).WillOnce(Return(m.serialize()));
 
-    MacaroonHandler macaroonHandler{options, dataDir, providerId};
+    CLIMacaroonHandler macaroonHandler{
+        MacaroonRetrievePolicyFromCLI{options, dataDir},
+        MacaroonPersistPolicyFile{dataDir}};
 
     ASSERT_TRUE(verifyMacaroon(macaroonHandler));
 }
@@ -95,7 +97,9 @@ TEST_F(MacaroonHandlerTest, shouldUseCachedMacaroon)
     macaroonFile << m.serialize() << std::endl;
     macaroonFile.close();
 
-    MacaroonHandler macaroonHandler{options, dataDir, providerId};
+    CLIMacaroonHandler macaroonHandler{
+        MacaroonRetrievePolicyFromCLI{options, dataDir},
+        MacaroonPersistPolicyFile{dataDir}};
 
     ASSERT_TRUE(verifyMacaroon(macaroonHandler));
 }
@@ -111,7 +115,9 @@ TEST_F(MacaroonHandlerTest, shouldPreferOptionsMacaroon)
     macaroonFile << m.serialize() << std::endl;
     macaroonFile.close();
 
-    MacaroonHandler macaroonHandler{options, dataDir, providerId};
+    CLIMacaroonHandler macaroonHandler{
+        MacaroonRetrievePolicyFromCLI{options, dataDir},
+        MacaroonPersistPolicyFile{dataDir}};
 
     ASSERT_TRUE(verifyMacaroon(macaroonHandler));
 }
@@ -120,7 +126,9 @@ TEST_F(MacaroonHandlerTest, shouldCacheOptionsMacaroon)
 {
     EXPECT_CALL(options, getAccessToken()).WillOnce(Return(m.serialize()));
 
-    MacaroonHandler macaroonHandler{options, dataDir, providerId};
+    CLIMacaroonHandler macaroonHandler{
+        MacaroonRetrievePolicyFromCLI{options, dataDir},
+        MacaroonPersistPolicyFile{dataDir}};
 
     auto deserialized = macaroonFromCache();
     ASSERT_TRUE(verifier.verifyUnsafe(deserialized, key));

@@ -78,6 +78,32 @@ public:
         const folly::fbstring &storageId, const folly::fbstring &spaceId) = 0;
 };
 
+// TODO: Refactor to promises
+class HelpersCacheThreadSafeAdapter : public HelpersCacheBase {
+public:
+    HelpersCacheThreadSafeAdapter() = default;
+
+    HelpersCacheThreadSafeAdapter(std::unique_ptr<HelpersCacheBase> cache);
+
+    void setCache(std::unique_ptr<HelpersCacheBase> cache);
+
+    folly::Future<HelpersCacheBase::HelperPtr> get(
+        const folly::fbstring &fileUuid, const folly::fbstring &spaceId,
+        const folly::fbstring &storageId, bool forceProxyIO,
+        bool proxyFallback) override;
+
+    HelpersCacheBase::AccessType getAccessType(
+        const folly::fbstring &storageId) override;
+
+    folly::Future<folly::Unit> refreshHelperParameters(
+        const folly::fbstring &storageId,
+        const folly::fbstring &spaceId) override;
+
+private:
+    mutable std::mutex m_cacheMutex;
+    std::unique_ptr<HelpersCacheBase> m_cache;
+};
+
 /**
  * @c HelpersCache is responsible for creating and caching
  * @c helpers::StorageHelper instances.
