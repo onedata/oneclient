@@ -6,6 +6,9 @@ import argparse
 import os
 import platform
 import sys
+import subprocess
+import time
+import json
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
 helpers_dir = os.path.join(script_dir, 'helpers')
@@ -22,6 +25,19 @@ parser.add_argument(
     action='store_true',
     default=False,
     help='run tests in GDB')
+
+parser.add_argument(
+    '--onenv-config',
+    action='store',
+    help='run tests in one-env environment',
+    dest='onenv_config')
+
+parser.add_argument(
+    '--onenv-reuse',
+    action='store_true',
+    default=False,
+    help='do not kill the one-env deployment after test',
+    dest='onenv_reuse')
 
 parser.add_argument(
     '--image', '-i',
@@ -44,15 +60,80 @@ parser.add_argument(
     help='name of the test suite',
     dest='suites')
 
+
 [args, pass_args] = parser.parse_known_args()
 dockers_config.ensure_image(args, 'image', 'builder')
 
+
 script_dir = os.path.dirname(os.path.realpath(__file__))
-base_test_dir = os.path.join(os.path.realpath(args.release), 'test',
-                             'integration')
+if args.onenv_config is not None:
+    base_test_dir = os.path.join(os.path.realpath(args.release), 'test',
+                                'onenv_tests')
+else:
+    base_test_dir = os.path.join(os.path.realpath(args.release), 'test',
+                                'integration')
+
 test_dirs = map(lambda suite: os.path.join(base_test_dir, suite), args.suites)
 if not test_dirs:
     test_dirs = [base_test_dir]
+
+envs={'BASE_TEST_DIR': base_test_dir,
+      'PYTHONWARNINGS': 'ignore:Unverified HTTPS request',
+      'BACKWARD_CXX_SOURCE_PREFIXES': os.path.join(script_dir, args.release)}
+
+# Setup oneenv environment
+if args.onenv_config is not None:
+    if not os.path.exists(args.onenv_config):
+        print(f'Error: No such one-env file {args.onenv_config}')
+        sys.exit(1)
+
+    try:
+        up_output = subprocess.check_output(['./one-env/onenv', 'up', args.onenv_config])
+    except subprocess.CalledProcessError as e:
+        print(f'Failed to start onenv up due to: {e.output}')
+        sys.exit(1)
+
+    environment_ready = False
+    retries = 30
+    while (not environment_ready) and retries > 0:
+        try:
+            subprocess.check_call(['./one-env/onenv', 'wait'])
+            environment_ready = True
+        except subprocess.CalledProcessError as e:
+            retries =- 1
+            time.sleep(5)
+            print(f'Waiting for one-env environment setup...')
+
+    if retries == 0:
+        print(f'Failed to start K8S environment from {args.onenv_config}')
+        sys.exit(1)
+
+    print(f'One-env environment ready')
+
+    # Get Onezone IP
+    get_onezoneip_cli = "kubectl get pod dev-onezone-0 --template {{.status.podIP}}"
+    onezone_ip = subprocess.check_output(get_onezoneip_cli.split(' ')).strip()
+    envs['ONEZONE_IP'] = onezone_ip.decode('utf-8')
+
+    # Get Oneprovider IP
+    get_oneproviderip_cli = "kubectl get pod dev-oneprovider-krakow-0 --template {{.status.podIP}}"
+    oneprovider_ip = subprocess.check_output(get_oneproviderip_cli.split(' ')).strip()
+    envs['ONEPROVIDER_IP'] = oneprovider_ip.decode('utf-8')
+
+    # Get Ceph storage IP
+    get_endpoints_cli = f'kubectl get endpoints -lcomponent=volume-ceph -o json'
+    endpoints = subprocess.check_output(get_endpoints_cli.split(' ')).strip()
+    for item in json.loads(endpoints)['items']:
+        if item['metadata']['name'] == 'dev-volume-ceph-krakow':
+            envs['CEPH_MONITOR_IP'] = item['subsets'][0]['addresses'][0]['ip']
+            break
+
+    if 'CEPH_MONITOR_IP' not in envs:
+        print(f'Error: Cannot find ceph storage volume pod in:\n {endpoints}')
+        sys.exit(1)
+
+    print(f'Environment passed to pytest container: {str(envs)}')
+
 
 command = '''
 import os, subprocess, sys, stat, shutil
@@ -96,8 +177,15 @@ ret = docker.run(tty=True,
                  reflect=[(script_dir, 'rw'),
                           ('/var/run/docker.sock', 'rw')],
                  image=args.image,
-                 envs={'BASE_TEST_DIR': base_test_dir,
-                       'BACKWARD_CXX_SOURCE_PREFIXES': os.path.join(script_dir, args.release)},
+                 envs=envs,
                  run_params=['--privileged'] if args.gdb else [],
                  command=['python', '-c', command])
+
+if not args.onenv_reuse:
+    try:
+        up_output = subprocess.check_output(['./one-env/onenv', 'clean'])
+    except subprocess.CalledProcessError as e:
+        print(f'Failed to clean onenv due to: {e.output}')
+        sys.exit(1)
+
 sys.exit(ret)
