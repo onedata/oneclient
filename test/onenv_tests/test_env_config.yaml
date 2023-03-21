@@ -40,7 +40,7 @@ onedataCliImage: "docker.onedata.org/rest-cli:ID-f310819457"
 
 # When enabled, onezoneImage and oneproviderImage will be pulled before every
 # deployment. If disabled, they will only be pulled if not existent.
-forceImagePull: false
+forceImagePull: true
 
 # Determines if spaces should be created. It can be either boolean value or
 # list of spaces that should be created.
