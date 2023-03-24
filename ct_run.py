@@ -33,11 +33,11 @@ parser.add_argument(
     dest='onenv_config')
 
 parser.add_argument(
-    '--onenv-reuse',
+    '--no-clean',
     action='store_true',
     default=False,
-    help='do not kill the one-env deployment after test',
-    dest='onenv_reuse')
+    help='do not clean the one-env deployment after test',
+    dest='no_clean')
 
 parser.add_argument(
     '--image', '-i',
@@ -94,7 +94,7 @@ if args.onenv_config is not None:
         sys.exit(1)
 
     environment_ready = False
-    retries = 30
+    retries = 3
     while (not environment_ready) and retries > 0:
         try:
             subprocess.check_call(['./one-env/onenv', 'wait'])
@@ -181,7 +181,7 @@ ret = docker.run(tty=True,
                  run_params=['--privileged'] if args.gdb else [],
                  command=['python', '-c', command])
 
-if not args.onenv_reuse:
+if not args.no_clean:
     try:
         up_output = subprocess.check_output(['./one-env/onenv', 'clean'])
     except subprocess.CalledProcessError as e:
