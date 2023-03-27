@@ -1,0 +1,54 @@
+# Name of the scenario to run
+scenario: "scenario-1oz-1op"
+
+# Path or list of paths in which look for sources (can be either relative to
+# cwd or absolute path)
+sourcesRoot: ".."
+
+# Determines if onedata components should be started from pre-compiled sources
+# or pre-installed packages inside dockers. When enabled, sources are expected
+# to be found in CWD (from where the 'up' script was run) or one dir above.
+sources: false
+
+# Onezone image to use. Note that if 'sources' option is enabled, it must
+# be based off onedata/worker image (it contains all the machinery to run the
+# application from sources - images based off onedata-worker are images with
+# -dev suffix).
+onezoneImage: "docker.onedata.org/onezone-dev:develop"
+
+# Oneprovider image to use. Note that if 'sources' option is enabled, it must
+# be based off onedata/worker image (images based off onedata-worker are
+# images with -dev suffix).
+oneproviderImage: "docker.onedata.org/oneprovider-dev:develop"
+
+
+
+# Determines if elastic search should start.
+elasticSearch: false
+
+# Determines if onedata rest client should start.
+onedataCli: false
+
+# Determines if oneclients should start.
+oneclients: false
+
+# Oneclient image to use.
+oneclientImage: "docker.onedata.org/oneclient-dev:develop"
+
+# Onedata rest client image to use.
+onedataCliImage: "docker.onedata.org/rest-cli:ID-f310819457"
+
+# When enabled, onezoneImage and oneproviderImage will be pulled before every
+# deployment. If disabled, they will only be pulled if not existent.
+forceImagePull: true
+
+# Determines if spaces should be created. It can be either boolean value or
+# list of spaces that should be created.
+#
+# By default spaces supported by all providers are created. For custom
+# space configuration please refer to one of MyValues.yaml file in
+# scenario directory.
+spaces: false
+
+storages:
+  - ceph

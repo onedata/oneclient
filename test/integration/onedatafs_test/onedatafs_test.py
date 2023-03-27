@@ -1,5 +1,3 @@
-import random
-
 __author__ = "Bartek Kryza"
 __copyright__ = """(C) 2019 ACK CYFRONET AGH,
 This software is released under the MIT license cited in 'LICENSE.txt'."""
@@ -10,6 +8,7 @@ from threading import Thread
 from multiprocessing import Pool
 import time
 import pytest
+import random
 from stat import *
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
