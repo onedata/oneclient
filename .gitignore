@@ -14,7 +14,7 @@ oneclient_cunit.info.cleaned
 .gdb_history
 .cache
 __pycache__
-performance-tests-results.xml
+*-tests-results.xml
 
 # Compiled Object files
 *.slo
@@ -63,4 +63,7 @@ cmake-build-*/
 # YouCompleteMe database
 .ycm_extra_conf.py
 compile_commands.json
+
+/tmp
+warp-*
 

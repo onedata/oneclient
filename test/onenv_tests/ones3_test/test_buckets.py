@@ -13,7 +13,7 @@ from concurrent.futures import ThreadPoolExecutor, wait
 from .common import random_bytes, random_str
 
 
-def test_create_delete_bucket(s3_client, uuid_str, ones3_server):
+def test_create_delete_bucket(s3_client, uuid_str, s3_server):
     name = uuid_str
 
     s3_client.create_bucket(Bucket=name, CreateBucketConfiguration={'LocationConstraint': 'pl-reg-w3'})
