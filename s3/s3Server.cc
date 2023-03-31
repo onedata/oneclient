@@ -739,23 +739,47 @@ void S3Server::getObject(const HttpRequestPtr &req,
                 .thenValue([callback, path, timer = std::move(timer)](
                                auto &&args) mutable {
                     auto &headResult = args.first;
-                    auto streamReader = args.second;
+                    auto streamReaderPair = args.second;
 
-                    auto response =
-                        HttpResponse::newStreamResponse(streamReader, path,
-                            CT_NONE, headResult.GetContentType());
+                    if (std::get<0>(streamReaderPair) != nullptr) {
+                        auto response = HttpResponse::newStreamResponse(
+                            streamReaderPair.first, path, CT_NONE,
+                            headResult.GetContentType());
 
-                    response->setContentTypeString(headResult.GetContentType());
+                        response->setContentTypeString(
+                            headResult.GetContentType());
 
-                    response->addHeader("content-length",
-                        std::to_string(headResult.GetContentLength()));
-                    response->addHeader("etag", headResult.GetETag());
-                    response->addHeader("accept-ranges", "bytes");
-                    response->addHeader("last-modified",
-                        headResult.GetLastModified().ToGmtString(
-                            Aws::Utils::DateFormat::RFC822));
+                        response->addHeader("content-length",
+                            std::to_string(headResult.GetContentLength()));
+                        response->addHeader("etag", headResult.GetETag());
+                        response->addHeader("accept-ranges", "bytes");
+                        response->addHeader("last-modified",
+                            headResult.GetLastModified().ToGmtString(
+                                Aws::Utils::DateFormat::RFC822));
 
-                    callback(response);
+                        callback(response);
+                    }
+                    else {
+                        auto response = HttpResponse::newHttpResponse();
+                        
+                        response->setContentTypeString(
+                            headResult.GetContentType());
+
+                        response->addHeader("content-length",
+                            std::to_string(headResult.GetContentLength()));
+                        response->addHeader("etag", headResult.GetETag());
+                        response->addHeader("accept-ranges", "bytes");
+                        response->addHeader("last-modified",
+                            headResult.GetLastModified().ToGmtString(
+                                Aws::Utils::DateFormat::RFC822));
+
+                        response->setBody(std::move(streamReaderPair.second));
+
+                        response->addHeader("Content-Disposition",
+                            "attachment; filename=" + path);
+
+                        callback(response);
+                    }
                 });
         })
         .thenError(folly::tag_t<one::s3::error::S3Exception>{},
