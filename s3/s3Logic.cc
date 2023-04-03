@@ -878,7 +878,8 @@ S3Logic::getObject(const folly::fbstring &bucket, const folly::fbstring &path,
             }
 
             size_t requestOffset{0};
-            auto requestSize{attr.value().size().value()};
+            size_t requestSize{
+                static_cast<size_t>(attr.value().size().value())};
             if (rangeHeader) {
                 std::vector<drogon::FileRange> ranges;
                 auto rangeResult = drogon::parseRangeHeader(
@@ -920,8 +921,9 @@ S3Logic::getObject(const folly::fbstring &bucket, const folly::fbstring &path,
 
             std::function<std::size_t(char *, std::size_t)> streamReader;
             // If the requested size is larger than threshold - use streaming
-            // Otherwise just return the body content as std::string
-            if (requestSize > 2 * 1024 * 1024) {
+            // Otherwise just return the body content as std::string in a single
+            // read.
+            if (requestSize > m_options->getOneS3StreamGetThreshold()) {
                 streamReader = [this, attr, spaceId, bucket, requestId, path,
                                    requestOffset, requestSize,
                                    completionCallback =
@@ -1072,7 +1074,7 @@ S3Logic::getObject(const folly::fbstring &bucket, const folly::fbstring &path,
 
                             return res;
                         })
-                        .thenValue([this, attr, requestId](auto &&data) {
+                        .thenValue([this, attr, requestId](std::string &&data) {
                             return close(attr.uuid(), requestId)
                                 .thenValue(
                                     [data = std::move(data)](

@@ -72,6 +72,7 @@ static constexpr auto DEFAULT_ONES3_MAX_BODY_SIZE = 128 * 1024 * 1024ULL;
 static constexpr auto DEFAULT_ONES3_MAX_BODY_MEMORY_SIZE = 16 * 1024 * 1024ULL;
 static constexpr auto DEFAULT_ONES3_IDLE_CONNECTION_TIMEOUT = 180;
 static constexpr auto DEFAULT_ONES3_KEEPALIVE_REQUESTS_MAX = 1024;
+static constexpr auto DEFAULT_ONES3_GET_STREAM_THRESHOLD = 2 * 1024 * 1024ULL;
 
 #if defined(__APPLE__)
 static constexpr auto DEFAULT_EMULATE_AVAILABLE_SPACE =
@@ -201,14 +202,41 @@ public:
      */
     boost::optional<boost::filesystem::path> getOneS3SSLKeyPath() const;
 
+    /**
+     * @return Number of OneS3 HTTP server threads.
+     */
     unsigned int getOneS3ThreadNum() const;
 
+    /**
+     *
+     * @return Number of maximum simultaneous keepalive requests.
+     */
     unsigned int getOneS3KeepaliveRequests() const;
 
+    /**
+     *
+     * @return Maximum OneS3 put request body size in bytes.
+     */
     size_t getOneS3MaxBodySize() const;
 
+    /**
+     *
+     * @return Maximum OneS3 put request body size that will be handled in
+     * memory.
+     */
     size_t getOneS3MaxBodyMemorySize() const;
 
+    /**
+     *
+     * @return Maximum GET request content-length size that will be returned
+     * in a single read. Larger requests will be streamed.
+     */
+    size_t getOneS3StreamGetThreshold() const;
+
+    /**
+     *
+     * @return OneS3 idle connection timeout in seconds.
+     */
     unsigned int getOneS3IdleConnectionTimeout() const;
 
     /*

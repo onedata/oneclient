@@ -823,6 +823,16 @@ Options::Options(messages::handshake::ClientType clientType)
             .withDescription("Maximum size of a single request body buffered "
                              "by OneS3 server.");
 
+        add<size_t>()
+            ->withEnvName("ones3_stream_get_threshold")
+            .withLongName("ones3-stream-get-threshold")
+            .withConfigName("ones3_stream_get_threshold")
+            .withValueName("<bytes>")
+            .withDefaultValue(DEFAULT_ONES3_GET_STREAM_THRESHOLD, "")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription("Minimum GET range size to use streaming instead "
+                             "of single read.");
+
         add<unsigned int>()
             ->withEnvName("ones3_idle_connection_timeout")
             .withLongName("ones3-idle-connection-timeout")
@@ -1498,6 +1508,14 @@ size_t Options::getOneS3MaxBodyMemorySize() const
         {"ones3-max-memory-body-size", "ones3_max_memory_body_size",
             "ones3_max_memory_body_size"})
         .get_value_or(DEFAULT_ONES3_MAX_BODY_MEMORY_SIZE);
+}
+
+size_t Options::getOneS3StreamGetThreshold() const
+{
+    return get<size_t>(
+        {"ones3-stream-get-threshold", "ones3_stream_get_threshold",
+            "ones3_stream_get_threshold"})
+        .get_value_or(DEFAULT_ONES3_GET_STREAM_THRESHOLD);
 }
 
 unsigned int Options::getOneS3IdleConnectionTimeout() const
