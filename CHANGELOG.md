@@ -4,6 +4,21 @@ Release notes for project oneclient
 CHANGELOG
 ---------
 
+### 21.02.1
+
+-   **VFS-10622** Added scalable S3 server interface implementation
+    based on Oneclient.
+-   **VFS-10502** Added option to null device enabling verification of
+    whether read data matches written data based on offset and size of
+    request, which can be used to test for instance transfer data
+    consistency.
+-   **VFS-10264** Added parameter to oneclient handshake protocol to
+    distinguish between different oneclient modes of operation.
+-   **VFS-10174** Fixed possible crash in the nulldevice helper when
+    simulating large filesystems for importing to data space.
+-   **VFS-9622** Upgraded the base image for release dockers from Ubuntu
+    18.04 to Ubuntu 20.04.
+
 ### 21.02.0-alpha28
 
 ### 21.02.0-alpha27
