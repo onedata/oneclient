@@ -6,6 +6,7 @@ CHANGELOG
 
 ### 21.02.1
 
+-   **VFS-10735** FIxed timeout handling in S3 storage driver.
 -   **VFS-10622** Added scalable S3 server interface implementation
     based on Oneclient.
 -   **VFS-10502** Added option to null device enabling verification of
