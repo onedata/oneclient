@@ -16,6 +16,13 @@
 #include <Poco/SharedPtr.h>
 #include <drogon/drogon.h>
 
+#ifdef ENABLE_BACKWARD_CPP
+#define BACKWARD_HAS_DW 1
+#define BACKWARD_HAS_UNWIND 1
+#include <backward.hpp>
+#endif
+
+
 using namespace drogon;
 using namespace one::client;
 
@@ -92,9 +99,8 @@ int main(int argc, char *argv[])
     auto s3Server = std::make_shared<one::s3::S3Server>(options);
 
     app().registerController(s3Server);
-
-    app().setLogPath(options->getLogDirPath().string());
     app().setLogLevel(trantor::Logger::kInfo);
+    app().setLogPath(options->getLogDirPath().string(), "ones3-http-log");
 
     const std::string bind_address{options->getOneS3AddressBind()};
 

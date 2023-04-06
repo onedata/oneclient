@@ -22,7 +22,6 @@
 #include "messages/fuse/fileRenamed.h"
 #include "messages/fuse/fsync.h"
 #include "messages/fuse/getChildAttr.h"
-#include "messages/fuse/getFileAttr.h"
 #include "messages/fuse/getFileAttrByPath.h"
 #include "messages/fuse/getFileChildrenAttrs.h"
 #include "messages/fuse/getFileLocation.h"
@@ -39,7 +38,6 @@
 #include "messages/fuse/reportFileWritten.h"
 #include "messages/fuse/resolveGuid.h"
 #include "messages/fuse/setXAttr.h"
-#include "messages/fuse/truncate.h"
 #include "messages/fuse/uploadMultipartPart.h"
 #include "monitoring/monitoring.h"
 
@@ -1688,7 +1686,7 @@ folly::Future<std::size_t> S3Logic::write(
                       m_providerTimeout)
                       .count();
 
-    LOG_DBG(3) << "Writing " << bufq.chainLength() << "bytes at offset "
+    LOG_DBG(3) << "Writing " << bufq.chainLength() << " bytes at offset "
                << offset;
 
     return helperHandle->write(offset, std::move(bufq), {})

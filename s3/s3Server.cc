@@ -19,7 +19,6 @@
 #include "version.h"
 
 #include <Poco/Net/NetException.h>
-#include <RangeParser.h>
 #include <aws/core/utils/xml/XmlSerializer.h>
 #include <aws/s3/model/CompleteMultipartUploadRequest.h>
 #include <aws/s3/model/CreateMultipartUploadResult.h>
@@ -511,19 +510,24 @@ void S3Server::deleteBucket(const HttpRequestPtr &req,
 
         onezoneClient.deleteSpace(auth->getToken(), spaceIdToDelete.value());
 
-        constexpr auto kRetryCount{120};
-        constexpr auto kRetryDelay{500};
+        constexpr auto kRetryCount{200};
+        constexpr auto kRetryDelayMs{250};
         auto retries = kRetryCount;
 
         while (retries-- > 0) {
             bool bucketStillListing{false};
 
-            auto buckets = m_logicCache->get(auth->getToken())
-                               .delayed(std::chrono::milliseconds(kRetryDelay))
-                               .thenValue([](std::shared_ptr<S3Logic> &&s3) {
-                                   return s3->listBuckets();
-                               })
-                               .get();
+            auto buckets =
+                m_logicCache->get(auth->getToken())
+                    .delayed(std::chrono::milliseconds(kRetryDelayMs))
+                    .thenValue([](std::shared_ptr<S3Logic> &&s3) {
+                        return s3->listBuckets();
+                    })
+                    .thenError(folly::tag_t<std::exception>{},
+                        [callback](auto && /*e*/) mutable {
+                            return Aws::S3::Model::ListBucketsResult{};
+                        })
+                    .get();
 
             for (const auto &listedBucket : buckets.GetBuckets()) {
                 if (listedBucket.GetName() == bucket) {
@@ -761,7 +765,7 @@ void S3Server::getObject(const HttpRequestPtr &req,
                     }
                     else {
                         auto response = HttpResponse::newHttpResponse();
-                        
+
                         response->setContentTypeString(
                             headResult.GetContentType());
 
@@ -1123,13 +1127,11 @@ void S3Server::deleteObjects(const HttpRequestPtr &req,
     m_logicCache->get(auth->getToken())
         .thenValue([deleteRequest = std::move(deleteRequest), bucket,
                        requestId](auto &&s3) {
-            std::vector<folly::Future<
-                std::pair<std::string, folly::Optional<std::string>>>>
-                futs;
-
-            for (const auto &object : deleteRequest.GetObjects()) {
-                futs.emplace_back(
-                    s3->deleteObject(requestId, bucket, object.GetKey())
+            constexpr auto kMaxParallelDeletes{25U};
+            auto futs = folly::window(
+                deleteRequest.GetObjects(),
+                [bucket, requestId, s3](const auto &object) {
+                    return s3->deleteObject(requestId, bucket, object.GetKey())
                         .thenTry([key = object.GetKey()](auto &&result) {
                             if (result.hasException()) {
                                 return std::make_pair(key,
@@ -1139,10 +1141,11 @@ void S3Server::deleteObjects(const HttpRequestPtr &req,
 
                             return std::make_pair(
                                 key, folly::Optional<std::string>{});
-                        }));
-            }
+                        });
+                },
+                kMaxParallelDeletes);
 
-            return folly::collectAll(futs);
+            return folly::collectAll(std::move(futs));
         })
         .thenTry([callback](auto &&futs) {
             futs.throwIfFailed();
