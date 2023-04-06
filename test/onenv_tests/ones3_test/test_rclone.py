@@ -19,7 +19,8 @@ def test_rclone_copy(s3_client, bucket, rclone_setup):
     # Create a sample file to fill the bucket-space cache
     s3_client.put_object(Bucket=bucket, Key=key, Body=body)
 
-    rclone_cmd = f'rclone --no-check-certificate --transfers 5 --no-update-modtime --retries 1 copy ./src/ s3proxy:{bucket}'
+    rclone_cmd = f'rclone --no-check-certificate --transfers 5 ' \
+                 f'--no-update-modtime --retries 1 copy ./src/ s3proxy:{bucket}'
 
     try:
         subprocess.check_output(rclone_cmd.split(' '))

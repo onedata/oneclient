@@ -48,9 +48,11 @@ def test_multipart_upload(s3_client, bucket, parts, order):
 
     multipart_md5 = b''.join(parts_md5)
 
-    multipart_etag = hashlib.md5(multipart_md5).hexdigest() + "-" + str(len(parts))
+    multipart_etag = hashlib.md5(multipart_md5).hexdigest() + "-" + \
+                     str(len(parts))
 
-    res = s3_client.create_multipart_upload(Bucket=bucket, Key=key, ContentType='image/jpeg')
+    res = s3_client.create_multipart_upload(Bucket=bucket, Key=key,
+                                            ContentType='image/jpeg')
 
     pprint.pprint(res)
 
@@ -59,7 +61,8 @@ def test_multipart_upload(s3_client, bucket, parts, order):
 
     for i in order:
         part_number = i + 1
-        res = s3_client.upload_part(Bucket=bucket, Key=key, Body=parts[i], PartNumber=part_number, UploadId=upload_id)
+        res = s3_client.upload_part(Bucket=bucket, Key=key, Body=parts[i],
+                                    PartNumber=part_number, UploadId=upload_id)
         print(res)
         assert (res['ETag'] == '"' + parts_etags[i] + '"')
 
@@ -73,10 +76,11 @@ def test_multipart_upload(s3_client, bucket, parts, order):
 
 
 
-    res = s3_client.complete_multipart_upload(Bucket=bucket, Key=key, UploadId=upload_id,
-                                              MultipartUpload={
-                                                  'Parts': [{'ETag': p['ETag'], 'PartNumber': p['PartNumber']} for p in
-                                                            res['Parts']]})
+    res = s3_client.complete_multipart_upload(
+        Bucket=bucket, Key=key, UploadId=upload_id,
+        MultipartUpload={'Parts': [{'ETag': p['ETag'],
+                                    'PartNumber': p['PartNumber']}
+                                   for p in res['Parts']]})
 
     pprint.pprint(res)
 

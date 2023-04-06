@@ -159,7 +159,7 @@ def create_s3client(s3_endpoint, access_token, secret_key):
         read_timeout=300,
         signature_version='s3v4',
         retries={
-            'max_attempts': 0,
+            'max_attempts': 3,
             'mode': 'standard'
         }
     )
@@ -248,7 +248,6 @@ def rclone_setup(onezone_admin_token, secret_access_key, s3_endpoint):
 @pytest.fixture(scope=FIXTURE_SCOPE)
 def minio_setup(onezone_admin_token, secret_access_key, s3_server, s3_endpoint):
     os.system(f'mc alias set --insecure s3proxy "{s3_endpoint}" {onezone_admin_token} {secret_access_key}')
-
 
 
 @pytest.fixture
