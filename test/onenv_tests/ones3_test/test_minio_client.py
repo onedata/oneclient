@@ -51,7 +51,7 @@ def test_minio_warp_mixed(s3_client, bucket, minio_setup, s3_host, s3_port,
                           onezone_admin_token, secret_access_key, file_size,
                           file_count, duration):
 
-    warp_cmd = f"warp --insecure get " \
+    warp_cmd = f"warp --insecure mixed " \
                f"--concurrent 10 " \
                f"--obj.size {file_size} " \
                f"--objects {file_count} " \
