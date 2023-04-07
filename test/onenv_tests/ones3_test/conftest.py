@@ -252,8 +252,15 @@ def minio_setup(onezone_admin_token, secret_access_key, s3_server, s3_endpoint):
 
 @pytest.fixture
 def bucket(s3_client, uuid_str):
-    s3_client.create_bucket(Bucket=uuid_str,
-            CreateBucketConfiguration={'LocationConstraint': 'pl-reg-k1'})
+    with pytest.raises(Exception) as e:
+        s3_client.create_bucket(Bucket=uuid_str,
+                CreateBucketConfiguration={'LocationConstraint': 'pl-reg-k1'})
+        if str(e.type) == "<class 'botocore.errorfactory.BucketAlreadyOwnedByYou'>":
+            pass
+        else:
+            raise e
+
     yield uuid_str
+
     clean_bucket(s3_client, uuid_str)
     s3_client.delete_bucket(Bucket=uuid_str)
