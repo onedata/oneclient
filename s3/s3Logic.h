@@ -140,7 +140,7 @@ public:
         const folly::Optional<folly::fbstring> &indexToken);
 
     folly::Future<std::pair<Aws::S3::Model::HeadObjectResult,
-        std::function<std::size_t(char *, std::size_t)>>>
+        std::pair<std::function<std::size_t(char *, std::size_t)>, std::string>>>
     getObject(const folly::fbstring &bucket, const folly::fbstring &path,
         const std::string &requestId,
         const folly::Optional<folly::fbstring> &rangeHeader,

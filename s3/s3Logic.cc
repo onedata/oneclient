@@ -22,7 +22,6 @@
 #include "messages/fuse/fileRenamed.h"
 #include "messages/fuse/fsync.h"
 #include "messages/fuse/getChildAttr.h"
-#include "messages/fuse/getFileAttr.h"
 #include "messages/fuse/getFileAttrByPath.h"
 #include "messages/fuse/getFileChildrenAttrs.h"
 #include "messages/fuse/getFileLocation.h"
@@ -39,7 +38,6 @@
 #include "messages/fuse/reportFileWritten.h"
 #include "messages/fuse/resolveGuid.h"
 #include "messages/fuse/setXAttr.h"
-#include "messages/fuse/truncate.h"
 #include "messages/fuse/uploadMultipartPart.h"
 #include "monitoring/monitoring.h"
 
@@ -838,7 +836,7 @@ S3Logic::listMultipartUploads(const folly::fbstring &bucket, size_t maxUploads,
 }
 
 folly::Future<std::pair<Aws::S3::Model::HeadObjectResult,
-    std::function<std::size_t(char *, std::size_t)>>>
+    std::pair<std::function<std::size_t(char *, std::size_t)>, std::string>>>
 S3Logic::getObject(const folly::fbstring &bucket, const folly::fbstring &path,
     const std::string &requestId,
     const folly::Optional<folly::fbstring> &rangeHeader,
@@ -878,7 +876,8 @@ S3Logic::getObject(const folly::fbstring &bucket, const folly::fbstring &path,
             }
 
             size_t requestOffset{0};
-            auto requestSize{attr.value().size().value()};
+            size_t requestSize{
+                static_cast<size_t>(attr.value().size().value())};
             if (rangeHeader) {
                 std::vector<drogon::FileRange> ranges;
                 auto rangeResult = drogon::parseRangeHeader(
@@ -918,11 +917,16 @@ S3Logic::getObject(const folly::fbstring &bucket, const folly::fbstring &path,
             auto requestSize = std::get<3>(args).value();
             const auto spaceId = bucketAttr.uuid();
 
-            std::function<std::size_t(char *, std::size_t)> streamReader =
-                [this, attr, spaceId, bucket, requestId, path, requestOffset,
-                    requestSize,
-                    completionCallback = std::move(completionCallback)](
-                    char *data, std::size_t size) mutable {
+            std::function<std::size_t(char *, std::size_t)> streamReader;
+            // If the requested size is larger than threshold - use streaming
+            // Otherwise just return the body content as std::string in a single
+            // read.
+            if (requestSize > m_options->getOneS3StreamGetThreshold()) {
+                streamReader = [this, attr, spaceId, bucket, requestId, path,
+                                   requestOffset, requestSize,
+                                   completionCallback =
+                                       std::move(completionCallback)](
+                                   char *data, std::size_t size) mutable {
                     if (data == nullptr) {
                         // Close the file on end of stream
                         return close(attr.uuid(), requestId)
@@ -978,24 +982,27 @@ S3Logic::getObject(const folly::fbstring &bucket, const folly::fbstring &path,
                         })
                         .get();
                 };
+            }
 
             auto arg0 = folly::makeFuture(std::move(bucketAttr));
             auto arg1 = folly::makeFuture(std::move(attr));
             auto arg2 = folly::makeFuture(std::move(streamReader));
             auto arg3 = folly::makeFuture(std::move(requestSize));
+            auto arg4 = folly::makeFuture(std::move(requestOffset));
 
             return folly::collectAll(std::move(arg0), std::move(arg1),
-                std::move(arg2), std::move(arg3));
+                std::move(arg2), std::move(arg3), std::move(arg4));
         })
-        .thenValue([this](auto &&args) {
+        .thenValue([this, requestId](auto &&args) {
             auto bucketAttr = std::get<0>(args);
             auto attr = std::get<1>(args).value();
             auto streamReader = std::get<2>(args);
-            auto requestSize = std::get<3>(args);
+            auto requestSize = std::get<3>(args).value();
+            auto requestOffset = std::get<4>(args).value();
+
+            auto spaceId = bucketAttr.value().uuid();
 
             auto arg0 = folly::makeFuture(std::move(bucketAttr));
-            auto arg1 = folly::makeFuture(std::move(attr));
-            auto arg2 = folly::makeFuture(std::move(streamReader));
 
             auto arg3 =
                 communicate<messages::fuse::XAttr>(
@@ -1023,15 +1030,75 @@ S3Logic::getObject(const folly::fbstring &bucket, const folly::fbstring &path,
 
             auto arg5 = folly::makeFuture(requestSize);
 
-            return folly::collectAll(std::move(arg0), std::move(arg1),
-                std::move(arg2), std::move(arg3), std::move(arg4),
-                std::move(arg5));
+            if (streamReader.value() == nullptr) {
+                // Read the entire data range here
+                auto dataRangeFuture =
+                    open(requestId, spaceId, attr, 0UL, O_RDONLY)
+                        .via(m_executor.get())
+                        .thenValue([this, requestId, requestOffset,
+                                       size = requestSize, requestSize](
+                                       std::shared_ptr<
+                                           one::client::fslogic::FuseFileHandle>
+                                           &&fileHandle) mutable {
+                            auto arg0 = read(std::move(fileHandle), requestId,
+                                size, requestOffset, requestSize);
+
+                            return folly::collectAll(std::move(arg0));
+                        })
+                        .thenValue([this, requestOffset, size = requestSize,
+                                       requestSize,
+                                       requestId](auto &&args) mutable {
+                            folly::IOBufQueue &buf = std::get<0>(args).value();
+                            if (buf.chainLength() == 0)
+                                return std::string{};
+
+                            auto iobuf = buf.empty() ? folly::IOBuf::create(0)
+                                                     : buf.move();
+                            if (iobuf->isChained()) {
+                                iobuf->unshare();
+                                iobuf->coalesce();
+                            }
+
+                            auto bufSize = iobuf->length();
+
+                            LOG_DBG(3)
+                                << "[" << requestId << "] Read " << bufSize
+                                << "/" << size << "/" << requestSize
+                                << " at offset " << requestOffset;
+
+                            auto res = iobuf->moveToFbString().toStdString();
+
+                            m_downloadedBytes.fetch_add(bufSize);
+
+                            return res;
+                        })
+                        .thenValue([this, attr, requestId](std::string &&data) {
+                            return close(attr.uuid(), requestId)
+                                .thenValue(
+                                    [data = std::move(data)](
+                                        auto && /*unit*/) { return data; });
+                        });
+
+                return folly::collectAll(std::move(arg0),
+                    folly::makeFuture(std::move(attr)),
+                    folly::makeFuture(std::move(streamReader)), std::move(arg3),
+                    std::move(arg4), std::move(arg5),
+                    std::move(dataRangeFuture));
+            }
+
+            auto arg6 = folly::makeFuture<std::string>("");
+
+            return folly::collectAll(std::move(arg0),
+                folly::makeFuture(std::move(attr)),
+                folly::makeFuture(std::move(streamReader)), std::move(arg3),
+                std::move(arg4), std::move(arg5), std::move(arg6));
         })
         .thenValue([](auto &&args) {
             auto bucketAttr = std::get<0>(args);
             auto attr = std::get<1>(args).value();
             auto streamReader = std::get<2>(args);
             auto requestSize = std::get<5>(args).value();
+            auto responseBodyStr = std::get<6>(args);
 
             Aws::S3::Model::HeadObjectResult result;
 
@@ -1053,8 +1120,9 @@ S3Logic::getObject(const folly::fbstring &bucket, const folly::fbstring &path,
             result.SetContentLength(requestSize);
             result.SetLastModified(attr.mtime());
 
-            return folly::makeFuture(std::make_pair(
-                std::move(result), std::move(streamReader.value())));
+            return folly::makeFuture(std::make_pair(std::move(result),
+                std::make_pair(std::move(streamReader.value()),
+                    std::move(responseBodyStr.value()))));
         });
 }
 
@@ -1510,7 +1578,7 @@ folly::Future<Aws::S3::Model::HeadObjectResult> S3Logic::headObject(
                     fmt::format("\"{}\"",
                         one::client::util::md5::md5(uuid.toStdString()))});
             auto arg2 = folly::makeFuture(messages::fuse::XAttr{
-                ONEDATA_S3_XATTR_CONTENT_TYPE, "application/octect-stream"});
+                ONEDATA_S3_XATTR_CONTENT_TYPE, "\"application/octet-stream\""});
 
             return folly::collectAll(
                 std::move(arg0), std::move(arg1), std::move(arg2));
@@ -1618,7 +1686,7 @@ folly::Future<std::size_t> S3Logic::write(
                       m_providerTimeout)
                       .count();
 
-    LOG_DBG(3) << "Writing " << bufq.chainLength() << "bytes at offset "
+    LOG_DBG(3) << "Writing " << bufq.chainLength() << " bytes at offset "
                << offset;
 
     return helperHandle->write(offset, std::move(bufq), {})

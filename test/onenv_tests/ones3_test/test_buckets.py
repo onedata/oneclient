@@ -3,17 +3,14 @@ Copyright (C) 2021 onedata.org
 This software is released under the MIT license cited in 'LICENSE.txt'
 """
 
-import pprint
-import unittest
 import pytest
 import botocore
 import hashlib
-import time
-from concurrent.futures import ThreadPoolExecutor, wait
+from concurrent.futures import ThreadPoolExecutor, wait, ALL_COMPLETED
 from .common import random_bytes, random_str
 
 
-def test_create_delete_bucket(s3_client, uuid_str, ones3_server):
+def test_create_delete_bucket(s3_client, uuid_str, s3_server):
     name = uuid_str
 
     s3_client.create_bucket(Bucket=name, CreateBucketConfiguration={'LocationConstraint': 'pl-reg-w3'})
@@ -72,14 +69,17 @@ def test_create_buckets_with_the_same_name_and_write(s3_client, uuid_str):
         bucket_name = args[0]
         res = None
         try:
-            res = s3_client2.create_bucket(Bucket=bucket_name, CreateBucketConfiguration={'LocationConstraint': 'pl-reg-k1'})
+            res = s3_client2.create_bucket(
+                Bucket=bucket_name,
+                CreateBucketConfiguration={'LocationConstraint': 'pl-reg-k1'})
         except botocore.exceptions.ClientError as e:
             if e.response['Error']['Code'] == 'BucketAlreadyOwnedByYou':
                 pass
             else:
                 raise e
         except Exception as e:
-            raise Exception(f'Bucket creation failed for bucket {bucket_name} due to {e}')
+            raise Exception(f'Bucket creation failed for bucket '
+                            f'{bucket_name} due to {e}')
 
         body = b'xyz'
         key = random_str()
@@ -91,7 +91,8 @@ def test_create_buckets_with_the_same_name_and_write(s3_client, uuid_str):
         s3_client2.delete_object(Bucket=bucket_name, Key=key)
 
         if res:
-            return f'Bucket {bucket_name} created successfully and test file created'
+            return f'Bucket {bucket_name} created successfully and ' \
+                   f'test file created'
         else:
             return f'Test file created'
 
@@ -122,14 +123,16 @@ def test_create_buckets_with_the_same_name_and_write(s3_client, uuid_str):
     res = s3_client.list_buckets()
     buckets = res['Buckets']
 
-    assert list(map(lambda b: b['Name'] == name, buckets)).count(True) == 1, "There should be only 1 bucket"
+    assert list(map(lambda b: b['Name'] == name, buckets)).count(True) == 1, \
+        "There should be only 1 bucket"
 
     s3_client.delete_bucket(Bucket=name)
 
     res = s3_client.list_buckets()
     buckets = res['Buckets']
 
-    assert list(map(lambda b: b['Name'] == name, buckets)).count(True) == 0, "There should be no buckets after its deleted"
+    assert list(map(lambda b: b['Name'] == name, buckets)).count(True) == 0, \
+        "There should be no buckets after its deleted"
 
 
 @pytest.mark.parametrize(
@@ -140,7 +143,9 @@ def test_create_buckets_with_the_same_name_and_write(s3_client, uuid_str):
     ],
 )
 def test_list_empty_bucket(s3_client, bucket, encoding_type, delimiter):
-    res = s3_client.list_objects(Bucket=bucket, Delimiter=delimiter, EncodingType=encoding_type, MaxKeys=1000, Prefix='')
+    res = s3_client.list_objects(Bucket=bucket, Delimiter=delimiter,
+                                 EncodingType=encoding_type, MaxKeys=1000,
+                                 Prefix='')
 
     assert('Contents' not in res)
     assert(res['Name'] == bucket)
@@ -154,7 +159,9 @@ def test_list_empty_bucket(s3_client, bucket, encoding_type, delimiter):
     ],
 )
 def test_list_v2_empty_bucket(s3_client, bucket, encoding_type, delimiter):
-    res = s3_client.list_objects_v2(Bucket=bucket, Delimiter=delimiter, EncodingType=encoding_type, MaxKeys=1000, Prefix='')
+    res = s3_client.list_objects_v2(Bucket=bucket, Delimiter=delimiter,
+                                    EncodingType=encoding_type, MaxKeys=1000,
+                                    Prefix='')
 
     assert(res['KeyCount'] == 0)
     assert(res['Name'] == bucket)
@@ -171,7 +178,9 @@ def test_list_small_bucket(s3_client, bucket, encoding_type, delimiter):
     for i in range(20):
         s3_client.put_object(Bucket=bucket, Key=f'file-{i}.txt', Body=b'TEST')
 
-    res = s3_client.list_objects(Bucket=bucket, Delimiter=delimiter, EncodingType=encoding_type, MaxKeys=1000, Prefix='')
+    res = s3_client.list_objects(Bucket=bucket, Delimiter=delimiter,
+                                 EncodingType=encoding_type, MaxKeys=1000,
+                                 Prefix='')
 
     assert(len(res['Contents']) == 20)
     assert(res['Name'] == bucket)
@@ -195,7 +204,9 @@ def test_list_small_bucket_and_verify_etag(s3_client, bucket, encoding_type, del
         files_content.append(body)
         files_md5.append(etag)
 
-    res = s3_client.list_objects(Bucket=bucket, Delimiter=delimiter, EncodingType=encoding_type, MaxKeys=1000, Prefix='')
+    res = s3_client.list_objects(Bucket=bucket, Delimiter=delimiter,
+                                 EncodingType=encoding_type, MaxKeys=1000,
+                                 Prefix='')
 
     assert(len(files_md5) == file_count)
     assert(len(files_content) == file_count)
@@ -217,21 +228,27 @@ def test_list_small_bucket_and_verify_etag(s3_client, bucket, encoding_type, del
 def test_list_single_file(s3_client, bucket, encoding_type, delimiter):
     s3_client.put_object(Bucket=bucket, Key=f'dir1/dir2/file1.txt', Body=b'TEST')
 
-    res = s3_client.list_objects_v2(Bucket=bucket, Delimiter=delimiter, EncodingType=encoding_type, MaxKeys=1000, Prefix='dir1/dir2/file1.txt')
+    res = s3_client.list_objects_v2(Bucket=bucket, Delimiter=delimiter,
+                                    EncodingType=encoding_type, MaxKeys=1000,
+                                    Prefix='dir1/dir2/file1.txt')
 
     assert(len(res['Contents']) == 1)
     assert (res['KeyCount'] == 1)
     assert(res['Name'] == bucket)
     assert (res['Contents'][0]['Key'] == 'dir1/dir2/file1.txt')
 
-    res = s3_client.list_objects_v2(Bucket=bucket, Delimiter=delimiter, EncodingType=encoding_type, MaxKeys=1000, Prefix='dir1/dir2')
+    res = s3_client.list_objects_v2(Bucket=bucket, Delimiter=delimiter,
+                                    EncodingType=encoding_type, MaxKeys=1000,
+                                    Prefix='dir1/dir2')
 
     assert(len(res['Contents']) == 1)
     assert (res['KeyCount'] == 1)
     assert(res['Name'] == bucket)
     assert (res['Contents'][0]['Key'] == 'dir1/dir2/file1.txt')
 
-    res = s3_client.list_objects_v2(Bucket=bucket, Delimiter=delimiter, EncodingType=encoding_type, MaxKeys=1000, Prefix='dir1/dir2/')
+    res = s3_client.list_objects_v2(Bucket=bucket, Delimiter=delimiter,
+                                    EncodingType=encoding_type, MaxKeys=1000,
+                                    Prefix='dir1/dir2/')
 
     assert(len(res['Contents']) == 1)
     assert (res['KeyCount'] == 1)
@@ -250,7 +267,9 @@ def test_list_single_file(s3_client, bucket, encoding_type, delimiter):
 def test_list_single_file_as_folder(s3_client, bucket, encoding_type, delimiter):
     s3_client.put_object(Bucket=bucket, Key=f'dir1/dir2/file1.txt', Body=b'TEST')
 
-    res = s3_client.list_objects_v2(Bucket=bucket, Delimiter=delimiter, EncodingType=encoding_type, MaxKeys=1000, Prefix='dir1/dir2/file1.txt/')
+    res = s3_client.list_objects_v2(Bucket=bucket, Delimiter=delimiter,
+                                    EncodingType=encoding_type, MaxKeys=1000,
+                                    Prefix='dir1/dir2/file1.txt/')
 
     assert (res['KeyCount'] == 0)
     assert(res['Name'] == bucket)
@@ -267,7 +286,9 @@ def test_list_v2_small_bucket(s3_client, bucket, encoding_type, delimiter):
     for i in range(20):
         s3_client.put_object(Bucket=bucket, Key=f'file-{i}.txt', Body=b'TEST')
 
-    res = s3_client.list_objects_v2(Bucket=bucket, Delimiter=delimiter, EncodingType=encoding_type, MaxKeys=1000, Prefix='')
+    res = s3_client.list_objects_v2(Bucket=bucket, Delimiter=delimiter,
+                                    EncodingType=encoding_type, MaxKeys=1000,
+                                    Prefix='')
 
     assert(res['KeyCount'] == 20)
     assert(res['Name'] == bucket)
@@ -289,7 +310,8 @@ def test_list_big_bucket(s3_client, bucket, encoding_type, size, step, delimiter
     next_marker = ""
     has_more = True
     while has_more:
-        res = s3_client.list_objects(Bucket=bucket, Delimiter=delimiter, EncodingType=encoding_type, MaxKeys=step,
+        res = s3_client.list_objects(Bucket=bucket, Delimiter=delimiter,
+                                     EncodingType=encoding_type, MaxKeys=step,
                                         Prefix='', Marker=next_marker)
 
         if 'Contents' in res:
@@ -307,19 +329,38 @@ def test_list_big_bucket(s3_client, bucket, encoding_type, size, step, delimiter
     "encoding_type,size,step,delimiter",
     [
         pytest.param('path', 11, 2, '/'), pytest.param('url', 11, 2, '/'),
-        pytest.param('path', 11, 2, ''), pytest.param('url', 11, 2, '')
+        pytest.param('path', 11, 2, ''), pytest.param('url', 11, 2, ''),
+        pytest.param('path', 1042, 1000, '')
     ]
 )
-def test_list_v2_big_bucket(s3_client, bucket, encoding_type, size, step, delimiter):
+def test_list_v2_big_bucket(s3_client, bucket, encoding_type, size, step,
+                            delimiter, thread_count = 25):
+    def put_object(job):
+        bucket_, key_, body_, etag_ = job
+        res = s3_client.put_object(Bucket=bucket_, Key=key_, Body=body_)
+        assert (res['ContentLength'] == len(body_))
+        assert (res['ETag'] == f'"{etag_}"')
+
+    jobs = []
     for i in range(size):
-        s3_client.put_object(Bucket=bucket, Key=f'file-{i}.txt', Body=b'TEST')
+        body = b'TEST'
+        etag = hashlib.md5(body).hexdigest()
+        key = f'file-{i}.txt'
+        jobs.append((bucket, key, body, etag))
+
+    with ThreadPoolExecutor(thread_count) as pool:
+        futures = [pool.submit(put_object, job) for job in jobs]
+        wait(futures, timeout=30, return_when=ALL_COMPLETED)
 
     contents = []
     continuation_token = ""
     has_more = True
     while has_more:
-        res = s3_client.list_objects_v2(Bucket=bucket, Delimiter=delimiter, EncodingType=encoding_type, MaxKeys=step,
-                                        Prefix='', ContinuationToken=continuation_token)
+        res = s3_client.list_objects_v2(Bucket=bucket, Delimiter=delimiter,
+                                        EncodingType=encoding_type,
+                                        MaxKeys=step,
+                                        Prefix='',
+                                        ContinuationToken=continuation_token)
         if 'Contents' in res:
             contents.extend(res['Contents'])
         has_more = res['IsTruncated']
@@ -343,21 +384,24 @@ def test_list_objects_recursive_skips_hidden_mpu_directory(s3_client, bucket):
 
     multipart_md5 = b''.join(parts_md5)
 
-    multipart_etag = hashlib.md5(multipart_md5).hexdigest() + "-" + str(len(parts))
-
-    res = s3_client.create_multipart_upload(Bucket=bucket, Key=key, ContentType='image/jpeg')
+    res = s3_client.create_multipart_upload(Bucket=bucket, Key=key,
+                                            ContentType='image/jpeg')
 
     assert (res['Key'] == key)
     upload_id = res['UploadId']
 
     for i in range(len(parts)):
         part_number = i + 1
-        res = s3_client.upload_part(Bucket=bucket, Key=key, Body=parts[i], PartNumber=part_number, UploadId=upload_id)
+        res = s3_client.upload_part(Bucket=bucket, Key=key, Body=parts[i],
+                                    PartNumber=part_number, UploadId=upload_id)
         assert (res['ETag'] == '"' + parts_etags[i] + '"')
 
 
-    # Now list objects with delimiter and ensure that there are no '.__s3__mpus__' prefixes
-    res = s3_client.list_objects_v2(Bucket=bucket, Delimiter=delimiter, EncodingType=encoding_type, MaxKeys=1000, Prefix='')
+    # Now list objects with delimiter and ensure that there are
+    # no '.__s3__mpus__' prefixes
+    res = s3_client.list_objects_v2(Bucket=bucket, Delimiter=delimiter,
+                                    EncodingType=encoding_type, MaxKeys=1000,
+                                    Prefix='')
 
     assert('Contents' not in res)
 
@@ -366,7 +410,9 @@ def test_list_objects_recursive_skips_hidden_mpu_directory(s3_client, bucket):
     s3_client.put_object(Bucket=bucket, Key='.hidden/file.txt', Body=b'TEST')
     s3_client.put_object(Bucket=bucket, Key='file.txt', Body=b'TEST')
 
-    res = s3_client.list_objects(Bucket=bucket, Delimiter=delimiter, EncodingType=encoding_type, MaxKeys=1000, Prefix='')
+    res = s3_client.list_objects(Bucket=bucket, Delimiter=delimiter,
+                                 EncodingType=encoding_type, MaxKeys=1000,
+                                 Prefix='')
 
     assert('Contents' in res)
     assert(len(res['Contents']) == 3)
@@ -377,14 +423,16 @@ def test_list_objects_recursive_skips_hidden_mpu_directory(s3_client, bucket):
     size = 20
     step = 3
     for i in range(size):
-        s3_client.put_object(Bucket=bucket, Key=f'file-{i:0>4}.txt', Body=b'TEST')
+        s3_client.put_object(Bucket=bucket, Key=f'file-{i:0>4}.txt',
+                             Body=b'TEST')
 
     contents = []
     next_marker = ""
     has_more = True
     while has_more:
-        res = s3_client.list_objects(Bucket=bucket, Delimiter=delimiter, EncodingType=encoding_type, MaxKeys=step,
-                                        Prefix='', Marker=next_marker)
+        res = s3_client.list_objects(Bucket=bucket, Delimiter=delimiter,
+                                     EncodingType=encoding_type, MaxKeys=step,
+                                     Prefix='', Marker=next_marker)
 
         if 'Contents' in res:
             contents.extend(res['Contents'])
@@ -409,21 +457,24 @@ def test_list_objects_v2_recursive_skips_hidden_mpu_directory(s3_client, bucket)
 
     multipart_md5 = b''.join(parts_md5)
 
-    multipart_etag = hashlib.md5(multipart_md5).hexdigest() + "-" + str(len(parts))
-
-    res = s3_client.create_multipart_upload(Bucket=bucket, Key=key, ContentType='image/jpeg')
+    res = s3_client.create_multipart_upload(Bucket=bucket, Key=key,
+                                            ContentType='image/jpeg')
 
     assert (res['Key'] == key)
     upload_id = res['UploadId']
 
     for i in range(len(parts)):
         part_number = i + 1
-        res = s3_client.upload_part(Bucket=bucket, Key=key, Body=parts[i], PartNumber=part_number, UploadId=upload_id)
+        res = s3_client.upload_part(Bucket=bucket, Key=key, Body=parts[i],
+                                    PartNumber=part_number, UploadId=upload_id)
         assert (res['ETag'] == '"' + parts_etags[i] + '"')
 
 
-    # Now list objects with delimiter and ensure that there are no '.__s3__mpus__' prefixes
-    res = s3_client.list_objects_v2(Bucket=bucket, Delimiter=delimiter, EncodingType=encoding_type, MaxKeys=1000, Prefix='')
+    # Now list objects with delimiter and ensure that there are
+    # no '.__s3__mpus__' prefixes
+    res = s3_client.list_objects_v2(Bucket=bucket, Delimiter=delimiter,
+                                    EncodingType=encoding_type, MaxKeys=1000,
+                                    Prefix='')
 
     assert('Contents' not in res)
 
@@ -432,7 +483,9 @@ def test_list_objects_v2_recursive_skips_hidden_mpu_directory(s3_client, bucket)
     s3_client.put_object(Bucket=bucket, Key='.hidden/file.txt', Body=b'TEST')
     s3_client.put_object(Bucket=bucket, Key='file.txt', Body=b'TEST')
 
-    res = s3_client.list_objects_v2(Bucket=bucket, Delimiter=delimiter, EncodingType=encoding_type, MaxKeys=1000, Prefix='')
+    res = s3_client.list_objects_v2(Bucket=bucket, Delimiter=delimiter,
+                                    EncodingType=encoding_type, MaxKeys=1000,
+                                    Prefix='')
 
     if delimiter == '':
         assert('Contents' in res)
@@ -456,8 +509,11 @@ def test_list_objects_v2_recursive_skips_hidden_mpu_directory(s3_client, bucket)
     continuation_token= ""
     has_more = True
     while has_more:
-        res = s3_client.list_objects_v2(Bucket=bucket, Delimiter=delimiter, EncodingType=encoding_type, MaxKeys=step,
-                                        Prefix='', ContinuationToken=continuation_token)
+        res = s3_client.list_objects_v2(Bucket=bucket, Delimiter=delimiter,
+                                        EncodingType=encoding_type,
+                                        MaxKeys=step,
+                                        Prefix='',
+                                        ContinuationToken=continuation_token)
 
         if 'Contents' in res:
             contents.extend(res['Contents'])
@@ -482,21 +538,24 @@ def test_list_objects_skips_hidden_mpu_directory(s3_client, bucket):
 
     multipart_md5 = b''.join(parts_md5)
 
-    multipart_etag = hashlib.md5(multipart_md5).hexdigest() + "-" + str(len(parts))
-
-    res = s3_client.create_multipart_upload(Bucket=bucket, Key=key, ContentType='image/jpeg')
+    res = s3_client.create_multipart_upload(Bucket=bucket, Key=key,
+                                            ContentType='image/jpeg')
 
     assert (res['Key'] == key)
     upload_id = res['UploadId']
 
     for i in range(len(parts)):
         part_number = i + 1
-        res = s3_client.upload_part(Bucket=bucket, Key=key, Body=parts[i], PartNumber=part_number, UploadId=upload_id)
+        res = s3_client.upload_part(Bucket=bucket, Key=key, Body=parts[i],
+                                    PartNumber=part_number, UploadId=upload_id)
         assert (res['ETag'] == '"' + parts_etags[i] + '"')
 
 
-    # Now list objects with delimiter and ensure that there are no '.__s3__mpus__' prefixes
-    res = s3_client.list_objects(Bucket=bucket, Delimiter=delimiter, EncodingType=encoding_type, MaxKeys=1000, Prefix='')
+    # Now list objects with delimiter and ensure that there are
+    # no '.__s3__mpus__' prefixes
+    res = s3_client.list_objects(Bucket=bucket, Delimiter=delimiter,
+                                 EncodingType=encoding_type, MaxKeys=1000,
+                                 Prefix='')
 
     assert('Contents' not in res)
 
@@ -505,7 +564,9 @@ def test_list_objects_skips_hidden_mpu_directory(s3_client, bucket):
     s3_client.put_object(Bucket=bucket, Key='.hidden/file.txt', Body=b'TEST')
     s3_client.put_object(Bucket=bucket, Key='file.txt', Body=b'TEST')
 
-    res = s3_client.list_objects(Bucket=bucket, Delimiter=delimiter, EncodingType=encoding_type, MaxKeys=1000, Prefix='')
+    res = s3_client.list_objects(Bucket=bucket, Delimiter=delimiter,
+                                 EncodingType=encoding_type, MaxKeys=1000,
+                                 Prefix='')
 
     assert('Contents' in res)
     assert(len(res['Contents']) == 1)
@@ -522,8 +583,9 @@ def test_list_objects_skips_hidden_mpu_directory(s3_client, bucket):
     next_marker = ""
     has_more = True
     while has_more:
-        res = s3_client.list_objects(Bucket=bucket, Delimiter=delimiter, EncodingType=encoding_type, MaxKeys=step,
-                                        Prefix='', Marker=next_marker)
+        res = s3_client.list_objects(Bucket=bucket, Delimiter=delimiter,
+                                     EncodingType=encoding_type, MaxKeys=step,
+                                     Prefix='', Marker=next_marker)
 
         if 'Contents' in res:
             contents.extend(res['Contents'])
@@ -548,21 +610,24 @@ def test_list_objects_v2_skips_hidden_mpu_directory(s3_client, bucket):
 
     multipart_md5 = b''.join(parts_md5)
 
-    multipart_etag = hashlib.md5(multipart_md5).hexdigest() + "-" + str(len(parts))
-
-    res = s3_client.create_multipart_upload(Bucket=bucket, Key=key, ContentType='image/jpeg')
+    res = s3_client.create_multipart_upload(Bucket=bucket, Key=key,
+                                            ContentType='image/jpeg')
 
     assert (res['Key'] == key)
     upload_id = res['UploadId']
 
     for i in range(len(parts)):
         part_number = i + 1
-        res = s3_client.upload_part(Bucket=bucket, Key=key, Body=parts[i], PartNumber=part_number, UploadId=upload_id)
+        res = s3_client.upload_part(Bucket=bucket, Key=key, Body=parts[i],
+                                    PartNumber=part_number, UploadId=upload_id)
         assert (res['ETag'] == '"' + parts_etags[i] + '"')
 
 
-    # Now list objects with delimiter and ensure that there are no '.__s3__mpus__' prefixes
-    res = s3_client.list_objects_v2(Bucket=bucket, Delimiter=delimiter, EncodingType=encoding_type, MaxKeys=1000, Prefix='')
+    # Now list objects with delimiter and ensure that there are
+    # no '.__s3__mpus__' prefixes
+    res = s3_client.list_objects_v2(Bucket=bucket, Delimiter=delimiter,
+                                    EncodingType=encoding_type, MaxKeys=1000,
+                                    Prefix='')
 
     assert('Contents' not in res)
 
@@ -571,7 +636,9 @@ def test_list_objects_v2_skips_hidden_mpu_directory(s3_client, bucket):
     s3_client.put_object(Bucket=bucket, Key='.hidden/file.txt', Body=b'TEST')
     s3_client.put_object(Bucket=bucket, Key='file.txt', Body=b'TEST')
 
-    res = s3_client.list_objects_v2(Bucket=bucket, Delimiter=delimiter, EncodingType=encoding_type, MaxKeys=1000, Prefix='')
+    res = s3_client.list_objects_v2(Bucket=bucket, Delimiter=delimiter,
+                                    EncodingType=encoding_type, MaxKeys=1000,
+                                    Prefix='')
 
     if delimiter == '':
         assert('Contents' in res)
@@ -595,8 +662,11 @@ def test_list_objects_v2_skips_hidden_mpu_directory(s3_client, bucket):
     continuation_token = ""
     has_more = True
     while has_more:
-        res = s3_client.list_objects_v2(Bucket=bucket, Delimiter=delimiter, EncodingType=encoding_type, MaxKeys=step,
-                                        Prefix='', ContinuationToken=continuation_token)
+        res = s3_client.list_objects_v2(Bucket=bucket, Delimiter=delimiter,
+                                        EncodingType=encoding_type,
+                                        MaxKeys=step,
+                                        Prefix='',
+                                        ContinuationToken=continuation_token)
 
         if 'Contents' in res:
             contents.extend(res['Contents'])
@@ -607,9 +677,3 @@ def test_list_objects_v2_skips_hidden_mpu_directory(s3_client, bucket):
             continuation_token = res['NextContinuationToken']
 
     assert(len(contents) == size+1)
-
-
-    # Cleanup the upload
-    # s3_client.abort_multipart_upload(Bucket=bucket, UploadId=upload_id)
-
-

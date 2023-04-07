@@ -118,7 +118,7 @@ void startLoggingOneS3(
 
     FLAGS_log_dir = options->getLogDirPath().c_str();
     FLAGS_stop_logging_if_full_disk = true;
-    FLAGS_logtostderr = true;
+    FLAGS_alsologtostderr = true;
     FLAGS_v = options->getVerboseLogLevel();
     // Set maximum log size to 50MB plus 50MB for each verbosity level
     constexpr auto kMaximumLogSizeMB = 50;
@@ -132,6 +132,7 @@ void startLoggingOneS3(
     LOG(INFO) << "OneS3 commit: " << ONECLIENT_GIT_COMMIT;
     LOG(INFO) << "Helpers commit: " << HELPERS_GIT_COMMIT;
     LOG(INFO) << "Verbose logging level: " << options->getVerboseLogLevel();
+    LOG(INFO) << "Log directory: " << options->getLogDirPath().string();
     LOG(INFO) << "Connecting to Onezone: " << options->getOnezoneHost().get();
     LOG(INFO) << "Connecting to Oneprovider: "
               << options->getProviderHost().get();

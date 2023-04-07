@@ -8,13 +8,16 @@
 
 #include "serialization.h"
 
+#include "logging.h"
+
 #include <Poco/DOM/AutoPtr.h>
+#include <Poco/DOM/DOMException.h>
 #include <Poco/DOM/DOMWriter.h>
+#include <Poco/UTF8Encoding.h>
 #include <Poco/XML/XMLWriter.h>
+#include <fmt/format.h>
 
 #include <sstream>
-
-#include <fmt/format.h>
 
 namespace one {
 namespace s3 {
@@ -23,13 +26,19 @@ std::string toString(Poco::XML::AutoPtr<XMLDocument> doc)
 {
     std::string result;
     Poco::XML::DOMWriter writer;
-    writer.setOptions(Poco::XML::XMLWriter::CANONICAL);
+    writer.setOptions(Poco::XML::XMLWriter::CANONICAL_XML);
+    auto encoding = Poco::UTF8Encoding();
+    writer.setEncoding(encoding.canonicalName(), encoding);
     std::ostringstream strstr;
 
     try {
         writer.writeNode(strstr, doc);
     }
+    catch (Poco::XML::XMLException &e) {
+        LOG(ERROR) << "Failed to serialize XML to string due to: " << e.what();
+    }
     catch (std::exception &e) {
+        LOG(ERROR) << "Failed to serialize XML to string due to: " << e.what();
     }
 
     return strstr.str();
@@ -68,11 +77,15 @@ std::string serialize<Aws::S3::Model::ListBucketsResult>(
 {
     Poco::XML::AutoPtr<XMLDocument> doc{new XMLDocument};
     auto rootElement = addElement(doc, "ListAllMyBucketsResult");
+    rootElement->setAttribute(
+        "xmlns", "http://s3.amazonaws.com/doc/2006-03-01/");
+
     auto buckets = addElement(rootElement, "Buckets");
 
     serialize(buckets, list.GetBuckets());
 
-    //    addTextElement(rootElement, "IsTruncated", "false");
+    // TODO
+    // addTextElement(rootElement, "IsTruncated", "false");
 
     return toString(doc);
 }
@@ -83,7 +96,8 @@ std::string serialize<Aws::S3::Model::ListObjectsResult>(
 {
     XMLPtr<XMLDocument> doc = new XMLDocument;
     auto rootElement = addElement(doc, "ListBucketResult");
-    //    rootElement->setAttributeNS("http://s3.amazonaws.com/doc/2006-03-01/");
+    rootElement->setAttribute(
+        "xmlns", "http://s3.amazonaws.com/doc/2006-03-01/");
 
     if (!objects.GetCommonPrefixes().empty()) {
         serialize(rootElement, objects.GetCommonPrefixes());
@@ -111,7 +125,8 @@ std::string serialize<Aws::S3::Model::ListObjectsV2Result>(
 {
     XMLPtr<XMLDocument> doc = new XMLDocument;
     auto rootElement = addElement(doc, "ListBucketResult");
-    //    rootElement->setAttributeNS("http://s3.amazonaws.com/doc/2006-03-01/");
+    rootElement->setAttribute(
+        "xmlns", "http://s3.amazonaws.com/doc/2006-03-01/");
 
     if (!objects.GetCommonPrefixes().empty()) {
         serialize(rootElement, objects.GetCommonPrefixes());
@@ -143,6 +158,8 @@ std::string serialize<Aws::S3::Model::CreateMultipartUploadResult>(
 {
     XMLPtr<XMLDocument> doc = new XMLDocument;
     auto rootElement = addElement(doc, "InitiateMultipartUploadResult");
+    rootElement->setAttribute(
+        "xmlns", "http://s3.amazonaws.com/doc/2006-03-01/");
 
     addTextElement(rootElement, "Bucket", result.GetBucket());
     addTextElement(rootElement, "Key", result.GetKey());
@@ -157,6 +174,8 @@ std::string serialize<Aws::S3::Model::CompleteMultipartUploadResult>(
 {
     XMLPtr<XMLDocument> doc = new XMLDocument;
     auto rootElement = addElement(doc, "CompleteMultipartUploadResult");
+    rootElement->setAttribute(
+        "xmlns", "http://s3.amazonaws.com/doc/2006-03-01/");
 
     addTextElement(rootElement, "Bucket", result.GetBucket());
     addTextElement(rootElement, "Key", result.GetKey());
@@ -171,6 +190,8 @@ std::string serialize<Aws::S3::Model::DeleteObjectsResult>(
 {
     XMLPtr<XMLDocument> doc = new XMLDocument;
     auto rootElement = addElement(doc, "DeleteResult");
+    rootElement->setAttribute(
+        "xmlns", "http://s3.amazonaws.com/doc/2006-03-01/");
 
     for (const auto &deleted : result.GetDeleted()) {
         auto deletedElement = addElement(rootElement, "Deleted");
@@ -193,6 +214,8 @@ std::string serialize<Aws::S3::Model::ListPartsResult>(
 {
     XMLPtr<XMLDocument> doc = new XMLDocument;
     auto rootElement = addElement(doc, "ListPartsResult");
+    rootElement->setAttribute(
+        "xmlns", "http://s3.amazonaws.com/doc/2006-03-01/");
 
     addTextElement(rootElement, "Bucket", result.GetBucket());
     addTextElement(rootElement, "Key", result.GetKey());

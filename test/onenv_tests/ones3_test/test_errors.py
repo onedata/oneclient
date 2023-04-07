@@ -15,7 +15,9 @@ def test_error_list_buckets_invalid_key(s3_client_invalid_key):
     bucket = random_str(12)
 
     with pytest.raises(botocore.exceptions.ClientError) as e:
-        s3_client_invalid_key.list_buckets(Bucket=bucket, CreateBucketConfiguration={'LocationConstraint': 'pl-reg-k1'})
+        s3_client_invalid_key.list_buckets(
+            Bucket=bucket,
+            CreateBucketConfiguration={'LocationConstraint': 'pl-reg-k1'})
 
     assert e.value.response['Error']['Code'] == 'AccessDenied'
 
@@ -24,7 +26,9 @@ def test_error_create_bucket_invalid_key(s3_client_invalid_key):
     bucket = random_str(12)
 
     with pytest.raises(botocore.exceptions.ClientError) as e:
-        s3_client_invalid_key.create_bucket(Bucket=bucket, CreateBucketConfiguration={'LocationConstraint': 'pl-reg-k1'})
+        s3_client_invalid_key.create_bucket(
+            Bucket=bucket,
+            CreateBucketConfiguration={'LocationConstraint': 'pl-reg-k1'})
 
     assert e.value.response['Error']['Code'] == 'AccessDenied'
 
@@ -62,6 +66,7 @@ def test_error_copy_blob_not_implemented(s3_client, bucket):
 
     with pytest.raises(Exception) as e:
         s3_client.put_object(Bucket=bucket, Key=source, Body=body)
-        s3_client.copy_object(Bucket=bucket, CopySource=f'{bucket}/{source}', Key=dest)
+        s3_client.copy_object(Bucket=bucket, CopySource=f'{bucket}/{source}',
+                              Key=dest)
 
     assert e.value.response['Error']['Code'] == 'NotImplemented'
