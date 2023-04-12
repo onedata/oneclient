@@ -36,6 +36,12 @@ folly::fbstring uuidToSpaceId(const folly::fbstring &uuid)
     throw std::invalid_argument("Base64 decoding of Onedata uuid failed.");
 }
 
+folly::fbstring uuidToTmpDirId(const folly::fbstring &uuid)
+{
+    const auto spaceId = uuidToSpaceId(uuid);
+    return guidToUUID(spaceId, fmt::format("tmp_{}", spaceId.toStdString()));
+}
+
 folly::fbstring uuidToGuid(const folly::fbstring &uuid)
 {
     folly::fbstring result;
@@ -57,10 +63,28 @@ folly::fbstring uuidToGuid(const folly::fbstring &uuid)
 
 folly::fbstring spaceIdToSpaceUUID(const folly::fbstring &spaceId)
 {
+    constexpr auto kOnedataGUIDLength{100U};
+
     folly::fbstring result;
+    result.reserve(kOnedataGUIDLength);
+
     util::base64::base64_url_encode(
         fmt::format(
             "guid#space_{}#{}", spaceId.toStdString(), spaceId.toStdString()),
+        result);
+    return result;
+}
+
+folly::fbstring guidToUUID(
+    const folly::fbstring &spaceId, const folly::fbstring &guid)
+{
+    constexpr auto kOnedataGUIDLength{100U};
+
+    folly::fbstring result;
+    result.reserve(kOnedataGUIDLength);
+
+    util::base64::base64_url_encode(
+        fmt::format("guid#{}#{}", guid.toStdString(), spaceId.toStdString()),
         result);
     return result;
 }

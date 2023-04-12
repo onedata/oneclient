@@ -23,6 +23,12 @@ namespace uuid {
 folly::fbstring uuidToSpaceId(const folly::fbstring &uuid);
 
 /**
+ * Extracts local temporary id from Onedata UUID.
+ * @param uuid Onedata uuid Based64 encoded Onedata uuid.
+ */
+folly::fbstring uuidToTmpDirId(const folly::fbstring &uuid);
+
+/**
  * Extracts file Id from Onedata UUID.
  * @param uuid Onedata uuid Based64 encoded Onedata uuid.
  */
@@ -37,6 +43,17 @@ folly::fbstring uuidToGuid(const folly::fbstring &uuid);
  * @return Space UUID
  */
 folly::fbstring spaceIdToSpaceUUID(const folly::fbstring &spaceId);
+
+/**
+ * Converts guid (e.g. baa020971f9a7b089645b047c523a9dach9a7b) to uuid
+ * (e.g.
+ * Z3VpZCN1c2VyUm9vdF8yZTA4MDdiMWVmNzBkZGRjNGUwM2U5MjAwN2I0OGFkNmNoNzBkZCNyb290RGlyVmlydHVhbFNwYWNlSWQ)
+ * @param spaceId
+ * @param guid
+ * @return
+ */
+folly::fbstring guidToUUID(
+    const folly::fbstring &spaceId, const folly::fbstring &guid);
 } // namespace uuid
 } // namespace util
 } // namespace client
