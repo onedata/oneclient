@@ -5,8 +5,9 @@ This software is released under the MIT license cited in 'LICENSE.txt'
 
 import hashlib
 import pytest
-from concurrent.futures import ThreadPoolExecutor, wait
+from concurrent.futures import ThreadPoolExecutor, wait, ALL_COMPLETED
 from .common import random_bytes, random_str, random_path
+from .big_list_of_naughty_strings import big_list_of_naughty_strings
 
 
 def test_put_object_simple(s3_client, bucket):
@@ -21,6 +22,22 @@ def test_put_object_simple(s3_client, bucket):
     assert(res['ContentLength'] == len(body))
     assert(res['ETag'] == f'"{etag}"')
     assert(res['Body'].read() == body)
+
+
+def test_put_object_naughty_file_names(s3_client, bucket, thread_count = 25):
+    def put_get_object(job):
+        bucket_, key_, body_ = job
+        etag_ = hashlib.md5(body_).hexdigest()
+        s3_client.put_object(Bucket=bucket_, Key=key_, Body=body_)
+        res = s3_client.get_object(Bucket=bucket_, Key=key_)
+        assert (res['ContentLength'] == len(body_))
+        assert (res['ETag'] == f'"{etag_}"')
+
+    with ThreadPoolExecutor(thread_count) as pool:
+        jobs = [(bucket, f'{random_str()}/{name}', random_bytes(4)) \
+                for name in big_list_of_naughty_strings]
+        futures = [pool.submit(put_get_object, job) for job in jobs]
+        wait(futures, timeout=30, return_when=ALL_COMPLETED)
 
 
 def test_put_object_1B(s3_client, bucket):
@@ -163,20 +180,18 @@ def test_put_and_get_objects(s3_client, bucket, prefix_list, count):
 @pytest.mark.parametrize(
     "prefix_list,count",
     [
-        pytest.param(['dir1/', 'dir1/dir2/', 'dir1/dir2/', 'dir2/dir3/dir4/dir5/'], 25),
-        pytest.param(['dir50/'], 100)
+        pytest.param(['dir1/', 'dir1/dir2/', 'dir1/dir2/', 'dir2/dir3/dir4/dir5/'], 250),
+        pytest.param(['dir50/'], 1250)
     ],
 )
 def test_put_objects_large(bucket, s3_client, prefix_list, count, thread_count=100):
-    from concurrent.futures import ThreadPoolExecutor
+    keys = []
 
     def put_object(job):
         bucket_, key_, body_, etag_ = job
         res = s3_client.put_object(Bucket=bucket_, Key=key_, Body=body_)
         assert (res['ContentLength'] == len(body_))
         assert (res['ETag'] == f'"{etag_}"')
-
-    keys = []
 
     for prefix in prefix_list:
         for i in range(count):
@@ -186,13 +201,15 @@ def test_put_objects_large(bucket, s3_client, prefix_list, count, thread_count=1
             keys.append((bucket, key, body, etag))
 
     with ThreadPoolExecutor(thread_count) as pool:
-        pool.map(put_object, keys)
+        jobs = keys
+        futures = [pool.submit(put_object, job) for job in jobs]
+        wait(futures, timeout=30, return_when=ALL_COMPLETED)
 
 
 def test_put_same_object_in_path_multiple(s3_client, uuid_str, bucket):
     name = f'dir1/dir2/dir3/dir4/dir5/dir6/dir7/dir8/dir9/{uuid_str}'
-    thread_count = 4
-    file_count = 8
+    thread_count = 25
+    file_count = 100
 
     def task(args):
         key = args[0]
@@ -215,16 +232,6 @@ def test_put_same_object_in_path_multiple(s3_client, uuid_str, bucket):
         if f.exception():
             print(f.exception())
             failed += 1
-        else:
-            print(f.result())
-
-    if False:
-        print("Done...")
-
-        if failed > 0:
-            print(f'{failed} out of {file_count} failed to create')
-        else:
-            print('All files created successfully')
 
     assert(failed == 0)
 
@@ -255,13 +262,18 @@ def test_delete_objects(s3_client, bucket):
     for f in files:
         s3_client.put_object(Bucket=bucket, Key=f, Body=body)
 
-    res = s3_client.list_objects_v2(Bucket=bucket, Delimiter='/', EncodingType='path', MaxKeys=1000, Prefix='')
+    res = s3_client.list_objects_v2(Bucket=bucket, Delimiter='/',
+                                    EncodingType='path', MaxKeys=1000,
+                                    Prefix='')
 
     assert(res['KeyCount'] == 10)
 
-    s3_client.delete_objects(Bucket=bucket, Delete={'Objects': [{'Key': f} for f in files]})
+    s3_client.delete_objects(Bucket=bucket,
+                             Delete={'Objects': [{'Key': f} for f in files]})
 
-    res = s3_client.list_objects_v2(Bucket=bucket, Delimiter='/', EncodingType='path', MaxKeys=1000, Prefix='')
+    res = s3_client.list_objects_v2(Bucket=bucket, Delimiter='/',
+                                    EncodingType='path', MaxKeys=1000,
+                                    Prefix='')
 
     assert(res['KeyCount'] == 0)
 
@@ -313,16 +325,6 @@ def test_get_object_range_multiple(s3_client, bucket, uuid_str):
         if f.exception():
             print(f.exception())
             failed += 1
-        else:
-            print(f.result())
-
-    if False:
-        print("Done...")
-
-        if failed > 0:
-            print(f'{failed} out of {file_count} failed to create')
-        else:
-            print('All buckets created successfully')
 
     assert(failed == 0)
 
@@ -346,7 +348,8 @@ def test_set_content_type(s3_client, bucket):
     body = random_bytes()
     etag = hashlib.md5(body).hexdigest()
 
-    s3_client.put_object(Bucket=bucket, Key=key, Body=body, ContentType='application/pdf')
+    s3_client.put_object(Bucket=bucket, Key=key, Body=body,
+                         ContentType='application/pdf')
     res = s3_client.head_object(Bucket=bucket, Key=key)
 
     assert(res['ContentLength'] == len(body))
@@ -389,9 +392,11 @@ def test_copy_object(s3_client, bucket):
     body = random_bytes()
     etag = hashlib.md5(body).hexdigest()
 
-    s3_client.put_object(Bucket=bucket, Key=key, Body=body, ContentType='text/plain')
+    s3_client.put_object(Bucket=bucket, Key=key, Body=body,
+                         ContentType='text/plain')
 
-    res = s3_client.copy_object(Bucket=bucket, CopySource=bucket+"/"+key, Key=f'{key}-copy')
+    res = s3_client.copy_object(Bucket=bucket, CopySource=bucket+"/"+key,
+                                Key=f'{key}-copy')
 
     res = s3_client.get_object(Bucket=bucket, Key=f'{key}-copy')
 
