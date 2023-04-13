@@ -188,13 +188,15 @@ S3Logic::createMultipartUpload(const folly::fbstring &bucket,
             auto &bucketAttr = std::get<0>(args);
             auto &upload = std::get<1>(args).value();
 
+            const auto tmpDirId = one::client::util::uuid::uuidToTmpDirId(
+                bucketAttr.value().uuid());
+
             const auto temporaryUploadPath =
                 getMultipartUploadTemporaryDir(upload.id());
 
             auto arg0 = folly::makeFuture(std::move(upload));
             auto arg1 = communicate<messages::fuse::FileAttr>(
-                messages::fuse::CreatePath{
-                    bucketAttr.value().uuid(), temporaryUploadPath},
+                messages::fuse::CreatePath{tmpDirId, temporaryUploadPath},
                 m_providerTimeout);
 
             return folly::collectAll(std::move(arg0), std::move(arg1));
@@ -307,6 +309,9 @@ folly::Future<Aws::S3::Model::UploadPartResult> S3Logic::uploadMultipartPart(
                        auto &&bucketAttr) {
             constexpr auto kDefaultFilePerms{0655};
 
+            const auto tmpDirId =
+                one::client::util::uuid::uuidToTmpDirId(bucketAttr.uuid());
+
             const auto tmpPath = fmt::format("{}-{}",
                 getMultipartUploadTemporaryFileName(path, uploadId)
                     .toStdString(),
@@ -316,13 +321,13 @@ folly::Future<Aws::S3::Model::UploadPartResult> S3Logic::uploadMultipartPart(
 
             auto arg1 = getFileAttr(bucketAttr.uuid(), tmpPath)
                             .thenError(folly::tag_t<std::system_error>{},
-                                [this, tmpPath, parentUuid = bucketAttr.uuid(),
+                                [this, tmpPath, parentUuid = tmpDirId,
                                     requestId, path](auto && /*e*/) {
                                     return create(requestId, parentUuid,
                                         tmpPath, S_IFREG, kDefaultFilePerms);
                                 })
                             .thenError(folly::tag_t<std::system_error>{},
-                                [this, tmpPath, parentUuid = bucketAttr.uuid(),
+                                [this, tmpPath, parentUuid = tmpDirId,
                                     requestId, path](auto && /*e*/) {
                                     // sic
                                     return getFileAttr(parentUuid, tmpPath);
@@ -437,6 +442,9 @@ S3Logic::completeMultipartUpload(const std::string requestId,
             const auto lastPartNumber =
                 parts.value().GetParts().back().GetPartNumber();
 
+            const auto tmpDirId = one::client::util::uuid::uuidToTmpDirId(
+                bucketAttr.value().uuid());
+
             const auto firstPartPath = fmt::format("{}-{}",
                 getMultipartUploadTemporaryFileName(path, uploadId)
                     .toStdString(),
@@ -465,10 +473,8 @@ S3Logic::completeMultipartUpload(const std::string requestId,
                 "-" + std::to_string(parts.value().GetParts().size());
 
             auto arg0 = folly::makeFuture(std::move(bucketAttr));
-            auto arg1 =
-                getFileAttrByPath(bucketAttr.value().uuid(), firstPartPath);
-            auto arg2 =
-                getFileAttrByPath(bucketAttr.value().uuid(), lastPartPath);
+            auto arg1 = getFileAttrByPath(tmpDirId, firstPartPath);
+            auto arg2 = getFileAttrByPath(tmpDirId, lastPartPath);
             auto arg3 = folly::makeFuture(lastPartNumber);
             auto arg4 = folly::makeFuture(lastPartSize);
             auto arg5 = folly::makeFuture(firstPartSize);
@@ -495,6 +501,9 @@ S3Logic::completeMultipartUpload(const std::string requestId,
 
             const bool isLastPartSizeEqualFirst =
                 firstPartAttr.value().uuid() == lastPartAttr.value().uuid();
+
+            const auto tmpDirId = one::client::util::uuid::uuidToTmpDirId(
+                bucketAttr.value().uuid());
 
             auto arg0 = folly::makeFuture(std::move(bucketAttr));
             auto arg1 = folly::makeFuture(std::move(firstPartAttr));
@@ -538,6 +547,9 @@ S3Logic::completeMultipartUpload(const std::string requestId,
             const bool isLastPartSizeEqualFirst =
                 firstPartAttr.value().uuid() == lastPartAttr.value().uuid();
 
+            const auto tmpDirId =
+                one::client::util::uuid::uuidToTmpDirId(spaceId);
+
             auto arg0 = folly::makeFuture(bucketAttr);
             auto arg1 = folly::makeFuture(firstPartAttr);
             auto arg2 = folly::makeFuture(lastPartAttr);
@@ -552,9 +564,8 @@ S3Logic::completeMultipartUpload(const std::string requestId,
             auto arg6 = isLastPartSizeEqualFirst
                 ? folly::makeFuture(
                       std::shared_ptr<one::client::fslogic::FuseFileHandle>{})
-                : open(fmt::format("{}-{}", requestId, 1),
-                      bucketAttr.value().uuid(), firstPartAttr.value(), 0UL,
-                      O_RDWR | O_APPEND);
+                : open(fmt::format("{}-{}", requestId, 1), tmpDirId,
+                      firstPartAttr.value(), 0UL, O_RDWR | O_APPEND);
             auto arg7 = folly::makeFuture(tmpLastPartFileHandle);
             auto arg8 = folly::makeFuture(multipartETagMd5);
 
@@ -585,6 +596,9 @@ S3Logic::completeMultipartUpload(const std::string requestId,
                     .toStdString(),
                 firstPartSize);
 
+            const auto tmpDirId = one::client::util::uuid::uuidToTmpDirId(
+                bucketAttr.value().uuid());
+
             auto arg0 = folly::makeFuture(bucketAttr);
             auto arg1 = folly::makeFuture(firstPartAttr);
             auto arg2 = folly::makeFuture(lastPartAttr);
@@ -594,8 +608,8 @@ S3Logic::completeMultipartUpload(const std::string requestId,
                       fmt::format("{}-{}", requestId, 1),
                       std::make_shared<folly::IOBuf>(bufQueue.moveAsValue()),
                       firstPartSize * (lastPartNumber - 1));
-            auto arg4 = getFileAttrByPath(bucketAttr.value().uuid(),
-                getMultipartUploadTemporaryDir(uploadId));
+            auto arg4 = getFileAttrByPath(
+                tmpDirId, getMultipartUploadTemporaryDir(uploadId));
             auto arg5 = getFileParentAttrByPath(bucketAttr.value(), path);
             auto arg6 = isLastPartSizeEqualFirst
                 ? folly::makeFuture()
@@ -1158,7 +1172,7 @@ folly::Future<Aws::S3::Model::ListObjectsV2Result> S3Logic::readDirV2Recursive(
             dirObject.SetSize(0);
 
             for (const auto &attr : attrs.files()) {
-                if (attr.name().find(ONEDATA_S3_MULTIPART_PREFIX) == 0)
+                if (attr.name().find(ONEDATA_S3_MULTIPART_PREFIX_OLD) == 0)
                     continue;
                 if (attr.name() == ".")
                     continue;
@@ -1254,7 +1268,7 @@ folly::Future<Aws::S3::Model::ListObjectsResult> S3Logic::readDirRecursive(
             dirObject.SetSize(0);
 
             for (const auto &attr : attrs.files()) {
-                if (attr.name().find(ONEDATA_S3_MULTIPART_PREFIX) == 0)
+                if (attr.name().find(ONEDATA_S3_MULTIPART_PREFIX_OLD) == 0)
                     continue;
                 if (attr.name() == ".")
                     continue;
@@ -1374,7 +1388,7 @@ folly::Future<Aws::S3::Model::ListObjectsResult> S3Logic::readDir(
 
                 if (attr.type() ==
                     one::messages::fuse::FileAttr::FileType::directory) {
-                    if (attr.name().find(ONEDATA_S3_MULTIPART_PREFIX) == 0)
+                    if (attr.name().find(ONEDATA_S3_MULTIPART_PREFIX_OLD) == 0)
                         continue;
 
                     Aws::S3::Model::CommonPrefix cp;
@@ -1471,7 +1485,7 @@ folly::Future<Aws::S3::Model::ListObjectsV2Result> S3Logic::readDirV2(
 
                 if (attr.type() ==
                     one::messages::fuse::FileAttr::FileType::directory) {
-                    if (attr.name().find(ONEDATA_S3_MULTIPART_PREFIX) == 0)
+                    if (attr.name().find(ONEDATA_S3_MULTIPART_PREFIX_OLD) == 0)
                         continue;
 
                     Aws::S3::Model::CommonPrefix cp;
@@ -1891,10 +1905,13 @@ folly::Future<size_t> S3Logic::uploadObject(const std::string &requestId,
                 throw one::s3::error::NoSuchBucket(
                     bucket.toStdString(), path.toStdString(), requestId);
             }
+
+            const auto tmpDirId = one::client::util::uuid::uuidToTmpDirId(
+                bucketAttr.value().uuid());
             auto arg0 = folly::makeFuture(bucketAttr.value());
             auto arg1 = communicate<messages::fuse::FileAttr>(
                 messages::fuse::CreatePath{
-                    bucketAttr.value().uuid(), ONEDATA_S3_MULTIPART_PREFIX},
+                    tmpDirId, ONEDATA_S3_MULTIPART_PREFIX},
                 m_providerTimeout);
 
             return folly::collectAll(std::move(arg0), std::move(arg1))

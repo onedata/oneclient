@@ -86,7 +86,9 @@ struct S3RequestContext {
     std::size_t offset{};
 };
 
-const folly::fbstring ONEDATA_S3_MULTIPART_PREFIX{".__s3__mpus__"};
+const folly::fbstring ONEDATA_S3_MULTIPART_PREFIX{"__ones3__"};
+const folly::fbstring ONEDATA_S3_MULTIPART_PREFIX_OLD{".__s3__mpus__"};
+
 const std::string ONEDATA_S3_XATTR_CONTENT_MD5{"s3.content.md5"};
 const std::string ONEDATA_S3_XATTR_CONTENT_TYPE{"s3.content.type"};
 
