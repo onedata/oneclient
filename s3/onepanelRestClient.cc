@@ -89,6 +89,12 @@ bool OnepanelClient::isSpaceSupported(const std::string &token,
     auto responseStream = toString(session_.receiveResponse(response));
 
     auto statusCode = response.getStatus();
+
+    if (statusCode == Poco::Net::HTTPResponse::HTTP_FORBIDDEN ||
+        statusCode == Poco::Net::HTTPResponse::HTTP_UNAUTHORIZED) {
+        return false;
+    }
+
     if (statusCode != Poco::Net::HTTPResponse::HTTP_OK) {
         throw Poco::Net::HTTPException(statusCode);
     }
