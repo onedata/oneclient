@@ -6,6 +6,8 @@ CHANGELOG
 
 ### 21.02.1
 
+-   **VFS-10756** Switched ones3 to internal onedata temporary directory
+    for handling temporary upload files.
 -   **VFS-10735** FIxed timeout handling in S3 storage driver.
 -   **VFS-10622** Added scalable S3 server interface implementation
     based on Oneclient.
