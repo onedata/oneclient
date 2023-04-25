@@ -4,22 +4,29 @@ Release notes for project oneclient
 CHANGELOG
 ---------
 
-### 21.02.0-alpha28
+### 21.02.1
 
-### 21.02.0-alpha27
-
-### 21.02.0-alpha26
-
--   **VFS-9424** Fixed broken dependencies in Oneclient Conda packages.
+-   **VFS-10756** Switched ones3 to internal onedata temporary directory
+    for handling temporary upload files.
+-   **VFS-10735** FIxed timeout handling in S3 storage driver.
+-   **VFS-10622** Added scalable S3 server interface implementation
+    based on Oneclient.
+-   **VFS-10502** Added option to null device enabling verification of
+    whether read data matches written data based on offset and size of
+    request, which can be used to test for instance transfer data
+    consistency.
+-   **VFS-10264** Added parameter to oneclient handshake protocol to
+    distinguish between different oneclient modes of operation.
+-   **VFS-10174** Fixed possible crash in the nulldevice helper when
+    simulating large filesystems for importing to data space.
+-   **VFS-9622** Upgraded the base image for release dockers from Ubuntu
+    18.04 to Ubuntu 20.04.
 -   **VFS-9120** Fixed uid/gid encoding to use unsigned int32 rather
-    than signed int32, so that it now aligns with POSIX uid_t and gid_t
-    types.
+    than signed int32, so that it now aligns with POSIX uid\_t and
+    gid\_t types.
 -   **VFS-9054** Improved connection closing in Oneclient.
--   **VFS-9026** Added option \--message-trace-log to enable logging of
+-   **VFS-9026** Added option --message-trace-log to enable logging of
     protobuf messages with the server.
-
-### 21.02.0-alpha25
-
 -   **VFS-8872** Dropped support for Python2 in OnedataFS.
 -   **VFS-8862** Update conda package dependencies to conda-forge and
     Python 3.9.
@@ -33,15 +40,6 @@ CHANGELOG
 -   **VFS-8788** Added the possibility to handle multiple mountpoints by
     a single POSIX helper in read only mode.
 -   **VFS-8483** Added direct NFS v3 storage helper.
-
-
-### 21.02.0-alpha24
-
--   **VFS-8747** Pinned boost dependency on conda to 1.76.0.
-
-
-### 21.02.0-alpha23
-
 -   **VFS-8425** Added basic cookie support to HTTP storage helper to
     support OAuth redirect authorization.
 -   **VFS-8318** Fixed conda packaging for oneclient and onedatafs,
@@ -50,33 +48,13 @@ CHANGELOG
 -   **VFS-8240** Applied fixes suggested by new version of clang-tidy
     static C++ code analyzer.
 -   **VFS-8237** Updated C++ clang-format version to 12.
--   **VFS-8073** Upgrade folly, wangle and proxygen libraries to version
-    2021.01.04.00.
-
-### 21.02.0-alpha22
-
-### 21.02.0-alpha21
-
 -   **VFS-8192** Fixed block synchronization from remote Oneproviders
     for open share data sets.
-
-### 21.02.0-alpha20
-
-### 21.02.0-alpha19
-
-### 21.02.0-alpha18
-
--   **VFS-7736** Fixed latency and timeout simulation in nulldevice
-    storage helper.
-
-### 21.02.0-alpha17
-
+-   **VFS-8073** Upgrade folly, wangle and proxygen libraries to version
+    2021.01.04.00.
 -   **VFS-8018** Added HTTP storage driver option to limit on the client
     side maximum number of requests per single session, after which the
     session is closed and reconnected.
-
-### 21.02.0-alpha16
-
 -   **VFS-7982** Fixed handling of HTTP servers, which do not
     automatically close the HTTP session connection after reaching max
     requests per session.
@@ -84,78 +62,29 @@ CHANGELOG
     implementation from asio to folly IOThreadPoolExecutor.
 -   **VFS-7892** Improved write performance on object storages by
     minimizing the number of memory copying from Erlang to C++.
-
-### 21.02.0-alpha15
-
--   **VFS-7747** Upgrade the codebase to Erlang OTP 24.
-
-### 21.02.0-alpha14
-
 -   **VFS-7813** Enable access to files directly via their Onedata file
     id, by opening or performing any other POSIX operation on a file
-    with a name \`.\_\_onedata\_\_file\_id\_\_\<FILEID\>\`.
-
-### 21.02.0-alpha13
-
+    with a name `.__onedata__file_id__<FILEID>`.
+-   **VFS-7747** Upgrade the codebase to Erlang OTP 24.
+-   **VFS-7736** Fixed latency and timeout simulation in nulldevice
+    storage helper.
 -   **VFS-7733** Added block\_aligned flag to onebench storage
     benchmarking tool, enforcing read and writes aligned to block\_size
     boundary only.
-
-### 21.02.0-alpha12
-
-### 21.02.0-alpha11
-
 -   **VFS-7589** Added StorageRouter and BufferedStorage helpers to
     handling of aggregate storages such as archive storage.
-
-### 21.02.0-alpha10
-
-### 21.02.0-alpha9
-
-### 21.02.0-alpha8
-
-### 21.02.0-alpha7
-
 -   **VFS-7509** Added support for absolute symlinks relative to
-    Oneclient mountpoint, i.e. always pointing to the same file in a
+    Oneclient mountpoint, i.e. always pointing to the same file in a
     space, regardless of actual Oneclient mountpoint path.
--   **VFS-7360** Added support for hardlinks and symlinks through
-    Oneclient POSIX interface.
-
-### 21.02.0-alpha6
-
 -   **VFS-7486** Added option to nulldevice helper allowing control of
     file size returned by getattr in simulated file systems.
-
-### 21.02.0-alpha5
-
+-   **VFS-7397** Added new option to oneclient `--show-space-ids` which
+    allows to list spaces using their space Id's instead of names in the
+    top level oneclient mount directory.
+-   **VFS-7360** Added support for hardlinks and symlinks through
+    Oneclient POSIX interface.
 -   **VFS-7358** Added support for accessing open data shares in
-    oneclient with \--open-shares-mode option.
-
-### 21.02.0-alpha4
-
--   **VFS-7397** Added new option to oneclient \`\--show-space-ids\`
-    which allows to list spaces using their space Id\'s instead of names
-    in the top level oneclient mount directory.
-
-### 21.02.0-alpha3
-
--   **VFS-7275** Improved Oneclient exception handling, including
-    connection errors and invalid tokens.
-
-### 21.02.0-alpha2
-
--   **VFS-7276** Improved handling of startup errors in Oneclient,
-    including more graceful handling of various exceptions and more
-    informative error messages including Oneclient and Oneprovider
-    compatibility and invalid token issues.
--   **VFS-7274** Added SIGTERM and SIGINT handlers to Oneclient,
-    ensuring that after the oneclient process is stopped by some other
-    process, the mountpoint is properly released.
--   **VFS-7256** Fixed OnedataFS token refresh, which caused
-    disconnection from Oneprovider after the token expired.
-
-### 20.02.20
+    oneclient with --open-shares-mode option.
 
 ### 20.02.19
 
