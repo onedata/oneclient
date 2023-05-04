@@ -142,11 +142,13 @@ public:
         const folly::Optional<folly::fbstring> &indexToken);
 
     folly::Future<std::pair<Aws::S3::Model::HeadObjectResult,
-        std::pair<std::function<std::size_t(char *, std::size_t)>, std::string>>>
+        std::pair<std::function<std::size_t(char *, std::size_t)>,
+            std::string>>>
     getObject(const folly::fbstring &bucket, const folly::fbstring &path,
         const std::string &requestId,
         const folly::Optional<folly::fbstring> &rangeHeader,
-        std::function<void(size_t)> completionCallback);
+        std::function<void(size_t)> completionCallback,
+        std::function<void(const error::S3Exception &)> errorCallback);
 
     folly::Future<Aws::S3::Model::ListObjectsV2Result> readDirV2Recursive(
         const folly::fbstring &bucket, const folly::fbstring &prefix,

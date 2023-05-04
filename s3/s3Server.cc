@@ -739,6 +739,12 @@ void S3Server::getObject(const HttpRequestPtr &req,
                 ->getObject(bucket, path, requestId, rangeHeader,
                     [timer](size_t readBytes) {
                         ONE_METRIC_TIMERCTX_STOP(timer, readBytes);
+                    },
+                    [timer, callback](const error::S3Exception &e) {
+                        ONE_METRIC_TIMERCTX_STOP(timer, 0);
+                        auto response = HttpResponse::newHttpResponse();
+                        e.fillResponse(response);
+                        callback(response);
                     })
                 .thenValue([callback, path, timer = std::move(timer)](
                                auto &&args) mutable {

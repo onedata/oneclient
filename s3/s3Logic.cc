@@ -307,7 +307,7 @@ folly::Future<Aws::S3::Model::UploadPartResult> S3Logic::uploadMultipartPart(
         //
         .thenValue([this, requestId, partSize, path, uploadId](
                        auto &&bucketAttr) {
-            constexpr auto kDefaultFilePerms{0655};
+            auto filePerms = m_options->getOneS3FileMode();
 
             const auto tmpDirId =
                 one::client::util::uuid::uuidToTmpDirId(bucketAttr.uuid());
@@ -322,9 +322,9 @@ folly::Future<Aws::S3::Model::UploadPartResult> S3Logic::uploadMultipartPart(
             auto arg1 = getFileAttr(bucketAttr.uuid(), tmpPath)
                             .thenError(folly::tag_t<std::system_error>{},
                                 [this, tmpPath, parentUuid = tmpDirId,
-                                    requestId, path](auto && /*e*/) {
+                                    requestId, path, filePerms](auto && /*e*/) {
                                     return create(requestId, parentUuid,
-                                        tmpPath, S_IFREG, kDefaultFilePerms);
+                                        tmpPath, S_IFREG | filePerms, O_WRONLY);
                                 })
                             .thenError(folly::tag_t<std::system_error>{},
                                 [this, tmpPath, parentUuid = tmpDirId,
@@ -854,7 +854,8 @@ folly::Future<std::pair<Aws::S3::Model::HeadObjectResult,
 S3Logic::getObject(const folly::fbstring &bucket, const folly::fbstring &path,
     const std::string &requestId,
     const folly::Optional<folly::fbstring> &rangeHeader,
-    std::function<void(size_t)> completionCallback)
+    std::function<void(size_t)> completionCallback,
+    std::function<void(const error::S3Exception &)> errorCallback)
 {
     return getBucketAttr(bucket)
         .via(m_executor.get())
@@ -923,8 +924,8 @@ S3Logic::getObject(const folly::fbstring &bucket, const folly::fbstring &path,
         // Create a stream reader callback for the request
         //
         .thenValue([this, bucket, path, requestId,
-                       completionCallback = std::move(completionCallback)](
-                       auto &&args) mutable {
+                       completionCallback = std::move(completionCallback),
+                       errorCallback](auto &&args) mutable {
             auto bucketAttr = std::get<0>(args).value();
             auto attr = std::get<1>(args).value();
             auto requestOffset = std::get<2>(args).value();
@@ -939,7 +940,8 @@ S3Logic::getObject(const folly::fbstring &bucket, const folly::fbstring &path,
                 streamReader = [this, attr, spaceId, bucket, requestId, path,
                                    requestOffset, requestSize,
                                    completionCallback =
-                                       std::move(completionCallback)](
+                                       std::move(completionCallback),
+                                   errorCallback = std::move(errorCallback)](
                                    char *data, std::size_t size) mutable {
                     if (data == nullptr) {
                         // Close the file on end of stream
@@ -958,6 +960,14 @@ S3Logic::getObject(const folly::fbstring &bucket, const folly::fbstring &path,
 
                     return open(requestId, spaceId, attr, 0UL, O_RDONLY)
                         .via(m_executor.get())
+                        .thenError(folly::tag_t<std::system_error>{},
+                            [bucket, path, requestId](auto &&e)
+                                -> std::shared_ptr<
+                                    one::client::fslogic::FuseFileHandle> && {
+                                error::S3Exception::raiseFromSystemError(e,
+                                    bucket.toStdString(), path.toStdString(),
+                                    requestId);
+                            })
                         .thenValue([this, requestId, size, requestOffset,
                                        requestSize](std::shared_ptr<
                                        one::client::fslogic::FuseFileHandle>
@@ -994,6 +1004,14 @@ S3Logic::getObject(const folly::fbstring &bucket, const folly::fbstring &path,
 
                             return bufSize;
                         })
+                        .thenError(folly::tag_t<error::S3Exception>{},
+                            [bucket, path, requestId,
+                                errorCallback = std::move(errorCallback)](
+                                auto &&e) -> size_t {
+                                if (errorCallback)
+                                    errorCallback(e);
+                                return 0;
+                            })
                         .get();
                 };
             }
@@ -1003,11 +1021,24 @@ S3Logic::getObject(const folly::fbstring &bucket, const folly::fbstring &path,
             auto arg2 = folly::makeFuture(std::move(streamReader));
             auto arg3 = folly::makeFuture(std::move(requestSize));
             auto arg4 = folly::makeFuture(std::move(requestOffset));
+            // Preopen the file - to make sure that we can
+            auto arg5 = open(requestId, spaceId, attr, 0UL, O_RDONLY)
+                            .via(m_executor.get());
 
             return folly::collectAll(std::move(arg0), std::move(arg1),
-                std::move(arg2), std::move(arg3), std::move(arg4));
+                std::move(arg2), std::move(arg3), std::move(arg4),
+                std::move(arg5));
         })
-        .thenValue([this, requestId](auto &&args) {
+        .thenValue([this, bucket, path, requestId, errorCallback](auto &&args) {
+            if (std::get<5>(args).hasException()) {
+                std::get<5>(args).exception().with_exception(
+                    [bucket, path, requestId](std::system_error &e) {
+                        error::S3Exception::raiseFromSystemError(e,
+                            bucket.toStdString(), path.toStdString(),
+                            requestId);
+                    });
+            }
+
             auto bucketAttr = std::get<0>(args);
             auto attr = std::get<1>(args).value();
             auto streamReader = std::get<2>(args);
@@ -1049,6 +1080,14 @@ S3Logic::getObject(const folly::fbstring &bucket, const folly::fbstring &path,
                 auto dataRangeFuture =
                     open(requestId, spaceId, attr, 0UL, O_RDONLY)
                         .via(m_executor.get())
+                        .thenError(folly::tag_t<std::system_error>{},
+                            [bucket, path, requestId](auto &&e)
+                                -> std::shared_ptr<
+                                    one::client::fslogic::FuseFileHandle> && {
+                                error::S3Exception::raiseFromSystemError(e,
+                                    bucket.toStdString(), path.toStdString(),
+                                    requestId);
+                            })
                         .thenValue([this, requestId, requestOffset,
                                        size = requestSize, requestSize](
                                        std::shared_ptr<
@@ -1091,7 +1130,14 @@ S3Logic::getObject(const folly::fbstring &bucket, const folly::fbstring &path,
                                 .thenValue(
                                     [data = std::move(data)](
                                         auto && /*unit*/) { return data; });
-                        });
+                        })
+                        .thenError(folly::tag_t<error::S3Exception>{},
+                            [bucket, path, requestId, errorCallback](
+                                auto &&e) -> std::string {
+                                if (errorCallback)
+                                    errorCallback(e);
+                                return std::string{};
+                            });
 
                 return folly::collectAll(std::move(arg0),
                     folly::makeFuture(std::move(attr)),
@@ -1921,7 +1967,7 @@ folly::Future<size_t> S3Logic::uploadObject(const std::string &requestId,
         // Create temporary file for upload
         //
         .thenValue([this, requestId](auto &&args) {
-            constexpr auto kDefaultFilePerms{0655};
+            auto filePerms = m_options->getOneS3FileMode();
             auto &bucketAttr = std::get<0>(args);
             auto &tmpDirAttr = std::get<1>(args);
 
@@ -1931,8 +1977,8 @@ folly::Future<size_t> S3Logic::uploadObject(const std::string &requestId,
                 getCompleteUploadTemporaryFileName(requestId);
 
             auto arg0 = folly::makeFuture(std::move(bucketAttr));
-            auto arg1 = create(
-                requestId, parentUuid, tmpFileName, S_IFREG, kDefaultFilePerms);
+            auto arg1 = create(requestId, parentUuid, tmpFileName,
+                S_IFREG | filePerms, O_WRONLY);
 
             return folly::collectAll(std::move(arg0), std::move(arg1));
         })
@@ -2079,13 +2125,16 @@ S3Logic::open(std::string requestId, const folly::fbstring &spaceId,
 
     return communicate<messages::fuse::FileOpened>(
         std::move(msg), m_providerTimeout)
-        .thenValue([this, filteredFlags, flags, attr, requestId](
-                       auto &&opened) {
+        .thenTry([this, filteredFlags, flags, attr, requestId](auto &&opened) {
+            if (opened.hasException()) {
+                opened.throwIfFailed();
+            }
+
             std::lock_guard<std::mutex> lockGuard{m_handleMutex};
 
             m_requestHandles.emplace(requestId,
                 std::make_shared<client::fslogic::FuseFileHandle>(filteredFlags,
-                    opened.handleId(),
+                    opened.value().handleId(),
                     std::shared_ptr<
                         client::cache::OpenFileMetadataCache::OpenFileToken>{},
                     m_helpersCache, m_forceProxyIOCache, m_providerTimeout));
@@ -2098,12 +2147,15 @@ S3Logic::open(std::string requestId, const folly::fbstring &spaceId,
                 one::messages::fuse::GetFileLocation{attr.uuid().toStdString()},
                 m_providerTimeout);
         })
-        .thenValue([this, spaceId, offset, attr, requestId](
-                       one::messages::fuse::FileLocation &&fileLocation) {
+        .thenTry([this, spaceId, offset, attr, requestId](auto &&fileLocation) {
+            if (fileLocation.hasException()) {
+                fileLocation.throwIfFailed();
+            }
+
             S3RequestContext context{};
-            context.spaceId = spaceId;
-            context.location = fileLocation;
-            context.attr = attr;
+            context.spaceId = std::move(spaceId);
+            context.location = std::move(fileLocation.value());
+            context.attr = std::move(attr);
             context.offset = offset;
 
             std::lock_guard<std::mutex> lockGuard{m_handleMutex};

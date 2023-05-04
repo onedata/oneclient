@@ -1533,6 +1533,15 @@ std::string Options::getOneS3AddressBind() const
         .get_value_or("0.0.0.0");
 }
 
+int Options::getOneS3FileMode() const
+{
+    auto val = get<std::string>(
+        {"ones3-file-mode", "ones3_file_mode", "ones3_file_mode"})
+                   .get_value_or(DEFAULT_ONES3_FILE_MODE);
+
+    return std::stoi(val.c_str(), 0, 8);
+}
+
 boost::filesystem::path Options::getMountpoint() const
 {
     return get<boost::filesystem::path>({"mountpoint"}).get();

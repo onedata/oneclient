@@ -8,8 +8,8 @@
 
 #pragma once
 
-#include <Poco/Net/NetException.h>
 #include <Poco/Net/HTTPResponse.h>
+#include <Poco/Net/NetException.h>
 #include <drogon/HttpResponse.h>
 #include <drogon/HttpTypes.h>
 #include <fmt/format.h>
@@ -39,6 +39,10 @@ public:
         const std::string &requestId);
 
     static void raiseFromPocoHTTPException(const Poco::Net::HTTPException &e,
+        const std::string &bucket, const std::string &path,
+        const std::string &requestId);
+
+    static void raiseFromSystemError(const std::system_error &e,
         const std::string &bucket, const std::string &path,
         const std::string &requestId);
 
