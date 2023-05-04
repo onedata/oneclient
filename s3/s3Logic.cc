@@ -963,10 +963,11 @@ S3Logic::getObject(const folly::fbstring &bucket, const folly::fbstring &path,
                         .thenError(folly::tag_t<std::system_error>{},
                             [bucket, path, requestId](auto &&e)
                                 -> std::shared_ptr<
-                                    one::client::fslogic::FuseFileHandle> && {
+                                    one::client::fslogic::FuseFileHandle> {
                                 error::S3Exception::raiseFromSystemError(e,
                                     bucket.toStdString(), path.toStdString(),
                                     requestId);
+                                return {}; // NOLINT
                             })
                         .thenValue([this, requestId, size, requestOffset,
                                        requestSize](std::shared_ptr<
@@ -1083,10 +1084,12 @@ S3Logic::getObject(const folly::fbstring &bucket, const folly::fbstring &path,
                         .thenError(folly::tag_t<std::system_error>{},
                             [bucket, path, requestId](auto &&e)
                                 -> std::shared_ptr<
-                                    one::client::fslogic::FuseFileHandle> && {
+                                    one::client::fslogic::FuseFileHandle> {
                                 error::S3Exception::raiseFromSystemError(e,
                                     bucket.toStdString(), path.toStdString(),
                                     requestId);
+
+                                return {}; // NOLINT
                             })
                         .thenValue([this, requestId, requestOffset,
                                        size = requestSize, requestSize](
@@ -2153,9 +2156,9 @@ S3Logic::open(std::string requestId, const folly::fbstring &spaceId,
             }
 
             S3RequestContext context{};
-            context.spaceId = std::move(spaceId);
+            context.spaceId = spaceId;
             context.location = std::move(fileLocation.value());
-            context.attr = std::move(attr);
+            context.attr = attr;
             context.offset = offset;
 
             std::lock_guard<std::mutex> lockGuard{m_handleMutex};

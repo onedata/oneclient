@@ -1539,7 +1539,7 @@ int Options::getOneS3FileMode() const
         {"ones3-file-mode", "ones3_file_mode", "ones3_file_mode"})
                    .get_value_or(DEFAULT_ONES3_FILE_MODE);
 
-    return std::stoi(val.c_str(), 0, 8);
+    return std::stoi(val, nullptr, 8);
 }
 
 boost::filesystem::path Options::getMountpoint() const
