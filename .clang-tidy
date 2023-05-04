@@ -4,6 +4,7 @@ Checks: >-
   -*osx*,
   -abseil*,
   -android*,
+  -bugprone-branch-clone,
   -cert-err60-cpp,
   -clang-analyzer-alpha.*,
   -clang-analyzer-cplusplus.NewDelete,

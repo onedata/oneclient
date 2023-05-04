@@ -73,6 +73,7 @@ static constexpr auto DEFAULT_ONES3_MAX_BODY_MEMORY_SIZE = 16 * 1024 * 1024ULL;
 static constexpr auto DEFAULT_ONES3_IDLE_CONNECTION_TIMEOUT = 180;
 static constexpr auto DEFAULT_ONES3_KEEPALIVE_REQUESTS_MAX = 1024;
 static constexpr auto DEFAULT_ONES3_GET_STREAM_THRESHOLD = 2 * 1024 * 1024ULL;
+static constexpr auto DEFAULT_ONES3_FILE_MODE = "0664";
 
 #if defined(__APPLE__)
 static constexpr auto DEFAULT_EMULATE_AVAILABLE_SPACE =
@@ -238,6 +239,11 @@ public:
      * @return OneS3 idle connection timeout in seconds.
      */
     unsigned int getOneS3IdleConnectionTimeout() const;
+
+    /**
+     * @return POSIX file mode for new files.
+     */
+    int getOneS3FileMode() const;
 
     /*
      * @return Provider port.
