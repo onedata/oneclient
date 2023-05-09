@@ -18,6 +18,8 @@
 #include "messages/fuse/fileChildrenAttrs.h"
 #include "messages/fuse/fileCreated.h"
 #include "messages/fuse/fileList.h"
+#include "messages/fuse/fileLocation.h"
+#include "messages/fuse/fileLocationChanged.h"
 #include "messages/fuse/fileOpened.h"
 #include "messages/fuse/fileRenamed.h"
 #include "messages/fuse/fsync.h"
@@ -38,6 +40,7 @@
 #include "messages/fuse/reportFileWritten.h"
 #include "messages/fuse/resolveGuid.h"
 #include "messages/fuse/setXAttr.h"
+#include "messages/fuse/synchronizeBlock.h"
 #include "messages/fuse/uploadMultipartPart.h"
 #include "monitoring/monitoring.h"
 
@@ -45,6 +48,8 @@
 
 namespace one {
 namespace s3 {
+
+constexpr auto SYNCHRONIZE_BLOCK_PRIORITY_IMMEDIATE = 32;
 
 folly::fbstring getFileNameFromPath(const folly::fbstring &path)
 {
@@ -77,6 +82,7 @@ S3Logic::S3Logic(std::shared_ptr<one::client::options::Options> options,
     , m_options{std::move(options)}
     , m_connected{false}
     , m_token{std::move(token)}
+    , m_minPrefetchBlockSize{m_options->getMinimumBlockPrefetchSize()}
     , m_executor{std::move(executor)}
 {
     m_context = std::make_shared<one::client::Context>();
@@ -515,8 +521,9 @@ S3Logic::completeMultipartUpload(const std::string requestId,
                 ? folly::makeFuture(
                       std::shared_ptr<one::client::fslogic::FuseFileHandle>{})
                 : open(fmt::format("{}-{}", requestId, lastPartNumber),
-                      bucketAttr.value().uuid(), lastPartAttr.value(), 0UL,
-                      O_RDONLY);
+                      bucketAttr.value().uuid(), lastPartAttr.value(),
+                      (lastPartNumber - 1) * lastPartSize, O_RDONLY,
+                      lastPartSize);
             auto arg7 = communicate<messages::fuse::FuseResponse>(
                 messages::fuse::SetXAttr{firstPartAttr.value().uuid(),
                     ONEDATA_S3_XATTR_CONTENT_MD5,
@@ -921,6 +928,25 @@ S3Logic::getObject(const folly::fbstring &bucket, const folly::fbstring &path,
                 std::move(arg2), std::move(arg3));
         })
         //
+        // Ensure the specified data range is replicated to the current
+        // Oneprovider
+        //
+        .thenValue([bucket, path, requestId](auto &&args) {
+            auto bucketAttr = std::get<0>(args).value();
+            auto attr = std::get<1>(args).value();
+            auto requestOffset = std::get<2>(args).value();
+            auto requestSize = std::get<3>(args).value();
+            const auto spaceId = bucketAttr.uuid();
+
+            auto arg0 = folly::makeFuture(std::move(bucketAttr));
+            auto arg1 = folly::makeFuture(std::move(attr));
+            auto arg2 = folly::makeFuture(requestOffset);
+            auto arg3 = folly::makeFuture(requestSize);
+
+            return folly::collectAll(std::move(arg0), std::move(arg1),
+                std::move(arg2), std::move(arg3));
+        })
+        //
         // Create a stream reader callback for the request
         //
         .thenValue([this, bucket, path, requestId,
@@ -958,7 +984,9 @@ S3Logic::getObject(const folly::fbstring &bucket, const folly::fbstring &path,
                             .get();
                     }
 
-                    return open(requestId, spaceId, attr, 0UL, O_RDONLY)
+                    return open(
+                        // requestId, spaceId, attr, 0UL, O_RDONLY)
+                        requestId, spaceId, attr, requestOffset, O_RDONLY, size)
                         .via(m_executor.get())
                         .thenError(folly::tag_t<std::system_error>{},
                             [bucket, path, requestId](auto &&e)
@@ -1023,7 +1051,8 @@ S3Logic::getObject(const folly::fbstring &bucket, const folly::fbstring &path,
             auto arg3 = folly::makeFuture(std::move(requestSize));
             auto arg4 = folly::makeFuture(std::move(requestOffset));
             // Preopen the file - to make sure that we can
-            auto arg5 = open(requestId, spaceId, attr, 0UL, O_RDONLY)
+            auto arg5 = open(
+                requestId, spaceId, attr, requestOffset, O_RDONLY, requestSize)
                             .via(m_executor.get());
 
             return folly::collectAll(std::move(arg0), std::move(arg1),
@@ -1079,7 +1108,8 @@ S3Logic::getObject(const folly::fbstring &bucket, const folly::fbstring &path,
             if (streamReader.value() == nullptr) {
                 // Read the entire data range here
                 auto dataRangeFuture =
-                    open(requestId, spaceId, attr, 0UL, O_RDONLY)
+                    open(requestId, spaceId, attr, requestOffset, O_RDONLY,
+                        requestSize)
                         .via(m_executor.get())
                         .thenError(folly::tag_t<std::system_error>{},
                             [bucket, path, requestId](auto &&e)
@@ -1763,6 +1793,70 @@ folly::Future<std::size_t> S3Logic::write(
         });
 }
 
+folly::Future<one::messages::fuse::FileLocation>
+S3Logic::ensureFileLocationForRange(const one::messages::fuse::FileAttr &attr,
+    const std::size_t offset, const std::size_t size)
+{
+    return communicate<one::messages::fuse::FileLocation>(
+        one::messages::fuse::GetFileLocation{attr.uuid().toStdString()},
+        m_providerTimeout)
+        .thenTry([this, attr, offset, size](auto &&maybeLocation)
+                     -> folly::Future<one::messages::fuse::FileLocation> {
+            messages::fuse::FileLocation location;
+
+            if (maybeLocation.hasValue())
+                location = std::move(maybeLocation.value());
+
+            if (size == 0) {
+                // The request is an upload - we don't need to prefetch
+                // data
+                return std::move(location);
+            }
+
+            const auto fileSize = *attr.size();
+            const auto &uuid = attr.uuid();
+            const auto possibleRange =
+                boost::icl::discrete_interval<off_t>::right_open(0, fileSize);
+
+            const auto requestedRange =
+                boost::icl::discrete_interval<off_t>::right_open(
+                    offset, offset + size);
+
+            auto neededRange = requestedRange & possibleRange;
+
+            assert(boost::icl::size(neededRange) > 0);
+
+            if (boost::icl::size(neededRange) <= 0) {
+                throw one::helpers::makePosixException(ERANGE);
+            }
+
+            auto replicatedBlocksRange = location.blocks() & neededRange;
+
+            if (replicatedBlocksRange.size() < size) {
+                // request block synchronization and wait
+                auto syncRange =
+                    boost::icl::discrete_interval<off_t>::right_open(offset,
+                        offset +
+                            std::max<std::size_t>(
+                                size, m_minPrefetchBlockSize));
+
+                messages::fuse::SynchronizeBlock request{uuid.toStdString(),
+                    syncRange, SYNCHRONIZE_BLOCK_PRIORITY_IMMEDIATE, false};
+
+                return communicate<messages::fuse::FileLocationChanged>(
+                    std::move(request), m_providerTimeout)
+                    .thenTry([](auto &&maybeFileLocationChanged) {
+                        if (maybeFileLocationChanged.hasException())
+                            throw one::helpers::makePosixException(ERANGE);
+
+                        return maybeFileLocationChanged.value().fileLocation();
+                    });
+            }
+
+            return std::move(location);
+        });
+}
+
 folly::Future<folly::IOBufQueue> S3Logic::read(
     std::shared_ptr<one::client::fslogic::FuseFileHandle> fileHandle,
     const folly::fbstring &spaceId, const one::messages::fuse::FileAttr &attr,
@@ -1771,37 +1865,66 @@ folly::Future<folly::IOBufQueue> S3Logic::read(
     return communicate<one::messages::fuse::FileLocation>(
         one::messages::fuse::GetFileLocation{attr.uuid().toStdString()},
         m_providerTimeout)
-        .thenTry([attr, offset, size, spaceId, fileHandle](
-                     auto &&location) -> folly::Future<folly::IOBufQueue> {
+        .thenTry([this, attr, offset, size, spaceId, fileHandle](
+                     auto &&maybeLocation) -> folly::Future<folly::IOBufQueue> {
             const auto fileSize = *attr.size();
+            const auto &uuid = attr.uuid();
             const auto possibleRange =
                 boost::icl::discrete_interval<off_t>::right_open(0, fileSize);
+            messages::fuse::FileLocation location;
+
+            if (maybeLocation.hasValue())
+                location = std::move(maybeLocation.value());
 
             const auto requestedRange =
                 boost::icl::discrete_interval<off_t>::right_open(
                     offset, offset + size);
 
-            auto wantedRange = requestedRange & possibleRange;
+            auto neededRange = requestedRange & possibleRange;
 
-            assert(boost::icl::size(wantedRange) > 0);
+            assert(boost::icl::size(neededRange) > 0);
 
-            if (boost::icl::size(wantedRange) <= 0) {
+            if (boost::icl::size(neededRange) <= 0) {
                 return folly::IOBufQueue{folly::IOBufQueue::cacheChainLength()};
             }
 
-            boost::icl::discrete_interval<off_t> availableRange = possibleRange;
+            auto replicatedBlocksRange = location.blocks() & neededRange;
 
-            auto fileBlock = messages::fuse::FileBlock{
-                location.value().storageId(), location.value().fileId()};
+            if (replicatedBlocksRange.size() < size) {
+                // request prefetch and wait
+                auto syncRange =
+                    boost::icl::discrete_interval<off_t>::right_open(offset,
+                        offset +
+                            std::max<std::size_t>(
+                                size, m_minPrefetchBlockSize));
 
-            const auto wantedAvailableRange = availableRange & wantedRange;
+                messages::fuse::SynchronizeBlock request{uuid.toStdString(),
+                    syncRange,
+                    SYNCHRONIZE_BLOCK_PRIORITY_IMMEDIATE, false};
+                auto fileLocationUpdate =
+                    communicate<messages::fuse::FileLocationChanged>(
+                        std::move(request), m_providerTimeout);
+                location = fileLocationUpdate.value().fileLocation();
+            }
 
-            if (boost::icl::size(wantedAvailableRange) <= 0) {
+            auto availableBlockIt = location.blocks().find(
+                boost::icl::discrete_interval<off_t>(offset));
+
+            if (availableBlockIt == location.blocks().end())
                 return folly::IOBufQueue{folly::IOBufQueue::cacheChainLength()};
+
+            boost::icl::discrete_interval<off_t> availableRange{
+                availableBlockIt->first};
+            messages::fuse::FileBlock fileBlock{availableBlockIt->second};
+
+            const auto neededAvailableRange = availableRange & neededRange;
+
+            if (boost::icl::size(neededAvailableRange) <= 0) {
+                throw one::helpers::makePosixException(ERANGE);
             }
 
             const std::size_t availableSize =
-                boost::icl::size(wantedAvailableRange);
+                boost::icl::size(neededAvailableRange);
             const std::size_t continuousSize =
                 boost::icl::size(boost::icl::left_subtract(availableRange,
                     boost::icl::discrete_interval<off_t>::right_open(
@@ -1856,7 +1979,9 @@ folly::Future<folly::IOBufQueue> S3Logic::read(
     const auto wantedAvailableRange = availableRange & wantedRange;
 
     if (boost::icl::size(wantedAvailableRange) <= 0) {
-        return folly::IOBufQueue{folly::IOBufQueue::cacheChainLength()};
+        //        return
+        //        folly::IOBufQueue{folly::IOBufQueue::cacheChainLength()};
+        throw one::helpers::makePosixException(ERANGE);
     }
 
     const std::size_t wantedAvailableSize =
@@ -2110,8 +2235,8 @@ folly::Future<folly::Unit> S3Logic::deleteObject(
 
 folly::Future<std::shared_ptr<one::client::fslogic::FuseFileHandle>>
 S3Logic::open(std::string requestId, const folly::fbstring &spaceId,
-    const one::messages::fuse::FileAttr &attr, const size_t offset,
-    const int flags)
+    const one::messages::fuse::FileAttr &attr, const size_t requestedOffset,
+    const int flags, const size_t requestedSize)
 {
     LOG_FCALL() << LOG_FARG(spaceId) << LOG_FARGH(flags);
 
@@ -2128,7 +2253,8 @@ S3Logic::open(std::string requestId, const folly::fbstring &spaceId,
 
     return communicate<messages::fuse::FileOpened>(
         std::move(msg), m_providerTimeout)
-        .thenTry([this, filteredFlags, flags, attr, requestId](auto &&opened) {
+        .thenTry([this, filteredFlags, flags, attr, requestedOffset,
+                     requestedSize, requestId](auto &&opened) {
             if (opened.hasException()) {
                 opened.throwIfFailed();
             }
@@ -2146,12 +2272,15 @@ S3Logic::open(std::string requestId, const folly::fbstring &spaceId,
             LOG_DBG(2) << "Assigned fuse handle " << requestId << " for file "
                        << attr.uuid();
 
-            return communicate<one::messages::fuse::FileLocation>(
-                one::messages::fuse::GetFileLocation{attr.uuid().toStdString()},
-                m_providerTimeout);
+            return ensureFileLocationForRange(
+                attr, requestedOffset, requestedSize);
         })
-        .thenTry([this, spaceId, offset, attr, requestId](auto &&fileLocation) {
+        .thenTry([this, spaceId, requestedOffset, requestedSize, attr,
+                     requestId](auto &&fileLocation) {
             if (fileLocation.hasException()) {
+                LOG(ERROR) << "Failed to prefetch file range "
+                           << requestedOffset << ":" << requestedSize
+                           << "due to: " << fileLocation.exception().what();
                 fileLocation.throwIfFailed();
             }
 
@@ -2159,7 +2288,7 @@ S3Logic::open(std::string requestId, const folly::fbstring &spaceId,
             context.spaceId = spaceId;
             context.location = std::move(fileLocation.value());
             context.attr = attr;
-            context.offset = offset;
+            context.offset = 0UL;
 
             std::lock_guard<std::mutex> lockGuard{m_handleMutex};
             m_requestContext.emplace(requestId, std::move(context));
