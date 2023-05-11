@@ -2,7 +2,7 @@
 
 [![Build Status](https://api.travis-ci.org/onedata/oneclient.svg?branch=develop)](https://travis-ci.org/onedata/oneclient) [![Coverage Status](https://coveralls.io/repos/github/onedata/oneclient/badge.svg?branch=develop)](https://coveralls.io/github/onedata/oneclient?branch=develop)
 
-Latest stable release: ![version](https://img.shields.io/badge/version-20.02.15-blue)
+Latest stable release: ![version](https://img.shields.io/badge/version-21.02.1-blue)
 
 *oneclient* is a command line [Onedata](onedata.org) client. It provides a POSIX interface to user's files in *Onedata* system.
 
@@ -162,6 +162,7 @@ General options:
 Advanced options:
   --io-trace-log                        Enable detailed IO trace log
                                         (experimental).
+  --log-read-write-perf                 Enable read write performance logger.
   --force-proxy-io                      Force proxied access to storage via
                                         Oneprovider for all spaces.
   --force-direct-io                     Force direct access to storage for all
@@ -185,6 +186,7 @@ Advanced options:
                                         input/output data blocks.
   --provider-timeout <duration> (=120)  Specify Oneprovider connection timeout
                                         in seconds.
+  --storage-timeout <duration> (=120)   Specify I/O storage timeout in seconds.
   --disable-read-events                 Disable reporting of file read events.
   --no-fullblock-read                   Disable fullblock read mode. With this
                                         option read can return less data than
@@ -269,15 +271,13 @@ Advanced options:
   --cluster-prefetch-threshold-random   Enables random cluster prefetch
                                         threshold selection (experimental).
   --metadata-cache-size <size> (=5000000)
-                                        Number of separate blocks after which
-                                        replication for the file is triggered
-                                        automatically.
+                                        Maximum number of file attributes
+                                        cached in the metadata cache.
   --readdir-prefetch-size <size> (=2500)
                                         Specify the size of requests made
                                         during readdir prefetch (in number of
                                         dir entries).
-  --dir-cache-drop-after <seconds> (=300)
-                                        Specify (in seconds) how long should
+  --dir-cache-drop-after <seconds>      Specify (in seconds) how long should
                                         directories be cached since last
                                         activity. When 0 is provided, the cache
                                         never expires.
@@ -294,6 +294,12 @@ Advanced options:
                                         When set to non-zero value, emulates
                                         available space reported by stat system
                                         call to specified number of bytes.
+  --hard-link-count                     Show hard link count properly in stat.
+  --enable-archivematica                Enable Archivematica mode.
+  --open-shares-mode                    Enable open share mode, in which space
+                                        directories list open data shares.
+  --show-space-ids                      Show space Id's instead of space names
+                                        in the filesystem tree.
 
 FUSE options:
   -f [ --foreground ]         Foreground operation.
@@ -328,13 +334,13 @@ Some options in the config file can be overridden using environment variables, w
 Running dockerized *oneclient* is easy:
 
 ```
-docker run -it --privileged onedata/oneclient:20.02.6
+docker run -it --privileged onedata/oneclient:21.02.1
 ```
 
 To run *oneclient* image without it automatically mounting the volume specify custom entrypoint:
 
 ```
-docker run -it --privileged --entrypoint bash onedata/oneclient:20.02.6
+docker run -it --privileged --entrypoint bash onedata/oneclient:21.02.1
 ```
 
 
@@ -343,37 +349,18 @@ docker run -it --privileged --entrypoint bash onedata/oneclient:20.02.6
 The application will ask for a token and run in the foreground. In order for *oneclient* to remember your token, mount volume `/root/.local/share/oneclient`:
 
 ```
-docker run -it --privileged -v ~/.oneclient_local:/root/.local/share/oneclient onedata/oneclient:20.02.6
+docker run -it --privileged -v ~/.oneclient_local:/root/.local/share/oneclient onedata/oneclient:21.02.1
 ```
 
 You can also pass your token in `ONECLIENT_ACCESS_TOKEN` environment variable:
 
 ```
-docker run -it --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:20.02.6
+docker run -it --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:21.02.1
 ```
 
 If *oneclient* knows the token (either by reading its config file or by reading the environment variable), it can be run as a daemon container:
 
 ```
-docker run -d --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:20.02.6
-```
-
-### Accessing your data
-
-*oneclient* exposes NFS and SMB services for easy outside access to your mounted
-spaces.
-
-```
-docker run -d --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:20.02.6
-
-# Display container's IP address
-docker inspect --format "{{ .NetworkSettings.IPAddress }}" $(docker ps -ql)
-```
-
-Now you can mount using *NFS* or *Samba* with:
-
-```
-nfs://<CONTAINER_IP_ADDR>/mnt/oneclient
-smb://<CONTAINER_IP_ADDR>/onedata
+docker run -d --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:21.02.1
 ```
 
