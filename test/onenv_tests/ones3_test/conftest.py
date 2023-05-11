@@ -72,6 +72,12 @@ def oneprovider_ip():
 
 
 @pytest.fixture(scope=FIXTURE_SCOPE)
+def oneprovider_2_ip():
+    opip = os.getenv('ONEPROVIDER_2_IP')
+    yield opip
+
+
+@pytest.fixture(scope=FIXTURE_SCOPE)
 def redis_ip():
     rip = os.getenv('REDIS_IP')
     yield rip

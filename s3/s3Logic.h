@@ -220,8 +220,8 @@ public:
 
     folly::Future<std::shared_ptr<one::client::fslogic::FuseFileHandle>> open(
         std::string requestId, const folly::fbstring &spaceId,
-        const one::messages::fuse::FileAttr &attr, const size_t offset,
-        const int flags);
+        const one::messages::fuse::FileAttr &attr, const size_t requestedOffset,
+        const int flags, const size_t requestedSize = 0);
 
     folly::Future<one::messages::fuse::FileAttr> create(std::string requestId,
         const folly::fbstring &parentUuid, const folly::fbstring &path,
@@ -279,6 +279,10 @@ private:
         const messages::fuse::FileAttr &bucketAttr,
         const folly::fbstring &path);
 
+    folly::Future<one::messages::fuse::FileLocation> ensureFileLocationForRange(
+        const one::messages::fuse::FileAttr &attr, const std::size_t offset,
+        const std::size_t size);
+
     std::shared_ptr<client::auth::AuthManager> m_authManager;
     std::shared_ptr<one::client::Context> m_context;
 
@@ -294,6 +298,8 @@ private:
     bool m_connected;
 
     folly::fbstring m_token;
+
+    const unsigned int m_minPrefetchBlockSize;
 
     std::mutex m_handleMutex;
 

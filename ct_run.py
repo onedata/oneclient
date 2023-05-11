@@ -120,6 +120,10 @@ if args.onenv_config is not None:
     oneprovider_ip = subprocess.check_output(get_oneproviderip_cli.split(' ')).strip()
     envs['ONEPROVIDER_IP'] = oneprovider_ip.decode('utf-8')
 
+    get_oneprovider2ip_cli = "kubectl get pod dev-oneprovider-paris-0 --template {{.status.podIP}}"
+    oneprovider_2_ip = subprocess.check_output(get_oneprovider2ip_cli.split(' ')).strip()
+    envs['ONEPROVIDER_2_IP'] = oneprovider_2_ip.decode('utf-8')
+
     # Get Ceph storage IP
     get_endpoints_cli = f'kubectl get endpoints -lcomponent=volume-ceph -o json'
     endpoints = subprocess.check_output(get_endpoints_cli.split(' ')).strip()

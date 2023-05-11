@@ -5,6 +5,8 @@ This software is released under the MIT license cited in 'LICENSE.txt'
 
 import hashlib
 import pytest
+import time
+from .oneprovider_rest_client import put_file
 from concurrent.futures import ThreadPoolExecutor, wait, ALL_COMPLETED
 from .common import random_bytes, random_str, random_path
 from .big_list_of_naughty_strings import big_list_of_naughty_strings
@@ -291,6 +293,39 @@ def test_get_object_range(s3_client, bucket):
     assert(res['ETag'] == f'"{etag}"')
     assert(res['Body'].read() == body[2:5])
 
+@pytest.mark.parametrize(
+    "size",
+    [
+        pytest.param(1024), pytest.param(5*1024*1024)
+    ],
+)
+def test_get_object_remote(s3_client, oneprovider_2_ip, onezone_admin_token,
+                           size):
+    bucket = 'test_get_object_remote'
+    key = random_str()
+
+    data = random_bytes(size)
+
+    r = put_file(oneprovider_2_ip, onezone_admin_token, bucket, key, data)
+
+    assert(r.status_code == 201)
+
+    retries = 10
+    while retries > 0:
+        try:
+            res = s3_client.get_object(Bucket=bucket, Key=key)
+
+            assert(res['ContentLength'] == len(data))
+            assert(res['Body'].read() == data)
+
+            break
+        except s3_client.exceptions.NoSuchKey as e:
+            # Wait for the file to show up at oneprovider 1
+            time.sleep(2)
+        finally:
+            retries = retries - 1
+
+    assert(retries > 0)
 
 def test_get_object_range_multiple(s3_client, bucket, uuid_str):
     name = uuid_str
