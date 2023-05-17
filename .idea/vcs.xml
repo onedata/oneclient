@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="VcsDirectoryMappings">
+    <mapping directory="" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/helpers" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/helpers/appmock" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/helpers/appmock/bamboos" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/helpers/bamboos" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/helpers/clproto" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/one-env" vcs="Git" />
+  </component>
+</project>
