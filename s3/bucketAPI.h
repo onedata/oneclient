@@ -10,7 +10,7 @@
 
 #include "types.h"
 
-#include "s3Logic.h"
+#include "s3LogicCache.h"
 
 #include <drogon/HttpController.h>
 

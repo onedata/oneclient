@@ -10,6 +10,7 @@
 
 #include "bucketAPI.h"
 #include "types.h"
+#include "s3LogicCache.h"
 
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/random_generator.hpp>
