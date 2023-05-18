@@ -61,6 +61,10 @@ add_executable(ones3
         s3Server.cc
         serialization.cc
         s3Logic.cc
+        s3LogicBucket.cc
+        s3LogicFile.cc
+        s3LogicMultipart.cc
+        s3LogicObject.cc
         s3LogicCache.cc
         s3Server.cc
         s3Exception.cc

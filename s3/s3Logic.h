@@ -17,7 +17,9 @@
 #include "events/types/fileWritten.h"
 #include "fslogic/fuseFileHandle.h"
 #include "messages/fuse/fileAttr.h"
+#include "messages/fuse/fileChildrenAttrs.h"
 #include "messages/fuse/fileLocation.h"
+#include "messages/fuse/multipartUpload.h"
 #include "messages/fuse/uuid.h"
 #include "messages/fuse/xattr.h"
 #include "onepanelRestClient.h"
@@ -53,12 +55,7 @@
 namespace one {
 namespace s3 {
 
-namespace {
-template <int N, typename T> auto farg(T &&arg)
-{
-    return folly::makeFuture(std::forward<T>(arg));
-}
-} // namespace
+constexpr auto SYNCHRONIZE_BLOCK_PRIORITY_IMMEDIATE = 32;
 
 namespace detail {
 /**
@@ -257,9 +254,10 @@ public:
 private:
     template <typename SrvMsg = one::messages::fuse::FuseResponse,
         typename CliMsg>
-    folly::Future<SrvMsg> communicate(
-        CliMsg &&msg, const std::chrono::seconds timeout)
+    folly::Future<SrvMsg> communicate(CliMsg &&msg)
     {
+        const std::chrono::seconds timeout{m_providerTimeout};
+
         auto messageString = msg.toString();
         return m_context->communicator()
             ->communicate<SrvMsg>(std::forward<CliMsg>(msg))
@@ -282,6 +280,13 @@ private:
     folly::Future<one::messages::fuse::FileLocation> ensureFileLocationForRange(
         const one::messages::fuse::FileAttr &attr, const std::size_t offset,
         const std::size_t size);
+
+    Aws::S3::Model::ListBucketsResult toListBucketsResult(
+        one::messages::fuse::FileChildrenAttrs &&msg);
+
+    Aws::S3::Model::CreateMultipartUploadResult toCreateMultipartUploadResult(
+        one::messages::fuse::MultipartUpload &&msg, const folly::fbstring &bucket,
+        const folly::fbstring &path);
 
     std::shared_ptr<client::auth::AuthManager> m_authManager;
     std::shared_ptr<one::client::Context> m_context;
