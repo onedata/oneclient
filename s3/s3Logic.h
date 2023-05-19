@@ -17,7 +17,9 @@
 #include "events/types/fileWritten.h"
 #include "fslogic/fuseFileHandle.h"
 #include "messages/fuse/fileAttr.h"
+#include "messages/fuse/fileChildrenAttrs.h"
 #include "messages/fuse/fileLocation.h"
+#include "messages/fuse/multipartUpload.h"
 #include "messages/fuse/uuid.h"
 #include "messages/fuse/xattr.h"
 #include "onepanelRestClient.h"
@@ -53,12 +55,7 @@
 namespace one {
 namespace s3 {
 
-namespace {
-template <int N, typename T> auto farg(T &&arg)
-{
-    return folly::makeFuture(std::forward<T>(arg));
-}
-} // namespace
+constexpr auto SYNCHRONIZE_BLOCK_PRIORITY_IMMEDIATE = 32;
 
 namespace detail {
 /**
@@ -257,9 +254,10 @@ public:
 private:
     template <typename SrvMsg = one::messages::fuse::FuseResponse,
         typename CliMsg>
-    folly::Future<SrvMsg> communicate(
-        CliMsg &&msg, const std::chrono::seconds timeout)
+    folly::Future<SrvMsg> communicate(CliMsg &&msg)
     {
+        const std::chrono::seconds timeout{m_providerTimeout};
+
         auto messageString = msg.toString();
         return m_context->communicator()
             ->communicate<SrvMsg>(std::forward<CliMsg>(msg))
@@ -275,6 +273,18 @@ private:
                 });
     }
 
+    folly::Future<std::string> getRange(const folly::fbstring &bucket,
+        const folly::fbstring &path, const std::string &requestId,
+        const folly::fbstring &spaceId, const size_t requestOffset,
+        const size_t requestSize, const messages::fuse::FileAttr &attr);
+
+    std::function<std::size_t(char *, std::size_t)> getRangeStreamReader(
+        folly::fbstring bucket, folly::fbstring path, std::string requestId,
+        folly::fbstring spaceId, const size_t requestOffset,
+        const size_t requestSize, const messages::fuse::FileAttr &attr,
+        std::function<void(size_t)> completionCallback,
+        std::function<void(const error::S3Exception &)> errorCallback);
+
     folly::Future<messages::fuse::FileAttr> getFileParentAttrByPath(
         const messages::fuse::FileAttr &bucketAttr,
         const folly::fbstring &path);
@@ -282,6 +292,13 @@ private:
     folly::Future<one::messages::fuse::FileLocation> ensureFileLocationForRange(
         const one::messages::fuse::FileAttr &attr, const std::size_t offset,
         const std::size_t size);
+
+    Aws::S3::Model::ListBucketsResult toListBucketsResult(
+        one::messages::fuse::FileChildrenAttrs &&msg);
+
+    Aws::S3::Model::CreateMultipartUploadResult toCreateMultipartUploadResult(
+        one::messages::fuse::MultipartUpload &&msg,
+        const folly::fbstring &bucket, const folly::fbstring &path);
 
     std::shared_ptr<client::auth::AuthManager> m_authManager;
     std::shared_ptr<one::client::Context> m_context;
@@ -319,60 +336,6 @@ private:
 
     std::atomic<size_t> m_uploadedBytes{0};
     std::atomic<size_t> m_downloadedBytes{0};
-};
-
-class S3LogicCache {
-public:
-    S3LogicCache() = default;
-
-    S3LogicCache(std::shared_ptr<one::client::options::Options> options);
-
-    folly::Future<std::shared_ptr<S3Logic>> get(const folly::fbstring &token);
-
-    bool updateClientStatus(Poco::JSON::Array &clients)
-    {
-        bool isOk{true};
-        std::lock_guard<std::mutex> l{m_cacheMutex};
-        for (auto &it : m_cache) {
-            const auto key = it.first;
-            auto s3Logic = it.second->getFuture();
-
-            if (!s3Logic.isReady())
-                continue;
-
-            if (s3Logic.hasException())
-                continue;
-
-            Poco::JSON::Object client;
-            client.set("id", key.toStdString());
-
-            client.set("isConnected", s3Logic.value()->isConnected());
-            client.set("openFileCount", s3Logic.value()->getOpenFileCount());
-            client.set(
-                "downloadedBytes", s3Logic.value()->getDownloadedBytes());
-            client.set("uploadedBytes", s3Logic.value()->getUploadedBytes());
-            client.set("activeWorkerThreads",
-                s3Logic.value()->getThreadPoolActiveThreads());
-
-            if (!s3Logic.value()->isConnected())
-                isOk = false;
-
-            clients.add(std::move(client));
-        }
-
-        return isOk;
-    }
-
-private:
-    std::shared_ptr<one::client::options::Options> m_options;
-    bool m_initialized{false};
-
-    mutable std::mutex m_cacheMutex;
-    std::unordered_map<folly::fbstring,
-        std::shared_ptr<folly::SharedPromise<std::shared_ptr<S3Logic>>>>
-        m_cache;
-
-    std::shared_ptr<folly::IOThreadPoolExecutor> m_executor;
 };
 } // namespace s3
 } // namespace one
