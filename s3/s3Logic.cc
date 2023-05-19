@@ -9,39 +9,22 @@
 #include "s3Logic.h"
 
 #include "futureUtils.h"
-#include "messages/fuse/abortMultipartUpload.h"
-#include "messages/fuse/completeMultipartUpload.h"
 #include "messages/fuse/createFile.h"
-#include "messages/fuse/createMultipartUpload.h"
 #include "messages/fuse/createPath.h"
-#include "messages/fuse/deleteFile.h"
 #include "messages/fuse/fileChildren.h"
 #include "messages/fuse/fileCreated.h"
 #include "messages/fuse/fileList.h"
 #include "messages/fuse/fileLocation.h"
 #include "messages/fuse/fileLocationChanged.h"
 #include "messages/fuse/fileOpened.h"
-#include "messages/fuse/fileRenamed.h"
-#include "messages/fuse/fsync.h"
 #include "messages/fuse/getChildAttr.h"
 #include "messages/fuse/getFileAttrByPath.h"
-#include "messages/fuse/getFileChildrenAttrs.h"
 #include "messages/fuse/getFileLocation.h"
-#include "messages/fuse/getXAttr.h"
-#include "messages/fuse/listFilesRecursively.h"
-#include "messages/fuse/listMultipartParts.h"
-#include "messages/fuse/listMultipartUploads.h"
-#include "messages/fuse/multipartParts.h"
 #include "messages/fuse/multipartUpload.h"
-#include "messages/fuse/multipartUploads.h"
 #include "messages/fuse/openFile.h"
 #include "messages/fuse/release.h"
-#include "messages/fuse/rename.h"
-#include "messages/fuse/reportFileWritten.h"
 #include "messages/fuse/resolveGuid.h"
-#include "messages/fuse/setXAttr.h"
 #include "messages/fuse/synchronizeBlock.h"
-#include "messages/fuse/uploadMultipartPart.h"
 #include "monitoring/monitoring.h"
 
 #include <spdlog/spdlog.h>
@@ -361,20 +344,19 @@ folly::Future<FileAttr> S3Logic::create(std::string requestId,
                 folly::makeFuture(pathTokens.back()));
         }
 
-        return folly::collectAll(folly::makeFuture(parentUuid),
-            folly::makeFuture(pathTokens.back()));
+        PUSH_FUTURES_2(parentUuid, pathTokens.back());
     })
         .via(m_executor.get())
         .thenValue([this, mode, flags](auto &&args) {
-            const auto &effectiveParentUuid = std::get<0>(args).value();
-            const auto &name = std::get<1>(args).value();
+            POP_FUTURES_2(args, effectiveParentUuid, name);
 
             constexpr auto modeMask =
                 S_ISUID | S_ISGID | S_ISVTX | S_IRWXU | S_IRWXG | S_IRWXO;
             const auto flag = detail::getOpenFlag(helpers::maskToFlags(flags));
 
             return communicate<FileCreated>(
-                CreateFile{effectiveParentUuid, name, mode & modeMask, flag});
+                CreateFile{effectiveParentUuid.value(), name.value(),
+                    mode & modeMask, flag});
         })
         .thenValue([this, path, flags, parentUuid, requestId](auto &&created) {
             const auto &uuid = created.attr().uuid();

@@ -9,39 +9,17 @@
 #include "s3Logic.h"
 
 #include "futureUtils.h"
-#include "messages/fuse/abortMultipartUpload.h"
-#include "messages/fuse/completeMultipartUpload.h"
-#include "messages/fuse/createFile.h"
-#include "messages/fuse/createMultipartUpload.h"
 #include "messages/fuse/createPath.h"
 #include "messages/fuse/deleteFile.h"
 #include "messages/fuse/fileChildren.h"
 #include "messages/fuse/fileCreated.h"
 #include "messages/fuse/fileList.h"
-#include "messages/fuse/fileLocation.h"
-#include "messages/fuse/fileLocationChanged.h"
-#include "messages/fuse/fileOpened.h"
 #include "messages/fuse/fileRenamed.h"
-#include "messages/fuse/fsync.h"
-#include "messages/fuse/getChildAttr.h"
-#include "messages/fuse/getFileAttrByPath.h"
-#include "messages/fuse/getFileChildrenAttrs.h"
-#include "messages/fuse/getFileLocation.h"
 #include "messages/fuse/getXAttr.h"
-#include "messages/fuse/listFilesRecursively.h"
-#include "messages/fuse/listMultipartParts.h"
-#include "messages/fuse/listMultipartUploads.h"
 #include "messages/fuse/multipartParts.h"
 #include "messages/fuse/multipartUpload.h"
-#include "messages/fuse/multipartUploads.h"
-#include "messages/fuse/openFile.h"
-#include "messages/fuse/release.h"
 #include "messages/fuse/rename.h"
-#include "messages/fuse/reportFileWritten.h"
-#include "messages/fuse/resolveGuid.h"
 #include "messages/fuse/setXAttr.h"
-#include "messages/fuse/synchronizeBlock.h"
-#include "messages/fuse/uploadMultipartPart.h"
 #include "monitoring/monitoring.h"
 
 #include <spdlog/spdlog.h>
@@ -212,84 +190,10 @@ S3Logic::getObject(const folly::fbstring &bucket, const folly::fbstring &path,
             // streaming Otherwise just return the body content as
             // std::string in a single read.
             if (requestSize.value() > m_options->getOneS3StreamGetThreshold()) {
-                streamReader = [this, attr = attr.value(), spaceId, bucket,
-                                   requestId, path,
-                                   requestOffset = requestOffset.value(),
-                                   requestSize = requestSize.value(),
-                                   completionCallback =
-                                       std::move(completionCallback),
-                                   errorCallback = std::move(errorCallback)](
-                                   char *data, std::size_t size) mutable {
-                    if (data == nullptr) {
-                        // Close the file on end of stream
-                        return close(attr.uuid(), requestId)
-                            .via(m_executor.get())
-                            .thenValue([path, requestSize,
-                                           completionCallback =
-                                               std::move(completionCallback)](
-                                           auto && /*unit*/) -> size_t {
-                                if (completionCallback)
-                                    completionCallback(requestSize);
-                                return 0;
-                            })
-                            .get();
-                    }
-
-                    return open(
-                        // requestId, spaceId, attr, 0UL, O_RDONLY)
-                        requestId, spaceId, attr, requestOffset, O_RDONLY, size)
-                        .via(m_executor.get())
-                        .thenError(folly::tag_t<std::system_error>{},
-                            [bucket, path, requestId](
-                                auto &&e) -> std::shared_ptr<FuseFileHandle> {
-                                error::S3Exception::raiseFromSystemError(e,
-                                    bucket.toStdString(), path.toStdString(),
-                                    requestId);
-                                return {}; // NOLINT
-                            })
-                        .thenValue(
-                            [this, requestId, size, requestOffset, requestSize](
-                                std::shared_ptr<FuseFileHandle>
-                                    &&fileHandle) mutable {
-                                return read(std::move(fileHandle), requestId,
-                                    size, requestOffset, requestSize);
-                            })
-                        .thenValue([this, data, requestOffset, size,
-                                       requestSize,
-                                       requestId](auto &&buf) mutable {
-                            if (buf.chainLength() == 0)
-                                return 0UL;
-
-                            auto iobuf = buf.empty() ? folly::IOBuf::create(0)
-                                                     : buf.move();
-                            if (iobuf->isChained()) {
-                                iobuf->unshare();
-                                iobuf->coalesce();
-                            }
-
-                            auto bufSize = iobuf->length();
-
-                            LOG_DBG(3)
-                                << "[" << requestId << "] Read " << bufSize
-                                << "/" << size << "/" << requestSize
-                                << " at offset " << requestOffset;
-
-                            memcpy(data, iobuf->data(), bufSize);
-
-                            m_downloadedBytes.fetch_add(bufSize);
-
-                            return bufSize;
-                        })
-                        .thenError(folly::tag_t<error::S3Exception>{},
-                            [bucket, path, requestId,
-                                errorCallback = std::move(errorCallback)](
-                                auto &&e) -> size_t {
-                                if (errorCallback)
-                                    errorCallback(e);
-                                return 0;
-                            })
-                        .get();
-                };
+                streamReader = getRangeStreamReader(bucket, path, requestId,
+                    spaceId, requestOffset.value(), requestSize.value(),
+                    attr.value(), std::move(completionCallback),
+                    std::move(errorCallback));
             }
 
             // Preopen the file - to make sure that we can
@@ -301,7 +205,8 @@ S3Logic::getObject(const folly::fbstring &bucket, const folly::fbstring &path,
             PUSH_FUTURES_6(bucketAttr, attr, streamReader, requestSize,
                 requestOffset, fileHandleIgnore);
         })
-        .thenValue([this, bucket, path, requestId, errorCallback](auto &&args) {
+        .thenValue([this, bucket, path, requestId, errorCallback](
+                       auto &&args) mutable {
             POP_FUTURES_6(args, bucketAttr, attr, streamReader, requestSize,
                 requestOffset, fileHandleIgnore);
 
@@ -340,66 +245,12 @@ S3Logic::getObject(const folly::fbstring &bucket, const folly::fbstring &path,
             if (streamReader.value() == nullptr) {
                 // Read the entire data range here
                 auto responseBodyStr =
-                    open(requestId, spaceId, attr.value(),
-                        requestOffset.value(), O_RDONLY, requestSize.value())
-                        .via(m_executor.get())
-                        .thenError(folly::tag_t<std::system_error>{},
-                            [bucket, path, requestId](
-                                auto &&e) -> std::shared_ptr<FuseFileHandle> {
-                                error::S3Exception::raiseFromSystemError(e,
-                                    bucket.toStdString(), path.toStdString(),
-                                    requestId);
-
-                                return {}; // NOLINT
-                            })
-                        .thenValue([this, requestId,
-                                       requestOffset = requestOffset.value(),
-                                       requestSize = requestSize.value()](
-                                       std::shared_ptr<FuseFileHandle>
-                                           &&fileHandle) mutable {
-                            auto buf = read(std::move(fileHandle), requestId,
-                                requestSize, requestOffset, requestSize);
-
-                            PUSH_FUTURES_1(buf);
-                        })
-                        .thenValue([this, requestOffset = requestOffset.value(),
-                                       requestSize = requestSize.value(),
-                                       requestId](auto &&args) mutable {
-                            POP_FUTURES_1(args, buf);
-
-                            if (buf.value().chainLength() == 0)
-                                return std::string{};
-
-                            auto iobuf = buf.value().empty()
-                                ? folly::IOBuf::create(0)
-                                : buf.value().move();
-                            if (iobuf->isChained()) {
-                                iobuf->unshare();
-                                iobuf->coalesce();
-                            }
-
-                            auto bufSize = iobuf->length();
-
-                            LOG_DBG(3)
-                                << "[" << requestId << "] Read " << bufSize
-                                << "/" << requestSize << "/" << requestSize
-                                << " at offset " << requestOffset;
-
-                            auto res = iobuf->moveToFbString().toStdString();
-
-                            m_downloadedBytes.fetch_add(bufSize);
-
-                            return res;
-                        })
-                        .thenValue([this, attr = attr.value(), requestId](
-                                       std::string &&data) {
-                            return close(attr.uuid(), requestId)
-                                .thenValue(
-                                    [data = std::move(data)](
-                                        auto && /*unit*/) { return data; });
-                        })
+                    getRange(bucket, path, requestId, spaceId,
+                        requestOffset.value(), requestSize.value(),
+                        attr.value())
                         .thenError(folly::tag_t<error::S3Exception>{},
-                            [bucket, path, requestId, errorCallback](
+                            [bucket, path, requestId,
+                                errorCallback = std::move(errorCallback)](
                                 auto &&e) -> std::string {
                                 if (errorCallback)
                                     errorCallback(e);
@@ -409,8 +260,8 @@ S3Logic::getObject(const folly::fbstring &bucket, const folly::fbstring &path,
                 PUSH_FUTURES_7(bucketAttr, attr, streamReader, md5Xattr,
                     contentTypeXattr, requestSize, responseBodyStr);
             }
-            std::string responseBodyStr{};
 
+            std::string responseBodyStr{};
             PUSH_FUTURES_7(bucketAttr, attr, streamReader, md5Xattr,
                 contentTypeXattr, requestSize, responseBodyStr);
         })
@@ -441,6 +292,139 @@ S3Logic::getObject(const folly::fbstring &bucket, const folly::fbstring &path,
             return folly::makeFuture(std::make_pair(std::move(result),
                 std::make_pair(std::move(streamReader.value()),
                     std::move(responseBodyStr.value()))));
+        });
+}
+
+std::function<std::size_t(char *, std::size_t)> S3Logic::getRangeStreamReader(
+    folly::fbstring bucket, folly::fbstring path, std::string requestId,
+    folly::fbstring spaceId, const size_t requestOffset,
+    const size_t requestSize, const FileAttr &attr,
+    std::function<void(size_t)> completionCallback,
+    std::function<void(const error::S3Exception &)> errorCallback)
+{
+    return [this, attr, spaceId = std::move(spaceId),
+               bucket = std::move(bucket), requestId = std::move(requestId),
+               path = std::move(path), requestOffset, requestSize,
+               completionCallback = std::move(completionCallback),
+               errorCallback = std::move(errorCallback)](
+               char *data, std::size_t size) mutable {
+        if (data == nullptr) {
+            // Close the file on end of stream
+            return close(attr.uuid(), requestId)
+                .via(m_executor.get())
+                .thenValue(
+                    [path, requestSize,
+                        completionCallback = std::move(completionCallback)](
+                        auto && /*unit*/) -> size_t {
+                        if (completionCallback)
+                            completionCallback(requestSize);
+                        return 0;
+                    })
+                .get();
+        }
+
+        return open(requestId, spaceId, attr, requestOffset, O_RDONLY, size)
+            .via(m_executor.get())
+            .thenError(folly::tag_t<std::system_error>{},
+                [bucket, path, requestId](
+                    auto &&e) -> std::shared_ptr<FuseFileHandle> {
+                    error::S3Exception::raiseFromSystemError(
+                        e, bucket.toStdString(), path.toStdString(), requestId);
+                    return {}; // NOLINT
+                })
+            .thenValue(
+                [this, requestId, size, requestOffset, requestSize](
+                    std::shared_ptr<FuseFileHandle> &&fileHandle) mutable {
+                    return read(std::move(fileHandle), requestId, size,
+                        requestOffset, requestSize);
+                })
+            .thenValue([this, data, requestOffset, size, requestSize,
+                           requestId](auto &&buf) mutable {
+                if (buf.chainLength() == 0)
+                    return 0UL;
+
+                auto iobuf = buf.empty() ? folly::IOBuf::create(0) : buf.move();
+                if (iobuf->isChained()) {
+                    iobuf->unshare();
+                    iobuf->coalesce();
+                }
+
+                auto bufSize = iobuf->length();
+
+                LOG_DBG(3) << "[" << requestId << "] Read " << bufSize << "/"
+                           << size << "/" << requestSize << " at offset "
+                           << requestOffset;
+
+                memcpy(data, iobuf->data(), bufSize);
+
+                m_downloadedBytes.fetch_add(bufSize);
+
+                return bufSize;
+            })
+            .thenError(folly::tag_t<error::S3Exception>{},
+                [bucket, path, requestId,
+                    errorCallback = std::move(errorCallback)](
+                    auto &&e) -> size_t {
+                    if (errorCallback)
+                        errorCallback(e);
+                    return 0;
+                })
+            .get();
+    };
+}
+
+folly::Future<std::string> S3Logic::getRange(const folly::fbstring &bucket,
+    const folly::fbstring &path, const std::string &requestId,
+    const folly::fbstring &spaceId, const size_t requestOffset,
+    const size_t requestSize, const FileAttr &attr)
+{
+    return open(requestId, spaceId, attr, requestOffset, O_RDONLY, requestSize)
+        .via(m_executor.get())
+        .thenError(folly::tag_t<std::system_error>{},
+            [bucket, path, requestId](
+                auto &&e) -> std::shared_ptr<FuseFileHandle> {
+                error::S3Exception::raiseFromSystemError(
+                    e, bucket.toStdString(), path.toStdString(), requestId);
+
+                return {}; // NOLINT
+            })
+        .thenValue([this, requestId, requestOffset, requestSize](
+                       std::shared_ptr<FuseFileHandle> &&fileHandle) mutable {
+            auto buf = read(std::move(fileHandle), requestId, requestSize,
+                requestOffset, requestSize);
+
+            PUSH_FUTURES_1(buf);
+        })
+        .thenValue(
+            [this, requestOffset, requestSize, requestId](auto &&args) mutable {
+                POP_FUTURES_1(args, buf);
+
+                if (buf.value().chainLength() == 0)
+                    return std::string{};
+
+                auto iobuf = buf.value().empty() ? folly::IOBuf::create(0)
+                                                 : buf.value().move();
+                if (iobuf->isChained()) {
+                    iobuf->unshare();
+                    iobuf->coalesce();
+                }
+
+                auto bufSize = iobuf->length();
+
+                LOG_DBG(3) << "[" << requestId << "] Read " << bufSize << "/"
+                           << requestSize << "/" << requestSize << " at offset "
+                           << requestOffset;
+
+                auto res = iobuf->moveToFbString().toStdString();
+
+                m_downloadedBytes.fetch_add(bufSize);
+
+                return res;
+            })
+        .thenValue([this, attr, requestId](std::string &&data) {
+            return close(attr.uuid(), requestId)
+                .thenValue([data = std::move(data)](
+                               auto && /*unit*/) { return data; });
         });
 }
 

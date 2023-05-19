@@ -273,6 +273,18 @@ private:
                 });
     }
 
+    folly::Future<std::string> getRange(const folly::fbstring &bucket,
+        const folly::fbstring &path, const std::string &requestId,
+        const folly::fbstring &spaceId, const size_t requestOffset,
+        const size_t requestSize, const messages::fuse::FileAttr &attr);
+
+    std::function<std::size_t(char *, std::size_t)> getRangeStreamReader(
+        folly::fbstring bucket, folly::fbstring path, std::string requestId,
+        folly::fbstring spaceId, const size_t requestOffset,
+        const size_t requestSize, const messages::fuse::FileAttr &attr,
+        std::function<void(size_t)> completionCallback,
+        std::function<void(const error::S3Exception &)> errorCallback);
+
     folly::Future<messages::fuse::FileAttr> getFileParentAttrByPath(
         const messages::fuse::FileAttr &bucketAttr,
         const folly::fbstring &path);
@@ -285,8 +297,8 @@ private:
         one::messages::fuse::FileChildrenAttrs &&msg);
 
     Aws::S3::Model::CreateMultipartUploadResult toCreateMultipartUploadResult(
-        one::messages::fuse::MultipartUpload &&msg, const folly::fbstring &bucket,
-        const folly::fbstring &path);
+        one::messages::fuse::MultipartUpload &&msg,
+        const folly::fbstring &bucket, const folly::fbstring &path);
 
     std::shared_ptr<client::auth::AuthManager> m_authManager;
     std::shared_ptr<one::client::Context> m_context;
