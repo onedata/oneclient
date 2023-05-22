@@ -4,6 +4,10 @@ Release notes for project oneclient
 CHANGELOG
 ---------
 
+### 21.02.2
+
+-   **VFS-10781** Added fetching of remote data blocks in ones3.
+
 ### 21.02.1
 
 -   **VFS-10756** Switched ones3 to internal onedata temporary directory
