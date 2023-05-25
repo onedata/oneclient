@@ -15,6 +15,17 @@
 #include <fuse/fuse_lowlevel.h>
 #endif
 
-struct fuse_lowlevel_ops fuseOperations();
+#include <memory>
+
+namespace one {
+namespace client {
+namespace options {
+class Options;
+} // namespace options
+} // namespace client
+} // namespace one
+
+struct fuse_lowlevel_ops fuseOperations(
+    std::shared_ptr<one::client::options::Options> options);
 
 #endif // ONECLIENT_FS_OPERATIONS_H

@@ -256,6 +256,15 @@ Options::Options(messages::handshake::ClientType clientType)
         .withDescription(
             "Disable in-memory cache for input/output data blocks.");
 
+    add<bool>()
+        ->asSwitch()
+        .withLongName("no-xattr")
+        .withConfigName("no_xattr")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Disable extended attributes support.");
+
     add<unsigned int>()
         ->withLongName("provider-timeout")
         .withConfigName("provider_timeout")
@@ -1148,6 +1157,11 @@ bool Options::isFullblockReadEnabled() const
 bool Options::isIOBuffered() const
 {
     return !get<bool>({"no-buffer", "no_buffer"}).get_value_or(false);
+}
+
+bool Options::enableExtendedAttributes() const
+{
+    return !get<bool>({"no-xattr", "no_xattr"}).get_value_or(false);
 }
 
 std::chrono::seconds Options::getProviderTimeout() const
