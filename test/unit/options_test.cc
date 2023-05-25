@@ -116,6 +116,7 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(options::DEFAULT_STORAGE_HELPER_THREAD_COUNT,
         options.getStorageHelperThreadCount());
     EXPECT_EQ(true, options.isIOBuffered());
+    EXPECT_EQ(true, options.enableExtendedAttributes());
     EXPECT_EQ(options::DEFAULT_PROVIDER_TIMEOUT,
         options.getProviderTimeout().count());
     EXPECT_EQ(
@@ -374,6 +375,13 @@ TEST_F(OptionsTest, parseCommandLineShouldSetNoBuffer)
     cmdArgs.insert(cmdArgs.end(), {"--no-buffer", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ(false, options.isIOBuffered());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetNoXattr)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--no-xattr", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(false, options.enableExtendedAttributes());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetDisableFileReadEvents)

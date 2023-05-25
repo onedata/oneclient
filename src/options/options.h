@@ -338,6 +338,11 @@ public:
     bool isIOBuffered() const;
 
     /*
+     * @return false if 'no-xattr' option has been provided, otherwise true.
+     */
+    bool enableExtendedAttributes() const;
+
+    /*
      * @return Return timeout for Oneprovider communication.
      */
     std::chrono::seconds getProviderTimeout() const;
