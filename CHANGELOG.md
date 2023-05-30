@@ -6,6 +6,14 @@ CHANGELOG
 
 ### 21.02.2
 
+-   **VFS-10943** For some workloads, which do not require extended
+    attributes, they can introduce unnecessary overhead due to operating
+    system continuously querying files about various OS specific
+    extended attributes. Now they can be disabled using --no-xattr
+    Oneclient option.
+-   **VFS-10928** Fixed bug in truncate for object storages with random
+    write access, which caused not deleting data above the truncate
+    threshold within the last object boundary.
 -   **VFS-10781** Added fetching of remote data blocks in ones3.
 
 ### 21.02.1
