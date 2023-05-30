@@ -1902,6 +1902,7 @@ FileAttrPtr FsLogic::setattr(
 
         communicate(messages::fuse::Truncate{uuid.toStdString(), attr.st_size},
             m_providerTimeout);
+
         m_metadataCache.truncate(uuid, attr.st_size);
         m_eventManager.emit<events::FileTruncated>(
             uuid.toStdString(), attr.st_size);

@@ -952,7 +952,8 @@ void wrap_listxattr(fuse_req_t req, fuse_ino_t ino, size_t size)
 } // extern "C"
 } // namespace
 
-struct fuse_lowlevel_ops fuseOperations()
+struct fuse_lowlevel_ops fuseOperations(
+    std::shared_ptr<one::client::options::Options> options)
 {
     struct fuse_lowlevel_ops operations = {nullptr};
 
@@ -979,10 +980,13 @@ struct fuse_lowlevel_ops fuseOperations()
     operations.statfs = wrap_statfs;
     operations.unlink = wrap_unlink;
     operations.write = wrap_write;
-    operations.getxattr = wrap_getxattr;
-    operations.setxattr = wrap_setxattr;
-    operations.removexattr = wrap_removexattr;
-    operations.listxattr = wrap_listxattr;
+
+    if (options->enableExtendedAttributes()) {
+        operations.getxattr = wrap_getxattr;
+        operations.setxattr = wrap_setxattr;
+        operations.removexattr = wrap_removexattr;
+        operations.listxattr = wrap_listxattr;
+    }
 
     return operations;
 }

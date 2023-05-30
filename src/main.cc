@@ -193,7 +193,7 @@ int main(int argc, char *argv[])
     int res{};
 
     try {
-        auto fuse_oper = fuseOperations();
+        auto fuse_oper = fuseOperations(options);
         auto args = options->getFuseArgs(argv[0]);
         char *mountpoint{nullptr};
         int multithreaded{0};
