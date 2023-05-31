@@ -66,3 +66,6 @@ compile_commands.json
 /tmp
 warp-*
 
+venv
+.pytest_cache
+

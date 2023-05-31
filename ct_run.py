@@ -60,6 +60,15 @@ parser.add_argument(
     help='name of the test suite',
     dest='suites')
 
+parser.add_argument(
+    '--no-shed-privileges',
+    action='store_true',
+    default=False,
+    help='Run tests as root in container',
+    dest='no_shed_privileges')
+
+
+
 
 [args, pass_args] = parser.parse_known_args()
 dockers_config.ensure_image(args, 'image', 'builder')
@@ -169,7 +178,7 @@ command = command.format(
     uid=os.geteuid(),
     gid=os.getegid(),
     test_dirs="', '".join(test_dirs),
-    shed_privileges=(platform.system() == 'Linux'),
+    shed_privileges=(platform.system() == 'Linux') and not args.no_shed_privileges,
     gdb=args.gdb,
     script_dir=script_dir,
     release=args.release)
@@ -182,7 +191,7 @@ ret = docker.run(tty=True,
                           ('/var/run/docker.sock', 'rw')],
                  image=args.image,
                  envs=envs,
-                 run_params=['--privileged'] if args.gdb else [],
+                 run_params=['--privileged'] if args.gdb or args.no_shed_privileges else [],
                  command=['python', '-c', command])
 
 if not args.no_clean:
