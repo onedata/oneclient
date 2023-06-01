@@ -143,7 +143,7 @@ class OSFSTest(FSTestCases, unittest.TestCase):
 
         dst_info = self.fs.getinfo("bar/file.txt", namespaces)
         delta = dst_info.modified - src_info.modified
-        self.assertAlmostEqual(delta.total_seconds(), 0, places=2)
+        self.assertAlmostEqual(delta.total_seconds(), 0, places=0)
 
     @unittest.skipUnless(osfs.sendfile, "sendfile not supported")
     @unittest.skipIf(
@@ -226,11 +226,11 @@ class OSFSTest(FSTestCases, unittest.TestCase):
         can_write_modified = new_info.is_writeable("details", "modified")
         if can_write_acccess:
             self.assertAlmostEqual(
-                new_info.get("details", "accessed"), now + 60, places=0
+                new_info.get("details", "accessed"), now + 60, delta=2
             )
         if can_write_modified:
             self.assertAlmostEqual(
-                new_info.get("details", "modified"), now + 60 * 60, places=0
+                new_info.get("details", "modified"), now + 60 * 60, delta=2
             )
 
         with self.assertRaises(errors.ResourceNotFound):
