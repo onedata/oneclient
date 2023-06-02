@@ -2278,15 +2278,20 @@ void FsLogic::pruneExpiredDirectories(const std::chrono::seconds delay)
 
 void FsLogic::flushOpenFileHandles(const folly::fbstring &uuid)
 {
-    std::lock_guard<folly::fibers::TimedMutex> lock(
-        m_openFileHandlesFlushMutex);
+    m_openFileHandlesFlushMutex.lock();
 
+    std::vector<std::uint64_t> fileHandleIds;
     auto pairIt = m_openFileHandles.equal_range(uuid);
     auto it = pairIt.first;
     for (; it != pairIt.second; ++it) {
         auto fileHandleId = it->second;
-        flush(uuid, fileHandleId);
+        fileHandleIds.emplace_back(fileHandleId);
     }
+
+    m_openFileHandlesFlushMutex.unlock();
+
+    for (const auto fileHandleId : fileHandleIds)
+        flush(uuid, fileHandleId);
 }
 
 void FsLogic::clearOpenFileHandles()
