@@ -67,7 +67,7 @@ def oneclient(request, oneprovider_ip, ceph_monitor_ip, onezone_admin_token,
               ceph_support_storage_id, mountpoint):
     oneclient_cli = (
         f'debug/oneclient -i -v 1 -f -d -H {oneprovider_ip}'
-        f' -t {onezone_admin_token}'
+        f' -t {onezone_admin_token} --no-buffer'
         f' --override {ceph_support_storage_id}:monitorHostname:{ceph_monitor_ip}'
         f' --communicator-thread-count 10 --scheduler-thread-count 1'
         f' --storage-helper-thread-count 10'
@@ -81,6 +81,7 @@ def oneclient(request, oneprovider_ip, ceph_monitor_ip, onezone_admin_token,
         print(f"-- Stopping oneclient")
 
         proc.kill()
+        time.sleep(5)
         unmount_cli = f'fusermount3 -uz {mountpoint}'
         subprocess.Popen(unmount_cli.split(' '))
 
