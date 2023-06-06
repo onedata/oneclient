@@ -360,12 +360,15 @@ void FsLogic::reset()
 {
     LOG_DBG(1) << "Resetting internal caches after connection lost...";
 
+    assertInFiber();
+
     // Close all files
     for (auto &fh : m_fuseFileHandles) {
         fh.second->reset();
     }
     m_fuseFileHandles.clear();
-    m_openFileHandles.clear();
+
+    clearOpenFileHandles();
 
     // Clear metadata cache
     m_metadataCache.clear();
@@ -602,12 +605,7 @@ std::uint64_t FsLogic::open(const folly::fbstring &uuid, const int flags,
     if (((flags & O_TRUNC) != 0) && ((flags & O_RDONLY) == 0)) {
         // Make sure all opened handles for file uuid are fsynced before
         // truncating
-        auto pairIt = m_openFileHandles.equal_range(uuid);
-        auto it = pairIt.first;
-        for (; it != pairIt.second; ++it) {
-            auto fileHandleId = it->second;
-            flush(uuid, fileHandleId);
-        }
+        flushOpenFileHandles(uuid);
 
         m_eventManager.flush();
 
@@ -641,7 +639,7 @@ std::uint64_t FsLogic::open(const folly::fbstring &uuid, const int flags,
                 *m_virtualFsHelpersCache, m_forceProxyIOCache,
                 m_providerTimeout, m_randomReadPrefetchEvaluationFrequency));
 
-        m_openFileHandles.emplace(uuid, fuseFileHandleId);
+        registerOpenFileHandle(uuid, fuseFileHandleId);
         auto fuseFileHandle = m_fuseFileHandles.at(fuseFileHandleId);
         fuseFileHandle->getHelperHandle(
             uuid, {}, attr->getVirtualFsAdapter()->name(), uuid);
@@ -660,7 +658,7 @@ std::uint64_t FsLogic::open(const folly::fbstring &uuid, const int flags,
         std::make_shared<FuseFileHandle>(filteredFlags, opened.handleId(),
             openFileToken, *m_helpersCache, m_forceProxyIOCache,
             m_providerTimeout, m_randomReadPrefetchEvaluationFrequency));
-    m_openFileHandles.emplace(uuid, fuseFileHandleId);
+    registerOpenFileHandle(uuid, fuseFileHandleId);
     m_fuseFileHandleFlags.emplace(fuseFileHandleId, flags);
 
     IOTRACE_END(
@@ -740,14 +738,9 @@ void FsLogic::release(
     }
 
     m_fuseFileHandles.erase(fileHandleId);
-    auto pairIt = m_openFileHandles.equal_range(uuid);
-    auto it = pairIt.first;
-    for (; it != pairIt.second; ++it) {
-        if (it->second == fileHandleId) {
-            m_openFileHandles.erase(it);
-            break;
-        }
-    }
+
+    eraseOpenFileHandles(uuid, fileHandleId);
+
     m_fuseFileHandleFlags.erase(fileHandleId);
 
     if (releaseException)
@@ -1738,7 +1731,7 @@ std::pair<FileAttrPtr, std::uint64_t> FsLogic::create(
         m_providerTimeout);
 
     m_fuseFileHandles.emplace(fuseFileHandleId, fuseFileHandle);
-    m_openFileHandles.emplace(uuid, fuseFileHandleId);
+    registerOpenFileHandle(uuid, fuseFileHandleId);
     m_fuseFileHandleFlags.emplace(fuseFileHandleId, flags);
 
     LOG_DBG(2) << "Created file " << name << " in " << parentUuid
@@ -1891,12 +1884,7 @@ FileAttrPtr FsLogic::setattr(
     if ((toSet & FUSE_SET_ATTR_SIZE) != 0) {
         // Make sure all opened handles for file uuid are fsynced before
         // truncating
-        auto pairIt = m_openFileHandles.equal_range(uuid);
-        auto it = pairIt.first;
-        for (; it != pairIt.second; ++it) {
-            auto fileHandleId = it->second;
-            flush(uuid, fileHandleId);
-        }
+        flushOpenFileHandles(uuid);
 
         m_eventManager.flush();
 
@@ -1926,12 +1914,7 @@ FileAttrPtr FsLogic::setattr(
     if ((toSet & FUSE_SET_ATTR_MTIME) != 0) {
         // Make sure all opened handles for file uuid are fsynced before
         // updating mtime
-        auto pairIt = m_openFileHandles.equal_range(uuid);
-        auto it = pairIt.first;
-        for (; it != pairIt.second; ++it) {
-            auto fileHandleId = it->second;
-            flush(uuid, fileHandleId);
-        }
+        flushOpenFileHandles(uuid);
 
         m_eventManager.flush();
 
@@ -2291,6 +2274,57 @@ void FsLogic::pruneExpiredDirectories(const std::chrono::seconds delay)
 
         m_metadataCache.pruneExpiredDirectories();
     }
+}
+
+void FsLogic::flushOpenFileHandles(const folly::fbstring &uuid)
+{
+    m_openFileHandlesFlushMutex.lock();
+
+    std::vector<std::uint64_t> fileHandleIds;
+    auto pairIt = m_openFileHandles.equal_range(uuid);
+    auto it = pairIt.first;
+    for (; it != pairIt.second; ++it) {
+        auto fileHandleId = it->second;
+        fileHandleIds.emplace_back(fileHandleId);
+    }
+
+    m_openFileHandlesFlushMutex.unlock();
+
+    for (const auto fileHandleId : fileHandleIds)
+        flush(uuid, fileHandleId);
+}
+
+void FsLogic::clearOpenFileHandles()
+{
+    std::lock_guard<folly::fibers::TimedMutex> lock(
+        m_openFileHandlesFlushMutex);
+
+    m_openFileHandles.clear();
+}
+
+void FsLogic::eraseOpenFileHandles(
+    const folly::fbstring &uuid, const std::uint64_t fileHandleId)
+{
+    std::lock_guard<folly::fibers::TimedMutex> lock(
+        m_openFileHandlesFlushMutex);
+
+    auto pairIt = m_openFileHandles.equal_range(uuid);
+    auto it = pairIt.first;
+    for (; it != pairIt.second; ++it) {
+        if (it->second == fileHandleId) {
+            m_openFileHandles.erase(it);
+            break;
+        }
+    }
+}
+
+void FsLogic::registerOpenFileHandle(
+    const folly::fbstring &uuid, const std::uint64_t fileHandleId)
+{
+    std::lock_guard<folly::fibers::TimedMutex> lock(
+        m_openFileHandlesFlushMutex);
+
+    m_openFileHandles.emplace(uuid, fileHandleId);
 }
 
 void FsLogic::fiberRetryDelay(int retriesLeft)
