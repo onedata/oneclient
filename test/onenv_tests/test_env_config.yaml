@@ -57,11 +57,17 @@ spaces:
       - provider: oneprovider-2
         storage_name: 'posix'
         size: '100000000' # in bytes
-  - name: test_pyfilesystem
+  - name: test_pyfilesystem_ceph
     supports:
       - provider: oneprovider-1
         storage_name: 'ceph'
         size: '100000000' # in bytes
+  - name: test_pyfilesystem_s3
+    supports:
+      - provider: oneprovider-1
+        storage_name: 's3'
+        size: '100000000' # in bytes
 
 storages:
   - ceph
+  - s3
