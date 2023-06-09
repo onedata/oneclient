@@ -145,6 +145,17 @@ if args.onenv_config is not None:
         print(f'Error: Cannot find ceph storage volume pod in:\n {endpoints}')
         sys.exit(1)
 
+    get_endpoints_cli = f'kubectl get endpoints -lcomponent=volume-s3 -o json'
+    endpoints = subprocess.check_output(get_endpoints_cli.split(' ')).strip()
+    for item in json.loads(endpoints)['items']:
+        if item['metadata']['name'] == 'dev-volume-s3-krakow':
+            envs['S3_SERVER_IP'] = item['subsets'][0]['addresses'][0]['ip']
+            break
+
+    if 'S3_SERVER_IP' not in envs:
+        print(f'Error: Cannot find s3 storage volume pod in:\n {endpoints}')
+        sys.exit(1)
+
     print(f'Environment passed to pytest container: {str(envs)}')
 
 

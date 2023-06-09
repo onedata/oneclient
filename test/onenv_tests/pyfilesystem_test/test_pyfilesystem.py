@@ -36,27 +36,52 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 @pytest.mark.usefixtures("oneclient")
-class WriteZipFSTest(FSTestCases, unittest.TestCase):
+class WriteZipFSS3Test(FSTestCases, unittest.TestCase):
     """
     Test ZIPFS implementation.
 
     When writing, a ZipFS is essentially a TempFS.
 
     """
+    space_name = 'test_pyfilesystem_s3'
+
     def make_fs(self):
         _zip_file = tempfile.TemporaryFile(
-            dir=f'{self.mountpoint}/test_pyfilesystem')
+            dir=f'{self.mountpoint}/{self.space_name}')
         fs = zipfs.ZipFS(_zip_file, write=True)
         fs._zip_file = _zip_file
         return fs
+
     def destroy_fs(self, fs):
         fs.close()
         del fs._zip_file
 
 
 @pytest.mark.usefixtures("oneclient")
-class OSFSTest(FSTestCases, unittest.TestCase):
+class WriteZipFSCephTest(FSTestCases, unittest.TestCase):
+    """
+    Test ZIPFS implementation.
+
+    When writing, a ZipFS is essentially a TempFS.
+
+    """
+    space_name = 'test_pyfilesystem_ceph'
+
+    def make_fs(self):
+        _zip_file = tempfile.TemporaryFile(
+            dir=f'{self.mountpoint}/{self.space_name}')
+        fs = zipfs.ZipFS(_zip_file, write=True)
+        fs._zip_file = _zip_file
+        return fs
+
+    def destroy_fs(self, fs):
+        fs.close()
+        del fs._zip_file
+
+
+class OSFSBase(FSTestCases):
     """Test OSFS implementation."""
+
     @classmethod
     def setUpClass(cls):
         warnings.simplefilter("error")
@@ -65,18 +90,6 @@ class OSFSTest(FSTestCases, unittest.TestCase):
     def tearDownClass(cls):
         warnings.simplefilter(warnings.defaultaction)
 
-    def make_fs(self):
-        temp_dir = tempfile.mkdtemp('pyfs_test',
-                                    dir=f'{self.mountpoint}/test_pyfilesystem')
-        return osfs.OSFS(temp_dir)
-
-    def destroy_fs(self, fs):
-        self.fs.close()
-        try:
-            shutil.rmtree(fs.getsyspath("/"))
-        except OSError:
-            # Already deleted
-            pass
 
     def _get_real_path(self, path):
         _path = os.path.join(self.fs.root_path, relpath(path))
@@ -281,3 +294,41 @@ class OSFSTest(FSTestCases, unittest.TestCase):
 
     def test_geturl_return_no_url(self):
         self.assertRaises(errors.NoURL, self.fs.geturl, "test/path", "upload")
+
+
+@pytest.mark.usefixtures("oneclient")
+class OSFSS3Test(OSFSBase, FSTestCases, unittest.TestCase):
+    """Test OSFS implementation."""
+    space_name = 'test_pyfilesystem_s3'
+
+    def make_fs(self):
+        temp_dir = tempfile.mkdtemp('pyfs_test',
+                                    dir=f'{self.mountpoint}/{self.space_name}')
+        return osfs.OSFS(temp_dir)
+
+    def destroy_fs(self, fs):
+        self.fs.close()
+        try:
+            shutil.rmtree(fs.getsyspath("/"))
+        except OSError:
+            # Already deleted
+            pass
+
+
+@pytest.mark.usefixtures("oneclient")
+class OSFSCephTest(OSFSBase, FSTestCases, unittest.TestCase):
+    """Test OSFS implementation."""
+    space_name = 'test_pyfilesystem_ceph'
+
+    def make_fs(self):
+        temp_dir = tempfile.mkdtemp('pyfs_test',
+                                    dir=f'{self.mountpoint}/{self.space_name}')
+        return osfs.OSFS(temp_dir)
+
+    def destroy_fs(self, fs):
+        self.fs.close()
+        try:
+            shutil.rmtree(fs.getsyspath("/"))
+        except OSError:
+            # Already deleted
+            pass

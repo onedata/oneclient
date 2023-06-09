@@ -36,6 +36,11 @@ def ceph_monitor_ip():
     yield cmip
 
 @pytest.fixture(scope=FIXTURE_SCOPE)
+def s3_server_ip():
+    s3ip = os.getenv('S3_SERVER_IP')
+    yield s3ip
+
+@pytest.fixture(scope=FIXTURE_SCOPE)
 def mountpoint():
     mount_path = "/tmp/oneclientmnt"
     Path(mount_path).mkdir(parents=True, exist_ok=True)
@@ -62,13 +67,28 @@ def ceph_support_storage_id(request, oneprovider_ip, onezone_admin_token):
         if 'ceph' in storage.json()['name']:
             yield storage_id
 
+@pytest.fixture(scope=FIXTURE_SCOPE)
+def s3_support_storage_id(request, oneprovider_ip, onezone_admin_token):
+    storages_endpoint = f'https://{oneprovider_ip}/api/v3/onepanel/provider/storages'
+    storages = requests.get(storages_endpoint,
+                            headers={'X-Auth-Token': onezone_admin_token},
+                            verify=False)
+    for storage_id in storages.json()["ids"]:
+        storage = requests.get(f'{storages_endpoint}/{storage_id}',
+                               headers={'X-Auth-Token': onezone_admin_token},
+                               verify=False)
+        if 's3' == storage.json()['name']:
+            yield storage_id
+
 @pytest.fixture(scope="class")
 def oneclient(request, oneprovider_ip, ceph_monitor_ip, onezone_admin_token,
-              ceph_support_storage_id, mountpoint):
+              ceph_support_storage_id, s3_support_storage_id, s3_server_ip,
+              mountpoint):
     oneclient_cli = (
         f'debug/oneclient -i -v 1 -f -d -H {oneprovider_ip}'
         f' -t {onezone_admin_token} --no-buffer'
         f' --override {ceph_support_storage_id}:monitorHostname:{ceph_monitor_ip}'
+        f' --override {s3_support_storage_id}:hostname:{s3_server_ip}:9000'
         f' --communicator-thread-count 10 --scheduler-thread-count 1'
         f' --storage-helper-thread-count 10'
         f' --force-direct-io {mountpoint}')
