@@ -1,2 +1,8 @@
 python:
     - 3.9.*
+
+c_compiler_version:
+  - 12.2.0 # [linux]
+
+cxx_compiler_version:
+  - 12.2.0 # [linux]
