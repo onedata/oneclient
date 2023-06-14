@@ -153,7 +153,7 @@ def s3_server(request, onezone_ip, oneprovider_ip, ceph_monitor_ip, onezone_admi
             f' --ones3-http-port {s3_port} --force-direct-io --no-buffer')
     proc = subprocess.Popen(ones3_cli.split(' '))
     print(f"-- Starting ones3 server: {ones3_cli}")
-    time.sleep(5)
+    time.sleep(15)
     print("-- Done")
     request.addfinalizer(proc.kill)
 
