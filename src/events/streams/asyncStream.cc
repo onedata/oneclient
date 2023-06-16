@@ -25,8 +25,9 @@ AsyncStream::AsyncStream(StreamPtr stream)
 
 AsyncStream::~AsyncStream()
 {
-    m_stream.reset();
+    m_stream->stop();
     m_executor->join();
+    m_stream.reset();
 }
 
 void AsyncStream::process(EventPtr<> event)

@@ -33,6 +33,13 @@ public:
      * Requests handling of events aggregated in the stream.
      */
     virtual void flush() = 0;
+
+    void stop() { m_stopped = true; }
+
+    bool is_stopped() { return m_stopped; }
+
+private:
+    std::atomic_bool m_stopped{false};
 };
 
 } // namespace events
