@@ -10,12 +10,15 @@ import sys
 import errno
 import io
 import os
+import requests
 import shutil
+import tarfile
 import tempfile
 import time
 import unittest
 import warnings
 import zipfile
+import xattr
 import pytest
 
 from six import text_type
@@ -332,3 +335,69 @@ class OSFSCephTest(OSFSBase, FSTestCases, unittest.TestCase):
         except OSError:
             # Already deleted
             pass
+
+
+@pytest.mark.usefixtures("oneclient")
+class UnpackBagitTest(unittest.TestCase):
+    """Test bagit archive unpacking."""
+    space_name = 'test_pyfilesystem_ceph'    
+    test_bagit_url = "http://packages.devel.onedata.org/testdata/test_bagit_unpack.tar"
+
+    def test_unpack_bagit_archive(self):
+        temp_dir = tempfile.mkdtemp('bagit_unpack_test_dir',
+                                    dir=f'{self.mountpoint}/{self.space_name}')
+
+        try:
+            self.unpack_bagit(*self.prepare_env(temp_dir))
+        finally:
+            self.clean_env(temp_dir)
+
+    def prepare_env(self, root_dir):
+        bagit_tar = os.path.join(root_dir, "test_bagit_unpack.tar")
+        with requests.get(self.test_bagit_url, stream=True) as r:
+            with open(bagit_tar, 'wb') as f:
+                shutil.copyfileobj(r.raw, f)
+
+        dst_dir = os.path.join(root_dir, "dst_dir")
+        os.mkdir(dst_dir, 0o777)
+
+        return self.get_file_id(bagit_tar), self.get_file_id(dst_dir)
+
+    def get_file_id(self, path):
+        file_xattrs = xattr.xattr(path)
+        return file_xattrs.get('org.onedata.file_id').decode('utf-8')
+
+    def clean_env(self, root_dir):
+        try:
+            shutil.rmtree(root_dir)
+        except OSError:
+            # Already deleted
+            pass
+
+    def unpack_bagit(self, archive_file_id, dst_dir_file_id):
+        archive_path = f"{self.mountpoint}/.__onedata__file_id__{archive_file_id}"
+        dst_dir_path = f"{self.mountpoint}/.__onedata__file_id__{dst_dir_file_id}"
+
+        with tarfile.TarFile(archive_path) as archive:
+            data_dir = f"{self.get_bagit_dir_name(archive)}/data"
+
+            for file_info in archive.getmembers():
+                file_src_path = file_info.name
+
+                if file_src_path.startswith(data_dir) and not file_info.isdir():
+                    file_data_dir_rel_path = file_src_path[len(data_dir) :].lstrip("/")
+
+                    # Tamper with file path so that when unpacking only parent directories
+                    # up to data directory will be created in destination directory
+                    # (normally all directories on path are created)
+                    file_info.name = file_data_dir_rel_path
+                    archive.extract(file_info, dst_dir_path)
+
+                    file_path = f"{dst_dir_path}/{file_data_dir_rel_path}"
+                    self.assertEqual(file_info.size, os.path.getsize(file_path))
+
+    def get_bagit_dir_name(self, archive):
+        for path in archive.getnames():
+            path_tokens = path.split("/")
+            if len(path_tokens) == 2 and path_tokens[1] == "bagit.txt":
+                return path_tokens[0]
