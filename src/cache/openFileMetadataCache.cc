@@ -182,11 +182,13 @@ OpenFileMetadataCache::open(const folly::fbstring &uuid)
 
         return std::make_shared<OpenFileToken>(std::move(attr), *this);
     }
-    catch (...) {
+    catch (std::exception &e) {
         LOG(ERROR) << " Removing " << uuid
-                   << " from LRU metadata cache due to unexpected error.";
+                   << " from LRU metadata cache due to unexpected error: "
+                   << e.what();
+
         releaseFile(uuid);
-        throw;
+        throw e;
     }
 }
 

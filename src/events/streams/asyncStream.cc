@@ -23,12 +23,20 @@ AsyncStream::AsyncStream(StreamPtr stream)
 {
 }
 
+AsyncStream::~AsyncStream()
+{
+    m_stream->stop();
+    m_executor->join();
+    m_stream.reset();
+}
+
 void AsyncStream::process(EventPtr<> event)
 {
     LOG_FCALL();
 
     m_executor->add([this, event = std::move(event)]() mutable {
-        m_stream->process(std::move(event));
+        if (m_stream)
+            m_stream->process(std::move(event));
     });
 }
 
@@ -36,7 +44,10 @@ void AsyncStream::flush()
 {
     LOG_FCALL();
 
-    m_executor->add([this] { m_stream->flush(); });
+    m_executor->add([this] {
+        if (m_stream)
+            m_stream->flush();
+    });
 }
 
 } // namespace events

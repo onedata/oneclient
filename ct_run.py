@@ -60,6 +60,15 @@ parser.add_argument(
     help='name of the test suite',
     dest='suites')
 
+parser.add_argument(
+    '--no-shed-privileges',
+    action='store_true',
+    default=False,
+    help='Run tests as root in container',
+    dest='no_shed_privileges')
+
+
+
 
 [args, pass_args] = parser.parse_known_args()
 dockers_config.ensure_image(args, 'image', 'builder')
@@ -136,6 +145,17 @@ if args.onenv_config is not None:
         print(f'Error: Cannot find ceph storage volume pod in:\n {endpoints}')
         sys.exit(1)
 
+    get_endpoints_cli = f'kubectl get endpoints -lcomponent=volume-s3 -o json'
+    endpoints = subprocess.check_output(get_endpoints_cli.split(' ')).strip()
+    for item in json.loads(endpoints)['items']:
+        if item['metadata']['name'] == 'dev-volume-s3-krakow':
+            envs['S3_SERVER_IP'] = item['subsets'][0]['addresses'][0]['ip']
+            break
+
+    if 'S3_SERVER_IP' not in envs:
+        print(f'Error: Cannot find s3 storage volume pod in:\n {endpoints}')
+        sys.exit(1)
+
     print(f'Environment passed to pytest container: {str(envs)}')
 
 
@@ -169,7 +189,7 @@ command = command.format(
     uid=os.geteuid(),
     gid=os.getegid(),
     test_dirs="', '".join(test_dirs),
-    shed_privileges=(platform.system() == 'Linux'),
+    shed_privileges=(platform.system() == 'Linux') and not args.no_shed_privileges,
     gdb=args.gdb,
     script_dir=script_dir,
     release=args.release)
@@ -182,7 +202,7 @@ ret = docker.run(tty=True,
                           ('/var/run/docker.sock', 'rw')],
                  image=args.image,
                  envs=envs,
-                 run_params=['--privileged'] if args.gdb else [],
+                 run_params=['--privileged'] if args.gdb or args.no_shed_privileges else [],
                  command=['python', '-c', command])
 
 if not args.no_clean:

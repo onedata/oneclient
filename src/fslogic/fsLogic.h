@@ -25,6 +25,7 @@
 #include <folly/FBString.h>
 #include <folly/FBVector.h>
 #include <folly/Function.h>
+#include <folly/fibers/TimedMutex.h>
 #include <folly/io/IOBufQueue.h>
 
 #include <functional>
@@ -376,6 +377,16 @@ private:
      */
     void fiberRetryDelay(int retriesLeft);
 
+    void registerOpenFileHandle(
+        const folly::fbstring &uuid, const std::uint64_t fileHandleId);
+
+    void flushOpenFileHandles(const folly::fbstring &uuid);
+
+    void eraseOpenFileHandles(
+        const folly::fbstring &uuid, const std::uint64_t fileHandleId);
+
+    void clearOpenFileHandles();
+
     /**
      * Removes contents of expired directories from cache.
      *
@@ -421,6 +432,7 @@ private:
 
     std::unordered_map<std::uint64_t, std::shared_ptr<FuseFileHandle>>
         m_fuseFileHandles;
+    folly::fibers::TimedMutex m_openFileHandlesFlushMutex;
     std::multimap<folly::fbstring, std::uint64_t> m_openFileHandles;
     std::unordered_map<std::uint64_t, int> m_fuseFileHandleFlags;
     std::unordered_map<std::uint64_t, folly::fbstring> m_fuseDirectoryHandles;

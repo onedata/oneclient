@@ -33,7 +33,7 @@ public:
     /**
      * Stops IO service and joins worker thread.
      */
-    ~AsyncStream() = default;
+    ~AsyncStream();
 
     /**
      * Forwards call to a wrapped stream managed by a single, dedicated worker
