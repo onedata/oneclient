@@ -917,7 +917,29 @@ void Options::parse(const int argc, const char *const argv[])
         return;
 
     parser.parseEnvironment(m_deprecatedEnvs, m_vm);
+
+    if (m_clientType == messages::handshake::ClientType::ones3 &&
+        !exists(getConfigFilePath())) {
+        fmt::print(stderr, "WARN: Configuration file not found in {}\n",
+            getConfigFilePath().c_str());
+    }
+
     parser.parseConfigFile(getConfigFilePath(), m_vm);
+
+    if (m_clientType == messages::handshake::ClientType::ones3) {
+        if (!getOnezoneHost()) {
+            throw boost::program_options::error_with_no_option_name(
+                "ERROR: required option 'onezone-host' missing");
+        }
+        if (!getProviderHost()) {
+            throw boost::program_options::error_with_no_option_name(
+                "ERROR: required option 'host' missing");
+        }
+        if (!getAccessToken()) {
+            throw boost::program_options::error_with_no_option_name(
+                "ERROR: required option 'token' missing");
+        }
+    }
     boost::program_options::notify(m_vm);
 }
 
