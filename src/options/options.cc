@@ -801,6 +801,16 @@ Options::Options(messages::handshake::ClientType clientType)
             .withGroup(OptionGroup::ONES3)
             .withDescription("Number of threads of the OneS3 server.");
 
+        add<bool>()
+            ->asSwitch()
+            .withEnvName("ones3_disable_bucket_operations")
+            .withLongName("ones3-disable-bucket-operations")
+            .withConfigName("ones3_disable_bucket_operations")
+            .withValueName("<bool>")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription(
+                "Disables bucket creation and deletion operations.");
+
         add<unsigned int>()
             ->withEnvName("ones3_keepalive_requests")
             .withLongName("ones3-keepalive-requests")
@@ -1483,6 +1493,14 @@ boost::optional<std::string> Options::getOneS3SupportStorageId() const
 {
     return get<std::string>({"ones3-support-storage-id",
         "ones3_support_storage_id", "ones3_support_storage_id"});
+}
+
+bool Options::areOneS3BucketOperationsDisabled() const
+{
+    return get<bool>(
+        {"ones3-disable-bucket-operations", "ones3_disable_bucket_operations",
+            "ones3_disable_bucket_operations"})
+        .get_value_or(false);
 }
 
 boost::optional<unsigned int> Options::getOneS3HTTPPort() const

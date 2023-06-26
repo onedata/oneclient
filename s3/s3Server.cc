@@ -244,6 +244,10 @@ void S3Server::putBucket(const HttpRequestPtr &req,
     auto response = HttpResponse::newHttpResponse();
 
     try {
+        if (m_options->areOneS3BucketOperationsDisabled() ||
+            !m_options->getOneS3SupportStorageId().has_value())
+            throw one::s3::error::AccessDenied(bucket, bucket, requestId);
+
         auto auth = S3Authorization::fromHttpRequest(req);
 
         auto onezoneHost = m_options->getOnezoneHost().value();
@@ -480,6 +484,9 @@ void S3Server::deleteBucket(const HttpRequestPtr &req,
 
     try {
         folly::Optional<std::string> spaceIdToDelete;
+
+        if (m_options->areOneS3BucketOperationsDisabled())
+            throw one::s3::error::AccessDenied(bucket, bucket, requestId);
 
         // Check if space exists
         auto userSpaceIds = onezoneClient.listUserSpaces(auth->getToken());
@@ -736,7 +743,8 @@ void S3Server::getObject(const HttpRequestPtr &req,
                        std::shared_ptr<S3Logic> &&s3) mutable {
             // Extract range header if exist
             return s3
-                ->getObject(bucket, path, requestId, rangeHeader,
+                ->getObject(
+                    bucket, path, requestId, rangeHeader,
                     [timer](size_t readBytes) {
                         ONE_METRIC_TIMERCTX_STOP(timer, readBytes);
                     },

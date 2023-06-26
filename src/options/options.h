@@ -563,6 +563,12 @@ public:
 
     boost::optional<std::string> getOneS3SupportStorageId() const;
 
+    /**
+     * @brief Check, if bucket create and delete operations should be disabled.
+     * @return True, if bucket create and delete operations should be disabled.
+     */
+    bool areOneS3BucketOperationsDisabled() const;
+
     /*
      * @return Mountpoint path.
      */
