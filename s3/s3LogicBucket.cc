@@ -16,6 +16,7 @@
 #include "messages/fuse/listFilesRecursively.h"
 #include "messages/fuse/multipartParts.h"
 
+#include <aws/core/http/URI.h>
 #include <spdlog/spdlog.h>
 
 #include <tuple>
@@ -29,6 +30,16 @@ using one::messages::fuse::FileChildrenAttrs;
 using one::messages::fuse::FileList;
 using one::messages::fuse::GetFileChildrenAttrs;
 using one::messages::fuse::ListFilesRecursively;
+
+Aws::String encodeURLPath(const std::string &path)
+{
+    auto result = Aws::Http::URI::URLEncodePathRFC3986(path);
+
+    if (!result.empty() && result[0] == '/')
+        return result.substr(1);
+
+    return result;
+}
 
 folly::Future<Aws::S3::Model::ListBucketsResult> S3Logic::listBuckets()
 {
@@ -62,7 +73,7 @@ folly::Future<Aws::S3::Model::ListObjectsResult> S3Logic::readDir(
 {
     return getBucketAttr(bucket)
         .thenValue([this, prefix](FileAttr &&attr) {
-            if (prefix.empty())
+            if (prefix.empty() || prefix == "/")
                 return folly::makeFuture<FileAttr>(std::move(attr));
 
             return getFileAttr(attr.uuid(), prefix);
@@ -91,6 +102,7 @@ folly::Future<Aws::S3::Model::ListObjectsResult> S3Logic::readDir(
             result.SetPrefix(prefix.toStdString());
             result.SetName(bucket.toStdString());
             result.SetMaxKeys(maxKeys);
+            result.SetDelimiter("/");
 
             int keyCount{0};
             for (const auto &attr : attrs.value().childrenAttrs()) {
@@ -105,17 +117,19 @@ folly::Future<Aws::S3::Model::ListObjectsResult> S3Logic::readDir(
                         continue;
 
                     Aws::S3::Model::CommonPrefix cp;
-                    cp.SetPrefix(prefixPrefix.toStdString() +
-                        attr.name().toStdString() + "/");
+                    cp.SetPrefix(encodeURLPath(prefixPrefix.toStdString() +
+                        attr.name().toStdString() + "/"));
                     result.AddCommonPrefixes(std::move(cp));
+                    keyCount++;
                 }
                 else {
                     Aws::S3::Model::Object object;
                     if (!isPrefixARegularFilePath.value())
-                        object.SetKey(prefixPrefix.toStdString() +
-                            attr.name().toStdString());
+                        object.SetKey(encodeURLPath(prefixPrefix.toStdString() +
+                            attr.name().toStdString()));
                     else
-                        object.SetKey(prefixPrefix.toStdString());
+                        object.SetKey(
+                            encodeURLPath(prefixPrefix.toStdString()));
                     object.SetLastModified(attr.mtime());
                     if (attr.has_xattr(ONEDATA_S3_XATTR_CONTENT_MD5)) {
                         object.SetETag(
@@ -152,7 +166,7 @@ folly::Future<Aws::S3::Model::ListObjectsV2Result> S3Logic::readDirV2(
 {
     return getBucketAttr(bucket)
         .thenValue([this, prefix](FileAttr &&attr) {
-            if (prefix.empty())
+            if (prefix.empty() || prefix == "/")
                 return folly::makeFuture<FileAttr>(std::move(attr));
 
             return getFileAttr(attr.uuid(), prefix);
@@ -182,8 +196,9 @@ folly::Future<Aws::S3::Model::ListObjectsV2Result> S3Logic::readDirV2(
             result.SetPrefix(prefix.toStdString());
             result.SetName(bucket.toStdString());
             result.SetMaxKeys(maxKeys);
+            result.SetDelimiter("/");
 
-            int keyCount{0};
+            size_t keyCount{0};
             for (const auto &attr : attrs.value().childrenAttrs()) {
                 folly::fbstring prefixPrefix{prefix};
                 if (!prefixPrefix.empty() &&
@@ -196,17 +211,19 @@ folly::Future<Aws::S3::Model::ListObjectsV2Result> S3Logic::readDirV2(
                         continue;
 
                     Aws::S3::Model::CommonPrefix cp;
-                    cp.SetPrefix(prefixPrefix.toStdString() +
-                        attr.name().toStdString() + "/");
+                    cp.SetPrefix(encodeURLPath(prefixPrefix.toStdString() +
+                        attr.name().toStdString() + "/"));
                     result.AddCommonPrefixes(std::move(cp));
+                    keyCount++;
                 }
                 else {
                     Aws::S3::Model::Object object;
                     if (!isPrefixARegularFilePath.value())
-                        object.SetKey(prefixPrefix.toStdString() +
-                            attr.name().toStdString());
+                        object.SetKey(encodeURLPath(prefixPrefix.toStdString() +
+                            attr.name().toStdString()));
                     else
-                        object.SetKey(prefixPrefix.toStdString());
+                        object.SetKey(
+                            encodeURLPath(prefixPrefix.toStdString()));
 
                     object.SetLastModified(attr.mtime());
 
@@ -243,107 +260,117 @@ folly::Future<Aws::S3::Model::ListObjectsV2Result> S3Logic::readDirV2(
 
 folly::Future<Aws::S3::Model::ListObjectsV2Result> S3Logic::readDirV2Recursive(
     const folly::fbstring &bucket, const folly::fbstring &prefix,
-    const folly::Optional<folly::fbstring> &marker, const size_t maxKeys,
+    const folly::Optional<folly::fbstring> &token,
+    const folly::Optional<folly::fbstring> &startAfter, const size_t maxKeys,
     const bool includeDirectories)
 {
     return getBucketAttr(bucket)
+        .thenValue([this, maxKeys, startAfter, includeDirectories, token,
+                       prefix](auto &&attr) {
+            return communicate<FileList>(ListFilesRecursively{attr.uuid(),
+                maxKeys, token, startAfter, prefix,
+                {ONEDATA_S3_XATTR_CONTENT_MD5}, includeDirectories});
+        })
         .thenValue(
-            [this, maxKeys, marker, includeDirectories, prefix](auto &&attr) {
-                return communicate<FileList>(ListFilesRecursively{attr.uuid(),
-                    maxKeys, marker, {}, prefix, {ONEDATA_S3_XATTR_CONTENT_MD5},
-                    includeDirectories});
-            })
-        .thenValue([prefix, bucket, marker, maxKeys](FileList &&attrs) {
-            Aws::S3::Model::ListObjectsV2Result result;
-            result.SetPrefix(prefix.toStdString());
-            result.SetName(bucket.toStdString());
-            result.SetMaxKeys(maxKeys);
+            [prefix, bucket, token, startAfter, maxKeys](FileList &&attrs) {
+                Aws::S3::Model::ListObjectsV2Result result;
+                result.SetPrefix(prefix.toStdString());
+                result.SetName(bucket.toStdString());
+                result.SetMaxKeys(maxKeys);
+                if (startAfter.has_value())
+                    result.SetStartAfter(startAfter.value().toStdString());
 
-            int keyCount{0};
+                int keyCount{0};
 
-            bool lastItemWasDirectory{false};
-            Aws::S3::Model::Object dirObject;
-            dirObject.SetSize(0);
+                bool lastItemWasDirectory{false};
+                Aws::S3::Model::Object dirObject;
+                dirObject.SetSize(0);
 
-            for (const auto &attr : attrs.files()) {
-                if (attr.name().find(ONEDATA_S3_MULTIPART_PREFIX_OLD) == 0)
-                    continue;
-                if (attr.name() == ".")
-                    continue;
+                for (const auto &attr : attrs.files()) {
+                    if (attr.name().find(ONEDATA_S3_MULTIPART_PREFIX_OLD) == 0)
+                        continue;
+                    if (attr.name() == ".")
+                        continue;
 
-                if (attr.type() == FileAttr::FileType::directory) {
-                    // Filter out non-empty directories from the list
-                    if (lastItemWasDirectory) {
-                        //  The previous directory is empty it - add it now
-                        result.AddContents(dirObject);
+                    if (attr.type() == FileAttr::FileType::directory) {
+                        // Filter out non-empty directories from the list
+                        if (lastItemWasDirectory) {
+                            //  The previous directory is empty it - add it now
+                            result.AddContents(dirObject);
+                            keyCount++;
+                        }
+
+                        dirObject.SetKey(attr.name().toStdString() + "/");
+                        dirObject.SetLastModified(attr.mtime());
+                        dirObject.SetETag(fmt::format("\"{}\"",
+                            one::client::util::md5::md5(
+                                attr.uuid().toStdString())));
+
+                        lastItemWasDirectory = true;
+                    }
+                    else {
+                        Aws::S3::Model::Object object;
+                        object.SetKey(attr.name().toStdString());
+                        object.SetLastModified(attr.mtime());
+                        if (attr.has_xattr(ONEDATA_S3_XATTR_CONTENT_MD5))
+                            object.SetETag(
+                                attr.xattr(ONEDATA_S3_XATTR_CONTENT_MD5));
+                        object.SetSize(*attr.size());
+
+                        // Filter out non-empty directories from the list
+                        if (lastItemWasDirectory) {
+                            if (object.GetKey().find(dirObject.GetKey()) != 0) {
+                                // The previous directory is empty it - add it
+                                // now
+                                result.AddContents(dirObject);
+                            }
+                        }
+
+                        result.AddContents(std::move(object));
+
+                        lastItemWasDirectory = false;
+
                         keyCount++;
                     }
-
-                    dirObject.SetKey(attr.name().toStdString() + "/");
-                    dirObject.SetLastModified(attr.mtime());
-                    dirObject.SetETag(fmt::format("\"{}\"",
-                        one::client::util::md5::md5(
-                            attr.uuid().toStdString())));
-
-                    lastItemWasDirectory = true;
                 }
-                else {
-                    Aws::S3::Model::Object object;
-                    object.SetKey(attr.name().toStdString());
-                    object.SetLastModified(attr.mtime());
-                    if (attr.has_xattr(ONEDATA_S3_XATTR_CONTENT_MD5))
-                        object.SetETag(
-                            attr.xattr(ONEDATA_S3_XATTR_CONTENT_MD5));
-                    object.SetSize(*attr.size());
 
-                    // Filter out non-empty directories from the list
-                    if (lastItemWasDirectory) {
-                        if (object.GetKey().find(dirObject.GetKey()) != 0) {
-                            // The previous directory is empty it - add it
-                            // now
-                            result.AddContents(dirObject);
-                        }
-                    }
+                result.SetKeyCount(keyCount);
 
-                    result.AddContents(std::move(object));
-
-                    lastItemWasDirectory = false;
-
-                    keyCount++;
+                bool isTruncated{true};
+                if (attrs.isLast().has_value())
+                    isTruncated = !attrs.isLast().value();
+                result.SetIsTruncated(isTruncated);
+                if (!isTruncated && lastItemWasDirectory) {
+                    result.AddContents(std::move(dirObject));
                 }
-            }
 
-            result.SetKeyCount(keyCount);
+                if (token.has_value())
+                    result.SetContinuationToken(token.value().toStdString());
 
-            bool isTruncated{true};
-            if (attrs.isLast().has_value())
-                isTruncated = !attrs.isLast().value();
-            result.SetIsTruncated(isTruncated);
-            if (!isTruncated && lastItemWasDirectory) {
-                result.AddContents(std::move(dirObject));
-            }
+                if (attrs.nextPageToken())
+                    result.SetNextContinuationToken(
+                        attrs.nextPageToken().value().toStdString());
 
-            if (marker.has_value())
-                result.SetContinuationToken(marker.value().toStdString());
-
-            if (attrs.nextPageToken())
-                result.SetNextContinuationToken(
-                    attrs.nextPageToken().value().toStdString());
-
-            return result;
-        });
+                return result;
+            });
 }
 
 folly::Future<Aws::S3::Model::ListObjectsResult> S3Logic::readDirRecursive(
     const folly::fbstring &bucket, const folly::fbstring &prefix,
-    const folly::Optional<folly::fbstring> &marker, const size_t maxKeys)
+    const folly::Optional<folly::fbstring> &token,
+    const folly::Optional<folly::fbstring> &startAfter, const size_t maxKeys)
 {
+    const auto effectiveMaxKeys = maxKeys;
+
     return getBucketAttr(bucket)
-        .thenValue([this, maxKeys, marker, prefix](auto &&attr) {
-            return communicate<FileList>(ListFilesRecursively{attr.uuid(),
-                maxKeys, marker, {}, prefix, {ONEDATA_S3_XATTR_CONTENT_MD5}});
+        .thenValue([this, maxKeys = effectiveMaxKeys, token, startAfter,
+                       prefix](auto &&attr) {
+            return communicate<FileList>(
+                ListFilesRecursively{attr.uuid(), maxKeys, token, startAfter,
+                    prefix, {ONEDATA_S3_XATTR_CONTENT_MD5}});
         })
-        .thenValue([prefix, bucket, marker, maxKeys](FileList &&attrs) {
+        .thenValue([prefix, startAfter, bucket, token,
+                       maxKeys = effectiveMaxKeys](FileList &&attrs) {
             Aws::S3::Model::ListObjectsResult result;
             result.SetPrefix(prefix.toStdString());
             result.SetName(bucket.toStdString());
@@ -408,11 +435,17 @@ folly::Future<Aws::S3::Model::ListObjectsResult> S3Logic::readDirRecursive(
                 result.AddContents(std::move(dirObject));
             }
 
-            if (marker.has_value())
-                result.SetMarker(marker.value().toStdString());
+            const std::string kOnes3MarkerPrefix{".__onedata__ones3marker__#"};
+
+            if (startAfter.has_value() && !startAfter.value().empty())
+                result.SetMarker(startAfter.value().toStdString());
+            else if (token.has_value()) {
+                result.SetMarker(
+                    kOnes3MarkerPrefix + token.value().toStdString());
+            }
 
             if (attrs.nextPageToken())
-                result.SetNextMarker(
+                result.SetNextMarker(kOnes3MarkerPrefix +
                     attrs.nextPageToken().value().toStdString());
 
             return result;

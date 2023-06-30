@@ -149,12 +149,15 @@ public:
 
     folly::Future<Aws::S3::Model::ListObjectsV2Result> readDirV2Recursive(
         const folly::fbstring &bucket, const folly::fbstring &prefix,
-        const folly::Optional<folly::fbstring> &marker, const size_t maxKeys,
-        bool includeDirectories = true);
+        const folly::Optional<folly::fbstring> &token,
+        const folly::Optional<folly::fbstring> &startAfter,
+        const size_t maxKeys, bool includeDirectories = true);
 
     folly::Future<Aws::S3::Model::ListObjectsResult> readDirRecursive(
         const folly::fbstring &bucket, const folly::fbstring &prefix,
-        const folly::Optional<folly::fbstring> &marker, const size_t maxKeys);
+        const folly::Optional<folly::fbstring> &token,
+        const folly::Optional<folly::fbstring> &startAfter,
+        const size_t maxKeys);
 
     folly::Future<Aws::S3::Model::ListObjectsResult> readDir(
         const folly::fbstring &bucket, const folly::fbstring &prefix,

@@ -110,8 +110,9 @@ std::string serialize<Aws::S3::Model::ListObjectsResult>(
     addTextElement(rootElement, "Prefix", objects.GetPrefix());
     addTextElement(rootElement, "Name", objects.GetName());
     addTextElement(rootElement, "Marker", objects.GetMarker());
-    addTextElement(rootElement, "NextMarker", objects.GetNextMarker());
-    addTextElement(rootElement, "Delimiter", "");
+    if (!objects.GetNextMarker().empty())
+        addTextElement(rootElement, "NextMarker", objects.GetNextMarker());
+    addTextElement(rootElement, "Delimiter", objects.GetDelimiter());
     addTextElement(rootElement, "EncodingType", "url");
     addTextElement(
         rootElement, "MaxKeys", std::to_string(objects.GetMaxKeys()));
@@ -140,11 +141,14 @@ std::string serialize<Aws::S3::Model::ListObjectsV2Result>(
     addTextElement(rootElement, "Name", objects.GetName());
     addTextElement(
         rootElement, "KeyCount", std::to_string(objects.GetKeyCount()));
-    addTextElement(rootElement, "NextContinuationToken",
-        objects.GetNextContinuationToken());
+    if (!objects.GetNextContinuationToken().empty())
+        addTextElement(rootElement, "NextContinuationToken",
+            objects.GetNextContinuationToken());
     addTextElement(
         rootElement, "ContinuationToken", objects.GetContinuationToken());
-    addTextElement(rootElement, "Delimiter", "");
+    addTextElement(rootElement, "Delimiter", objects.GetDelimiter());
+    if (!objects.GetStartAfter().empty())
+        addTextElement(rootElement, "StartAfter", objects.GetStartAfter());
     addTextElement(rootElement, "EncodingType", "url");
     addTextElement(
         rootElement, "MaxKeys", std::to_string(objects.GetMaxKeys()));
