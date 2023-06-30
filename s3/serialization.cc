@@ -280,6 +280,10 @@ void serialize(const XMLPtr<XMLElement> &parent,
             object.GetLastModified().ToGmtString(
                 Aws::Utils::DateFormat::ISO_8601));
         addTextElement(node, "StorageClass", "STANDARD");
+
+        if (!object.GetOwner().GetID().empty()) {
+            serialize(node, object.GetOwner());
+        }
     }
 }
 
@@ -299,5 +303,13 @@ void serialize(const XMLPtr<XMLElement> &parent,
     }
 }
 
+template <>
+void serialize(
+    const XMLPtr<XMLElement> &parent, const Aws::S3::Model::Owner &owner)
+{
+    auto node = addElement(parent, "Owner");
+    addTextElement(node, "DisplayName", owner.GetDisplayName());
+    addTextElement(node, "ID", owner.GetID());
+}
 } // namespace s3
 } // namespace one

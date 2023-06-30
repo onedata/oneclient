@@ -265,6 +265,17 @@ public:
         return m_xattrs;
     }
 
+    /**
+     * @return Onedata ID of the file's owner.
+     */
+    std::string ownerId() const { return m_ownerId; }
+
+    /**
+     * Set owners id.
+     * @param oid The id to set.
+     */
+    void ownerId(std::string oid) { m_ownerId = oid; }
+
 private:
     void deserialize(const ProtocolMessage &message);
 
@@ -284,6 +295,7 @@ private:
     bool m_isVirtualEntrypoint{false};
     folly::Optional<int> m_nlink{1};
     std::map<std::string, std::string> m_xattrs;
+    std::string m_ownerId;
 };
 
 } // namespace fuse

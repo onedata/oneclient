@@ -504,7 +504,7 @@ void S3Server::deleteBucket(const HttpRequestPtr &req,
         bool isEmpty =
             m_logicCache->get(auth->getToken())
                 .thenValue([&bucket](std::shared_ptr<S3Logic> &&s3) {
-                    return s3->readDirV2Recursive(bucket, "", {}, {}, 1, false)
+                    return s3->readDirV2Recursive(bucket, "", {}, {}, 2, false)
                         .thenValue(
                             [](Aws::S3::Model::ListObjectsV2Result &&result) {
                                 return result.GetKeyCount() == 0;
@@ -1249,6 +1249,11 @@ void S3Server::listObjects(const HttpRequestPtr &req,
         getParameter<folly::fbstring>(req, "continuation-token");
     if (continuationToken && continuationToken.value().empty())
         continuationToken = {};
+    bool fetchOwner{false};
+    if (getParameter(req, "fetch-owner") &&
+        getParameter(req, "fetch-owner").value() == "true") {
+        fetchOwner = true;
+    }
 
     if (!delimiter.empty() && delimiter != "/")
         throw one::s3::error::InvalidArgument(bucket, prefix, requestId);
@@ -1274,6 +1279,7 @@ void S3Server::listObjects(const HttpRequestPtr &req,
                 }
                 else {
                     startAfter = markerStr;
+                    hasStartAfter = true;
                 }
             }
             else {
@@ -1302,18 +1308,29 @@ void S3Server::listObjects(const HttpRequestPtr &req,
     // returned from Oneprovider
     auto maxKeysSkip = (delimiter.empty() && !hasStartAfter) ? 1 : 0;
 
-    size_t maxKeys = maxKeysSkip +
-        std::stoull(getParameter(req, "max-keys").value_or("1000"));
+    size_t maxKeys = maxKeysSkip;
+    try {
+        maxKeys += std::stoull(getParameter(req, "max-keys").value_or("1000"));
+    }
+    catch (std::invalid_argument &e) {
+        LOG_REQUEST_ERROR(requestId,
+            "List objects failed due to invalid 'max-keys' parameter: ",
+            e.what());
+        one::s3::error::InvalidArgument ex{bucket, prefix, requestId};
+        auto response = HttpResponse::newHttpResponse();
+        ex.fillResponse(response);
+        callback(response);
+    }
 
     auto tokenFuture = m_logicCache->get(auth->getToken());
     if (delimiter.empty()) {
         std::move(tokenFuture)
             .thenValue([listVersion, callback = std::move(callback), bucket,
-                           prefix, continuationToken, startAfter,
-                           maxKeys](std::shared_ptr<S3Logic> &&s3) mutable {
+                           prefix, continuationToken, startAfter, maxKeys,
+                           fetchOwner](std::shared_ptr<S3Logic> &&s3) mutable {
                 if (listVersion == 2)
                     s3->readDirV2Recursive(bucket, prefix, continuationToken,
-                          startAfter, maxKeys)
+                          startAfter, maxKeys, fetchOwner)
                         .thenValue([callback](auto &&result) {
                             auto response = HttpResponse::newHttpResponse();
                             response->setContentTypeString("application/xml");

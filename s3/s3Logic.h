@@ -151,7 +151,7 @@ public:
         const folly::fbstring &bucket, const folly::fbstring &prefix,
         const folly::Optional<folly::fbstring> &token,
         const folly::Optional<folly::fbstring> &startAfter,
-        const size_t maxKeys, bool includeDirectories = true);
+        const size_t maxKeys, bool fetchOwner, bool includeDirectories = true);
 
     folly::Future<Aws::S3::Model::ListObjectsResult> readDirRecursive(
         const folly::fbstring &bucket, const folly::fbstring &prefix,
