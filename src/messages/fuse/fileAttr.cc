@@ -167,6 +167,9 @@ std::string FileAttr::toString() const
     if (m_fullyReplicated)
         stream << ", fullyReplicated: " << *m_fullyReplicated;
 
+    if (!m_ownerId.empty())
+        stream << ", ownerId: " << m_ownerId;
+
     return stream.str();
 }
 
@@ -205,6 +208,10 @@ void FileAttr::deserialize(const ProtocolMessage &message)
         if (message.xattrs(i).has_name() && message.xattrs(i).has_value())
             m_xattrs.emplace(
                 message.xattrs(i).name(), message.xattrs(i).value());
+    }
+
+    if (message.has_owner_id()) {
+        m_ownerId = message.owner_id();
     }
 }
 

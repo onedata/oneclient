@@ -313,8 +313,12 @@ S3Logic::completeMultipartUpload(const std::string requestId,
         //
         // Determine the attributes of the first part and last part
         //
-        .thenValue([this, uploadId, path](auto &&args) {
+        .thenValue([this, uploadId, path, bucket](auto &&args) {
             POP_FUTURES_2(args, bucketAttr, parts);
+
+            if (parts.value().GetParts().empty())
+                throw one::s3::error::MalformedXML{bucket.toStdString(),
+                    path.toStdString(), uploadId.toStdString()};
 
             auto spaceId = bucketAttr.value().uuid();
 

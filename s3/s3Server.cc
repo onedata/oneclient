@@ -244,6 +244,10 @@ void S3Server::putBucket(const HttpRequestPtr &req,
     auto response = HttpResponse::newHttpResponse();
 
     try {
+        if (m_options->areOneS3BucketOperationsDisabled() ||
+            !m_options->getOneS3SupportStorageId().has_value())
+            throw one::s3::error::AccessDenied(bucket, bucket, requestId);
+
         auto auth = S3Authorization::fromHttpRequest(req);
 
         auto onezoneHost = m_options->getOnezoneHost().value();
@@ -481,6 +485,9 @@ void S3Server::deleteBucket(const HttpRequestPtr &req,
     try {
         folly::Optional<std::string> spaceIdToDelete;
 
+        if (m_options->areOneS3BucketOperationsDisabled())
+            throw one::s3::error::AccessDenied(bucket, bucket, requestId);
+
         // Check if space exists
         auto userSpaceIds = onezoneClient.listUserSpaces(auth->getToken());
         for (const auto &spaceId : userSpaceIds) {
@@ -497,7 +504,7 @@ void S3Server::deleteBucket(const HttpRequestPtr &req,
         bool isEmpty =
             m_logicCache->get(auth->getToken())
                 .thenValue([&bucket](std::shared_ptr<S3Logic> &&s3) {
-                    return s3->readDirV2Recursive(bucket, "", {}, 1, false)
+                    return s3->readDirV2Recursive(bucket, "", {}, {}, 2, false)
                         .thenValue(
                             [](Aws::S3::Model::ListObjectsV2Result &&result) {
                                 return result.GetKeyCount() == 0;
@@ -736,7 +743,8 @@ void S3Server::getObject(const HttpRequestPtr &req,
                        std::shared_ptr<S3Logic> &&s3) mutable {
             // Extract range header if exist
             return s3
-                ->getObject(bucket, path, requestId, rangeHeader,
+                ->getObject(
+                    bucket, path, requestId, rangeHeader,
                     [timer](size_t readBytes) {
                         ONE_METRIC_TIMERCTX_STOP(timer, readBytes);
                     },
@@ -1233,16 +1241,50 @@ void S3Server::listObjects(const HttpRequestPtr &req,
     ONE_METRIC_COUNTER_INC(toMetricName("list_objects", bucket));
 
     folly::Optional<folly::fbstring> marker;
+
     auto delimiter = getParameter(req, "delimiter").value_or("");
     auto prefix = getParameter(req, "prefix").value_or("");
     auto listType = getParameter(req, "list-type");
-    auto continuationToken = getParameter(req, "continuation-token");
-    auto startAfter = getParameter(req, "start-after");
+    auto continuationToken =
+        getParameter<folly::fbstring>(req, "continuation-token");
+    if (continuationToken && continuationToken.value().empty())
+        continuationToken = {};
+    bool fetchOwner{false};
+    if (getParameter(req, "fetch-owner") &&
+        getParameter(req, "fetch-owner").value() == "true") {
+        fetchOwner = true;
+    }
+
+    if (!delimiter.empty() && delimiter != "/")
+        throw one::s3::error::InvalidArgument(bucket, prefix, requestId);
+
+    auto startAfter = getParameter<folly::fbstring>(req, "start-after");
+    if (startAfter && startAfter.value().empty())
+        startAfter = {};
+
     int listVersion = 2;
+    bool hasStartAfter{false};
     if (!listType || listType.value() == "1") {
         if (getParameter(req, "marker") &&
             !getParameter(req, "marker").value().empty()) {
-            marker = getParameter(req, "marker").value();
+            auto markerStr = getParameter(req, "marker").value();
+
+            if (delimiter.empty()) {
+                const std::string kOnes3MarkerPrefix{
+                    ".__onedata__ones3marker__#"};
+
+                if (markerStr.find(kOnes3MarkerPrefix) == 0) {
+                    continuationToken =
+                        markerStr.substr(kOnes3MarkerPrefix.size());
+                }
+                else {
+                    startAfter = markerStr;
+                    hasStartAfter = true;
+                }
+            }
+            else {
+                marker = markerStr;
+            }
         }
         listVersion = 1;
     }
@@ -1250,8 +1292,9 @@ void S3Server::listObjects(const HttpRequestPtr &req,
         if (continuationToken && !continuationToken.value().empty()) {
             marker = continuationToken.value();
         }
-        else if (startAfter) {
+        else if (startAfter && !startAfter.value().empty()) {
             marker = startAfter.value();
+            hasStartAfter = true;
         }
     }
     else {
@@ -1261,21 +1304,33 @@ void S3Server::listObjects(const HttpRequestPtr &req,
         return;
     }
 
-    constexpr auto kMaxKeysDefault{1000};
-    size_t maxKeys{kMaxKeysDefault};
-    if (getParameter(req, "max-keys")) {
-        maxKeys = std::min<size_t>(
-            maxKeys, std::stoull(getParameter(req, "max-keys").value()));
+    // This is necessary for recursive listing to skip the '.' folder
+    // returned from Oneprovider
+    auto maxKeysSkip = (delimiter.empty() && !hasStartAfter) ? 1 : 0;
+
+    size_t maxKeys = maxKeysSkip;
+    try {
+        maxKeys += std::stoull(getParameter(req, "max-keys").value_or("1000"));
+    }
+    catch (std::invalid_argument &e) {
+        LOG_REQUEST_ERROR(requestId,
+            "List objects failed due to invalid 'max-keys' parameter: ",
+            e.what());
+        one::s3::error::InvalidArgument ex{bucket, prefix, requestId};
+        auto response = HttpResponse::newHttpResponse();
+        ex.fillResponse(response);
+        callback(response);
     }
 
     auto tokenFuture = m_logicCache->get(auth->getToken());
     if (delimiter.empty()) {
         std::move(tokenFuture)
             .thenValue([listVersion, callback = std::move(callback), bucket,
-                           prefix, marker,
-                           maxKeys](std::shared_ptr<S3Logic> &&s3) mutable {
+                           prefix, continuationToken, startAfter, maxKeys,
+                           fetchOwner](std::shared_ptr<S3Logic> &&s3) mutable {
                 if (listVersion == 2)
-                    s3->readDirV2Recursive(bucket, prefix, marker, maxKeys)
+                    s3->readDirV2Recursive(bucket, prefix, continuationToken,
+                          startAfter, maxKeys, fetchOwner)
                         .thenValue([callback](auto &&result) {
                             auto response = HttpResponse::newHttpResponse();
                             response->setContentTypeString("application/xml");
@@ -1286,7 +1341,8 @@ void S3Server::listObjects(const HttpRequestPtr &req,
                         })
                         .get();
                 else
-                    s3->readDirRecursive(bucket, prefix, marker, maxKeys)
+                    s3->readDirRecursive(bucket, prefix, continuationToken,
+                          startAfter, maxKeys)
                         .thenValue([callback](auto &&result) {
                             auto response = HttpResponse::newHttpResponse();
                             response->setContentTypeString("application/xml");
