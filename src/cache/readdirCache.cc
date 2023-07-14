@@ -58,7 +58,7 @@ void ReaddirCache::fetch(const folly::fbstring &uuid,
     auto p = std::make_shared<folly::SharedPromise<folly::Unit>>();
     m_cache.emplace(uuid, p);
 
-    m_context.lock()->scheduler()->post([this, uuid = uuid, p = std::move(p),
+    m_context.lock()->scheduler()->post([this, uuid, p = std::move(p),
                                             includeReplicationStatus,
                                             includeHardLinkCount] {
         std::size_t chunkIndex = 0;

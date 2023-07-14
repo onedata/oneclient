@@ -208,7 +208,8 @@ std::shared_ptr<one::client::Context> testContext()
     context->setOptions(std::make_shared<one::client::options::Options>());
     context->setScheduler(std::make_shared<one::Scheduler>(0));
     context->setCommunicator(std::make_shared<one::communication::Communicator>(
-        1, 1, "127.0.0.1", 80, false));
+        0, 1, "127.0.0.1", 80, false));
+    context->communicator()->connect();
     return context;
 }
 

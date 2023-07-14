@@ -318,7 +318,8 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
 
     m_context->communicator()->setOnReconnectCallback([this]() {
         LOG_DBG(2) << "Called on reconnect callback";
-        m_runInFiber([]() {});
+        m_runInFiber(
+            [this]() { m_context->communicator()->sendMessageStreamReset(); });
     });
 
     if (autoStart)
