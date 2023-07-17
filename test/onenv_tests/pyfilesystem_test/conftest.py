@@ -16,6 +16,15 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 FIXTURE_SCOPE = "session"
 
+class OneclientMountTimeout(Exception): pass
+
+def wait_until(duration, condition):
+    wait_end = time.time() + duration
+    while not condition():
+        if time.time() > wait_end:
+            raise OneclientMountTimeout
+        time.sleep(1)
+
 @pytest.fixture
 def uuid_str():
     yield str(uuid.uuid4())
@@ -94,7 +103,7 @@ def oneclient(request, oneprovider_ip, ceph_monitor_ip, onezone_admin_token,
         f' --force-direct-io {mountpoint}')
     proc = subprocess.Popen(oneclient_cli.split(' '))
     print(f"-- Starting oneclient: {oneclient_cli}")
-    time.sleep(5)
+    wait_until(30, lambda: os.path.exists(f'{mountpoint}/test_pyfilesystem_ceph'))
     print("-- Done")
 
     def unmount():
