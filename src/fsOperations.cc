@@ -147,6 +147,13 @@ void wrap(Fun &&fun, Cb &&callback, fuse_req_t req, Args &&...args)
                 fuse_reply_err(
                     req, std::make_error_code(std::errc::timed_out).value());
             })
+        .thenError(folly::tag_t<std::exception>{},
+            [req](auto &&e) {
+                LOG_DBG(1) << "Unknown exception caught while handling Fuse "
+                              "operation: "
+                           << e.what();
+                fuse_reply_err(req, EIO);
+            })
         .thenError(folly::tag_t<folly::exception_wrapper>{}, [req](auto &&ew) {
             try {
                 try {
