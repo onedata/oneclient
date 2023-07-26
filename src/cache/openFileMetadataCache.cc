@@ -190,6 +190,16 @@ OpenFileMetadataCache::open(const folly::fbstring &uuid)
         releaseFile(uuid);
         throw e;
     }
+    catch (folly::FutureTimeout &e) {
+        LOG(ERROR) << " Removing " << uuid
+                   << " from LRU metadata cache due to timeout error: "
+                   << e.what();
+
+        releaseFile(uuid);
+
+        auto ec = std::error_code{std::abs(ETIMEDOUT), std::system_category()};
+        throw std::system_error{ec};
+    }
     catch (std::exception &e) {
         LOG(ERROR) << " Removing " << uuid
                    << " from LRU metadata cache due to unexpected error: "
