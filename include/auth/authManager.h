@@ -172,7 +172,7 @@ public:
 
         auto communicator = std::make_shared<communication::Communicator>(
             poolSize, workerCount, m_hostname, m_port, m_checkCertificate, true,
-            true, m_providerTimeout);
+            true, false, m_providerTimeout);
 
         auto sessionMode = SessionMode::normal;
         auto context = m_context.lock();
