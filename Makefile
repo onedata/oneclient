@@ -246,7 +246,7 @@ conda/oneclient: package/$(PKG_ID).tar.gz
 		PKG_VERSION=$(PKG_VERSION) CONDA_BLD_PATH=$$PWD/package/conda-bld \
 		conda build --user onedata-devel --token "${CONDA_TOKEN}" \
 		${CONDA_BUILD_OPTIONS} package/conda/oneclient
-	echo "onedata-devel/oneclient/$(PKG_VERSION)/download/linux-64/oneclient-$(PKG_VERSION)-0.tar.bz2" >> conda-pkg-list.txt
+	echo "onedata-devel/oneclient/$(PKG_VERSION)/download/linux-64/oneclient-$(PKG_VERSION)-py39.tar.bz2" >> conda-pkg-list.txt
 
 .PHONY: conda/oneclient_centos6
 conda/oneclient_centos6: SHELL:=/bin/bash
