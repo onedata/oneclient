@@ -33,7 +33,7 @@ namespace client {
 namespace auth {
 
 constexpr std::chrono::minutes RESTRICTED_MACAROON_EXPIRATION{20};
-constexpr std::chrono::minutes RESTRICTED_MACAROON_REFRESH{10};
+constexpr std::chrono::minutes RESTRICTED_MACAROON_REFRESH{5};
 
 std::string decode62(std::string macaroon62);
 std::string encode62(const std::string &macaroon64);
