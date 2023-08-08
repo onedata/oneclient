@@ -72,9 +72,9 @@ folly::Future<Aws::S3::Model::HeadObjectResult> S3Logic::headObject(
 
             if (!isDirectory) {
                 auto md5Xattr = communicate<XAttr>(
-                    GetXAttr{uuid, ONEDATA_S3_XATTR_CONTENT_MD5});
+                    GetXAttr{uuid, ONEDATA_S3_XATTR_CONTENT_MD5}).via(m_executor.get());
                 auto contentTypeXattr = communicate<XAttr>(
-                    GetXAttr{uuid, ONEDATA_S3_XATTR_CONTENT_TYPE});
+                    GetXAttr{uuid, ONEDATA_S3_XATTR_CONTENT_TYPE}).via(m_executor.get());
 
                 PUSH_FUTURES_3(attr, md5Xattr, contentTypeXattr);
             }
@@ -434,6 +434,7 @@ folly::Future<size_t> S3Logic::uploadObject(const std::string &requestId,
     std::shared_ptr<folly::IOBuf> buf)
 {
     return getBucketAttr(bucket)
+        .via(m_executor.get())
         //
         // Get temporary upload directory attr or create it if necessary
         //
@@ -445,14 +446,11 @@ folly::Future<size_t> S3Logic::uploadObject(const std::string &requestId,
 
             auto bucketAttr = maybeBucketAttr.value();
 
-            const auto tmpDirId =
-                one::client::util::uuid::uuidToTmpDirId(bucketAttr.uuid());
-
-            auto tmpDirAttr = communicate<FileAttr>(
-                CreatePath{tmpDirId, ONEDATA_S3_MULTIPART_PREFIX});
+            auto tmpDirAttr = getBucketTmpDirAttr(bucketAttr.name());
 
             PUSH_FUTURES_2(bucketAttr, tmpDirAttr);
         })
+        .via(m_executor.get())
         //
         // Create temporary file for upload
         //

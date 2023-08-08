@@ -1,9 +1,9 @@
 /**
-* @file s3LogicCache.cc
-* @author Bartek Kryza
-* @copyright (C) 2022-present Onedata.org
-* @copyright This software is released under the MIT license cited in
-* 'LICENSE.txt'
+ * @file s3LogicCache.cc
+ * @author Bartek Kryza
+ * @copyright (C) 2022-present Onedata.org
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
  */
 
 #include "s3LogicCache.h"
@@ -15,8 +15,9 @@ S3LogicCache::S3LogicCache(
     std::shared_ptr<one::client::options::Options> options)
     : m_options{std::move(options)}
     , m_initialized{true}
-    , m_executor{std::make_shared<folly::IOThreadPoolExecutor>(
-          std::thread::hardware_concurrency())}
+    , m_executor{std::make_shared<folly::IOThreadPoolExecutor>(8,
+          std::make_shared<folly::NamedThreadFactory>("S3LWork"))}
+//          std::thread::hardware_concurrency())}
 {
 }
 

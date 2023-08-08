@@ -45,7 +45,7 @@ FuseFileHandle::FuseFileHandle(const int flags_, folly::fbstring handleId,
 {
 }
 
-helpers::FileHandlePtr FuseFileHandle::getHelperHandle(
+folly::Future<helpers::FileHandlePtr> FuseFileHandle::getHelperHandle(
     const folly::fbstring &uuid, const folly::fbstring &spaceId,
     const folly::fbstring &storageId, const folly::fbstring &fileId)
 {
@@ -74,12 +74,16 @@ helpers::FileHandlePtr FuseFileHandle::getHelperHandle(
 
     const auto filteredFlags = m_flags & (~O_CREAT) & (~O_APPEND);
 
-    auto handle = communication::wait(
-        helper->open(fileId, filteredFlags, makeParameters(uuid)),
-        m_providerTimeout);
+    return // auto handle = // communication::wait(
+        helper->open(fileId, filteredFlags, makeParameters(uuid))
+            .thenTry([this, key](auto &&maybeHandle) {
+                maybeHandle.throwIfFailed();
+                assert(maybeHandle.value());
+                m_helperHandles[key] = maybeHandle.value();
+                return maybeHandle.value();
+            });
 
-    m_helperHandles[key] = handle;
-    return handle;
+    // return handle;
 }
 
 void FuseFileHandle::releaseHelperHandle(const folly::fbstring &uuid,

@@ -1139,13 +1139,15 @@ void S3Server::deleteObjects(const HttpRequestPtr &req,
     ONE_METRIC_COUNTER_INC(toMetricName("delete_objects", bucket));
 
     m_logicCache->get(auth->getToken())
-        .thenValue([deleteRequest = std::move(deleteRequest), bucket,
+        .via(m_logicCache->executor())
+        .thenValue([this, deleteRequest = std::move(deleteRequest), bucket,
                        requestId](auto &&s3) {
             constexpr auto kMaxParallelDeletes{25U};
             auto futs = folly::window(
                 deleteRequest.GetObjects(),
-                [bucket, requestId, s3](const auto &object) {
+                [this, bucket, requestId, s3](const auto &object) {
                     return s3->deleteObject(requestId, bucket, object.GetKey())
+                        .via(m_logicCache->executor())
                         .thenTry([key = object.GetKey()](auto &&result) {
                             if (result.hasException()) {
                                 return std::make_pair(key,
@@ -1159,8 +1161,10 @@ void S3Server::deleteObjects(const HttpRequestPtr &req,
                 },
                 kMaxParallelDeletes);
 
-            return folly::collectAll(std::move(futs));
+            return folly::collectAll(std::move(futs))
+                .via(m_logicCache->executor());
         })
+        .via(m_logicCache->executor())
         .thenTry([callback](auto &&futs) {
             futs.throwIfFailed();
 
@@ -1186,6 +1190,7 @@ void S3Server::deleteObjects(const HttpRequestPtr &req,
                 serialize<Aws::S3::Model::DeleteObjectsResult>(result));
             callback(response);
         })
+        .via(m_logicCache->executor())
         .thenError(folly::tag_t<one::s3::error::S3Exception>{},
             [callback, requestId](auto &&e) mutable {
                 LOG_REQUEST_ERROR(
@@ -1194,6 +1199,7 @@ void S3Server::deleteObjects(const HttpRequestPtr &req,
                 e.fillResponse(response);
                 callback(response);
             })
+        .via(m_logicCache->executor())
         .thenError(folly::tag_t<std::exception>{},
             [callback, requestId](auto &&e) mutable {
                 LOG_REQUEST_ERROR(

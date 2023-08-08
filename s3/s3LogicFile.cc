@@ -102,9 +102,6 @@ folly::Future<std::size_t> S3Logic::write(
     const size_t offset = baseOffset + context.offset;
     auto fileBlock = FileBlock{location.storageId(), location.fileId()};
 
-    auto helperHandle = fileHandle->getHelperHandle(
-        attr.uuid(), spaceId, location.storageId(), location.fileId());
-
     folly::IOBufQueue bufq{folly::IOBufQueue::cacheChainLength()};
     bufq.append(buf->clone());
 
@@ -116,12 +113,31 @@ folly::Future<std::size_t> S3Logic::write(
     LOG_DBG(3) << "Writing " << bufq.chainLength() << " bytes at offset "
                << offset;
 
-    return helperHandle->write(offset, std::move(bufq), {})
-        .thenTry([this, uuid = std::move(uuid), offset](auto &&written) {
-            return communicate(
-                ReportFileWritten{uuid.toStdString(), offset, written.value()})
-                .thenTry([size = written.value()](
-                             auto && /*unit*/) { return size; });
+    const auto bufSize = bufq.chainLength();
+
+    using namespace std::chrono_literals;
+    return fileHandle
+        ->getHelperHandle(
+            attr.uuid(), spaceId, location.storageId(), location.fileId())
+        .thenTry([this, bufq = std::move(bufq), uuid = std::move(uuid), offset,
+                     bufSize](auto &&maybeHelperHandle) mutable {
+            return maybeHelperHandle.value()
+                ->write(offset, std::move(bufq), {})
+                .via(m_executor.get())
+                .thenTry([this, uuid = std::move(uuid), offset, bufSize](
+                             auto &&written) {
+                    if (written.hasException()) {
+                        LOG(ERROR) << "!!!!!!!!!! WRITE FAILED: "
+                                   << written.exception().what();
+                        written.throwIfFailed();
+                    }
+
+                    return communicate(ReportFileWritten{uuid.toStdString(),
+                                           offset, written.value()})
+                        .via(m_executor.get())
+                        .thenTry([size = written.value()](
+                                     auto && /*unit*/) { return size; });
+                });
         });
 }
 
@@ -156,6 +172,7 @@ folly::Future<folly::IOBufQueue> S3Logic::read(
 
             auto replicatedBlocksRange = location.blocks() & neededRange;
 
+            // TODO: Refactor this block to async thenTry
             if (replicatedBlocksRange.size() < size) {
                 // request prefetch and wait
                 auto syncRange =
@@ -194,11 +211,14 @@ folly::Future<folly::IOBufQueue> S3Logic::read(
                     boost::icl::discrete_interval<off_t>::right_open(
                         0, offset)));
 
-            auto helperHandle = fileHandle->getHelperHandle(attr.uuid(),
-                spaceId, fileBlock.storageId(), fileBlock.fileId());
-
-            return helperHandle->readContinuous(
-                offset, availableSize, continuousSize);
+            return fileHandle
+                ->getHelperHandle(attr.uuid(), spaceId, fileBlock.storageId(),
+                    fileBlock.fileId())
+                .thenTry([offset, availableSize, continuousSize](
+                             auto &&maybeHelperHandle) {
+                    return maybeHelperHandle.value()->readContinuous(
+                        offset, availableSize, continuousSize);
+                });
         });
 }
 
@@ -249,25 +269,29 @@ folly::Future<folly::IOBufQueue> S3Logic::read(
         boost::icl::size(wantedAvailableRange);
     const std::size_t continuousSize = wantedAvailableSize;
 
-    auto helperHandle = fileHandle->getHelperHandle(
-        attr.uuid(), spaceId, fileBlock.storageId(), fileBlock.fileId());
-
     assert(offset + requestOffset + wantedAvailableSize <= fileSize);
     assert(wantedAvailableSize <= size);
 
-    return helperHandle
-        ->readContinuous(
-            offset + requestOffset, wantedAvailableSize, continuousSize)
-        .thenValue([this, requestId, size, offset, requestOffset, requestSize](
-                       folly::IOBufQueue &&buf) {
-            LOG_DBG(3) << "[" << requestId << ", " << offset + requestOffset
-                       << ", " << requestSize << "] Read from helper "
-                       << buf.chainLength() << "/" << size << " at offset "
-                       << offset + requestOffset;
+    return fileHandle
+        ->getHelperHandle(
+            attr.uuid(), spaceId, fileBlock.storageId(), fileBlock.fileId())
+        .thenTry([=, this](auto &&maybeHelperHandle) {
+            return maybeHelperHandle.value()
+                ->readContinuous(
+                    offset + requestOffset, wantedAvailableSize, continuousSize)
+                .thenValue([this, requestId, size, offset, requestOffset,
+                               requestSize](folly::IOBufQueue &&buf) {
+                    LOG_DBG(3)
+                        << "[" << requestId << ", " << offset + requestOffset
+                        << ", " << requestSize << "] Read from helper "
+                        << buf.chainLength() << "/" << size << " at offset "
+                        << offset + requestOffset;
 
-            getRequestContext(requestId).offset += buf.chainLength();
-            return std::move(buf);
+                    getRequestContext(requestId).offset += buf.chainLength();
+                    return std::move(buf);
+                });
         });
 }
+
 } // namespace s3
 } // namespace one

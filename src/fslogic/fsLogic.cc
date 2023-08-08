@@ -916,9 +916,11 @@ folly::IOBufQueue FsLogic::readInternal(const folly::fbstring &uuid,
                        << " not yet replicated - fetching from remote provider";
 
             auto defaultBlock = m_metadataCache.getDefaultBlock(uuid);
-            auto helperHandle = fuseFileHandle->getHelperHandle(uuid,
-                m_metadataCache.getSpaceId(uuid), defaultBlock.storageId(),
-                defaultBlock.fileId());
+            auto helperHandle =
+                fuseFileHandle
+                    ->getHelperHandle(uuid, m_metadataCache.getSpaceId(uuid),
+                        defaultBlock.storageId(), defaultBlock.fileId())
+                    .get();
 
             // In order to optimize the on the fly transfer between
             // Oneproviders, always request sync in at least the size as
@@ -971,9 +973,11 @@ folly::IOBufQueue FsLogic::readInternal(const folly::fbstring &uuid,
         const std::size_t availableSize =
             boost::icl::size(wantedAvailableRange);
 
-        auto helperHandle = fuseFileHandle->getHelperHandle(uuid,
-            m_metadataCache.getSpaceId(uuid), fileBlock.storageId(),
-            fileBlock.fileId());
+        auto helperHandle =
+            communication::wait(fuseFileHandle->getHelperHandle(uuid,
+                                    m_metadataCache.getSpaceId(uuid),
+                                    fileBlock.storageId(), fileBlock.fileId()),
+                m_storageTimeout);
 
         if (checksum) {
             LOG_DBG(1) << "Waiting on helper flush for " << uuid
@@ -1429,8 +1433,10 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
     int ec = 0;
     folly::exception_wrapper ew;
     try {
-        auto helperHandle = fuseFileHandle->getHelperHandle(
-            uuid, spaceId, fileBlock.storageId(), fileBlock.fileId());
+        auto helperHandle =
+            communication::wait(fuseFileHandle->getHelperHandle(uuid, spaceId,
+                                    fileBlock.storageId(), fileBlock.fileId()),
+                m_storageTimeout);
 
         folly::IOBufQueue bufq{folly::IOBufQueue::cacheChainLength()};
         bufq.append(buf->clone());
