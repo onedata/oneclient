@@ -113,31 +113,29 @@ folly::Future<std::size_t> S3Logic::write(
     LOG_DBG(3) << "Writing " << bufq.chainLength() << " bytes at offset "
                << offset;
 
-    const auto bufSize = bufq.chainLength();
-
     using namespace std::chrono_literals;
     return fileHandle
         ->getHelperHandle(
             attr.uuid(), spaceId, location.storageId(), location.fileId())
-        .thenTry([this, bufq = std::move(bufq), uuid = std::move(uuid), offset,
-                     bufSize](auto &&maybeHelperHandle) mutable {
+        .thenTry([this, bufq = std::move(bufq), uuid = std::move(uuid), offset](
+                     auto &&maybeHelperHandle) mutable {
             return maybeHelperHandle.value()
                 ->write(offset, std::move(bufq), {})
                 .via(m_executor.get())
-                .thenTry([this, uuid = std::move(uuid), offset, bufSize](
-                             auto &&written) {
-                    if (written.hasException()) {
-                        LOG(ERROR)
-                            << "Write failed: " << written.exception().what();
-                        written.throwIfFailed();
-                    }
+                .thenTry(
+                    [this, uuid = std::move(uuid), offset](auto &&written) {
+                        if (written.hasException()) {
+                            LOG(ERROR) << "Write failed: "
+                                       << written.exception().what();
+                            written.throwIfFailed();
+                        }
 
-                    return communicate(ReportFileWritten{uuid.toStdString(),
-                                           offset, written.value()})
-                        .via(m_executor.get())
-                        .thenTry([size = written.value()](
-                                     auto && /*unit*/) { return size; });
-                });
+                        return communicate(ReportFileWritten{uuid.toStdString(),
+                                               offset, written.value()})
+                            .via(m_executor.get())
+                            .thenTry([size = written.value()](
+                                         auto && /*unit*/) { return size; });
+                    });
         });
 }
 

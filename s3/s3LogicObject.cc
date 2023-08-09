@@ -31,7 +31,6 @@ namespace one {
 namespace s3 {
 
 using one::client::fslogic::FuseFileHandle;
-using one::messages::fuse::CreatePath;
 using one::messages::fuse::DeleteFile;
 using one::messages::fuse::FileAttr;
 using one::messages::fuse::FileRenamed;

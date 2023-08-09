@@ -270,8 +270,9 @@ private:
             ->communicate<SrvMsg>(std::forward<CliMsg>(msg))
             .via(m_executor.get())
             .onTimeout(timeout,
-                [this, messageString = std::move(messageString),
-                    timeout = timeout.count(), msgCopy = std::move(msgCopy)]() mutable {
+                [messageString = std::move(messageString),
+                    timeout = timeout.count(),
+                    msgCopy = std::move(msgCopy)]() mutable {
                     LOG(ERROR)
                         << "Response to message : " << messageString
                         << " not received within " << timeout << " seconds";
