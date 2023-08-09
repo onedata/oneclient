@@ -127,8 +127,8 @@ folly::Future<std::size_t> S3Logic::write(
                 .thenTry([this, uuid = std::move(uuid), offset, bufSize](
                              auto &&written) {
                     if (written.hasException()) {
-                        LOG(ERROR) << "!!!!!!!!!! WRITE FAILED: "
-                                   << written.exception().what();
+                        LOG(ERROR)
+                            << "Write failed: " << written.exception().what();
                         written.throwIfFailed();
                     }
 
@@ -275,7 +275,7 @@ folly::Future<folly::IOBufQueue> S3Logic::read(
     return fileHandle
         ->getHelperHandle(
             attr.uuid(), spaceId, fileBlock.storageId(), fileBlock.fileId())
-        .thenTry([=, this](auto &&maybeHelperHandle) {
+        .thenTry([=](auto &&maybeHelperHandle) {
             return maybeHelperHandle.value()
                 ->readContinuous(
                     offset + requestOffset, wantedAvailableSize, continuousSize)

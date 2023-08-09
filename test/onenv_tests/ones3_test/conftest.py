@@ -149,8 +149,8 @@ def s3_server(request, onezone_ip, oneprovider_ip, ceph_monitor_ip, onezone_admi
             f'debug/s3/ones3 -i -v 1 --onezone-host {onezone_ip} -H {oneprovider_ip}'
             f' -t {onezone_admin_token} --ones3-support-storage-id {support_storage_id}'
             f' --override {support_storage_id}:monitorHostname:{ceph_monitor_ip}'
-            f' --ones3-thread-num 10 --communicator-thread-count 10 --scheduler-thread-count 1 --storage-helper-thread-count 10'
-            f' --ones3-http-port {s3_port} --force-direct-io --no-buffer')
+            f' --ones3-thread-num 10 --scheduler-thread-count 1 --storage-helper-thread-count 10'
+            f' --ones3-http-port {s3_port} --force-direct-io --no-buffer --provider-timeout 60')
     proc = subprocess.Popen(ones3_cli.split(' '))
     print(f"-- Starting ones3 server: {ones3_cli}")
     time.sleep(15)
