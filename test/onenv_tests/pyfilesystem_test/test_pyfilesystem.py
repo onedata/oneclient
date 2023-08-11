@@ -21,6 +21,7 @@ import zipfile
 import xattr
 import pytest
 import hashlib
+import random
 
 from six import text_type
 
@@ -31,7 +32,7 @@ from fs import errors, open_fs, osfs
 from fs.path import dirname, relpath
 from fs.test import FSTestCases
 from concurrent.futures import ThreadPoolExecutor, wait, ALL_COMPLETED
-from .common import random_bytes
+from .common import random_bytes, random_str, random_int, timer
 
 try:
     from unittest import mock
@@ -404,6 +405,51 @@ class OSFSCephTestProxyIO(OSFSBase, FSTestCases, unittest.TestCase):
         except OSError:
             # Already deleted
             pass
+
+
+@pytest.mark.usefixtures("oneclient_proxy")
+class IOStressTestProxyIO(unittest.TestCase):
+    """Perform basic IO stress tests."""
+    space_name = 'test_pyfilesystem_ceph'
+
+    def prepare_files(self, dir, file_names, file_size):
+        def create_random_file(name):
+            file_path = f'{dir}/{name}'
+            print(f'Creating file {file_path}')
+            with open(f'{file_path}', 'wb+') as f:
+                f.write(random_bytes(file_size))
+
+        with ThreadPoolExecutor(max_workers=25) as pool:
+            pool.map(create_random_file, file_names)
+
+
+    def test_read_stress(self):
+        temp_dir = tempfile.mkdtemp('pyfs_test',
+                                    dir=f'{self.mountpoint}/{self.space_name}')
+        file_count = 250
+        file_size = 4096
+        read_size = 512
+        read_count = 1000
+        file_names = [random_str() for _ in range(file_count)]
+
+        with timer() as t:
+            self.prepare_files(temp_dir, file_names, file_size)
+            print(f'=== File preparation took {t():.4f} seconds')
+
+        read_queue = [random.choice(file_names) for _ in range(read_count)]
+
+        def read(name):
+            file_path = f'{temp_dir}/{name}'
+            with open(file_path) as f:
+                print(f'Reading file {file_path}')
+                f.seek(random_int(file_size - read_size))
+                f.read(random_bytes(read_size))
+
+        with timer() as t:
+            with ThreadPoolExecutor(max_workers=25) as pool:
+                pool.map(read, read_queue)
+            print(f'=== Read test took {t():.4f} seconds')
+
 
 
 @pytest.mark.usefixtures("oneclient")

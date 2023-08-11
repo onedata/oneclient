@@ -6,6 +6,15 @@ import os
 import random
 import string
 
+import time
+from contextlib import contextmanager
+
+@contextmanager
+def timer() -> float:
+    start = time.perf_counter()
+    yield lambda: time.perf_counter() - start
+
+
 def random_int(lower_bound=1, upper_bound=100):
     return random.randint(lower_bound, upper_bound)
 
