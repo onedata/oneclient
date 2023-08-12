@@ -415,12 +415,15 @@ class IOStressTestProxyIO(unittest.TestCase):
     def prepare_files(self, dir, file_names, file_size):
         def create_random_file(name):
             file_path = f'{dir}/{name}'
-            print(f'Creating file {file_path}')
+            #print(f'Creating file {file_path}')
             with open(f'{file_path}', 'wb+') as f:
                 f.write(random_bytes(file_size))
+            #print(f'Created file {file_path}')
+            return True
 
         with ThreadPoolExecutor(max_workers=25) as pool:
-            pool.map(create_random_file, file_names)
+            results = pool.map(create_random_file, file_names)
+            assert all(results)
 
 
     def test_read_stress(self):
@@ -441,13 +444,16 @@ class IOStressTestProxyIO(unittest.TestCase):
         def read(name):
             file_path = f'{temp_dir}/{name}'
             with open(file_path) as f:
-                print(f'Reading file {file_path}')
-                f.seek(random_int(file_size - read_size))
-                f.read(random_bytes(read_size))
+                #print(f'Reading file {file_path}')
+                f.seek(random_int(0, file_size - read_size))
+                f.read(read_size)
+            #print(f'Read file {file_path}')
+            return True
 
         with timer() as t:
             with ThreadPoolExecutor(max_workers=25) as pool:
-                pool.map(read, read_queue)
+                results = pool.map(read, read_queue)
+                assert all(results)
             print(f'=== Read test took {t():.4f} seconds')
 
 
