@@ -122,8 +122,8 @@ std::shared_ptr<messages::Configuration> getConfiguration(
         communicator->stop();
     }
     catch (std::exception &e) {
-        LOG(ERROR) << "Error stopping configuration communicator (ignored): "
-                   << e.what();
+        LOG(INFO) << "Error stopping configuration communicator (ignored): "
+                  << e.what();
     }
 
     return std::make_shared<messages::Configuration>(std::move(configuration));
