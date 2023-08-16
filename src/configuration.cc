@@ -118,13 +118,7 @@ std::shared_ptr<messages::Configuration> getConfiguration(
     auto configuration =
         communication::wait(std::move(future), options->getProviderTimeout());
 
-    try {
-        communicator->stop();
-    }
-    catch (std::exception &e) {
-        LOG(INFO) << "Error stopping configuration communicator (ignored): "
-                  << e.what();
-    }
+    communicator->stop();
 
     return std::make_shared<messages::Configuration>(std::move(configuration));
 }

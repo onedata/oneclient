@@ -225,8 +225,9 @@ Options::Options(messages::handshake::ClientType clientType)
         .withValueName("<threads>")
         .withDefaultValue(DEFAULT_COMMUNICATOR_THREAD_COUNT,
             std::to_string(DEFAULT_COMMUNICATOR_THREAD_COUNT))
-        .withGroup(OptionGroup::ADVANCED)
-        .withDescription("Specify number of parallel communicator threads.");
+        .withGroup(OptionGroup::INVISIBLE)
+        .withDescription(
+            "Specify number of parallel communicator threads (deprecated).");
 
     add<unsigned int>()
         ->withLongName("scheduler-thread-count")

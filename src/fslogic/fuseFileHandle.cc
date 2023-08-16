@@ -74,16 +74,13 @@ folly::Future<helpers::FileHandlePtr> FuseFileHandle::getHelperHandle(
 
     const auto filteredFlags = m_flags & (~O_CREAT) & (~O_APPEND);
 
-    return // auto handle = // communication::wait(
-        helper->open(fileId, filteredFlags, makeParameters(uuid))
-            .thenTry([this, key](auto &&maybeHandle) {
-                maybeHandle.throwIfFailed();
-                assert(maybeHandle.value());
-                m_helperHandles[key] = maybeHandle.value();
-                return maybeHandle.value();
-            });
-
-    // return handle;
+    return helper->open(fileId, filteredFlags, makeParameters(uuid))
+        .thenTry([this, key](auto &&maybeHandle) {
+            maybeHandle.throwIfFailed();
+            assert(maybeHandle.value());
+            m_helperHandles[key] = maybeHandle.value();
+            return maybeHandle.value();
+        });
 }
 
 void FuseFileHandle::releaseHelperHandle(const folly::fbstring &uuid,
