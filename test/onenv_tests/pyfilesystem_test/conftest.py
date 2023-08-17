@@ -135,7 +135,7 @@ def oneclient_proxy(request, oneprovider_ip, ceph_monitor_ip, onezone_admin_toke
     oneclient_cli = (
         f'debug/oneclient -i -v 1 -f -H {oneprovider_ip}'
         f' -t {onezone_admin_token}'
-        f' --communicator-thread-count 10 --scheduler-thread-count 1'
+        f' --scheduler-thread-count 1'
         f' --storage-helper-thread-count 10'
         f' --force-proxy-io {mountpoint}')
     proc = subprocess.Popen(oneclient_cli.split(' '))
