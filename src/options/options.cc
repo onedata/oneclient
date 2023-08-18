@@ -1156,9 +1156,7 @@ unsigned int Options::getCommunicatorConnectionPoolSize() const
 
 unsigned int Options::getCommunicatorThreadCount() const
 {
-    return get<unsigned int>(
-        {"communicator-thread-count", "communicator_thread_count"})
-        .get_value_or(DEFAULT_COMMUNICATOR_THREAD_COUNT);
+    return DEFAULT_COMMUNICATOR_THREAD_COUNT;
 }
 
 unsigned int Options::getSchedulerThreadCount() const
