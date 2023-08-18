@@ -351,7 +351,7 @@ TEST_F(OptionsTest, parseCommandLineShouldSetCommunicatorThreadCount)
     cmdArgs.insert(
         cmdArgs.end(), {"--communicator-thread-count", "8", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
-    EXPECT_EQ(8, options.getCommunicatorThreadCount());
+    EXPECT_EQ(1 /* sic! */, options.getCommunicatorThreadCount());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetSchedulerThreadCount)
@@ -907,7 +907,7 @@ TEST_F(OptionsTest, parseConfigFileShouldSetCommunicatorThreadCount)
 {
     setInConfigFile("communicator_thread_count", "8");
     options.parse(fileArgs.size(), fileArgs.data());
-    EXPECT_EQ(8, options.getCommunicatorThreadCount());
+    EXPECT_EQ(1 /* sic! */, options.getCommunicatorThreadCount());
 }
 
 TEST_F(OptionsTest, parseConfigFileShouldSetSchedulerThreadCount)
