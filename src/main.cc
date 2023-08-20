@@ -198,7 +198,7 @@ int main(int argc, char *argv[])
         char *mountpoint{nullptr};
         int multithreaded{0};
         int foreground{0};
-        struct fuse_session *fuse = nullptr;
+        struct fuse_session *fuse{nullptr};
 
 #if FUSE_USE_VERSION > 30
         struct fuse_cmdline_opts opts {

@@ -351,9 +351,20 @@ void FsLogic::stop()
 
         m_directoryCachePruneBaton.post();
 
-        m_context->communicator()->send(messages::CloseSession{}, 1).get();
+        LOG(ERROR) << "Stopping FsLogic communicator...";
 
-        m_context->communicator()->stop();
+        folly::makeSemiFuture()
+            .via(folly::getGlobalCPUExecutor().get())
+            .delayed(std::chrono::seconds{2})
+            .thenValue([this](auto && /*unit*/) {
+                m_context->communicator()->send(messages::CloseSession{});
+            })
+            .delayed(std::chrono::seconds{5})
+            .thenTry(
+                [this](auto && /*unit*/) { m_context->communicator()->stop(); })
+            .get();
+
+        LOG(ERROR) << "FsLogic communicator stopped...";
     }
 }
 
@@ -925,8 +936,8 @@ folly::IOBufQueue FsLogic::readInternal(const folly::fbstring &uuid,
             // In order to optimize the on the fly transfer between
             // Oneproviders, always request sync in at least the size as
             // specified by minPrefetchBlockSize on the command line
-            // This minimizes the number of transfer requests for applications
-            // which read in single kilobytes
+            // This minimizes the number of transfer requests for
+            // applications which read in single kilobytes
             auto syncPrefetchRange =
                 boost::icl::discrete_interval<off_t>::right_open(offset,
                     offset +
@@ -1034,8 +1045,9 @@ folly::IOBufQueue FsLogic::readInternal(const folly::fbstring &uuid,
                           << offset << " from file " << uuid
                           << " - invalid checksum";
 
-                // If this is a first retry with invalid checksum, force update
-                // the file location map from the server for this file
+                // If this is a first retry with invalid checksum, force
+                // update the file location map from the server for this
+                // file
                 m_metadataCache.getLocation(uuid, true);
 
                 if (m_ioTraceLoggerEnabled)
@@ -1493,8 +1505,8 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
 
         if ((ec == ENOENT) && (retriesLeft >= 0) &&
             !m_forceProxyIOCache.contains(uuid)) {
-            // The file might have been moved on the storage - get the latest
-            // file location
+            // The file might have been moved on the storage - get the
+            // latest file location
             fiberRetryDelay(retriesLeft);
             m_metadataCache.getLocation(uuid, true);
             return write(uuid, fuseFileHandleId, offset, std::move(buf),
