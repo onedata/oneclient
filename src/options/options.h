@@ -160,6 +160,11 @@ public:
      */
     unsigned int getVerboseLogLevel() const;
 
+    /**
+     * @return If true, logs will buffering will be disabled.
+     */
+    bool disableLogBuffering() const;
+
     /*
      * @return true if 'single-thread' option has been provided, otherwise
      * false.

@@ -86,6 +86,7 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(false, options.getUnmount());
     EXPECT_EQ(false, options.getForeground());
     EXPECT_EQ(false, options.getDebug());
+    EXPECT_EQ(false, options.disableLogBuffering());
     EXPECT_EQ(false, options.getSingleThread());
     EXPECT_EQ(false, options.isInsecure());
     EXPECT_EQ(false, options.isIOTraceLoggerEnabled());
@@ -661,6 +662,13 @@ TEST_F(OptionsTest, parseCommandLineShouldSetVerboseLogLevel)
     EXPECT_EQ(3, options.getVerboseLogLevel());
 }
 
+TEST_F(OptionsTest, parseCommandLineShouldDisableLogBuffering)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--disable-log-buffering", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.disableLogBuffering());
+}
+
 TEST_F(OptionsTest, parseCommandLineShouldSetSingleThread)
 {
     cmdArgs.insert(cmdArgs.end(), {"--single-thread", "mountpoint"});
@@ -992,6 +1000,13 @@ TEST_F(OptionsTest, parseConfigFileShouldSetDebug)
     setInConfigFile("fuse_debug", "1");
     options.parse(fileArgs.size(), fileArgs.data());
     EXPECT_EQ(true, options.getDebug());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetDisableLogBuffering)
+{
+    setInConfigFile("disable_log_buffering", "1");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(true, options.disableLogBuffering());
 }
 
 TEST_F(OptionsTest, parseConfigFileShouldSetSingleThread)

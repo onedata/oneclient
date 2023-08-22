@@ -603,6 +603,16 @@ Options::Options(messages::handshake::ClientType clientType)
 
     add<bool>()
         ->asSwitch()
+        .withLongName("disable-log-buffering")
+        .withEnvName("disable_log_buffering")
+        .withConfigName("disable_log_buffering")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::GENERAL)
+        .withDescription("Disable log buffering.");
+
+    add<bool>()
+        ->asSwitch()
         .withShortName("s")
         .withLongName("single-thread")
         .withEnvName("fuse_single_thread")
@@ -1063,6 +1073,12 @@ unsigned int Options::getVerboseLogLevel() const
     return get<unsigned int>(
         {"verbose-log-level", "verbose_log_level", "verbose_log_level"})
         .get_value_or(0);
+}
+
+bool Options::disableLogBuffering() const
+{
+    return get<bool>({"disable-log-buffering", "disable_log_buffering"})
+        .get_value_or(false);
 }
 
 bool Options::getSingleThread() const

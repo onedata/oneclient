@@ -60,7 +60,8 @@ void startLogging(
     FLAGS_stop_logging_if_full_disk = true;
     FLAGS_logtostderr = false;
     FLAGS_v = options->getVerboseLogLevel();
-    FLAGS_logbuflevel = -1;
+    if (options->disableLogBuffering())
+        FLAGS_logbuflevel = -1;
     // Set maximum log size to 50MB plus 50MB for each verbosity level
     constexpr auto kMaximumLogSizeMB = 50;
     FLAGS_max_log_size =
