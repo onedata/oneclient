@@ -19,7 +19,7 @@ onezoneImage: "docker.onedata.org/onezone-dev:develop"
 # Oneprovider image to use. Note that if 'sources' option is enabled, it must
 # be based off onedata/worker image (images based off onedata-worker are
 # images with -dev suffix).
-oneproviderImage: "docker.onedata.org/oneprovider-dev:ID-e92164444c"
+oneproviderImage: "docker.onedata.org/oneprovider-dev:develop"
 
 
 
