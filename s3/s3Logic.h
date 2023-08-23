@@ -207,6 +207,9 @@ public:
     folly::Future<one::messages::fuse::FileAttr> getBucketAttr(
         const folly::fbstring &bucket);
 
+    folly::Future<one::messages::fuse::FileAttr> getBucketTmpDirAttr(
+        const folly::fbstring &bucket);
+
     folly::Future<one::messages::fuse::FileAttr> getFileAttr(
         const folly::fbstring &parentId, std::vector<std::string> path);
 
@@ -262,15 +265,18 @@ private:
         const std::chrono::seconds timeout{m_providerTimeout};
 
         auto messageString = msg.toString();
+        auto msgCopy = msg;
         return m_context->communicator()
             ->communicate<SrvMsg>(std::forward<CliMsg>(msg))
             .via(m_executor.get())
             .onTimeout(timeout,
                 [messageString = std::move(messageString),
-                    timeout = timeout.count()]() {
+                    timeout = timeout.count(),
+                    msgCopy = std::move(msgCopy)]() mutable {
                     LOG(ERROR)
                         << "Response to message : " << messageString
-                        << " not received within " << timeout << " seconds.";
+                        << " not received within " << timeout << " seconds";
+
                     return folly::makeFuture<SrvMsg>(std::system_error{
                         std::make_error_code(std::errc::timed_out)});
                 });
@@ -334,6 +340,9 @@ private:
 
     folly::ConcurrentHashMap<folly::fbstring, one::messages::fuse::FileAttr>
         m_bucketIdCache;
+
+    folly::ConcurrentHashMap<folly::fbstring, one::messages::fuse::FileAttr>
+        m_bucketTmpDirCache;
 
     std::shared_ptr<folly::IOThreadPoolExecutor> m_executor;
 

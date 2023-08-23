@@ -1,10 +1,10 @@
 /**
-* @file s3LogicCache.h
-* @author Bartek Kryza
-* @copyright (C) 2022-present Onedata.org
-* @copyright This software is released under the MIT license cited in
-* 'LICENSE.txt'
-*/
+ * @file s3LogicCache.h
+ * @author Bartek Kryza
+ * @copyright (C) 2022-present Onedata.org
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
 
 #pragma once
 
@@ -53,6 +53,13 @@ public:
         }
 
         return isOk;
+    }
+
+    folly::IOThreadPoolExecutor *executor()
+    {
+        if (!m_executor)
+            return nullptr;
+        return m_executor.get();
     }
 
 private:

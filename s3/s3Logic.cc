@@ -146,6 +146,7 @@ folly::Future<FileLocation> S3Logic::ensureFileLocationForRange(
     const FileAttr &attr, const std::size_t offset, const std::size_t size)
 {
     return communicate<FileLocation>(GetFileLocation{attr.uuid().toStdString()})
+        .via(m_executor.get())
         .thenTry([this, attr, offset, size](
                      folly::Try<FileLocation> &&maybeLocation)
                      -> folly::Future<FileLocation> {
@@ -225,10 +226,30 @@ folly::Future<FileAttr> S3Logic::getBucketAttr(const folly::fbstring &bucket)
         return folly::makeFuture(m_bucketIdCache.at(bucket));
 
     return communicate<FileAttr>(GetChildAttr{m_rootUuid, bucket})
+        .via(m_executor.get())
         .thenTry([this, bucket](folly::Try<FileAttr> &&bucketAttr) {
             m_bucketIdCache.emplace(bucket, bucketAttr.value());
             return std::move(bucketAttr);
         });
+}
+
+folly::Future<FileAttr> S3Logic::getBucketTmpDirAttr(
+    const folly::fbstring &bucket)
+{
+    if (m_bucketTmpDirCache.find(bucket) != m_bucketTmpDirCache.end())
+        return folly::makeFuture(m_bucketTmpDirCache.at(bucket));
+
+    return getBucketAttr(bucket).thenValue([this, bucket](auto &&bucketAttr) {
+        const auto tmpDirId =
+            one::client::util::uuid::uuidToTmpDirId(bucketAttr.uuid());
+
+        return communicate<FileAttr>(
+            CreatePath{tmpDirId, ONEDATA_S3_MULTIPART_PREFIX})
+            .thenTry([this, bucket](folly::Try<FileAttr> &&tmpDirAttr) {
+                m_bucketTmpDirCache.emplace(bucket, tmpDirAttr.value());
+                return std::move(tmpDirAttr);
+            });
+    });
 }
 
 folly::Future<FileAttr> S3Logic::getFileAttr(
@@ -254,10 +275,12 @@ folly::Future<std::shared_ptr<FuseFileHandle>> S3Logic::open(
 {
     LOG_FCALL() << LOG_FARG(spaceId) << LOG_FARGH(flags);
 
-    std::lock_guard<std::mutex> lockGuard{m_handleMutex};
+    {
+        std::lock_guard<std::mutex> lockGuard{m_handleMutex};
 
-    if (m_requestHandles.find(requestId) != m_requestHandles.end())
-        return m_requestHandles.at(requestId);
+        if (m_requestHandles.find(requestId) != m_requestHandles.end())
+            return m_requestHandles.at(requestId);
+    }
 
     const auto filteredFlags = flags;
     const auto flag = detail::getOpenFlag(helpers::maskToFlags(filteredFlags));
@@ -266,24 +289,28 @@ folly::Future<std::shared_ptr<FuseFileHandle>> S3Logic::open(
     LOG_DBG(2) << "Sending file opened message for " << attr.uuid();
 
     return communicate<FileOpened>(std::move(msg))
+        .via(m_executor.get())
         .thenTry([this, filteredFlags, flags, attr, requestedOffset,
                      requestedSize, requestId](auto &&opened) {
             if (opened.hasException()) {
                 opened.throwIfFailed();
             }
 
-            std::lock_guard<std::mutex> lockGuard{m_handleMutex};
+            {
+                std::lock_guard<std::mutex> lockGuard{m_handleMutex};
 
-            m_requestHandles.emplace(requestId,
-                std::make_shared<FuseFileHandle>(filteredFlags,
-                    opened.value().handleId(),
-                    std::shared_ptr<
-                        client::cache::OpenFileMetadataCache::OpenFileToken>{},
-                    m_helpersCache, m_forceProxyIOCache, m_providerTimeout));
-            m_requestFileHandleFlags.emplace(requestId, flags);
+                m_requestHandles.emplace(requestId,
+                    std::make_shared<FuseFileHandle>(filteredFlags,
+                        opened.value().handleId(),
+                        std::shared_ptr<client::cache::OpenFileMetadataCache::
+                                OpenFileToken>{},
+                        m_helpersCache, m_forceProxyIOCache,
+                        m_providerTimeout));
+                m_requestFileHandleFlags.emplace(requestId, flags);
 
-            LOG_DBG(2) << "Assigned fuse handle " << requestId << " for file "
-                       << attr.uuid();
+                LOG_DBG(2) << "Assigned fuse handle " << requestId
+                           << " for file " << attr.uuid();
+            }
 
             return ensureFileLocationForRange(
                 attr, requestedOffset, requestedSize);

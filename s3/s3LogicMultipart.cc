@@ -204,6 +204,7 @@ folly::Future<Aws::S3::Model::UploadPartResult> S3Logic::uploadMultipartPart(
         //
         // Get path to the temporary upload directory and file name
         //
+        .via(m_executor.get())
         .thenValue([this, requestId, partSize, path, uploadId](
                        FileAttr &&bucketAttr) {
             auto filePerms = m_options->getOneS3FileMode();
@@ -235,6 +236,7 @@ folly::Future<Aws::S3::Model::UploadPartResult> S3Logic::uploadMultipartPart(
         //
         // Open the part specific file
         //
+        .via(m_executor.get())
         .thenValue([this, bucket, path, uploadId, requestId](auto &&args) {
             POP_FUTURES_3(args, bucketAttr, attr, tmpPath);
 
@@ -253,6 +255,7 @@ folly::Future<Aws::S3::Model::UploadPartResult> S3Logic::uploadMultipartPart(
         //
         // Write the part contents to the temporary file
         //
+        .via(m_executor.get())
         .thenValue([this, requestId, partSize, partNumber,
                        buf = std::move(buf)](auto &&args) mutable {
             POP_FUTURES_2(args, attr, fileHandle);
@@ -265,6 +268,7 @@ folly::Future<Aws::S3::Model::UploadPartResult> S3Logic::uploadMultipartPart(
         //
         // Close part file
         //
+        .via(m_executor.get())
         .thenValue([this, requestId](auto &&args) {
             POP_FUTURES_2(args, attr, written);
 
@@ -275,6 +279,7 @@ folly::Future<Aws::S3::Model::UploadPartResult> S3Logic::uploadMultipartPart(
         //
         // Report multipart part upload complete
         //
+        .via(m_executor.get())
         .thenValue(
             [this, uploadId, partMD5, partNumber, partSize](auto && /*unit*/) {
                 return communicate(UploadMultipartPart{uploadId.toStdString(),
@@ -285,6 +290,7 @@ folly::Future<Aws::S3::Model::UploadPartResult> S3Logic::uploadMultipartPart(
         //
         // Generate UploadPartResult response
         //
+        .via(m_executor.get())
         .thenValue([partMD5](auto && /*unit*/) {
             Aws::S3::Model::UploadPartResult result;
             result.SetETag(fmt::format("\"{}\"", partMD5.toStdString()));

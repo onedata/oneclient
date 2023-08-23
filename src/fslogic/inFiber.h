@@ -74,6 +74,13 @@ public:
      */
     ~InFiber()
     {
+        makeRunInFiber()([this]() mutable {
+            try {
+                m_fsLogic.stop();
+            }
+            catch (...) {
+            }
+        });
         m_eventBase.terminateLoopSoon();
         m_thread.join();
     }

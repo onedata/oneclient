@@ -37,8 +37,8 @@ static constexpr auto CONFIG_FILE_NAME = "oneclient.conf";
 static constexpr auto ENVIRONMENT_PREFIX = "ONECLIENT_";
 static constexpr auto DEFAULT_PROVIDER_PORT = 443;
 static constexpr auto DEFAULT_BUFFER_SCHEDULER_THREAD_COUNT = 1;
-static constexpr auto DEFAULT_COMMUNICATOR_POOL_SIZE = 10;
-static constexpr auto DEFAULT_COMMUNICATOR_THREAD_COUNT = 4;
+static constexpr auto DEFAULT_COMMUNICATOR_POOL_SIZE = 25;
+static constexpr auto DEFAULT_COMMUNICATOR_THREAD_COUNT = 1;
 static constexpr auto DEFAULT_SCHEDULER_THREAD_COUNT = 1;
 static constexpr auto DEFAULT_STORAGE_HELPER_THREAD_COUNT = 10;
 static constexpr auto DEFAULT_READ_BUFFER_MIN_SIZE = 4 * 1024;
@@ -159,6 +159,11 @@ public:
      * @return Get verbose log level.
      */
     unsigned int getVerboseLogLevel() const;
+
+    /**
+     * @return If true, logs will buffering will be disabled.
+     */
+    bool disableLogBuffering() const;
 
     /*
      * @return true if 'single-thread' option has been provided, otherwise

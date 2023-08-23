@@ -271,6 +271,8 @@ public:
         return m_fsLogic.isFullBlockReadForced();
     }
 
+    void stop() { m_fsLogic.stop(); }
+
 private:
     template <typename Ret, typename... FunArgs, typename... Args>
     inline constexpr Ret wrap(

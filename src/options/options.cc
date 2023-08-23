@@ -225,8 +225,9 @@ Options::Options(messages::handshake::ClientType clientType)
         .withValueName("<threads>")
         .withDefaultValue(DEFAULT_COMMUNICATOR_THREAD_COUNT,
             std::to_string(DEFAULT_COMMUNICATOR_THREAD_COUNT))
-        .withGroup(OptionGroup::ADVANCED)
-        .withDescription("Specify number of parallel communicator threads.");
+        .withGroup(OptionGroup::INVISIBLE)
+        .withDescription(
+            "Specify number of parallel communicator threads (deprecated).");
 
     add<unsigned int>()
         ->withLongName("scheduler-thread-count")
@@ -599,6 +600,16 @@ Options::Options(messages::handshake::ClientType clientType)
         .withGroup(OptionGroup::GENERAL)
         .withDescription("Specify the verbosity level (0-3) for verbose logs "
                          "(only available in debug builds).");
+
+    add<bool>()
+        ->asSwitch()
+        .withLongName("disable-log-buffering")
+        .withEnvName("disable_log_buffering")
+        .withConfigName("disable_log_buffering")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::GENERAL)
+        .withDescription("Disable log buffering.");
 
     add<bool>()
         ->asSwitch()
@@ -1064,6 +1075,12 @@ unsigned int Options::getVerboseLogLevel() const
         .get_value_or(0);
 }
 
+bool Options::disableLogBuffering() const
+{
+    return get<bool>({"disable-log-buffering", "disable_log_buffering"})
+        .get_value_or(false);
+}
+
 bool Options::getSingleThread() const
 {
     return get<bool>({"single-thread", "fuse_single_thread"})
@@ -1155,9 +1172,7 @@ unsigned int Options::getCommunicatorConnectionPoolSize() const
 
 unsigned int Options::getCommunicatorThreadCount() const
 {
-    return get<unsigned int>(
-        {"communicator-thread-count", "communicator_thread_count"})
-        .get_value_or(DEFAULT_COMMUNICATOR_THREAD_COUNT);
+    return DEFAULT_COMMUNICATOR_THREAD_COUNT;
 }
 
 unsigned int Options::getSchedulerThreadCount() const

@@ -63,9 +63,9 @@ public:
      * @param fileId ID of a file on the storage.
      * @returns A new or cached file handle for the location.
      */
-    helpers::FileHandlePtr getHelperHandle(const folly::fbstring &uuid,
-        const folly::fbstring &spaceId, const folly::fbstring &storageId,
-        const folly::fbstring &fileId);
+    folly::Future<helpers::FileHandlePtr> getHelperHandle(
+        const folly::fbstring &uuid, const folly::fbstring &spaceId,
+        const folly::fbstring &storageId, const folly::fbstring &fileId);
 
     /**
      * Releases an open helper handle for a file.

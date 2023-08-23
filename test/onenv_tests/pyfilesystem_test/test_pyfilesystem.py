@@ -20,6 +20,8 @@ import warnings
 import zipfile
 import xattr
 import pytest
+import hashlib
+import random
 
 from six import text_type
 
@@ -29,6 +31,8 @@ from fs.compress import write_zip
 from fs import errors, open_fs, osfs
 from fs.path import dirname, relpath
 from fs.test import FSTestCases
+from concurrent.futures import ThreadPoolExecutor, wait, ALL_COMPLETED
+from .common import random_bytes, random_str, random_int, timer
 
 try:
     from unittest import mock
@@ -298,9 +302,56 @@ class OSFSBase(FSTestCases):
     def test_geturl_return_no_url(self):
         self.assertRaises(errors.NoURL, self.fs.geturl, "test/path", "upload")
 
+    def test_create_files_large(self, count=1000, thread_count=100):
+        keys = []
+
+        def put_object(job):
+            key_, body_ = job
+            self.fs.create(key_)
+            with open(self._get_real_path(key_), "wb") as f:
+                f.write(body_)
+            with open(self._get_real_path(key_), "wb") as f:
+                body = f.read()
+
+            assert body == body_
+
+        prefix = 'dir2/dir3/dir4/dir5/'
+        self.fs.makedirs('dir2/dir3/dir4/dir5/')
+
+        # for prefix in prefix_list:
+        for i in range(count):
+            body = random_bytes()
+            etag = hashlib.md5(body).hexdigest()
+            key = f'{prefix}file-{i}.txt'
+            keys.append((key, body))
+
+        with ThreadPoolExecutor(thread_count) as pool:
+            jobs = keys
+            futures = [pool.submit(put_object, job) for job in jobs]
+            wait(futures, timeout=30, return_when=ALL_COMPLETED)
+
 
 @pytest.mark.usefixtures("oneclient")
-class OSFSS3Test(OSFSBase, FSTestCases, unittest.TestCase):
+class OSFSS3TestDirectIO(OSFSBase, FSTestCases, unittest.TestCase):
+    """Test OSFS implementation."""
+    space_name = 'test_pyfilesystem_s3'
+
+    def make_fs(self):
+        temp_dir = tempfile.mkdtemp('pyfs_test',
+                                    dir=f'{self.mountpoint}/{self.space_name}')
+        return osfs.OSFS(temp_dir)
+
+    def destroy_fs(self, fs):
+        self.fs.close()
+        try:
+            shutil.rmtree(fs.getsyspath("/"))
+        except OSError:
+            # Already deleted
+            pass
+
+
+@pytest.mark.usefixtures("oneclient_proxy")
+class OSFSS3TestProxyIO(OSFSBase, FSTestCases, unittest.TestCase):
     """Test OSFS implementation."""
     space_name = 'test_pyfilesystem_s3'
 
@@ -319,7 +370,7 @@ class OSFSS3Test(OSFSBase, FSTestCases, unittest.TestCase):
 
 
 @pytest.mark.usefixtures("oneclient")
-class OSFSCephTest(OSFSBase, FSTestCases, unittest.TestCase):
+class OSFSCephTestDirectIO(OSFSBase, FSTestCases, unittest.TestCase):
     """Test OSFS implementation."""
     space_name = 'test_pyfilesystem_ceph'
 
@@ -335,6 +386,76 @@ class OSFSCephTest(OSFSBase, FSTestCases, unittest.TestCase):
         except OSError:
             # Already deleted
             pass
+
+
+@pytest.mark.usefixtures("oneclient_proxy")
+class OSFSCephTestProxyIO(OSFSBase, FSTestCases, unittest.TestCase):
+    """Test OSFS implementation."""
+    space_name = 'test_pyfilesystem_ceph'
+
+    def make_fs(self):
+        temp_dir = tempfile.mkdtemp('pyfs_test',
+                                    dir=f'{self.mountpoint}/{self.space_name}')
+        return osfs.OSFS(temp_dir)
+
+    def destroy_fs(self, fs):
+        self.fs.close()
+        try:
+            shutil.rmtree(fs.getsyspath("/"))
+        except OSError:
+            # Already deleted
+            pass
+
+
+@pytest.mark.usefixtures("oneclient_proxy")
+class IOStressTestProxyIO(unittest.TestCase):
+    """Perform basic IO stress tests."""
+    space_name = 'test_pyfilesystem_ceph'
+
+    def prepare_files(self, dir, file_names, file_size):
+        def create_random_file(name):
+            file_path = f'{dir}/{name}'
+            #print(f'Creating file {file_path}')
+            with open(f'{file_path}', 'wb+') as f:
+                f.write(random_bytes(file_size))
+            #print(f'Created file {file_path}')
+            return True
+
+        with ThreadPoolExecutor(max_workers=25) as pool:
+            results = pool.map(create_random_file, file_names)
+            assert all(results)
+
+
+    def test_read_stress(self):
+        temp_dir = tempfile.mkdtemp('pyfs_test',
+                                    dir=f'{self.mountpoint}/{self.space_name}')
+        file_count = 250
+        file_size = 4096
+        read_size = 512
+        read_count = 1000
+        file_names = [random_str() for _ in range(file_count)]
+
+        with timer() as t:
+            self.prepare_files(temp_dir, file_names, file_size)
+            print(f'=== File preparation took {t():.4f} seconds')
+
+        read_queue = [random.choice(file_names) for _ in range(read_count)]
+
+        def read(name):
+            file_path = f'{temp_dir}/{name}'
+            with open(file_path) as f:
+                #print(f'Reading file {file_path}')
+                f.seek(random_int(0, file_size - read_size))
+                f.read(read_size)
+            #print(f'Read file {file_path}')
+            return True
+
+        with timer() as t:
+            with ThreadPoolExecutor(max_workers=25) as pool:
+                results = pool.map(read, read_queue)
+                assert all(results)
+            print(f'=== Read test took {t():.4f} seconds')
+
 
 
 @pytest.mark.usefixtures("oneclient")
@@ -374,27 +495,43 @@ class UnpackBagitTest(unittest.TestCase):
             # Already deleted
             pass
 
+    def unpack_file(self, archive, data_dir, dst_dir_path, file_info):
+        file_src_path = file_info.name
+
+        if file_src_path.startswith(data_dir) and not file_info.isdir():
+            file_data_dir_rel_path = file_src_path[len(data_dir) :].lstrip("/")
+
+            # Adjust the file path so that when unpacking only parent directories
+            # up to data directory will be created in destination directory
+            # (normally all directories on path are created)
+            file_info.name = file_data_dir_rel_path
+            archive.extract(file_info, dst_dir_path)
+
+            file_path = f"{dst_dir_path}/{file_data_dir_rel_path}"
+
+            self.assertEqual(file_info.size, os.path.getsize(file_path))
+
     def unpack_bagit(self, archive_file_id, dst_dir_file_id):
         archive_path = f"{self.mountpoint}/.__onedata__file_id__{archive_file_id}"
         dst_dir_path = f"{self.mountpoint}/.__onedata__file_id__{dst_dir_file_id}"
 
-        with tarfile.TarFile(archive_path) as archive:
-            data_dir = f"{self.get_bagit_dir_name(archive)}/data"
+        members = tarfile.TarFile(archive_path)
 
-            for file_info in archive.getmembers():
-                file_src_path = file_info.name
+        def unpack_file_wrap(file_info):
+            with tarfile.TarFile(archive_path) as archive:
+                data_dir = f"{self.get_bagit_dir_name(archive)}/data"
+                return self.unpack_file(
+                    archive, data_dir, dst_dir_path, file_info)
 
-                if file_src_path.startswith(data_dir) and not file_info.isdir():
-                    file_data_dir_rel_path = file_src_path[len(data_dir) :].lstrip("/")
+        start_time = time.time()
 
-                    # Tamper with file path so that when unpacking only parent directories
-                    # up to data directory will be created in destination directory
-                    # (normally all directories on path are created)
-                    file_info.name = file_data_dir_rel_path
-                    archive.extract(file_info, dst_dir_path)
+        workers_count = 8
 
-                    file_path = f"{dst_dir_path}/{file_data_dir_rel_path}"
-                    self.assertEqual(file_info.size, os.path.getsize(file_path))
+        with ThreadPoolExecutor(max_workers=workers_count) as executor:
+            executor.map(unpack_file_wrap, members)
+
+        print(f'Bagit unpack took {time.time() - start_time}'
+              f' using {workers_count} threads')
 
     def get_bagit_dir_name(self, archive):
         for path in archive.getnames():
