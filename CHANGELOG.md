@@ -4,6 +4,15 @@ Release notes for project oneclient
 CHANGELOG
 ---------
 
+### 21.02.3
+
+-   **VFS-11231** Refactored oneclient connection pool to improve
+    stability.
+-   **VFS-11220** Fixed handling of handshake error in oneclient.
+-   **VFS-11106** Refactored Oneclient-Oneprovider connection layer for
+    improved resilience to network failures.
+
+
 ### 21.02.2
 
 -   **VFS-10968** Added Oneclient integration test based on
