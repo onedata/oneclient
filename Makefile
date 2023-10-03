@@ -422,14 +422,9 @@ ones3_tar $(ONECLIENT_FPMPACKAGE_TMP)/ones3-bin.tar.gz:
 	# Create directory structure
 	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/bin
 	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/etc
-	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/etc/bash_completion.d
 	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/lib
 	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/xlator
 	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/rpc-transport
-	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/share/man/man1
-	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/share/man/man5
-	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/share/doc
-	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/share/zsh/site-functions
 
 	# Collect all necessary Oneclient files in one folder
 	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
