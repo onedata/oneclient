@@ -370,17 +370,11 @@ oneclient_tar $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz:
 		-t docker.onedata.org/oneclient-base:$(ONECLIENT_BASE_IMAGE) \
 		/usr/bin/oneclient /output/lib
 	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
-		-v $(CURDIR)/cpld.sh:/bin/cpld.sh --entrypoint /bin/cpld.sh \
-		-t docker.onedata.org/oneclient-base:$(ONECLIENT_BASE_IMAGE) \
-		/usr/bin/ones3 /output/lib
-	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
 		--entrypoint /bin/bash \
 		-t docker.onedata.org/oneclient-base:$(ONECLIENT_BASE_IMAGE) \
 		-c 'cp /usr/bin/oneclient /output/bin && \
 		    cp /usr/bin/onebench /output/bin && \
-		    cp /usr/bin/ones3 /output/bin && \
 		    cp /etc/oneclient.conf /output/etc && \
-		    cp /etc/ones3.conf /output/etc && \
 		    cp /usr/share/man/man1/oneclient.1.gz /output/share/man/man1/ && \
 		    cp /usr/share/man/man5/oneclient.conf.5.gz /output/share/man/man5/ && \
 		    cp /usr/share/doc/oneclient/* /output/share/doc/ && \
@@ -405,11 +399,6 @@ oneclient_tar $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz:
 		-t $(PATCHELF_DOCKER_IMAGE) \
 		--set-interpreter /opt/oneclient/lib/ld-linux-x86-64.so.2 \
 		--set-rpath /opt/oneclient/lib --force-rpath \
-		/output/bin/ones3
-	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
-		-t $(PATCHELF_DOCKER_IMAGE) \
-		--set-interpreter /opt/oneclient/lib/ld-linux-x86-64.so.2 \
-		--set-rpath /opt/oneclient/lib --force-rpath \
 		/output/bin/onebench
 	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
 		--entrypoint /bin/sh -t $(PATCHELF_DOCKER_IMAGE) -c \
@@ -419,6 +408,62 @@ oneclient_tar $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz:
 		tar -cf oneclient-bin.tar * && \
 		gzip -f oneclient-bin.tar && \
 		mv oneclient-bin.tar.gz ../ && \
+		cd ../..
+	# Cleanup the temporary files
+	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP):/output \
+		-v $(CURDIR)/cpld.sh:/bin/cpld.sh --entrypoint /bin/sh \
+		-t docker.onedata.org/oneclient-base:$(ONECLIENT_BASE_IMAGE) \
+		-c "rm -rf /output/root"
+
+#
+# Build OneS3 self-contained tarball
+#
+ones3_tar $(ONECLIENT_FPMPACKAGE_TMP)/ones3-bin.tar.gz:
+	# Create directory structure
+	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/bin
+	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/etc
+	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/etc/bash_completion.d
+	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/lib
+	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/xlator
+	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/rpc-transport
+	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/share/man/man1
+	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/share/man/man5
+	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/share/doc
+	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/share/zsh/site-functions
+
+	# Collect all necessary Oneclient files in one folder
+	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
+		-v $(CURDIR)/cpld.sh:/bin/cpld.sh --entrypoint /bin/cpld.sh \
+		-t docker.onedata.org/oneclient-base:$(ONECLIENT_BASE_IMAGE) \
+		/usr/bin/ones3 /output/lib
+	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
+		--entrypoint /bin/bash \
+		-t docker.onedata.org/oneclient-base:$(ONECLIENT_BASE_IMAGE) \
+		-c 'cp /usr/bin/ones3 /output/bin && \
+		    cp /etc/ones3.conf /output/etc && \
+		    cp -r /lib/x86_64-linux-gnu/* /output/lib/ && \
+	        cp -r /usr/lib/x86_64-linux-gnu/libXrd* /output/lib/ && \
+	        cp -r /usr/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/xlator/* /output/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/xlator/ && \
+	        cp -r /usr/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/rpc-transport/* /output/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/rpc-transport/'
+	# Collect all dynamic libraries GlusterFS dependencies
+	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
+		-v $(CURDIR)/cpld.sh:/bin/cpld.sh --entrypoint /bin/sh \
+		-t docker.onedata.org/oneclient-base:$(ONECLIENT_BASE_IMAGE) \
+		-c "find /usr/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/ -name '*so*' -exec /bin/cpld.sh '{}' /output/lib \;"
+	# Change the ld loader and rpath in Oneclient binaries and dependencies
+	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
+		-t $(PATCHELF_DOCKER_IMAGE) \
+		--set-interpreter /opt/ones3/lib/ld-linux-x86-64.so.2 \
+		--set-rpath /opt/ones3/lib --force-rpath \
+		/output/bin/ones3
+	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
+		--entrypoint /bin/sh -t $(PATCHELF_DOCKER_IMAGE) -c \
+		"find /output/lib -name '*so*' -type f ! -path '*ld-[0-9]*.[0-9]*.so' ! -path '*ld-linux-x86-64.so.2' -exec patchelf --set-rpath /opt/oneclient/lib --force-rpath {} \;"
+	# Create binary archive
+	cd $(ONECLIENT_FPMPACKAGE_TMP)/root && \
+		tar -cf ones3-bin.tar * && \
+		gzip -f ones3-bin.tar && \
+		mv ones3-bin.tar.gz ../ && \
 		cd ../..
 	# Cleanup the temporary files
 	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP):/output \
@@ -468,6 +513,50 @@ oneclient_deb: $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz
 		   --maintainer "Onedata Package Maintainers <info@onedata.org>" \
 		   --description "Self-contained Onedata Oneclient command-line client package" \
 		   /data/oneclient-bin.tar.gz
+
+#
+# Build OneS3 self-contained rpm
+#
+ones3_rpm: $(ONECLIENT_FPMPACKAGE_TMP)/ones3-bin.tar.gz
+	# Build RPM package for the distribution specified using FPM
+	cp pkg_config/fpm/ones3_rpm.pre $(ONECLIENT_FPMPACKAGE_TMP)/
+	cp pkg_config/fpm/ones3_rpm.post $(ONECLIENT_FPMPACKAGE_TMP)/
+	docker run -u=$$UID:$$GID -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro \
+		   -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP):/data \
+		   -t $(FPM_DOCKER_IMAGE) \
+		   fpm -t rpm --rpm-dist $(RPM_DIST) -s tar \
+		   --prefix=/opt/ones3 -n ones3 -v $(ONECLIENT_VERSION) \
+		   --architecture=x86_64 \
+		   --iteration $(PKG_BUILD) --license "Apache 2.0" \
+		   --after-install=/data/ones3_rpm.pre \
+		   --after-remove=/data/ones3_rpm.post \
+		   --depends ca-certificates \
+		   --maintainer "Onedata Package Maintainers <info@onedata.org>" \
+		   --description "Self-contained Onedata OneS3 service" \
+		   /data/ones3-bin.tar.gz
+
+#
+# Build OneS3 self-contained deb
+#
+ones3_deb: $(ONECLIENT_FPMPACKAGE_TMP)/ones3-bin.tar.gz
+	# Build DEB package for the distribution specified using FPM
+	@echo "========== ones3_deb =========="
+	cp pkg_config/fpm/ones3_deb.pre $(ONECLIENT_FPMPACKAGE_TMP)/
+	cp pkg_config/fpm/ones3_deb.post $(ONECLIENT_FPMPACKAGE_TMP)/
+	docker run -u=$$UID:$$GID -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro \
+		   -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP):/data \
+		   -t $(FPM_DOCKER_IMAGE) fpm -t deb -s tar \
+		   -p /data/ones3_$(ONECLIENT_VERSION)-$(PKG_BUILD)~$(DISTRIBUTION)_amd64.deb \
+		   --architecture=amd64 \
+		   --prefix=/opt/ones3 -n ones3 \
+		   -v $(ONECLIENT_VERSION)-$(PKG_BUILD)~$(DISTRIBUTION) --license "Apache 2.0" \
+		   --after-install=/data/ones3_deb.pre \
+		   --after-remove=/data/ones3_deb.post \
+		   --depends ca-certificates \
+		   --maintainer "Onedata Package Maintainers <info@onedata.org>" \
+		   --description "Self-contained Onedata OneS3 service" \
+		   /data/ones3-bin.tar.gz
+
 
 .PHONY: clean
 clean:

@@ -1,0 +1,2 @@
+ln -s /opt/ones3/bin/ones3 /usr/bin/ones3
+[ ! -f /etc/ones3.conf ] && ln -s /opt/ones3/etc/ones3.conf /etc/ones3.conf
