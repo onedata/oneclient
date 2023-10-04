@@ -453,7 +453,7 @@ ones3_tar $(ONECLIENT_FPMPACKAGE_TMP)/ones3-bin.tar.gz:
 		/output/bin/ones3
 	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
 		--entrypoint /bin/sh -t $(PATCHELF_DOCKER_IMAGE) -c \
-		"find /output/lib -name '*so*' -type f ! -path '*ld-[0-9]*.[0-9]*.so' ! -path '*ld-linux-x86-64.so.2' -exec patchelf --set-rpath /opt/oneclient/lib --force-rpath {} \;"
+		"find /output/lib -name '*so*' -type f ! -path '*ld-[0-9]*.[0-9]*.so' ! -path '*ld-linux-x86-64.so.2' -exec patchelf --set-rpath /opt/ones3/lib --force-rpath {} \;"
 	# Create binary archive
 	cd $(ONECLIENT_FPMPACKAGE_TMP)/root && \
 		tar -cf ones3-bin.tar * && \
