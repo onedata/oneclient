@@ -18,6 +18,7 @@
 #include <Poco/Net/NetException.h>
 #include <Poco/URI.h>
 
+#include <boost/variant.hpp>
 #include <chrono>
 #include <thread>
 
@@ -25,27 +26,53 @@ namespace one {
 namespace rest {
 namespace onepanel {
 
+struct OnepanelNoAuth { };
+
+struct OnepanelTokenAuth {
+    OnepanelTokenAuth(std::string t)
+        : token{std::move(t)}
+    {
+    }
+
+    std::string token;
+};
+
+struct OnepanelBasicAuth {
+    OnepanelBasicAuth(std::string c)
+        : credentials{std::move(c)}
+    {
+    }
+
+    std::string credentials;
+};
+
+using OnepanelCredentials =
+    boost::variant<OnepanelNoAuth, OnepanelTokenAuth, OnepanelBasicAuth>;
+
 class OnepanelClient {
 public:
     OnepanelClient(const std::string &hostname);
 
     ~OnepanelClient();
 
-    void supportSpace(const std::string &token, const std::string &supportToken,
+    void setCredentials(OnepanelCredentials credentials);
+
+    void supportSpace(const std::string &supportToken,
         const std::string &storageId, size_t size);
 
     std::string getProviderId();
 
-    bool isSpaceSupported(const std::string &token, const std::string &spaceId,
-        const std::string &providerId);
+    bool isSpaceSupported(
+        const std::string &spaceId, const std::string &providerId);
 
-    bool ensureSpaceIsSupported(
-        const std::string &token, const std::string &spaceId);
-
-    std::vector<std::pair<std::string, std::string>> listUserSpaces(const std::string &token);
+    bool ensureSpaceIsSupported(const std::string &spaceId);
 
 private:
+    void updateRequestCredentials(Poco::Net::HTTPRequest &request) const;
+
     Poco::Net::HTTPSClientSession session_;
+
+    OnepanelCredentials credentials_;
 };
 } // namespace onepanel
 } // namespace rest

@@ -756,6 +756,15 @@ Options::Options(messages::handshake::ClientType clientType)
             .withDescription("Specifies default storage support size for new "
                              "buckets in bytes.");
 
+        add<std::string>()
+            ->withEnvName("ones3_support_storage_credentials")
+            .withLongName("ones3-support-storage-credentials")
+            .withConfigName("ones3_support_storage_credentials")
+            .withValueName("<support_storage_credentials>")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription("Specifies credentials needed to automatically "
+                             "support storage for a new bucket.");
+
         add<unsigned int>()
             ->withEnvName("ones3_http_port")
             .withLongName("ones3-http-port")
@@ -955,10 +964,6 @@ void Options::parse(const int argc, const char *const argv[])
         if (!getProviderHost()) {
             throw boost::program_options::error_with_no_option_name(
                 "ERROR: required option 'host' missing");
-        }
-        if (!getAccessToken()) {
-            throw boost::program_options::error_with_no_option_name(
-                "ERROR: required option 'token' missing");
         }
     }
     boost::program_options::notify(m_vm);
@@ -1502,6 +1507,13 @@ size_t Options::getOneS3SupportStorageSize() const
         {"ones3-support-storage-size", "ones3_support_storage_size",
             "ones3_support_storage_size"})
         .get_value_or(DEFAULT_ONES3_STORAGE_SUPPORT_SIZE);
+}
+
+boost::optional<std::string> Options::getOneS3SupportStorageCredentials() const
+{
+    return get<std::string>({"ones3-support-storage-credentials",
+        "ones3_support_storage_credentials",
+        "ones3_support_storage_credentials"});
 }
 
 boost::optional<std::string> Options::getOneS3SupportStorageId() const

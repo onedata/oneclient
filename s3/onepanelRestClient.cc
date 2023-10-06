@@ -7,12 +7,20 @@
  */
 
 #include "onepanelRestClient.h"
+#include "helpers/logging.h"
+
+#include <Poco/Net/HTTPBasicCredentials.h>
+#include <boost/algorithm/algorithm.hpp>
+#include <boost/algorithm/string/classification.hpp>
+#include <boost/algorithm/string/split.hpp>
+#include <boost/variant/get.hpp>
 
 namespace one {
 namespace rest {
 namespace onepanel {
 
 OnepanelClient::OnepanelClient(const std::string &hostname)
+    : credentials_{OnepanelNoAuth{}}
 {
     session_.setHost(hostname);
     session_.setKeepAlive(true);
@@ -20,7 +28,12 @@ OnepanelClient::OnepanelClient(const std::string &hostname)
 
 OnepanelClient::~OnepanelClient() { session_.reset(); }
 
-void OnepanelClient::supportSpace(const std::string &token,
+void OnepanelClient::setCredentials(OnepanelCredentials credentials)
+{
+    credentials_ = std::move(credentials);
+}
+
+void OnepanelClient::supportSpace(
     const std::string &supportToken, const std::string &storageId, size_t size)
 {
     std::string result;
@@ -35,7 +48,9 @@ void OnepanelClient::supportSpace(const std::string &token,
     Poco::Net::HTTPRequest request{
         Poco::Net::HTTPRequest::HTTP_POST, "/api/v3/onepanel/provider/spaces"};
     request.setContentType("application/json");
-    request.add("X-Auth-Token", token);
+
+    updateRequestCredentials(request);
+
     request.setContentLength(bodyStr.size());
 
     auto &requestStream = session_.sendRequest(request);
@@ -47,6 +62,32 @@ void OnepanelClient::supportSpace(const std::string &token,
     auto statusCode = response.getStatus();
     if (statusCode != Poco::Net::HTTPResponse::HTTP_CREATED) {
         throw Poco::Net::HTTPException(statusCode);
+    }
+}
+
+void OnepanelClient::updateRequestCredentials(
+    Poco::Net::HTTPRequest &request) const
+{
+    if (boost::get<OnepanelBasicAuth>(&credentials_) != nullptr) {
+        std::vector<std::string> basicAuthPair;
+
+        boost::algorithm::split(basicAuthPair,
+            boost::get<OnepanelBasicAuth>(&credentials_)->credentials,
+            boost::is_any_of(":"));
+
+        if (basicAuthPair.size() != 2) {
+            throw Poco::Net::HTTPException(Poco::Net::HTTPResponse::HTTPStatus::
+                    HTTP_INTERNAL_SERVER_ERROR);
+        }
+
+        Poco::Net::HTTPBasicCredentials creds(
+            basicAuthPair.at(0), basicAuthPair.at(1));
+
+        creds.authenticate(request);
+    }
+    else if (boost::get<OnepanelTokenAuth>(&credentials_) != nullptr) {
+        request.add("X-Auth-Token",
+            boost::get<OnepanelTokenAuth>(&credentials_)->token);
     }
 }
 
@@ -72,7 +113,7 @@ std::string OnepanelClient::getProviderId()
     return object->getValue<std::string>("providerId");
 }
 
-bool OnepanelClient::isSpaceSupported(const std::string &token,
+bool OnepanelClient::isSpaceSupported(
     const std::string &spaceId, const std::string &providerId)
 {
     std::string result;
@@ -80,7 +121,7 @@ bool OnepanelClient::isSpaceSupported(const std::string &token,
     Poco::Net::HTTPRequest request{Poco::Net::HTTPRequest::HTTP_GET,
         std::string("/api/v3/onepanel/provider/spaces/") + spaceId};
     request.setContentType("application/json");
-    request.add("X-Auth-Token", token);
+    updateRequestCredentials(request);
     request.setContentLength(0);
 
     session_.sendRequest(request);
@@ -107,43 +148,7 @@ bool OnepanelClient::isSpaceSupported(const std::string &token,
         object->getObject("supportingProviders")->has(providerId);
 }
 
-std::vector<std::pair<std::string, std::string>> OnepanelClient::listUserSpaces(
-    const std::string &token)
-{
-    std::vector<std::pair<std::string, std::string>> result;
-
-    Poco::Net::HTTPRequest request{
-        Poco::Net::HTTPRequest::HTTP_GET, "/api/v3/oneprovider/spaces"};
-    request.setContentType("application/json");
-    request.add("X-Auth-Token", token);
-    request.setContentLength(0);
-
-    session_.sendRequest(request);
-
-    Poco::Net::HTTPResponse response;
-    auto responseStream = toString(session_.receiveResponse(response));
-
-    auto statusCode = response.getStatus();
-    if (statusCode != Poco::Net::HTTPResponse::HTTP_OK) {
-        throw Poco::Net::HTTPException(statusCode);
-    }
-
-    Poco::JSON::Parser p;
-    auto value = p.parse(responseStream);
-    Poco::JSON::Array::Ptr spaces = value.extract<Poco::JSON::Array::Ptr>();
-
-    for (const auto &space : *spaces) {
-        Poco::JSON::Object::Ptr spaceDetails =
-            space.extract<Poco::JSON::Object::Ptr>();
-        result.emplace_back(
-            spaceDetails->get("name"), spaceDetails->get("spaceId"));
-    }
-
-    return result;
-}
-
-bool OnepanelClient::ensureSpaceIsSupported(
-    const std::string &token, const std::string &spaceId)
+bool OnepanelClient::ensureSpaceIsSupported(const std::string &spaceId)
 {
     using namespace std::literals::chrono_literals; // NOLINT
 
@@ -153,7 +158,7 @@ bool OnepanelClient::ensureSpaceIsSupported(
 
     auto retryCount = kRetryCountMax;
     while (retryCount-- != 0) {
-        if (isSpaceSupported(token, spaceId, providerId))
+        if (isSpaceSupported(spaceId, providerId))
             return true;
 
         std::this_thread::sleep_for(100ms);
