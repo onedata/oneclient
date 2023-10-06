@@ -1,0 +1,2 @@
+rm -f /usr/bin/ones3
+rm -rf /opt/ones3
