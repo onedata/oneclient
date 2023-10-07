@@ -256,6 +256,19 @@ void S3Server::putBucket(const HttpRequestPtr &req,
         one::rest::onepanel::OnepanelClient onepanelClient{
             m_options->getProviderHost().value()};
 
+        if (m_options->getOneS3SupportStorageCredentials()) {
+            onepanelClient.setCredentials(
+                one::rest::onepanel::OnepanelBasicAuth{
+                    *m_options->getOneS3SupportStorageCredentials()});
+        }
+        else if (m_options->getAccessToken()) {
+            onepanelClient.setCredentials(
+                one::rest::onepanel::OnepanelTokenAuth{
+                    *m_options->getAccessToken()});
+        }
+        else
+            throw one::s3::error::AccessDenied(bucket, bucket, requestId);
+
         if (bucketNameCached(bucket))
             throw one::s3::error::BucketAlreadyOwnedByYou(
                 bucket, bucket, requestId);
@@ -267,8 +280,7 @@ void S3Server::putBucket(const HttpRequestPtr &req,
                 onezoneClient.listUserSpaces(auth->getToken())) {
                 if (onezoneClient.getUserSpace(auth->getToken(), spaceId)
                         .name == bucket) {
-                    if (onepanelClient.ensureSpaceIsSupported(
-                            m_options->getAccessToken().value(), spaceId))
+                    if (onepanelClient.ensureSpaceIsSupported(spaceId))
                         throw one::s3::error::BucketAlreadyOwnedByYou(
                             bucket, bucket, requestId);
                 }
@@ -281,8 +293,7 @@ void S3Server::putBucket(const HttpRequestPtr &req,
             }
             catch (Poco::Net::HTTPException &e) {
                 if (e.code() == Poco::Net::HTTPResponse::HTTP_CONFLICT) {
-                    if (onepanelClient.ensureSpaceIsSupported(
-                            m_options->getAccessToken().value(), spaceId))
+                    if (onepanelClient.ensureSpaceIsSupported(spaceId))
                         throw one::s3::error::BucketAlreadyOwnedByYou(
                             bucket, bucket, requestId);
                 }
@@ -296,16 +307,14 @@ void S3Server::putBucket(const HttpRequestPtr &req,
             auto spaceSupportToken = onezoneClient.createSpaceSupportToken(
                 auth->getToken(), spaceId);
 
-            onepanelClient.supportSpace(m_options->getAccessToken().value(),
-                spaceSupportToken,
+            onepanelClient.supportSpace(spaceSupportToken,
                 m_options->getOneS3SupportStorageId().value(),
                 m_options->getOneS3SupportStorageSize());
 
             //
             // Wait for space to be visible
             //
-            if (onepanelClient.ensureSpaceIsSupported(
-                    m_options->getAccessToken().value(), spaceId)) {
+            if (onepanelClient.ensureSpaceIsSupported(spaceId)) {
                 // Why do I have to do this? Shouldn't ensureSpaceIsSupported()
                 // be enough
                 const int kEnsureSpaceSupportRetryCount = 100;
@@ -362,10 +371,21 @@ bool S3Server::ensureSpaceIsSupported(const std::string &bucket,
 
     auto response = HttpResponse::newHttpResponse();
 
-    one::rest::onepanel::OnepanelClient onepanelClient{
-        m_options->getProviderHost().value()};
     one::rest::onezone::OnezoneClient onezoneClient{
         m_options->getOnezoneHost().value()};
+
+    one::rest::onepanel::OnepanelClient onepanelClient{
+        m_options->getProviderHost().value()};
+    if (m_options->getOneS3SupportStorageCredentials()) {
+        onepanelClient.setCredentials(one::rest::onepanel::OnepanelBasicAuth{
+            *m_options->getOneS3SupportStorageCredentials()});
+    }
+    else if (m_options->getAccessToken()) {
+        onepanelClient.setCredentials(one::rest::onepanel::OnepanelTokenAuth{
+            *m_options->getAccessToken()});
+    }
+    else
+        throw one::s3::error::AccessDenied(bucket, bucket, requestId);
 
     try {
         try {
@@ -380,8 +400,7 @@ bool S3Server::ensureSpaceIsSupported(const std::string &bucket,
                 throw one::s3::error::NoSuchBucket(bucket, bucket, requestId);
             }
 
-            if (onepanelClient.ensureSpaceIsSupported(
-                    m_options->getAccessToken().value(), spaceId)) {
+            if (onepanelClient.ensureSpaceIsSupported(spaceId)) {
 
                 // Why do I have to do this? Shouldn't ensureSpaceIsSupported()
                 // be enough

@@ -566,6 +566,8 @@ public:
 
     size_t getOneS3SupportStorageSize() const;
 
+    boost::optional<std::string> getOneS3SupportStorageCredentials() const;
+
     boost::optional<std::string> getOneS3SupportStorageId() const;
 
     /**
