@@ -69,6 +69,9 @@ void throwHTTPExceptionFromRESTErrorResponse(std::istream &responseStream)
     if (errorId == "badToken")
         throw Poco::Net::HTTPException(
             Poco::Net::HTTPResponse::HTTPStatus::HTTP_UNAUTHORIZED);
+    if (errorId == "badValueToken")
+        throw Poco::Net::HTTPException(
+            Poco::Net::HTTPResponse::HTTPStatus::HTTP_UNAUTHORIZED);
     if (errorId == "badServiceToken")
         throw Poco::Net::HTTPException(
             Poco::Net::HTTPResponse::HTTPStatus::HTTP_UNAUTHORIZED);

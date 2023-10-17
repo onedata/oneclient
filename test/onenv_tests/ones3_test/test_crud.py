@@ -26,6 +26,20 @@ def test_put_object_simple(s3_client, bucket):
     assert(res['Body'].read() == body)
 
 
+def test_get_object_readonly_token(s3_client, s3_readonly_client, bucket):
+    key = random_path()
+
+    body = random_bytes()
+    etag = hashlib.md5(body).hexdigest()
+
+    s3_client.put_object(Bucket=bucket, Key=key, Body=body)
+    res = s3_readonly_client.get_object(Bucket=bucket, Key=key)
+
+    assert(res['ContentLength'] == len(body))
+    assert(res['ETag'] == f'"{etag}"')
+    assert(res['Body'].read() == body)
+
+
 def test_put_object_naughty_file_names(s3_client, bucket, thread_count = 25):
     def put_get_object(job):
         bucket_, key_, body_ = job
@@ -255,7 +269,6 @@ def test_delete_object(s3_client, bucket):
     assert 'The specified key does not exist' in str(excinfo.value)
 
 
-# @pytest.mark.skip()
 def test_delete_objects(s3_client, bucket):
     body = random_bytes()
 
@@ -293,6 +306,7 @@ def test_get_object_range(s3_client, bucket):
     assert(res['ETag'] == f'"{etag}"')
     assert(res['Body'].read() == body[2:5])
 
+
 @pytest.mark.parametrize(
     "size",
     [
@@ -326,6 +340,42 @@ def test_get_object_remote(s3_client, oneprovider_2_ip, onezone_admin_token,
             retries = retries - 1
 
     assert(retries > 0)
+
+
+@pytest.mark.parametrize(
+    "size",
+    [
+        pytest.param(1024), pytest.param(5*1024*1024)
+    ],
+)
+def test_get_object_remote_readonly_token(s3_client, s3_readonly_client, oneprovider_2_ip, onezone_admin_token,
+                           size):
+    bucket = 'test_get_object_remote'
+    key = random_str()
+
+    data = random_bytes(size)
+
+    r = put_file(oneprovider_2_ip, onezone_admin_token, bucket, key, data)
+
+    assert(r.status_code == 201)
+
+    retries = 10
+    while retries > 0:
+        try:
+            res = s3_readonly_client.get_object(Bucket=bucket, Key=key)
+
+            assert(res['ContentLength'] == len(data))
+            assert(res['Body'].read() == data)
+
+            break
+        except s3_client.exceptions.NoSuchKey as e:
+            # Wait for the file to show up at oneprovider 1
+            time.sleep(2)
+        finally:
+            retries = retries - 1
+
+    assert(retries > 0)
+
 
 def test_get_object_range_multiple(s3_client, bucket, uuid_str):
     name = uuid_str
@@ -372,6 +422,19 @@ def test_head_object(s3_client, bucket):
 
     s3_client.put_object(Bucket=bucket, Key=key, Body=body)
     res = s3_client.head_object(Bucket=bucket, Key=key)
+
+    assert(res['ContentLength'] == len(body))
+    assert(res['ETag'] == f'"{etag}"')
+
+
+def test_head_object_readonly_token(s3_client, s3_readonly_client, bucket):
+    key = random_path()
+
+    body = random_bytes()
+    etag = hashlib.md5(body).hexdigest()
+
+    s3_client.put_object(Bucket=bucket, Key=key, Body=body)
+    res = s3_readonly_client.head_object(Bucket=bucket, Key=key)
 
     assert(res['ContentLength'] == len(body))
     assert(res['ETag'] == f'"{etag}"')

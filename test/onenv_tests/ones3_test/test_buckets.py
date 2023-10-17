@@ -213,6 +213,37 @@ def test_list_small_bucket_and_verify_etag(s3_client, bucket, encoding_type, del
     assert(len(res['Contents']) == file_count)
     assert(res['Name'] == bucket)
 
+    for i in range(len(res['Contents'])):
+        assert(res['Contents'][i]['ETag'] == f'"{files_md5[i]}"')
+
+
+@pytest.mark.parametrize(
+    "encoding_type,delimiter",
+    [
+        pytest.param('path', '/'), pytest.param('url', '/'),
+        pytest.param('path', ''), pytest.param('url', '')
+    ],
+)
+def test_list_small_bucket_and_verify_etag_readonly_token(s3_client, s3_readonly_client, bucket, encoding_type, delimiter):
+    file_count = 20
+    files_content = []
+    files_md5 = []
+    for i in range(file_count):
+        body = random_bytes()
+        etag = hashlib.md5(body).hexdigest()
+        s3_client.put_object(Bucket=bucket, Key=f'file-{i:0>4}.txt', Body=body)
+        files_content.append(body)
+        files_md5.append(etag)
+
+    res = s3_readonly_client.list_objects(Bucket=bucket, Delimiter=delimiter,
+                                          EncodingType=encoding_type,
+                                          MaxKeys=1000,
+                                          Prefix='')
+
+    assert(len(files_md5) == file_count)
+    assert(len(files_content) == file_count)
+    assert(len(res['Contents']) == file_count)
+    assert(res['Name'] == bucket)
 
     for i in range(len(res['Contents'])):
         assert(res['Contents'][i]['ETag'] == f'"{files_md5[i]}"')

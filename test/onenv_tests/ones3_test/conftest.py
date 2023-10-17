@@ -99,9 +99,27 @@ def onezone_admin_token(onezone_ip):
 
 @pytest.fixture(scope=FIXTURE_SCOPE)
 def onezone_readonly_token(onezone_ip):
-    tokens_endpoint = f'https://{onezone_ip}/api/v3/onezone/user/client_tokens'
-    res = requests.post(tokens_endpoint, {},
-                        auth=requests.auth.HTTPBasicAuth('admin', 'password'), verify=False)
+    """Generate new readonly only client token."""
+    temporary_token_path = 'api/v3/onezone/user/tokens/temporary'
+    tokens_endpoint = f'https://{onezone_ip}/{temporary_token_path}'
+    headers = {'content-type': 'application/json'}
+    res = requests.post(tokens_endpoint,
+                        json={
+                            "type": {
+                                "accessToken": {}
+                            },
+                            "caveats": [{
+                                "type": "data.readonly"
+                            }, {
+                                "type":
+                                    "time",
+                                "validUntil":
+                                    int(time.time()) + 2592000
+                            }]
+                        },
+                        headers=headers,
+                        auth=requests.auth.HTTPBasicAuth('admin', 'password'),
+                        verify=False)
     return res.json()["token"]
 
 

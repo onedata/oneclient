@@ -14,7 +14,7 @@ sources: false
 # be based off onedata/worker image (it contains all the machinery to run the
 # application from sources - images based off onedata-worker are images with
 # -dev suffix).
-onezoneImage: "docker.onedata.org/onezone-dev:develop"
+onezoneImage: "docker.onedata.org/onezone:VFS-10999-prod-integration-of-files-source-plugin"
 
 # Oneprovider image to use. Note that if 'sources' option is enabled, it must
 # be based off onedata/worker image (images based off onedata-worker are

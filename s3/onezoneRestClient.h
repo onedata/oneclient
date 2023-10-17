@@ -29,6 +29,11 @@ struct UserSpaceDetails {
     std::map<std::string, size_t> providers;
     unsigned long long creationTime;
 };
+
+struct Space {
+    std::string id;
+    std::string name;
+};
 } // namespace model
 
 class OnezoneClient {
@@ -40,7 +45,7 @@ public:
     std::string createSpaceSupportToken(
         const std::string &token, const std::string &spaceId);
 
-    std::vector<std::string> listUserSpaces(const std::string &token);
+    std::vector<model::Space> listUserSpaces(const std::string &token);
 
     model::UserSpaceDetails getUserSpace(
         const std::string &token, const std::string &spaceId);
