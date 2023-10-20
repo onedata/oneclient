@@ -17,6 +17,7 @@ import time
 import configparser
 
 import logging
+
 #
 # Uncomment to trace boto3 requests
 #
@@ -24,12 +25,14 @@ import logging
 
 FIXTURE_SCOPE = "session"
 
+
 def clean_bucket(s3_client, name, prefix=''):
     continuation_token = ''
     while True:
         res = s3_client.list_objects_v2(Bucket=name, Delimiter='',
-                EncodingType='url', MaxKeys=1000, Prefix=prefix,
-                ContinuationToken=continuation_token)
+                                        EncodingType='url', MaxKeys=1000,
+                                        Prefix=prefix,
+                                        ContinuationToken=continuation_token)
         if 'CommonPrefixes' in res:
             for cp in res['CommonPrefixes']:
                 p = cp['Prefix']
@@ -47,6 +50,7 @@ def clean_bucket(s3_client, name, prefix=''):
             continuation_token = res['NextContinuationToken']
         else:
             break
+
 
 @pytest.fixture(scope=FIXTURE_SCOPE)
 def git_version():
@@ -90,10 +94,29 @@ def ceph_monitor_ip():
 
 
 @pytest.fixture(scope=FIXTURE_SCOPE)
+def user_joe_id(onezone_ip):
+    user_endpoint = f'https://{onezone_ip}/api/v3/onezone/user'
+    res = requests.get(user_endpoint,
+                       auth=requests.auth.HTTPBasicAuth('joe', 'password'),
+                       verify=False)
+    return res.json()["userId"]
+
+
+@pytest.fixture(scope=FIXTURE_SCOPE)
 def onezone_admin_token(onezone_ip):
     tokens_endpoint = f'https://{onezone_ip}/api/v3/onezone/user/client_tokens'
     res = requests.post(tokens_endpoint, {},
-                        auth=requests.auth.HTTPBasicAuth('admin', 'password'), verify=False)
+                        auth=requests.auth.HTTPBasicAuth('admin', 'password'),
+                        verify=False)
+    return res.json()["token"]
+
+
+@pytest.fixture(scope=FIXTURE_SCOPE)
+def onezone_joe_token(onezone_ip):
+    tokens_endpoint = f'https://{onezone_ip}/api/v3/onezone/user/client_tokens'
+    res = requests.post(tokens_endpoint, {},
+                        auth=requests.auth.HTTPBasicAuth('joe', 'password'),
+                        verify=False)
     return res.json()["token"]
 
 
@@ -137,10 +160,12 @@ def readonly_secret_access_key():
 def support_storage_id(request, oneprovider_ip, onezone_admin_token):
     storages_endpoint = f'https://{oneprovider_ip}/api/v3/onepanel/provider/storages'
     storages = requests.get(storages_endpoint,
-                            headers={'X-Auth-Token': onezone_admin_token}, verify=False)
+                            headers={'X-Auth-Token': onezone_admin_token},
+                            verify=False)
     for storage_id in storages.json()["ids"]:
         storage = requests.get(f'{storages_endpoint}/{storage_id}',
-                               headers={'X-Auth-Token': onezone_admin_token}, verify=False)
+                               headers={'X-Auth-Token': onezone_admin_token},
+                               verify=False)
         if request.param in storage.json()['name']:
             return storage_id
 
@@ -161,15 +186,16 @@ def s3_endpoint(s3_host, s3_port):
 
 
 @pytest.fixture(scope=FIXTURE_SCOPE)
-def s3_server(request, onezone_ip, oneprovider_ip, ceph_monitor_ip, onezone_admin_token,
-                 support_storage_id, s3_port):
+def s3_server(request, onezone_ip, oneprovider_ip, ceph_monitor_ip,
+              onezone_admin_token,
+              support_storage_id, s3_port):
     ones3_cli = (
-            f'debug/s3/ones3 -i -v 1 --onezone-host {onezone_ip} -H {oneprovider_ip}'
-            f' --ones3-support-storage-id {support_storage_id}'
-            f' --ones3-support-storage-credentials onepanel:password'
-            f' --override {support_storage_id}:monitorHostname:{ceph_monitor_ip}'
-            f' --ones3-thread-num 10 --scheduler-thread-count 1 --storage-helper-thread-count 10'
-            f' --ones3-http-port {s3_port} --force-direct-io --no-buffer --provider-timeout 60')
+        f'debug/s3/ones3 -i -v 1 --onezone-host {onezone_ip} -H {oneprovider_ip}'
+        f' --ones3-support-storage-id {support_storage_id}'
+        f' --ones3-support-storage-credentials onepanel:password'
+        f' --override {support_storage_id}:monitorHostname:{ceph_monitor_ip}'
+        f' --ones3-thread-num 10 --scheduler-thread-count 1 --storage-helper-thread-count 10'
+        f' --ones3-http-port {s3_port} --force-direct-io --no-buffer --provider-timeout 60')
     proc = subprocess.Popen(ones3_cli.split(' '))
     print(f"-- Starting ones3 server: {ones3_cli}")
     time.sleep(15)
@@ -199,8 +225,10 @@ def create_s3client(s3_endpoint, access_token, secret_key):
         aws_secret_access_key=secret_key
     )
 
+
 @pytest.fixture(scope=FIXTURE_SCOPE)
-def s3_static_client(onezone_admin_token, s3_server, secret_access_key, s3_endpoint):
+def s3_static_client(onezone_admin_token, s3_server, secret_access_key,
+                     s3_endpoint):
     return create_s3client(s3_endpoint, onezone_admin_token, secret_access_key)
 
 
@@ -209,10 +237,12 @@ def dummy_bucket(s3_static_client):
     uuid_str = "dummy_test_bucket"
     try:
         s3_static_client.create_bucket(Bucket=uuid_str,
-                                       CreateBucketConfiguration={'LocationConstraint': 'pl-reg-k1'})
+                                       CreateBucketConfiguration={
+                                           'LocationConstraint': 'pl-reg-k1'})
     except botocore.exceptions.ClientError as e:
         pass
     yield uuid_str
+
 
 @pytest.fixture
 def s3_client(onezone_admin_token, s3_server, secret_access_key, s3_endpoint):
@@ -220,17 +250,24 @@ def s3_client(onezone_admin_token, s3_server, secret_access_key, s3_endpoint):
 
 
 @pytest.fixture
-def s3_readonly_client(s3_server, onezone_readonly_token, readonly_secret_access_key, s3_endpoint):
-    return create_s3client(s3_endpoint, onezone_readonly_token, readonly_secret_access_key)
+def s3_readonly_client(s3_server, onezone_readonly_token,
+                       readonly_secret_access_key, s3_endpoint):
+    return create_s3client(s3_endpoint, onezone_readonly_token,
+                           readonly_secret_access_key)
 
 
 @pytest.fixture(scope=FIXTURE_SCOPE)
 def s3_client_invalid_key(s3_server, s3_endpoint):
     return create_s3client(s3_endpoint, 'INVALID_KEY_ID', 'INVALID_SECRET')
 
+
+@pytest.fixture
+def s3_client_joe(onezone_joe_token, s3_server, secret_access_key, s3_endpoint):
+    return create_s3client(s3_endpoint, onezone_joe_token, secret_access_key)
+
+
 @pytest.fixture(scope=FIXTURE_SCOPE)
 def rclone_setup(onezone_admin_token, secret_access_key, s3_endpoint):
-
     name = 's3proxy'
 
     config_path = os.path.expanduser("~/.config/rclone/rclone.conf")
@@ -272,14 +309,16 @@ def rclone_setup(onezone_admin_token, secret_access_key, s3_endpoint):
 
 @pytest.fixture(scope=FIXTURE_SCOPE)
 def minio_setup(onezone_admin_token, secret_access_key, s3_server, s3_endpoint):
-    os.system(f'mc alias set --insecure s3proxy "{s3_endpoint}" {onezone_admin_token} {secret_access_key}')
+    os.system(
+        f'mc alias set --insecure s3proxy "{s3_endpoint}" {onezone_admin_token} {secret_access_key}')
 
 
 @pytest.fixture
 def bucket(s3_client, uuid_str):
     with pytest.raises(Exception) as e:
         s3_client.create_bucket(Bucket=uuid_str,
-                CreateBucketConfiguration={'LocationConstraint': 'pl-reg-k1'})
+                                CreateBucketConfiguration={
+                                    'LocationConstraint': 'pl-reg-k1'})
         if str(e.type) == "<class 'botocore.errorfactory.BucketAlreadyOwnedByYou'>":
             pass
         else:

@@ -6,9 +6,8 @@ This software is released under the MIT license cited in 'LICENSE.txt'
 import hashlib
 import pytest
 import time
-from .oneprovider_rest_client import put_file
 from concurrent.futures import ThreadPoolExecutor, wait, ALL_COMPLETED
-from .common import random_bytes, random_str, random_path
+from .common import *
 from .big_list_of_naughty_strings import big_list_of_naughty_strings
 
 
