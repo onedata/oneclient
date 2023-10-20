@@ -98,6 +98,8 @@ folly::Future<Aws::S3::Model::ListObjectsResult> S3Logic::readDir(
         .thenValue([prefix, bucket, marker, maxKeys](auto &&args) {
             POP_FUTURES_2(args, attrs, isPrefixARegularFilePath);
 
+            attrs.throwIfFailed();
+
             Aws::S3::Model::ListObjectsResult result;
             result.SetPrefix(prefix.toStdString());
             result.SetName(bucket.toStdString());
@@ -190,6 +192,8 @@ folly::Future<Aws::S3::Model::ListObjectsV2Result> S3Logic::readDirV2(
         .thenValue([prefix, bucket, marker, maxKeys](auto &&args) {
             POP_FUTURES_2(args, attrs, isPrefixARegularFilePath);
 
+            attrs.throwIfFailed();
+
             Aws::S3::Model::ListObjectsV2Result result;
             result.SetPrefix(prefix.toStdString());
             result.SetName(bucket.toStdString());
@@ -263,10 +267,11 @@ folly::Future<Aws::S3::Model::ListObjectsV2Result> S3Logic::readDirV2Recursive(
     const bool fetchOwner, const bool includeDirectories)
 {
     return getBucketAttr(bucket)
-        .thenValue([this, maxKeys, startAfter, includeDirectories, token,
-                       prefix](auto &&attr) {
-            return communicate<FileList>(ListFilesRecursively{attr.uuid(),
-                maxKeys, token, startAfter, prefix,
+        .thenTry([this, maxKeys, startAfter, includeDirectories, token, prefix](
+                     auto &&maybeAttr) {
+            maybeAttr.throwIfFailed();
+            return communicate<FileList>(ListFilesRecursively{
+                maybeAttr.value().uuid(), maxKeys, token, startAfter, prefix,
                 {ONEDATA_S3_XATTR_CONTENT_MD5}, includeDirectories});
         })
         .thenValue([prefix, bucket, token, startAfter, maxKeys, fetchOwner](

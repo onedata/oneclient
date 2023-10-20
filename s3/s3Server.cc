@@ -1078,7 +1078,7 @@ void S3Server::putCompleteObject(const HttpRequestPtr &req,
                 });
         })
         .thenError(folly::tag_t<std::system_error>{},
-            [response, callback, requestId, bucket, path](auto &&e) mutable {
+            [response, callback, requestId, bucket, path](auto &&e) {
                 one::s3::error::S3Exception::raiseFromSystemError(
                     e, bucket, path, requestId);
             })
@@ -1366,12 +1366,13 @@ void S3Server::listObjects(const HttpRequestPtr &req,
     auto tokenFuture = m_logicCache->get(auth->getToken());
     if (delimiter.empty()) {
         std::move(tokenFuture)
-            .thenValue([listVersion, callback = std::move(callback), bucket,
-                           prefix, continuationToken, startAfter, maxKeys,
+            .thenValue([listVersion, callback, bucket, prefix,
+                           continuationToken, startAfter, maxKeys, requestId,
                            fetchOwner](std::shared_ptr<S3Logic> &&s3) mutable {
                 if (listVersion == 2)
-                    s3->readDirV2Recursive(bucket, prefix, continuationToken,
-                          startAfter, maxKeys, fetchOwner)
+                    return s3
+                        ->readDirV2Recursive(bucket, prefix, continuationToken,
+                            startAfter, maxKeys, fetchOwner)
                         .thenValue([callback](auto &&result) {
                             auto response = HttpResponse::newHttpResponse();
                             response->setContentTypeString("application/xml");
@@ -1380,51 +1381,105 @@ void S3Server::listObjects(const HttpRequestPtr &req,
                                     result));
                             callback(response);
                         })
-                        .get();
-                else
-                    s3->readDirRecursive(bucket, prefix, continuationToken,
-                          startAfter, maxKeys)
-                        .thenValue([callback](auto &&result) {
-                            auto response = HttpResponse::newHttpResponse();
-                            response->setContentTypeString("application/xml");
-                            response->setBody(
-                                serialize<Aws::S3::Model::ListObjectsResult>(
-                                    result));
-                            callback(response);
-                        })
-                        .get();
-            });
+                        .thenError(folly::tag_t<std::system_error>{},
+                            [callback, requestId, bucket, prefix](
+                                auto &&e) mutable {
+                                one::s3::error::S3Exception::
+                                    raiseFromSystemError(
+                                        e, bucket, prefix, requestId);
+                            });
+
+                return s3
+                    ->readDirRecursive(
+                        bucket, prefix, continuationToken, startAfter, maxKeys)
+                    .thenValue([callback](auto &&result) {
+                        auto response = HttpResponse::newHttpResponse();
+                        response->setContentTypeString("application/xml");
+                        response->setBody(
+                            serialize<Aws::S3::Model::ListObjectsResult>(
+                                result));
+                        callback(response);
+                    })
+                    .thenError(folly::tag_t<std::system_error>{},
+                        [callback, requestId, bucket, prefix](
+                            auto &&e) mutable {
+                            one::s3::error::S3Exception::raiseFromSystemError(
+                                e, bucket, prefix, requestId);
+                        });
+            })
+            .thenError(folly::tag_t<one::s3::error::S3Exception>{},
+                [callback, requestId](auto &&e) mutable {
+                    LOG_REQUEST_ERROR(
+                        requestId, "List objects failed due to", e.what());
+                    auto response = HttpResponse::newHttpResponse();
+                    e.fillResponse(response);
+                    callback(response);
+                })
+            .thenError(folly::tag_t<std::exception>{},
+                [callback, requestId](auto &&e) mutable {
+                    LOG_REQUEST_ERROR(
+                        requestId, "List objects failed due to", e.what());
+                    auto response = HttpResponse::newHttpResponse();
+                    response->setStatusCode(drogon::k500InternalServerError);
+                    callback(response);
+                }) FUTURE_GET();
     }
     else {
         std::move(tokenFuture)
-            .thenValue([listVersion, callback = std::move(callback), bucket,
-                           prefix, marker, &delimiter,
+            .thenValue([listVersion, callback, bucket, prefix, marker,
+                           &delimiter, requestId,
                            maxKeys](std::shared_ptr<S3Logic> &&s3) mutable {
                 if (listVersion == 2)
-                    s3->readDirV2(bucket, prefix, marker, delimiter, maxKeys)
-                        .thenTry([callback = std::move(callback)](
-                                     auto &&result) {
+                    return s3
+                        ->readDirV2(bucket, prefix, marker, delimiter, maxKeys)
+                        .thenValue([callback](auto &&result) {
                             auto response = HttpResponse::newHttpResponse();
                             response->setContentTypeString("application/xml");
                             response->setBody(
                                 serialize<Aws::S3::Model::ListObjectsV2Result>(
-                                    result.value()));
-                            callback(response);
-                        })
-                        .get();
-                else
-                    s3->readDir(bucket, prefix, marker, delimiter, maxKeys)
-                        .thenValue([callback = std::move(callback)](
-                                       auto &&result) {
-                            auto response = HttpResponse::newHttpResponse();
-                            response->setContentTypeString("application/xml");
-                            response->setBody(
-                                serialize<Aws::S3::Model::ListObjectsResult>(
                                     result));
                             callback(response);
                         })
-                        .get();
-            });
+                        .thenError(folly::tag_t<std::system_error>{},
+                            [callback, requestId, bucket, prefix](
+                                auto &&e) mutable {
+                                one::s3::error::S3Exception::
+                                    raiseFromSystemError(
+                                        e, bucket, prefix, requestId);
+                            });
+
+                return s3->readDir(bucket, prefix, marker, delimiter, maxKeys)
+                    .thenValue([callback](auto &&result) {
+                        auto response = HttpResponse::newHttpResponse();
+                        response->setContentTypeString("application/xml");
+                        response->setBody(
+                            serialize<Aws::S3::Model::ListObjectsResult>(
+                                result));
+                        callback(response);
+                    })
+                    .thenError(folly::tag_t<std::system_error>{},
+                        [callback, requestId, bucket, prefix](
+                            auto &&e) mutable {
+                            one::s3::error::S3Exception::raiseFromSystemError(
+                                e, bucket, prefix, requestId);
+                        });
+            })
+            .thenError(folly::tag_t<one::s3::error::S3Exception>{},
+                [callback, requestId](auto &&e) mutable {
+                    LOG_REQUEST_ERROR(
+                        requestId, "List objects failed due to", e.what());
+                    auto response = HttpResponse::newHttpResponse();
+                    e.fillResponse(response);
+                    callback(response);
+                })
+            .thenError(folly::tag_t<std::exception>{},
+                [callback, requestId](auto &&e) mutable {
+                    LOG_REQUEST_ERROR(
+                        requestId, "List objects failed due to", e.what());
+                    auto response = HttpResponse::newHttpResponse();
+                    response->setStatusCode(drogon::k500InternalServerError);
+                    callback(response);
+                }) FUTURE_GET();
     }
 }
 
