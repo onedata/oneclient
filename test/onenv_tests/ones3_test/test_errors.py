@@ -99,9 +99,6 @@ def test_error_list_buckets_user_with_no_spaces(s3_client_joe, bucket,
                                                 onezone_admin_token,
                                                 onezone_ip, oneprovider_ip,
                                                 user_joe_id):
-    # space_id = get_space_id(oneprovider_ip, onezone_admin_token, bucket)
-    # add_user_to_space(onezone_ip, user_joe_id, space_id, ['space_view'])
-
     # Make sure multiple calls triggering invalid_provider error during
     # handshake return AccessDenied always
     for _ in range(0, 5):

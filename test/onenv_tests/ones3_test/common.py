@@ -5,6 +5,7 @@ This software is released under the MIT license cited in 'LICENSE.txt'
 import os
 import random
 import string
+import time
 
 import requests
 
@@ -71,11 +72,25 @@ def remove_user_from_space(onezone_ip, user_id, space_id):
 
 def put_file(oneprovider_host, token, bucket_name, path, data,
              content_type='application/octet-stream'):
-    url = f'https://{oneprovider_host}/api/v3/oneprovider/lookup-file-id/{bucket_name}'
-    space_id = requests.post(url,
-                             headers={'X-Auth-Token': token,
-                                      'Content-type': 'application/json'},
-                             verify=False).json()["fileId"]
+    url = (f'https://{oneprovider_host}/api/v3/oneprovider/'
+           f'lookup-file-id/{bucket_name}')
+
+    repeats = 5
+    space_id = None
+    while (repeats > 0) and (space_id is None):
+        try:
+            r = requests.post(url,
+                              headers={'X-Auth-Token': token,
+                                       'Content-type': 'application/json'},
+                              verify=False)
+            if r.status_code != 200:
+                repeats -= 1
+                continue
+
+            space_id = r.json()["fileId"]
+        except Exception as e:
+            time.sleep(5)
+            repeats -= 1
 
     url = f'https://{oneprovider_host}/api/v3/oneprovider/' \
           f'data/{space_id}/path/{path}'

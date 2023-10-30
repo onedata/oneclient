@@ -195,7 +195,7 @@ def s3_server(request, onezone_ip, oneprovider_ip, ceph_monitor_ip,
         f' --ones3-support-storage-credentials onepanel:password'
         f' --override {support_storage_id}:monitorHostname:{ceph_monitor_ip}'
         f' --ones3-thread-num 10 --scheduler-thread-count 1 --storage-helper-thread-count 10'
-        f' --ones3-http-port {s3_port} --force-direct-io --no-buffer --provider-timeout 60')
+        f' --ones3-http-port {s3_port} --force-direct-io --no-buffer --provider-timeout 180')
     proc = subprocess.Popen(ones3_cli.split(' '))
     print(f"-- Starting ones3 server: {ones3_cli}")
     time.sleep(15)
