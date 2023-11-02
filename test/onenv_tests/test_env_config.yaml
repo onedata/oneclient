@@ -42,6 +42,12 @@ onedataCliImage: "docker.onedata.org/rest-cli:ID-f310819457"
 # deployment. If disabled, they will only be pulled if not existent.
 forceImagePull: true
 
+# User configuration
+users:
+  - &noone
+    name: noone
+    password: password
+
 # Determines if spaces should be created. It can be either boolean value or
 # list of spaces that should be created.
 #

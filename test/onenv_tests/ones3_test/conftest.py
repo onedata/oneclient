@@ -121,6 +121,15 @@ def onezone_joe_token(onezone_ip):
 
 
 @pytest.fixture(scope=FIXTURE_SCOPE)
+def onezone_noone_token(onezone_ip):
+    tokens_endpoint = f'https://{onezone_ip}/api/v3/onezone/user/client_tokens'
+    res = requests.post(tokens_endpoint, {},
+                        auth=requests.auth.HTTPBasicAuth('noone', 'password'),
+                        verify=False)
+    return res.json()["token"]
+
+
+@pytest.fixture(scope=FIXTURE_SCOPE)
 def onezone_readonly_token(onezone_ip):
     """Generate new readonly only client token."""
     temporary_token_path = 'api/v3/onezone/user/tokens/temporary'
@@ -264,6 +273,11 @@ def s3_client_invalid_key(s3_server, s3_endpoint):
 @pytest.fixture
 def s3_client_joe(onezone_joe_token, s3_server, secret_access_key, s3_endpoint):
     return create_s3client(s3_endpoint, onezone_joe_token, secret_access_key)
+
+
+@pytest.fixture
+def s3_client_noone(onezone_noone_token, s3_server, secret_access_key, s3_endpoint):
+    return create_s3client(s3_endpoint, onezone_noone_token, secret_access_key)
 
 
 @pytest.fixture(scope=FIXTURE_SCOPE)

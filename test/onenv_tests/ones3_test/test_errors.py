@@ -95,15 +95,12 @@ def test_error_directory_is_not_object(s3_client, bucket):
     assert e.value.response['Error']['Code'] == 'NoSuchKey'
 
 
-def test_error_list_buckets_user_with_no_spaces(s3_client_joe, bucket,
-                                                onezone_admin_token,
-                                                onezone_ip, oneprovider_ip,
-                                                user_joe_id):
+def test_error_list_buckets_user_with_no_spaces(s3_client_noone):
     # Make sure multiple calls triggering invalid_provider error during
     # handshake return AccessDenied always
-    for _ in range(0, 5):
+    for _ in range(0, 20):
         with pytest.raises(botocore.exceptions.ClientError) as e:
-            s3_client_joe.list_buckets()
+            s3_client_noone.list_buckets()
 
         assert (e.value.response['Error']['Code'] == 'AccessDenied') \
                 or (e.value.response['Error']['Code'] == '500')
