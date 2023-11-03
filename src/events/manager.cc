@@ -17,12 +17,13 @@ namespace one {
 namespace client {
 namespace events {
 
-Manager::Manager(std::shared_ptr<Context> context)
-    : m_scheduler{*context->scheduler()}
-    , m_sequencerManager{context->communicator(),
-          context->options()->getProviderTimeout()}
+Manager::Manager(Scheduler &scheduler,
+    std::shared_ptr<communication::Communicator> communicator,
+    std::chrono::seconds timeout)
+    : m_scheduler{scheduler}
+    , m_sequencerManager{communicator, timeout}
     , m_sequencerStream{m_sequencerManager.create()}
-    , m_router{*this, *context->communicator()}
+    , m_router{*this, *communicator}
 {
 }
 

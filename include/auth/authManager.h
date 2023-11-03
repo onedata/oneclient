@@ -35,7 +35,7 @@
 namespace one {
 namespace client {
 
-class Context;
+// class Context;
 
 namespace auth {
 
@@ -45,7 +45,7 @@ constexpr std::chrono::seconds FAILED_MACAROON_REFRESH_RETRY{10};
  * The AuthManager class is responsible for setting an authentication scheme
  * for Client - Provider communication.
  */
-class AuthManager {
+template <typename ContextT> class AuthManager {
 public:
     /**
      * Constructor.
@@ -58,9 +58,16 @@ public:
      * Global Registry's server certificates for validity.
      * @param providerTimeout Timeout for provider connection.
      */
-    AuthManager(std::weak_ptr<Context> context, std::string defaultHostname,
+    AuthManager(std::weak_ptr<ContextT> context, std::string defaultHostname,
         const unsigned int port, const bool checkCertificate,
-        const std::chrono::seconds providerTimeout);
+        const std::chrono::seconds providerTimeout)
+        : m_context{std::move(context)}
+        , m_hostname{std::move(defaultHostname)}
+        , m_port{port}
+        , m_checkCertificate{checkCertificate}
+        , m_providerTimeout{providerTimeout}
+    {
+    }
 
     virtual ~AuthManager() = default;
 
@@ -73,7 +80,7 @@ public:
      * @return A new instance of @c Communicator and a future for handshake
      * completion.
      */
-    virtual std::tuple<std::shared_ptr<communication::Communicator>,
+    virtual std::tuple<std::shared_ptr<typename ContextT::CommunicatorT>,
         folly::Future<folly::Unit>>
     createCommunicator(const unsigned int poolSize,
         const unsigned int workerCount, std::string sessionId,
@@ -86,7 +93,7 @@ public:
     /**
      * Performs neccesary cleanup in case of authentication error.
      */
-    virtual void cleanup();
+    virtual void cleanup() { }
 
     /**
      * @return The actual hostname the manager connects to.
@@ -96,7 +103,7 @@ public:
     virtual void scheduleRefresh(const std::chrono::seconds after) = 0;
 
 protected:
-    std::weak_ptr<Context> m_context;
+    std::weak_ptr<ContextT> m_context;
     std::string m_hostname;
     const unsigned int m_port;
     const bool m_checkCertificate;
@@ -109,31 +116,31 @@ protected:
  * The MacaroonAuthManager class is responsible for setting up user
  * authentication using a macaroon macaroon-based scheme.
  */
-template <typename MacaroonHandlerT>
-class MacaroonAuthManager : public AuthManager {
+template <typename MacaroonHandlerT, typename ContextT>
+class MacaroonAuthManager : public AuthManager<ContextT> {
 public:
     template <typename T = MacaroonHandlerT>
-    MacaroonAuthManager(std::weak_ptr<Context> context,
+    MacaroonAuthManager(std::weak_ptr<ContextT> context,
         std::string defaultHostname, const unsigned int port,
         const bool checkCertificate, const std::chrono::seconds providerTimeout,
         typename std::enable_if_t<std::is_same<T, CLIMacaroonHandler>::value>
             * = nullptr)
-        : AuthManager{context, std::move(defaultHostname), port,
+        : AuthManager<ContextT>{context, std::move(defaultHostname), port,
               checkCertificate, providerTimeout}
         , m_macaroonHandler{std::make_unique<T>(
-              MacaroonRetrievePolicyFromCLI{
-                  *context.lock()->options(), m_environment.userDataDir()},
-              MacaroonPersistPolicyFile{m_environment.userDataDir()})}
+              MacaroonRetrievePolicyFromCLI{*context.lock()->options(),
+                  this->m_environment.userDataDir()},
+              MacaroonPersistPolicyFile{this->m_environment.userDataDir()})}
     {
     }
 
     template <typename T = MacaroonHandlerT>
-    MacaroonAuthManager(std::weak_ptr<Context> context,
+    MacaroonAuthManager(std::weak_ptr<ContextT> context,
         std::string defaultHostname, const unsigned int port,
         const bool checkCertificate, const std::chrono::seconds providerTimeout,
         typename std::enable_if_t<
             std::is_same<T, OptionsMacaroonHandler>::value> * = nullptr)
-        : AuthManager{context, std::move(defaultHostname), port,
+        : AuthManager<ContextT>{context, std::move(defaultHostname), port,
               checkCertificate, providerTimeout}
         , m_macaroonHandler{std::make_unique<T>(
               MacaroonRetrievePolicyFromOptions{*context.lock()->options()})}
@@ -141,13 +148,13 @@ public:
     }
 
     template <typename T = MacaroonHandlerT>
-    MacaroonAuthManager(std::weak_ptr<Context> context,
+    MacaroonAuthManager(std::weak_ptr<ContextT> context,
         std::string defaultHostname, const unsigned int port,
         const folly::fbstring &token, const bool checkCertificate,
         const std::chrono::seconds providerTimeout,
         typename std::enable_if_t<std::is_same<T, TokenMacaroonHandler>::value>
             * = nullptr)
-        : AuthManager{context, std::move(defaultHostname), port,
+        : AuthManager<ContextT>{context, std::move(defaultHostname), port,
               checkCertificate, providerTimeout}
         , m_macaroonHandler{
               std::make_unique<T>(MacaroonRetrievePolicyFromToken{token})}
@@ -156,7 +163,7 @@ public:
 
     virtual ~MacaroonAuthManager() { m_cancelRefresh(); }
 
-    std::tuple<std::shared_ptr<communication::Communicator>,
+    std::tuple<std::shared_ptr<typename ContextT::CommunicatorT>,
         folly::Future<folly::Unit>>
     createCommunicator(const unsigned int poolSize,
         const unsigned int workerCount, std::string sessionId,
@@ -170,12 +177,13 @@ public:
 
         m_cancelRefresh();
 
-        auto communicator = std::make_shared<communication::Communicator>(
-            poolSize, workerCount, m_hostname, m_port, m_checkCertificate, true,
-            true, false, m_providerTimeout);
+        auto communicator = std::make_shared<typename ContextT::CommunicatorT>(
+            poolSize, workerCount, this->m_hostname, this->m_port,
+            this->m_checkCertificate, true, true, false,
+            this->m_providerTimeout);
 
         auto sessionMode = SessionMode::normal;
-        auto context = m_context.lock();
+        auto context = this->m_context.lock();
         if (!context)
             throw std::runtime_error("Application context already released.");
 
@@ -222,7 +230,7 @@ public:
             << std::chrono::duration_cast<std::chrono::seconds>(after).count()
             << " seconds";
 
-        m_cancelRefresh = m_context.lock()->scheduler()->schedule(
+        m_cancelRefresh = this->m_context.lock()->scheduler()->schedule(
             after, std::bind(&MacaroonAuthManager::refreshMacaroon, this));
     }
 
@@ -234,9 +242,10 @@ private:
 
         try {
             communication::wait(
-                m_context.lock()->communicator()->send(one::messages::Macaroon{
-                    m_macaroonHandler->refreshRestrictedMacaroon()}),
-                m_providerTimeout);
+                this->m_context.lock()->communicator()->send(
+                    one::messages::Macaroon{
+                        m_macaroonHandler->refreshRestrictedMacaroon()}),
+                this->m_providerTimeout);
             scheduleRefresh(RESTRICTED_MACAROON_REFRESH);
         }
         catch (const std::exception &e) {

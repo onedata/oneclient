@@ -33,7 +33,7 @@ namespace client {
 namespace cache {
 
 ReaddirCache::ReaddirCache(OpenFileMetadataCache &metadataCache,
-    std::weak_ptr<Context> context,
+    std::weak_ptr<OneclientContext> context,
     std::shared_ptr<virtualfs::VirtualFsHelpersCache> virtualFsHelpersCache,
     std::function<void(folly::Function<void()>)> runInFiber)
     : m_metadataCache(metadataCache)

@@ -108,6 +108,7 @@ private:
  * @c HelpersCache is responsible for creating and caching
  * @c helpers::StorageHelper instances.
  */
+template<typename CommunicatorT>
 class HelpersCache : public HelpersCacheBase {
 public:
     /**
@@ -118,7 +119,7 @@ public:
      * operations.
      * @param options Options instance used to configure buffer limits.
      */
-    HelpersCache(communication::Communicator &communicator,
+    HelpersCache(CommunicatorT &communicator,
         std::shared_ptr<Scheduler> scheduler, const options::Options &options,
         int maxAttempts = VERIFY_TEST_FILE_ATTEMPTS);
 
@@ -176,7 +177,7 @@ private:
         const folly::fbstring &fileUuid, const folly::fbstring &spaceId,
         const folly::fbstring &storageId);
 
-    communication::Communicator &m_communicator;
+    CommunicatorT &m_communicator;
     std::shared_ptr<Scheduler> m_scheduler;
     const options::Options &m_options;
 
@@ -188,11 +189,11 @@ private:
         std::unordered_map<folly::fbstring, folly::fbstring>>
         m_helperParamOverrides;
 
-    helpers::StorageHelperCreator m_helperFactory;
+    helpers::StorageHelperCreator<CommunicatorT> m_helperFactory;
 
     // Instance of storage access manager used for performing automatic
     // storage detection
-    StorageAccessManager m_storageAccessManager;
+    StorageAccessManager<CommunicatorT>  m_storageAccessManager;
 
     // Store the access type flag for each storage, representing the
     // currently detected access type mode.

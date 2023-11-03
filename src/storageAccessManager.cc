@@ -9,7 +9,6 @@
 #include "storageAccessManager.h"
 #include "helpers/logging.h"
 #include "helpers/storageHelper.h"
-#include "helpers/storageHelperCreator.h"
 #include "messages/fuse/createStorageTestFile.h"
 #include "messages/fuse/storageTestFile.h"
 #include "messages/fuse/verifyStorageTestFile.h"
@@ -104,16 +103,16 @@ std::vector<boost::filesystem::path> getMountPoints()
 #endif
 } // namespace
 
-StorageAccessManager::StorageAccessManager(
-    helpers::StorageHelperCreator &helperFactory,
+template <typename CommunicatorT>
+StorageAccessManager<CommunicatorT>::StorageAccessManager(
+    helpers::StorageHelperCreator<CommunicatorT> &helperFactory,
     const options::Options &options)
     : m_helperFactory{helperFactory}
     , m_options{options}
 {
 }
 
-bool StorageAccessManager::checkPosixMountpointOverride(
-    const folly::fbstring &storageId,
+bool checkPosixMountpointOverride(const folly::fbstring &storageId,
     const std::unordered_map<folly::fbstring, folly::fbstring> &overrideParams)
 {
     // Check, if the user has provided a mountPoint override for this
@@ -147,90 +146,8 @@ bool StorageAccessManager::checkPosixMountpointOverride(
     return false;
 }
 
-std::shared_ptr<helpers::StorageHelper>
-StorageAccessManager::verifyStorageTestFile(const folly::fbstring &storageId,
-    const messages::fuse::StorageTestFile &testFile)
-{
-    const auto &helperParams = testFile.helperParams();
-    const auto &overrideParams = m_options.getHelperOverrideParams(storageId);
 
-    if (helperParams.name() == helpers::POSIX_HELPER_NAME) {
-        std::vector<boost::filesystem::path> mountPoints;
-
-        // Check if the mount point is provided during integration tests
-        if (helperParams.args().find("testMountPoint") !=
-            helperParams.args().cend()) {
-            mountPoints.emplace_back(
-                helperParams.args().at("testMountPoint").toStdString());
-        }
-        else {
-            // List all mountpoints in the system for automatic detection
-            mountPoints = getMountPoints();
-        }
-
-        for (const auto &mountPoint : mountPoints) {
-            LOG(INFO) << "Verifying POSIX storage " << storageId
-                      << " test file under mountpoint " << mountPoint;
-
-            auto helper = m_helperFactory.getStorageHelper(
-                helpers::POSIX_HELPER_NAME,
-                {{helpers::POSIX_HELPER_MOUNT_POINT_ARG, mountPoint.string()}},
-                m_options.isIOBuffered());
-
-            if (verifyStorageTestFile(storageId, helper, testFile)) {
-                LOG(INFO) << "POSIX storage " << storageId
-                          << " successfuly located under " << mountPoint;
-                return helper;
-            }
-        }
-    }
-    else if ((helperParams.name() == helpers::NULL_DEVICE_HELPER_NAME)
-#if WITH_WEBDAV
-        || (helperParams.name() == helpers::HTTP_HELPER_NAME)
-#endif
-    ) {
-        return m_helperFactory.getStorageHelper(helperParams.name(),
-            helperParams.args(), m_options.isIOBuffered(), overrideParams);
-    }
-    else {
-        auto helper = m_helperFactory.getStorageHelper(helperParams.name(),
-            helperParams.args(), m_options.isIOBuffered(), overrideParams);
-
-        bool skipStorageDetection = false;
-
-        if (helperParams.args().find("skipStorageDetection") !=
-                helperParams.args().cend() &&
-            helperParams.args().at("skipStorageDetection") == "true")
-            skipStorageDetection = true;
-
-        // Command line override has higher priority than server settings
-        if (overrideParams.find("skipStorageDetection") !=
-            overrideParams.cend()) {
-            if (overrideParams.at("skipStorageDetection") == "true")
-                skipStorageDetection = true;
-            else if (overrideParams.at("skipStorageDetection") == "false")
-                skipStorageDetection = false;
-            else
-                LOG(WARNING) << "Invalid value "
-                             << overrideParams.at("skipStorageDetection")
-                             << " provided for skipStorageDetection";
-        }
-
-        if (skipStorageDetection)
-            return helper;
-
-        if (verifyStorageTestFile(storageId, helper, testFile)) {
-            LOG(INFO) << helperParams.name() << " storage " << storageId
-                      << " successfuly detected";
-            return helper;
-        }
-    }
-
-    return {};
-}
-
-bool StorageAccessManager::verifyStorageTestFile(
-    const folly::fbstring &storageId,
+bool verifyStorageTestFile(const folly::fbstring &storageId,
     std::shared_ptr<helpers::StorageHelper> helper,
     const messages::fuse::StorageTestFile &testFile)
 {
@@ -276,8 +193,7 @@ bool StorageAccessManager::verifyStorageTestFile(
     return false;
 }
 
-folly::fbstring StorageAccessManager::modifyStorageTestFile(
-    const folly::fbstring &storageId,
+folly::fbstring modifyStorageTestFile(const folly::fbstring &storageId,
     std::shared_ptr<helpers::StorageHelper> helper,
     const messages::fuse::StorageTestFile &testFile)
 {

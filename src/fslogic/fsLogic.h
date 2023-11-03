@@ -15,6 +15,7 @@
 #include "cache/helpersCache.h"
 #include "cache/openFileMetadataCache.h"
 #include "cache/readdirCache.h"
+#include "context.h"
 #include "events/events.h"
 #include "fsSubscriptions.h"
 #include "fslogic/fiberBound.h"
@@ -48,9 +49,6 @@ class SyncResponse;
 } // namespace messages
 
 namespace client {
-
-class Context;
-
 namespace fslogic {
 
 const std::array<std::pair<int, int>, 6> FSLOGIC_RETRY_DELAYS{
@@ -86,9 +84,10 @@ public:
      * @param providerTimeout Timeout for provider connection.
      * @param runInFiber A function that runs callback inside a main fiber.
      */
-    FsLogic(std::shared_ptr<Context> context,
+    FsLogic(std::shared_ptr<OneclientContext> context,
         std::shared_ptr<messages::Configuration> configuration,
-        std::unique_ptr<cache::HelpersCache> helpersCache,
+        std::unique_ptr<cache::HelpersCache<communication::Communicator>>
+            helpersCache,
         unsigned int metadataCacheSize, bool readEventsDisabled,
         bool forceFullblockRead, const std::chrono::seconds providerTimeout,
         const std::chrono::seconds directoryCacheDropAfter,
@@ -414,11 +413,13 @@ private:
      */
     folly::fbstring resolveSpaceRelativeSymlink(const folly::fbstring &link);
 
-    std::shared_ptr<Context> m_context;
-    events::Manager m_eventManager{m_context};
+    std::shared_ptr<OneclientContext> m_context;
+    events::Manager m_eventManager{
+        *m_context->scheduler(), m_context->communicator(), m_providerTimeout};
     cache::OpenFileMetadataCache m_metadataCache;
     cache::ForceProxyIOCache m_forceProxyIOCache;
-    std::unique_ptr<cache::HelpersCache> m_helpersCache;
+    std::unique_ptr<cache::HelpersCache<communication::Communicator>>
+        m_helpersCache;
     std::shared_ptr<virtualfs::VirtualFsHelpersCache> m_virtualFsHelpersCache;
     std::shared_ptr<cache::ReaddirCache> m_readdirCache;
     bool m_readEventsDisabled = false;

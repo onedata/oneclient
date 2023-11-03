@@ -158,7 +158,7 @@ int main(int argc, char *argv[])
 {
     helpers::init();
 
-    auto context = std::make_shared<Context>();
+    auto context = std::make_shared<OneclientContext>();
     auto options = getOptions(argc, argv);
     __options = options;
     context->setOptions(options);
@@ -201,8 +201,7 @@ int main(int argc, char *argv[])
         struct fuse_session *fuse{nullptr};
 
 #if FUSE_USE_VERSION > 30
-        struct fuse_cmdline_opts opts {
-        };
+        struct fuse_cmdline_opts opts { };
         res = fuse_parse_cmdline(&args, &opts);
         if (res == -1)
             return EXIT_FAILURE;
@@ -224,7 +223,9 @@ int main(int argc, char *argv[])
 
         // Create test communicator with single connection to test the
         // authentication and get protocol configuration
-        auto authManager = getCLIAuthManager(context);
+        auto authManager =
+            getCLIAuthManager<client::Context<communication::Communicator>>(
+                context);
         auto sessionId = generateSessionId();
         auto configuration = getConfiguration(sessionId, authManager, context,
             messages::handshake::ClientType::oneclient);
@@ -357,15 +358,20 @@ int main(int argc, char *argv[])
         if (startPerformanceMonitoring(options) != EXIT_SUCCESS)
             return EXIT_FAILURE;
 
-        auto communicator = getCommunicator(sessionId, authManager, context,
-            messages::handshake::ClientType::oneclient);
+        auto communicator =
+            getCommunicator<client::Context<communication::Communicator>>(
+                sessionId, authManager, context,
+                messages::handshake::ClientType::oneclient);
         context->setCommunicator(communicator);
+        communicator->setScheduler(context->scheduler());
         communicator->connect();
+
         communicator->schedulePeriodicMessageRequest();
         authManager->scheduleRefresh(auth::RESTRICTED_MACAROON_REFRESH);
 
-        auto helpersCache = std::make_unique<cache::HelpersCache>(
-            *communicator, context->scheduler(), *options);
+        auto helpersCache =
+            std::make_unique<cache::HelpersCache<communication::Communicator>>(
+                *communicator, context->scheduler(), *options);
 
         const auto &rootUuid = configuration->rootUuid();
         fsLogic = std::make_unique<fslogic::Composite>(rootUuid,
@@ -376,8 +382,7 @@ int main(int argc, char *argv[])
             options->getDirectoryCacheDropAfter());
 
 #if FUSE_USE_VERSION > 31
-        struct fuse_loop_config config {
-        };
+        struct fuse_loop_config config { };
         config.clone_fd = opts.clone_fd;
         config.max_idle_threads = opts.max_idle_threads;
         res = (multithreaded != 0) ? fuse_session_loop_mt(fuse, &config)

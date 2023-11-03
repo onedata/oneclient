@@ -28,18 +28,18 @@ namespace one {
 namespace client {
 namespace auth {
 
-AuthManager::AuthManager(std::weak_ptr<Context> context,
-    std::string defaultHostname, const unsigned int port,
-    const bool checkCertificate, const std::chrono::seconds providerTimeout)
-    : m_context{std::move(context)}
-    , m_hostname{std::move(defaultHostname)}
-    , m_port{port}
-    , m_checkCertificate{checkCertificate}
-    , m_providerTimeout{providerTimeout}
-{
-}
-
-void AuthManager::cleanup() { }
+//AuthManager::AuthManager(std::weak_ptr<Context> context,
+//    std::string defaultHostname, const unsigned int port,
+//    const bool checkCertificate, const std::chrono::seconds providerTimeout)
+//    : m_context{std::move(context)}
+//    , m_hostname{std::move(defaultHostname)}
+//    , m_port{port}
+//    , m_checkCertificate{checkCertificate}
+//    , m_providerTimeout{providerTimeout}
+//{
+//}
+//
+//void AuthManager::cleanup() { }
 
 } // namespace auth
 } // namespace client

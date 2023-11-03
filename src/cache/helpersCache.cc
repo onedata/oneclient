@@ -67,8 +67,33 @@ HelpersCacheThreadSafeAdapter::refreshHelperParameters(
     std::lock_guard<std::mutex> l{m_cacheMutex};
     return m_cache->refreshHelperParameters(storageId, spaceId);
 }
+/*
+one::client::cache::HelpersCache<one::communication::layers::Translator<
+    one::communication::layers::Replier<one::communication::layers::Inbox<
+        one::communication::layers::AsyncResponder<one::communication::layers::
+                Sequencer<one::communication::layers::BinaryTranslator<
+                              one::communication::layers::Logger<
+                                  one::communication::layers::Retrier<
+                                      one::communication::ConnectionPool>>>,
+                    one::Scheduler>>>>>>::
+    HelpersCache(
+        one::communication::layers::Translator<
+            one::communication::layers::Replier<
+                one::communication::layers::Inbox<one::communication::layers::
+                        AsyncResponder<one::communication::layers::Sequencer<
+                            one::communication::layers::BinaryTranslator<
+                                one::communication::layers::Logger<
+                                    one::communication::layers::Retrier<
+                                        one::communication::ConnectionPool>>>,
+                            one::Scheduler>>>>> &,
+        std::shared_ptr<one::Scheduler>, one::client::options::Options const &,
+        int)
+{
+}
+*/
 
-HelpersCache::HelpersCache(communication::Communicator &communicator,
+template <typename CommunicatorT>
+HelpersCache<CommunicatorT>::HelpersCache(CommunicatorT &communicator,
     std::shared_ptr<Scheduler> scheduler, const options::Options &options,
     int maxAttempts)
     : m_communicator{communicator}
@@ -119,8 +144,9 @@ HelpersCache::HelpersCache(communication::Communicator &communicator,
 {
 }
 
-HelpersCache::AccessType HelpersCache::getAccessType(
-    const folly::fbstring &storageId)
+template <typename CommunicatorT>
+typename HelpersCache<CommunicatorT>::AccessType
+HelpersCache<CommunicatorT>::getAccessType(const folly::fbstring &storageId)
 {
     std::lock_guard<std::mutex> guard(m_accessTypeMutex);
 
@@ -130,7 +156,8 @@ HelpersCache::AccessType HelpersCache::getAccessType(
     return m_accessType[storageId];
 }
 
-folly::Future<folly::Unit> HelpersCache::refreshHelperParameters(
+template <typename CommunicatorT>
+folly::Future<folly::Unit> HelpersCache<CommunicatorT>::refreshHelperParameters(
     const folly::fbstring &storageId, const folly::fbstring &spaceId)
 {
     LOG_FCALL() << LOG_FARG(storageId) << LOG_FARG(spaceId);
@@ -152,11 +179,10 @@ folly::Future<folly::Unit> HelpersCache::refreshHelperParameters(
     return helperPromiseIt->second->getFuture().thenValue(
         [this, storageId, spaceId](HelpersCache::HelperPtr &&helper) {
             auto params = communication::wait(
-                m_communicator.communicate<messages::fuse::HelperParams>(
-                    messages::fuse::GetHelperParams{storageId.toStdString(),
-                        spaceId.toStdString(),
-                        messages::fuse::GetHelperParams::HelperMode::
-                            directMode}),
+                m_communicator.template communicate<messages::fuse::
+                        HelperParams>(messages::fuse::GetHelperParams{
+                    storageId.toStdString(), spaceId.toStdString(),
+                    messages::fuse::GetHelperParams::HelperMode::directMode}),
                 m_providerTimeout);
 
             auto helperParams = helpers::StorageHelperParams::create(
@@ -173,9 +199,11 @@ folly::Future<folly::Unit> HelpersCache::refreshHelperParameters(
         });
 }
 
-folly::Future<HelpersCache::HelperPtr> HelpersCache::get(
-    const folly::fbstring &fileUuid, const folly::fbstring &spaceId,
-    const folly::fbstring &storageId, bool forceProxyIO, bool proxyFallback)
+template <typename CommunicatorT>
+folly::Future<typename HelpersCache<CommunicatorT>::HelperPtr>
+HelpersCache<CommunicatorT>::get(const folly::fbstring &fileUuid,
+    const folly::fbstring &spaceId, const folly::fbstring &storageId,
+    bool forceProxyIO, bool proxyFallback)
 {
     LOG_FCALL() << LOG_FARG(fileUuid) << LOG_FARG(storageId)
                 << LOG_FARG(forceProxyIO);
@@ -246,7 +274,9 @@ folly::Future<HelpersCache::HelperPtr> HelpersCache::get(
     return m_cache.find(helperKey)->second->getFuture();
 }
 
-HelpersCache::HelperPtr HelpersCache::performAutoIOStorageDetection(
+template <typename CommunicatorT>
+typename HelpersCache<CommunicatorT>::HelperPtr
+HelpersCache<CommunicatorT>::performAutoIOStorageDetection(
     const folly::fbstring &fileUuid, const folly::fbstring &spaceId,
     const folly::fbstring &storageId, bool forceProxyIO)
 {
@@ -274,11 +304,10 @@ HelpersCache::HelperPtr HelpersCache::performAutoIOStorageDetection(
                 overrideParams = m_helperParamOverrides.at(storageId);
 
             auto params = communication::wait(
-                m_communicator.communicate<messages::fuse::HelperParams>(
-                    messages::fuse::GetHelperParams{storageId.toStdString(),
-                        spaceId.toStdString(),
-                        messages::fuse::GetHelperParams::HelperMode::
-                            directMode}),
+                m_communicator.template communicate<messages::fuse::
+                        HelperParams>(messages::fuse::GetHelperParams{
+                    storageId.toStdString(), spaceId.toStdString(),
+                    messages::fuse::GetHelperParams::HelperMode::directMode}),
                 m_providerTimeout);
 
             if (params.name() == helpers::PROXY_HELPER_NAME) {
@@ -293,7 +322,7 @@ HelpersCache::HelperPtr HelpersCache::performAutoIOStorageDetection(
             if (params.name() == helpers::POSIX_HELPER_NAME &&
                 overrideParams.find("mountPoint") != overrideParams.end()) {
 
-                one::client::StorageAccessManager::checkPosixMountpointOverride(
+                one::client::checkPosixMountpointOverride(
                     storageId, overrideParams);
 
                 {
@@ -362,7 +391,7 @@ HelpersCache::HelperPtr HelpersCache::performAutoIOStorageDetection(
     }
 
     auto params = communication::wait(
-        m_communicator.communicate<messages::fuse::HelperParams>(
+        m_communicator.template communicate<messages::fuse::HelperParams>(
             messages::fuse::GetHelperParams{storageId.toStdString(),
                 spaceId.toStdString(),
                 messages::fuse::GetHelperParams::HelperMode::proxyMode}),
@@ -376,7 +405,9 @@ HelpersCache::HelperPtr HelpersCache::performAutoIOStorageDetection(
         params.name(), params.args(), m_options.isIOBuffered(), overrideParams);
 }
 
-HelpersCache::HelperPtr HelpersCache::performForcedDirectIOStorageDetection(
+template <typename CommunicatorT>
+typename HelpersCache<CommunicatorT>::HelperPtr
+HelpersCache<CommunicatorT>::performForcedDirectIOStorageDetection(
     const folly::fbstring &fileUuid, const folly::fbstring &spaceId,
     const folly::fbstring &storageId)
 {
@@ -395,7 +426,7 @@ HelpersCache::HelperPtr HelpersCache::performForcedDirectIOStorageDetection(
             overrideParams = m_helperParamOverrides.at(storageId);
 
         auto params = communication::wait(
-            m_communicator.communicate<messages::fuse::HelperParams>(
+            m_communicator.template communicate<messages::fuse::HelperParams>(
                 messages::fuse::GetHelperParams{storageId.toStdString(),
                     spaceId.toStdString(),
                     messages::fuse::GetHelperParams::HelperMode::directMode}),
@@ -422,8 +453,7 @@ HelpersCache::HelperPtr HelpersCache::performForcedDirectIOStorageDetection(
         LOG_DBG(1) << "Got storage helper params for file " << fileUuid
                    << " on " << params.name() << " storage " << storageId;
 
-        one::client::StorageAccessManager::checkPosixMountpointOverride(
-            storageId, overrideParams);
+        one::client::checkPosixMountpointOverride(storageId, overrideParams);
 
         return m_helperFactory.getStorageHelper(params.name(), params.args(),
             m_options.isIOBuffered(), overrideParams);
@@ -436,7 +466,9 @@ HelpersCache::HelperPtr HelpersCache::performForcedDirectIOStorageDetection(
     }
 }
 
-HelpersCache::HelperPtr HelpersCache::requestStorageTestFileCreation(
+template <typename CommunicatorT>
+typename HelpersCache<CommunicatorT>::HelperPtr
+HelpersCache<CommunicatorT>::requestStorageTestFileCreation(
     const folly::fbstring &fileUuid, const folly::fbstring &storageId,
     const int maxAttempts)
 {
@@ -445,9 +477,10 @@ HelpersCache::HelperPtr HelpersCache::requestStorageTestFileCreation(
 
     try {
         auto testFile = communication::wait(
-            m_communicator.communicate<messages::fuse::StorageTestFile>(
-                messages::fuse::CreateStorageTestFile{
-                    fileUuid.toStdString(), storageId.toStdString()}),
+            m_communicator
+                .template communicate<messages::fuse::StorageTestFile>(
+                    messages::fuse::CreateStorageTestFile{
+                        fileUuid.toStdString(), storageId.toStdString()}),
             m_providerTimeout);
 
         auto sharedTestFileMsg =
@@ -472,7 +505,9 @@ HelpersCache::HelperPtr HelpersCache::requestStorageTestFileCreation(
     }
 }
 
-HelpersCache::HelperPtr HelpersCache::handleStorageTestFile(
+template <typename CommunicatorT>
+typename HelpersCache<CommunicatorT>::HelperPtr
+HelpersCache<CommunicatorT>::handleStorageTestFile(
     std::shared_ptr<messages::fuse::StorageTestFile> testFile,
     const folly::fbstring &storageId, const int maxAttempts)
 {
@@ -501,8 +536,7 @@ HelpersCache::HelperPtr HelpersCache::handleStorageTestFile(
         }
 
         auto fileContent =
-            one::client::StorageAccessManager::modifyStorageTestFile(
-                storageId, helper, *testFile);
+            one::client::modifyStorageTestFile(storageId, helper, *testFile);
 
         requestStorageTestFileVerification(*testFile, storageId, fileContent);
 
@@ -528,7 +562,8 @@ HelpersCache::HelperPtr HelpersCache::handleStorageTestFile(
     }
 }
 
-void HelpersCache::requestStorageTestFileVerification(
+template <typename CommunicatorT>
+void HelpersCache<CommunicatorT>::requestStorageTestFileVerification(
     const messages::fuse::StorageTestFile &testFile,
     const folly::fbstring &storageId, const folly::fbstring &fileContent)
 {
@@ -545,7 +580,7 @@ void HelpersCache::requestStorageTestFileVerification(
 
     try {
         communication::wait(
-            m_communicator.communicate<messages::fuse::FuseResponse>(
+            m_communicator.template communicate<messages::fuse::FuseResponse>(
                 std::move(request)),
             m_providerTimeout);
 
@@ -556,7 +591,8 @@ void HelpersCache::requestStorageTestFileVerification(
     }
 }
 
-void HelpersCache::handleStorageTestFileVerification(
+template <typename CommunicatorT>
+void HelpersCache<CommunicatorT>::handleStorageTestFileVerification(
     const std::error_code &ec, const folly::fbstring &storageId)
 {
     LOG_DBG(1) << "Handling verification of storage direct access: "
@@ -586,6 +622,11 @@ void HelpersCache::handleStorageTestFileVerification(
     }
 }
 
+template class HelpersCache<communication::Communicator>;
+
 } // namespace cache
+
+template class StorageAccessManager<communication::Communicator>;
+
 } // namespace client
 } // namespace one

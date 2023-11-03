@@ -22,7 +22,6 @@ namespace messages {
 class Configuration;
 } // namespace messages
 namespace client {
-class Context;
 namespace events {
 
 /**
@@ -37,7 +36,9 @@ public:
      * Constructor.
      * @param context An @c Context instance.
      */
-    Manager(std::shared_ptr<Context> context);
+    Manager(Scheduler &scheduler,
+        std::shared_ptr<communication::Communicator> communicator,
+        std::chrono::seconds timeout);
 
     virtual ~Manager() = default;
 

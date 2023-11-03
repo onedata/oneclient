@@ -89,7 +89,7 @@ S3Logic::S3Logic(std::shared_ptr<one::client::options::Options> options,
     , m_minPrefetchBlockSize{m_options->getMinimumBlockPrefetchSize()}
     , m_executor{std::move(executor)}
 {
-    m_context = std::make_shared<one::client::Context>();
+    m_context = std::make_shared<OneS3Context>();
     m_context->setScheduler(
         std::make_shared<Scheduler>(m_options->getSchedulerThreadCount()));
     m_context->setOptions(m_options);
@@ -103,16 +103,17 @@ folly::Future<std::shared_ptr<S3Logic>> S3Logic::connect()
     if (m_connected)
         return shared_from_this();
 
-    m_authManager = one::client::getTokenAuthManager(m_context, m_token);
+    m_authManager =
+        one::client::getTokenAuthManager<OneS3Context>(m_context, m_token);
     auto sessionId = one::client::generateSessionId();
-    m_configuration = one::client::getConfiguration(
+    m_configuration = one::client::getConfiguration<OneS3Context>(
         sessionId, m_authManager, m_context, ClientType::ones3);
 
     auto communicator = getCommunicator(sessionId, m_authManager, m_context,
         messages::handshake::ClientType::ones3);
     m_context->setCommunicator(communicator);
     communicator->connect();
-    communicator->schedulePeriodicMessageRequest();
+    //    communicator->schedulePeriodicMessageRequest();
     m_authManager->scheduleRefresh(
         one::client::auth::RESTRICTED_MACAROON_REFRESH);
 
@@ -126,7 +127,7 @@ folly::Future<std::shared_ptr<S3Logic>> S3Logic::connect()
             "message_trace_log", messageLogPath.string());
     }
 
-    m_helpersCache.setCache(std::make_unique<HelpersCache>(
+    m_helpersCache.setCache(std::make_unique<HelpersCache<OneS3Communicator>>(
         *communicator, m_context->scheduler(), *m_context->options()));
 
     m_rootUuid = m_configuration->rootUuid();
