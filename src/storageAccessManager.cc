@@ -213,6 +213,6 @@ bool verifyStorageTestFile(const folly::fbstring &storageId,
     return false;
 }
 
-}
+} // namespace detail
 } // namespace client
 } // namespace one
