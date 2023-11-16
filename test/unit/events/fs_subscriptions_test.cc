@@ -31,7 +31,8 @@ struct FsSubscriptionsTest : public ::testing::Test {
 
     StreamKey streamKey;
     std::int64_t subscriptionId;
-    std::shared_ptr<Context> context = testContext();
+    std::shared_ptr<one::client::Context<one::communication::Communicator>>
+        context{testContext()};
     MockManager mockManager{context};
     OpenFileMetadataCache metadataCache{
         *context->communicator(), 10000, 10s, 10s, "", {}, {}, {}, {}};

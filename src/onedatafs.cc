@@ -231,10 +231,12 @@ void OnedataFileHandle::close()
 }
 
 OnedataFS::OnedataFS(std::string sessionId, std::string rootUuid,
-    std::shared_ptr<Context> context,
-    std::shared_ptr<auth::AuthManager> authManager,
+    std::shared_ptr<Context<communication::Communicator>> context,
+    std::shared_ptr<auth::AuthManager<Context<communication::Communicator>>>
+        authManager,
     std::shared_ptr<messages::Configuration> configuration,
-    std::unique_ptr<cache::HelpersCache> helpersCache,
+    std::unique_ptr<cache::HelpersCache<communication::Communicator>>
+        helpersCache,
     unsigned int metadataCacheSize, bool readEventsDisabled,
     bool forceFullblockRead, const std::chrono::seconds providerTimeout,
     const std::chrono::seconds dropDirectoryCacheAfter)
@@ -693,7 +695,7 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(
     // This path is not used but required by the options parser
     cmdArgs.push_back("/tmp/none");
 
-    auto context = std::make_shared<Context>();
+    auto context = std::make_shared<Context<communication::Communicator>>();
     auto options = std::make_shared<options::Options>();
     options->parse(cmdArgs.size(), cmdArgs.data());
     context->setOptions(options);
@@ -717,15 +719,16 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(
     if (!configuration)
         throw std::runtime_error("Authentication to Oneprovider failed...");
 
-    auto communicator = getCommunicator(sessionId, authManager, context,
-        messages::handshake::ClientType::onedatafs);
-    context->setCommunicator(communicator);
-    communicator->connect();
-    communicator->schedulePeriodicMessageRequest();
+    auto comm = getCommunicator<Context<communication::Communicator>>(sessionId,
+        authManager, context, messages::handshake::ClientType::onedatafs);
+    context->setCommunicator(comm);
+    comm->connect();
+    comm->schedulePeriodicMessageRequest();
     authManager->scheduleRefresh(auth::RESTRICTED_MACAROON_REFRESH);
 
-    auto helpersCache = std::make_unique<cache::HelpersCache>(
-        *communicator, context->scheduler(), *options);
+    auto helpersCache =
+        std::make_unique<cache::HelpersCache<communication::Communicator>>(
+            *comm, context->scheduler(), *options);
 
     const auto &rootUuid = configuration->rootUuid();
 

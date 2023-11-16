@@ -20,6 +20,7 @@ Checks: >-
   -fuchsia*,
   -google-build-using-namespace,
   -google-default-arguments,
+  -google-runtime-int,
   -google-readability-todo,
   -hicpp-avoid-c-arrays,
   -hicpp-member-init,

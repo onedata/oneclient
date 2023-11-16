@@ -43,7 +43,7 @@ std::shared_ptr<typename ContextT::CommunicatorT> handshake(
         std::get<std::shared_ptr<typename ContextT::CommunicatorT>>(
             testCommunicatorTuple);
 
-//    testCommunicator->setScheduler(context->scheduler());
+    //    testCommunicator->setScheduler(context->scheduler());
     testCommunicator->connect();
     communication::wait(
         std::move(std::get<folly::Future<folly::Unit>>(testCommunicatorTuple)),
@@ -132,8 +132,6 @@ std::shared_ptr<typename ContextT::CommunicatorT> getCommunicator(
     auto communicator =
         std::get<std::shared_ptr<typename ContextT::CommunicatorT>>(
             communicatorTuple);
-
-//    communicator->setScheduler(context->scheduler());
 
     return communicator;
 }

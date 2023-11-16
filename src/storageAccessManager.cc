@@ -29,7 +29,72 @@
 namespace one {
 namespace client {
 
-namespace {
+bool checkPosixMountpointOverride(const folly::fbstring &storageId,
+    const std::unordered_map<folly::fbstring, folly::fbstring> &overrideParams)
+{
+    // Check, if the user has provided a mountPoint override for this
+    // storage, in which case just return a POSIX helper without storage
+    // detection
+    if (overrideParams.find("mountPoint") != overrideParams.cend()) {
+        // Check if the specified mountPoint is one of the system
+        // mountpoints
+        const auto &mountPointOverride =
+            overrideParams.find("mountPoint")->second;
+        auto mountPoints = detail::getMountPoints();
+        bool mountPointOverrideExists = false;
+
+        for (const auto &mountPoint : mountPoints) {
+            if (mountPointOverride.rfind(mountPoint.string(), 0) == 0) {
+                mountPointOverrideExists = true;
+                break;
+            }
+        }
+
+        if (!mountPointOverrideExists)
+            LOG(WARNING)
+                << "Manually specified mountPoint " << mountPointOverride
+                << " for storage " << storageId
+                << " is not one of mounts available in the system. Please "
+                << "make sure it is correct...";
+
+        return mountPointOverrideExists;
+    }
+
+    return false;
+}
+
+folly::fbstring modifyStorageTestFile(const folly::fbstring &storageId,
+    std::shared_ptr<helpers::StorageHelper> helper,
+    const messages::fuse::StorageTestFile &testFile)
+{
+    auto size = testFile.fileContent().size();
+    folly::IOBufQueue buf{folly::IOBufQueue::cacheChainLength()};
+
+    auto *data = static_cast<char *>(buf.allocate(size));
+
+    std::random_device device;
+    std::default_random_engine engine(device());
+    std::uniform_int_distribution<char> distribution('a', 'z');
+    std::generate_n(data, size, [&]() { return distribution(engine); });
+
+    auto handle = communication::wait(
+        helper->open(testFile.fileId(), O_WRONLY, {}), helper->timeout());
+
+    std::string content;
+    buf.appendToString(content);
+
+    communication::wait(
+        handle->write(0, std::move(buf), {}), helper->timeout());
+    communication::wait(handle->fsync(true), helper->timeout());
+
+    LOG_DBG(1) << "Storage " << storageId << " test file " << testFile.fileId()
+               << " in space " << testFile.spaceId()
+               << " modified with content " << content;
+
+    return content;
+}
+
+namespace detail {
 #ifdef __APPLE__
 
 std::vector<boost::filesystem::path> getMountPoints()
@@ -101,51 +166,6 @@ std::vector<boost::filesystem::path> getMountPoints()
 }
 
 #endif
-} // namespace
-
-template <typename CommunicatorT>
-StorageAccessManager<CommunicatorT>::StorageAccessManager(
-    helpers::StorageHelperCreator<CommunicatorT> &helperFactory,
-    const options::Options &options)
-    : m_helperFactory{helperFactory}
-    , m_options{options}
-{
-}
-
-bool checkPosixMountpointOverride(const folly::fbstring &storageId,
-    const std::unordered_map<folly::fbstring, folly::fbstring> &overrideParams)
-{
-    // Check, if the user has provided a mountPoint override for this
-    // storage, in which case just return a POSIX helper without storage
-    // detection
-    if (overrideParams.find("mountPoint") != overrideParams.cend()) {
-        // Check if the specified mountPoint is one of the system
-        // mountpoints
-        const auto &mountPointOverride =
-            overrideParams.find("mountPoint")->second;
-        auto mountPoints = getMountPoints();
-        bool mountPointOverrideExists = false;
-
-        for (const auto &mountPoint : mountPoints) {
-            if (mountPointOverride.rfind(mountPoint.string(), 0) == 0) {
-                mountPointOverrideExists = true;
-                break;
-            }
-        }
-
-        if (!mountPointOverrideExists)
-            LOG(WARNING)
-                << "Manually specified mountPoint " << mountPointOverride
-                << " for storage " << storageId
-                << " is not one of mounts available in the system. Please "
-                << "make sure it is correct...";
-
-        return mountPointOverrideExists;
-    }
-
-    return false;
-}
-
 
 bool verifyStorageTestFile(const folly::fbstring &storageId,
     std::shared_ptr<helpers::StorageHelper> helper,
@@ -193,36 +213,6 @@ bool verifyStorageTestFile(const folly::fbstring &storageId,
     return false;
 }
 
-folly::fbstring modifyStorageTestFile(const folly::fbstring &storageId,
-    std::shared_ptr<helpers::StorageHelper> helper,
-    const messages::fuse::StorageTestFile &testFile)
-{
-    auto size = testFile.fileContent().size();
-    folly::IOBufQueue buf{folly::IOBufQueue::cacheChainLength()};
-
-    auto *data = static_cast<char *>(buf.allocate(size));
-
-    std::random_device device;
-    std::default_random_engine engine(device());
-    std::uniform_int_distribution<char> distribution('a', 'z');
-    std::generate_n(data, size, [&]() { return distribution(engine); });
-
-    auto handle = communication::wait(
-        helper->open(testFile.fileId(), O_WRONLY, {}), helper->timeout());
-
-    std::string content;
-    buf.appendToString(content);
-
-    communication::wait(
-        handle->write(0, std::move(buf), {}), helper->timeout());
-    communication::wait(handle->fsync(true), helper->timeout());
-
-    LOG_DBG(1) << "Storage " << storageId << " test file " << testFile.fileId()
-               << " in space " << testFile.spaceId()
-               << " modified with content " << content;
-
-    return content;
 }
-
 } // namespace client
 } // namespace one

@@ -139,6 +139,7 @@ FsLogic::FsLogic(std::shared_ptr<OneclientContext> context,
     const std::chrono::seconds directoryCacheDropAfter,
     std::function<void(folly::Function<void()>)> runInFiber, bool autoStart)
     : m_context{context}
+    , m_providerTimeout{providerTimeout}
     , m_metadataCache{*m_context->communicator(), metadataCacheSize,
           providerTimeout, directoryCacheDropAfter, configuration->rootUuid(),
           m_context->options()->getSpaceNames(),
@@ -156,7 +157,6 @@ FsLogic::FsLogic(std::shared_ptr<OneclientContext> context,
     , m_fsSubscriptions{m_eventManager, m_metadataCache, m_forceProxyIOCache,
           runInFiber}
     , m_nextFuseHandleId{0}
-    , m_providerTimeout{providerTimeout}
     , m_storageTimeout{m_context->options()->getStorageTimeout()}
     , m_runInFiber{std::move(runInFiber)} /* clang-format off */
     , m_prefetchModeAsync{m_context->options()->getPrefetchMode() == "async"}

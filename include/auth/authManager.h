@@ -34,9 +34,6 @@
 
 namespace one {
 namespace client {
-
-// class Context;
-
 namespace auth {
 
 constexpr std::chrono::seconds FAILED_MACAROON_REFRESH_RETRY{10};

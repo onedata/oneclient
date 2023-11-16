@@ -201,7 +201,8 @@ int main(int argc, char *argv[])
         struct fuse_session *fuse{nullptr};
 
 #if FUSE_USE_VERSION > 30
-        struct fuse_cmdline_opts opts { };
+        struct fuse_cmdline_opts opts {
+        };
         res = fuse_parse_cmdline(&args, &opts);
         if (res == -1)
             return EXIT_FAILURE;
@@ -382,7 +383,8 @@ int main(int argc, char *argv[])
             options->getDirectoryCacheDropAfter());
 
 #if FUSE_USE_VERSION > 31
-        struct fuse_loop_config config { };
+        struct fuse_loop_config config {
+        };
         config.clone_fd = opts.clone_fd;
         config.max_idle_threads = opts.max_idle_threads;
         res = (multithreaded != 0) ? fuse_session_loop_mt(fuse, &config)

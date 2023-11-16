@@ -11,6 +11,9 @@
 
 #include "communication/communicator.h"
 #include "helpers/storageHelperCreator.h"
+#include "messages/fuse/createStorageTestFile.h"
+#include "messages/fuse/storageTestFile.h"
+#include "messages/fuse/verifyStorageTestFile.h"
 #include "options/options.h"
 #include "posixHelper.h"
 
@@ -27,11 +30,10 @@ class StorageHelper;
 namespace messages {
 namespace fuse {
 class StorageTestFile;
-}
-}
-namespace client {
+} // namespace fuse
+} // namespace messages
 
-std::vector<boost::filesystem::path> getMountPoints();
+namespace client {
 
 /**
  * Returns true if overrideParams contains 'mountPoint' parameter
@@ -55,10 +57,13 @@ folly::fbstring modifyStorageTestFile(const folly::fbstring &storageId,
     std::shared_ptr<helpers::StorageHelper> helper,
     const messages::fuse::StorageTestFile &testFile);
 
+namespace detail {
+std::vector<boost::filesystem::path> getMountPoints();
+
 bool verifyStorageTestFile(const folly::fbstring &storageId,
     std::shared_ptr<helpers::StorageHelper> helper,
     const messages::fuse::StorageTestFile &testFile);
-
+}
 /**
  * The StorageAccessManager class is responsible for detecting storages that are
  * directly accessible to the client.
@@ -71,7 +76,11 @@ public:
      */
     StorageAccessManager(
         helpers::StorageHelperCreator<CommunicatorT> &helperFactory,
-        const options::Options &options);
+        const options::Options &options)
+        : m_helperFactory{helperFactory}
+        , m_options{options}
+    {
+    }
 
     /**
      * Verifies the test file by reading it from the storage and checking its
@@ -100,7 +109,7 @@ public:
             }
             else {
                 // List all mountpoints in the system for automatic detection
-                mountPoints = getMountPoints();
+                mountPoints = detail::getMountPoints();
             }
 
             for (const auto &mountPoint : mountPoints) {
@@ -113,9 +122,10 @@ public:
                             mountPoint.string()}},
                         m_options.isIOBuffered());
 
-                if (verifyStorageTestFile(storageId, helper, testFile)) {
+                if (detail::verifyStorageTestFile(
+                        storageId, helper, testFile)) {
                     LOG(INFO) << "POSIX storage " << storageId
-                              << " successfuly located under " << mountPoint;
+                              << " successfully located under " << mountPoint;
                     return helper;
                 }
             }
@@ -155,9 +165,9 @@ public:
             if (skipStorageDetection)
                 return helper;
 
-            if (verifyStorageTestFile(storageId, helper, testFile)) {
+            if (detail::verifyStorageTestFile(storageId, helper, testFile)) {
                 LOG(INFO) << helperParams.name() << " storage " << storageId
-                          << " successfuly detected";
+                          << " successfully detected";
                 return helper;
             }
         }

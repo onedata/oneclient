@@ -414,6 +414,7 @@ private:
     folly::fbstring resolveSpaceRelativeSymlink(const folly::fbstring &link);
 
     std::shared_ptr<OneclientContext> m_context;
+    const std::chrono::seconds m_providerTimeout;
     events::Manager m_eventManager{
         *m_context->scheduler(), m_context->communicator(), m_providerTimeout};
     cache::OpenFileMetadataCache m_metadataCache;
@@ -444,7 +445,6 @@ private:
         const folly::fbstring &)>
         m_onRename = [](auto, auto, auto) {};
 
-    const std::chrono::seconds m_providerTimeout;
     const std::chrono::seconds m_storageTimeout;
     std::function<void(folly::Function<void()>)> m_runInFiber;
 

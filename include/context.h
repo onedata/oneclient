@@ -27,33 +27,38 @@ template <typename T = communication::Communicator> class Context {
 public:
     using CommunicatorT = T;
 
-    std::shared_ptr<options::Options> options() const {
+    std::shared_ptr<options::Options> options() const
+    {
         std::shared_lock<std::shared_timed_mutex> lock{m_optionsMutex};
         return m_options;
     }
 
-    void setOptions(std::shared_ptr<options::Options> options) {
+    void setOptions(std::shared_ptr<options::Options> options)
+    {
         std::lock_guard<std::shared_timed_mutex> guard{m_optionsMutex};
         m_options = std::move(options);
     }
 
-    std::shared_ptr<Scheduler> scheduler() const {
+    std::shared_ptr<Scheduler> scheduler() const
+    {
         std::shared_lock<std::shared_timed_mutex> lock{m_schedulerMutex};
         return m_scheduler;
     }
 
-    void setScheduler(std::shared_ptr<Scheduler> scheduler) {
+    void setScheduler(std::shared_ptr<Scheduler> scheduler)
+    {
         std::lock_guard<std::shared_timed_mutex> guard{m_schedulerMutex};
         m_scheduler = std::move(scheduler);
     }
 
-    std::shared_ptr<T> communicator() const {
+    std::shared_ptr<T> communicator() const
+    {
         std::shared_lock<std::shared_timed_mutex> lock{m_communicatorMutex};
         return m_communicator;
     }
 
-    void setCommunicator(
-        std::shared_ptr<T> communicator) {
+    void setCommunicator(std::shared_ptr<T> communicator)
+    {
         std::lock_guard<std::shared_timed_mutex> guard{m_communicatorMutex};
         m_communicator = std::move(communicator);
     }
