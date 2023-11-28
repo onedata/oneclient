@@ -162,10 +162,12 @@ private:
 class OnedataFS {
 public:
     OnedataFS(std::string sessionId, std::string rootUuid,
-        std::shared_ptr<Context> context,
-        std::shared_ptr<auth::AuthManager> authManager,
+        std::shared_ptr<Context<communication::Communicator>> context,
+        std::shared_ptr<auth::AuthManager<Context<communication::Communicator>>>
+            authManager,
         std::shared_ptr<messages::Configuration> configuration,
-        std::unique_ptr<cache::HelpersCache> helpersCache,
+        std::unique_ptr<cache::HelpersCache<communication::Communicator>>
+            helpersCache,
         unsigned int metadataCacheSize, bool readEventsDisabled,
         bool forceFullblockRead, const std::chrono::seconds providerTimeout,
         const std::chrono::seconds dropDirectoryCacheAfter);
@@ -233,8 +235,9 @@ private:
     std::shared_ptr<FiberFsLogic> m_fsLogic;
     std::string m_rootUuid;
     std::string m_sessionId;
-    std::shared_ptr<Context> m_context;
-    std::shared_ptr<auth::AuthManager> m_authManager;
+    std::shared_ptr<Context<communication::Communicator>> m_context;
+    std::shared_ptr<auth::AuthManager<Context<communication::Communicator>>>
+        m_authManager;
     folly::EventBase m_eventBase;
 
     folly::fibers::FiberManager &m_fiberManager{

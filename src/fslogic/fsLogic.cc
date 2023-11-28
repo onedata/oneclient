@@ -130,14 +130,16 @@ inline static folly::fbstring ONE_XATTR(const std::string &name)
     return ONE_XATTR_PREFIX + name;
 }
 
-FsLogic::FsLogic(std::shared_ptr<Context> context,
+FsLogic::FsLogic(std::shared_ptr<OneclientContext> context,
     std::shared_ptr<messages::Configuration> configuration,
-    std::unique_ptr<cache::HelpersCache> helpersCache,
+    std::unique_ptr<cache::HelpersCache<communication::Communicator>>
+        helpersCache,
     unsigned int metadataCacheSize, bool readEventsDisabled,
     bool forceFullblockRead, const std::chrono::seconds providerTimeout,
     const std::chrono::seconds directoryCacheDropAfter,
     std::function<void(folly::Function<void()>)> runInFiber, bool autoStart)
     : m_context{context}
+    , m_providerTimeout{providerTimeout}
     , m_metadataCache{*m_context->communicator(), metadataCacheSize,
           providerTimeout, directoryCacheDropAfter, configuration->rootUuid(),
           m_context->options()->getSpaceNames(),
@@ -155,7 +157,6 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     , m_fsSubscriptions{m_eventManager, m_metadataCache, m_forceProxyIOCache,
           runInFiber}
     , m_nextFuseHandleId{0}
-    , m_providerTimeout{providerTimeout}
     , m_storageTimeout{m_context->options()->getStorageTimeout()}
     , m_runInFiber{std::move(runInFiber)} /* clang-format off */
     , m_prefetchModeAsync{m_context->options()->getPrefetchMode() == "async"}
@@ -2000,10 +2001,13 @@ folly::fbstring FsLogic::getxattr(
         auto accessType = m_helpersCache->getAccessType(
             m_metadataCache.getDefaultBlock(uuid).storageId());
 
-        if (accessType == cache::HelpersCache::AccessType::DIRECT)
+        if (accessType ==
+            cache::HelpersCache<
+                communication::Communicator>::AccessType::DIRECT)
             return "\"direct\"";
 
-        if (accessType == cache::HelpersCache::AccessType::PROXY)
+        if (accessType ==
+            cache::HelpersCache<communication::Communicator>::AccessType::PROXY)
             return "\"proxy\"";
 
         return "\"unknown\"";

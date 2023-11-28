@@ -13,7 +13,10 @@ using namespace one::client::events;
 struct ManagerTest : public ::testing::Test {
     bool handlerCalled = false;
     TestSubscription subscription{[&](auto) { handlerCalled = true; }};
-    Manager manager{testContext()};
+    std::shared_ptr<one::client::Context<one::communication::Communicator>>
+        context{testContext()};
+    Manager manager{*context->scheduler(), context->communicator(),
+        std::chrono::seconds{10}};
 };
 
 TEST_F(ManagerTest, subscribeShouldReturnSubscriptionId)

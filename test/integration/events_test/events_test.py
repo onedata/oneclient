@@ -525,6 +525,7 @@ def test_aggregate_events(result, endpoint, manager):
 
 # -----------------------------------------------------------------------------
 
+
 def _test_emit_file_read(endpoint, manager, uuid, offset, size):
     with receive(endpoint, msgs_num=2) as queue:
         manager.emitFileRead(uuid, offset, size)

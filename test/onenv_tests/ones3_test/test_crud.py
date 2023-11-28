@@ -6,9 +6,8 @@ This software is released under the MIT license cited in 'LICENSE.txt'
 import hashlib
 import pytest
 import time
-from .oneprovider_rest_client import put_file
 from concurrent.futures import ThreadPoolExecutor, wait, ALL_COMPLETED
-from .common import random_bytes, random_str, random_path
+from .common import *
 from .big_list_of_naughty_strings import big_list_of_naughty_strings
 
 
@@ -21,12 +20,26 @@ def test_put_object_simple(s3_client, bucket):
     s3_client.put_object(Bucket=bucket, Key=key, Body=body)
     res = s3_client.get_object(Bucket=bucket, Key=key)
 
-    assert(res['ContentLength'] == len(body))
-    assert(res['ETag'] == f'"{etag}"')
-    assert(res['Body'].read() == body)
+    assert (res['ContentLength'] == len(body))
+    assert (res['ETag'] == f'"{etag}"')
+    assert (res['Body'].read() == body)
 
 
-def test_put_object_naughty_file_names(s3_client, bucket, thread_count = 25):
+def test_get_object_readonly_token(s3_client, s3_readonly_client, bucket):
+    key = random_path()
+
+    body = random_bytes()
+    etag = hashlib.md5(body).hexdigest()
+
+    s3_client.put_object(Bucket=bucket, Key=key, Body=body)
+    res = s3_readonly_client.get_object(Bucket=bucket, Key=key)
+
+    assert (res['ContentLength'] == len(body))
+    assert (res['ETag'] == f'"{etag}"')
+    assert (res['Body'].read() == body)
+
+
+def test_put_object_naughty_file_names(s3_client, bucket, thread_count=25):
     def put_get_object(job):
         bucket_, key_, body_ = job
         etag_ = hashlib.md5(body_).hexdigest()
@@ -51,9 +64,9 @@ def test_put_object_1B(s3_client, bucket):
     s3_client.put_object(Bucket=bucket, Key=key, Body=body)
     res = s3_client.get_object(Bucket=bucket, Key=key)
 
-    assert(res['ContentLength'] == len(body))
-    assert(res['ETag'] == f'"{etag}"')
-    assert(res['Body'].read() == body)
+    assert (res['ContentLength'] == len(body))
+    assert (res['ETag'] == f'"{etag}"')
+    assert (res['Body'].read() == body)
 
 
 def test_put_object_2B(s3_client, bucket):
@@ -65,51 +78,51 @@ def test_put_object_2B(s3_client, bucket):
     s3_client.put_object(Bucket=bucket, Key=key, Body=body)
     res = s3_client.get_object(Bucket=bucket, Key=key)
 
-    assert(res['ContentLength'] == len(body))
-    assert(res['ETag'] == f'"{etag}"')
-    assert(res['Body'].read() == body)
+    assert (res['ContentLength'] == len(body))
+    assert (res['ETag'] == f'"{etag}"')
+    assert (res['Body'].read() == body)
 
 
 def test_put_object_1MB(s3_client, bucket):
     key = random_path()
 
-    body = b'x'*1024*1024
+    body = b'x' * 1024 * 1024
     etag = hashlib.md5(body).hexdigest()
 
     s3_client.put_object(Bucket=bucket, Key=key, Body=body)
     res = s3_client.get_object(Bucket=bucket, Key=key)
 
-    assert(res['ContentLength'] == len(body))
-    assert(res['ETag'] == f'"{etag}"')
-    assert(res['Body'].read() == body)
+    assert (res['ContentLength'] == len(body))
+    assert (res['ETag'] == f'"{etag}"')
+    assert (res['Body'].read() == body)
 
 
 def test_put_object_4MB(s3_client, bucket):
     key = random_path()
 
-    body = b'x'*1024*1024*4
+    body = b'x' * 1024 * 1024 * 4
     etag = hashlib.md5(body).hexdigest()
 
     s3_client.put_object(Bucket=bucket, Key=key, Body=body)
     res = s3_client.get_object(Bucket=bucket, Key=key)
 
-    assert(res['ContentLength'] == len(body))
-    assert(res['ETag'] == f'"{etag}"')
-    assert(res['Body'].read() == body)
+    assert (res['ContentLength'] == len(body))
+    assert (res['ETag'] == f'"{etag}"')
+    assert (res['Body'].read() == body)
 
 
 def test_put_object_10MB(s3_client, bucket):
     key = random_path()
 
-    body = b'x'*1024*1024*10
+    body = b'x' * 1024 * 1024 * 10
     etag = hashlib.md5(body).hexdigest()
 
     s3_client.put_object(Bucket=bucket, Key=key, Body=body)
     res = s3_client.get_object(Bucket=bucket, Key=key)
 
-    assert(res['ContentLength'] == len(body))
-    assert(res['ETag'] == f'"{etag}"')
-    assert(res['Body'].read() == body)
+    assert (res['ContentLength'] == len(body))
+    assert (res['ETag'] == f'"{etag}"')
+    assert (res['Body'].read() == body)
 
 
 def test_put_object_overwrite(s3_client, bucket):
@@ -121,8 +134,8 @@ def test_put_object_overwrite(s3_client, bucket):
     s3_client.put_object(Bucket=bucket, Key=key, Body=body)
     res = s3_client.get_object(Bucket=bucket, Key=key)
 
-    assert(res['ContentLength'] == len(body))
-    assert(res['ETag'] == f'"{etag}"')
+    assert (res['ContentLength'] == len(body))
+    assert (res['ETag'] == f'"{etag}"')
 
     body = random_bytes()
     etag = hashlib.md5(body).hexdigest()
@@ -130,8 +143,8 @@ def test_put_object_overwrite(s3_client, bucket):
     s3_client.put_object(Bucket=bucket, Key=key, Body=body)
     res = s3_client.get_object(Bucket=bucket, Key=key)
 
-    assert(res['ContentLength'] == len(body))
-    assert(res['ETag'] == f'"{etag}"')
+    assert (res['ContentLength'] == len(body))
+    assert (res['ETag'] == f'"{etag}"')
 
 
 @pytest.mark.parametrize(
@@ -149,14 +162,15 @@ def test_put_object_with_prefix(s3_client, bucket, prefix):
     s3_client.put_object(Bucket=bucket, Key=key, Body=body)
     res = s3_client.get_object(Bucket=bucket, Key=key)
 
-    assert(res['ContentLength'] == len(body))
-    assert(res['ETag'] == f'"{etag}"')
+    assert (res['ContentLength'] == len(body))
+    assert (res['ETag'] == f'"{etag}"')
 
 
 @pytest.mark.parametrize(
     "prefix_list,count",
     [
-        pytest.param(['dir1/', 'dir1/dir2/', 'dir1/dir2/', 'dir2/dir3/dir4/dir5/'], 10),
+        pytest.param(
+            ['dir1/', 'dir1/dir2/', 'dir1/dir2/', 'dir2/dir3/dir4/dir5/'], 10),
         pytest.param(['dir50/'], 50)
     ],
 )
@@ -182,11 +196,13 @@ def test_put_and_get_objects(s3_client, bucket, prefix_list, count):
 @pytest.mark.parametrize(
     "prefix_list,count",
     [
-        pytest.param(['dir1/', 'dir1/dir2/', 'dir1/dir2/', 'dir2/dir3/dir4/dir5/'], 250),
+        pytest.param(
+            ['dir1/', 'dir1/dir2/', 'dir1/dir2/', 'dir2/dir3/dir4/dir5/'], 250),
         pytest.param(['dir50/'], 1250)
     ],
 )
-def test_put_objects_large(bucket, s3_client, prefix_list, count, thread_count=100):
+def test_put_objects_large(bucket, s3_client, prefix_list, count,
+                           thread_count=100):
     keys = []
 
     def put_object(job):
@@ -235,7 +251,7 @@ def test_put_same_object_in_path_multiple(s3_client, uuid_str, bucket):
             print(f.exception())
             failed += 1
 
-    assert(failed == 0)
+    assert (failed == 0)
 
 
 def test_delete_object(s3_client, bucket):
@@ -255,7 +271,6 @@ def test_delete_object(s3_client, bucket):
     assert 'The specified key does not exist' in str(excinfo.value)
 
 
-# @pytest.mark.skip()
 def test_delete_objects(s3_client, bucket):
     body = random_bytes()
 
@@ -268,7 +283,7 @@ def test_delete_objects(s3_client, bucket):
                                     EncodingType='path', MaxKeys=1000,
                                     Prefix='')
 
-    assert(res['KeyCount'] == 10)
+    assert (res['KeyCount'] == 10)
 
     s3_client.delete_objects(Bucket=bucket,
                              Delete={'Objects': [{'Key': f} for f in files]})
@@ -277,7 +292,7 @@ def test_delete_objects(s3_client, bucket):
                                     EncodingType='path', MaxKeys=1000,
                                     Prefix='')
 
-    assert(res['KeyCount'] == 0)
+    assert (res['KeyCount'] == 0)
 
 
 def test_get_object_range(s3_client, bucket):
@@ -289,18 +304,75 @@ def test_get_object_range(s3_client, bucket):
     s3_client.put_object(Bucket=bucket, Key=key, Body=body)
     res = s3_client.get_object(Bucket=bucket, Key=key, Range="bytes=2-4")
 
-    assert(res['ContentLength'] == 3)
-    assert(res['ETag'] == f'"{etag}"')
-    assert(res['Body'].read() == body[2:5])
+    assert (res['ContentLength'] == 3)
+    assert (res['ETag'] == f'"{etag}"')
+    assert (res['Body'].read() == body[2:5])
+
 
 @pytest.mark.parametrize(
     "size",
     [
-        pytest.param(1024), pytest.param(5*1024*1024)
+        pytest.param(1024), pytest.param(5 * 1024 * 1024)
     ],
 )
 def test_get_object_remote(s3_client, oneprovider_2_ip, onezone_admin_token,
                            size):
+    class FileLocationNotYetReplicated(Exception):
+        "Raised when file location is not yet replicated between providers"
+        pass
+
+    bucket = 'test_get_object_remote'
+    key = random_str()
+
+    data = random_bytes(size)
+
+    retries = 5
+    success = False
+    while retries > 0 and not success:
+        try:
+            r = put_file(oneprovider_2_ip, onezone_admin_token, bucket, key, data)
+
+            if r.status_code != 201:
+                raise FileLocationNotYetReplicated
+
+            success = True
+        except Exception as e:
+            # Wait for the file to show up at oneprovider 1
+            time.sleep(2)
+        finally:
+            retries = retries - 1
+
+    retries = 10
+    success = False
+    while retries > 0 and not success:
+        try:
+            res = s3_client.get_object(Bucket=bucket, Key=key)
+
+            if res['ContentLength'] < len(data):
+                raise FileLocationNotYetReplicated
+
+            assert (res['ContentLength'] == len(data))
+            assert (res['Body'].read() == data)
+
+            success = True
+        except (s3_client.exceptions.NoSuchKey, FileLocationNotYetReplicated) as e:
+            # Wait for the file to show up at oneprovider 1
+            time.sleep(2)
+        finally:
+            retries = retries - 1
+
+    assert (success)
+
+
+@pytest.mark.parametrize(
+    "size",
+    [
+        pytest.param(1024), pytest.param(5 * 1024 * 1024)
+    ],
+)
+def test_get_object_remote_readonly_token(s3_client, s3_readonly_client,
+                                          oneprovider_2_ip, onezone_admin_token,
+                                          size):
     bucket = 'test_get_object_remote'
     key = random_str()
 
@@ -308,15 +380,15 @@ def test_get_object_remote(s3_client, oneprovider_2_ip, onezone_admin_token,
 
     r = put_file(oneprovider_2_ip, onezone_admin_token, bucket, key, data)
 
-    assert(r.status_code == 201)
+    assert (r.status_code == 201)
 
     retries = 10
     while retries > 0:
         try:
-            res = s3_client.get_object(Bucket=bucket, Key=key)
+            res = s3_readonly_client.get_object(Bucket=bucket, Key=key)
 
-            assert(res['ContentLength'] == len(data))
-            assert(res['Body'].read() == data)
+            assert (res['ContentLength'] == len(data))
+            assert (res['Body'].read() == data)
 
             break
         except s3_client.exceptions.NoSuchKey as e:
@@ -325,7 +397,8 @@ def test_get_object_remote(s3_client, oneprovider_2_ip, onezone_admin_token,
         finally:
             retries = retries - 1
 
-    assert(retries > 0)
+    assert (retries > 0)
+
 
 def test_get_object_range_multiple(s3_client, bucket, uuid_str):
     name = uuid_str
@@ -361,7 +434,7 @@ def test_get_object_range_multiple(s3_client, bucket, uuid_str):
             print(f.exception())
             failed += 1
 
-    assert(failed == 0)
+    assert (failed == 0)
 
 
 def test_head_object(s3_client, bucket):
@@ -373,8 +446,21 @@ def test_head_object(s3_client, bucket):
     s3_client.put_object(Bucket=bucket, Key=key, Body=body)
     res = s3_client.head_object(Bucket=bucket, Key=key)
 
-    assert(res['ContentLength'] == len(body))
-    assert(res['ETag'] == f'"{etag}"')
+    assert (res['ContentLength'] == len(body))
+    assert (res['ETag'] == f'"{etag}"')
+
+
+def test_head_object_readonly_token(s3_client, s3_readonly_client, bucket):
+    key = random_path()
+
+    body = random_bytes()
+    etag = hashlib.md5(body).hexdigest()
+
+    s3_client.put_object(Bucket=bucket, Key=key, Body=body)
+    res = s3_readonly_client.head_object(Bucket=bucket, Key=key)
+
+    assert (res['ContentLength'] == len(body))
+    assert (res['ETag'] == f'"{etag}"')
 
 
 def test_set_content_type(s3_client, bucket):
@@ -387,13 +473,13 @@ def test_set_content_type(s3_client, bucket):
                          ContentType='application/pdf')
     res = s3_client.head_object(Bucket=bucket, Key=key)
 
-    assert(res['ContentLength'] == len(body))
+    assert (res['ContentLength'] == len(body))
     assert (res['ContentType'] == 'application/pdf')
-    assert(res['ETag'] == f'"{etag}"')
+    assert (res['ETag'] == f'"{etag}"')
 
 
 def test_autodetect_content_type(s3_client, bucket):
-    key = random_path()+".png"
+    key = random_path() + ".png"
 
     body = random_bytes()
     etag = hashlib.md5(body).hexdigest()
@@ -401,13 +487,13 @@ def test_autodetect_content_type(s3_client, bucket):
     s3_client.put_object(Bucket=bucket, Key=key, Body=body)
     res = s3_client.head_object(Bucket=bucket, Key=key)
 
-    assert(res['ContentLength'] == len(body))
-    assert(res['ContentType'] == 'image/png')
-    assert(res['ETag'] == f'"{etag}"')
+    assert (res['ContentLength'] == len(body))
+    assert (res['ContentType'] == 'image/png')
+    assert (res['ETag'] == f'"{etag}"')
 
 
 def test_autodetect_unknown_content_type(s3_client, bucket):
-    key = random_path()+"unknownextension"
+    key = random_path() + "unknownextension"
 
     body = random_bytes()
     etag = hashlib.md5(body).hexdigest()
@@ -415,9 +501,9 @@ def test_autodetect_unknown_content_type(s3_client, bucket):
     s3_client.put_object(Bucket=bucket, Key=key, Body=body)
     res = s3_client.head_object(Bucket=bucket, Key=key)
 
-    assert(res['ContentLength'] == len(body))
-    assert(res['ContentType'] == 'application/octet-stream')
-    assert(res['ETag'] == f'"{etag}"')
+    assert (res['ContentLength'] == len(body))
+    assert (res['ContentType'] == 'application/octet-stream')
+    assert (res['ETag'] == f'"{etag}"')
 
 
 @pytest.mark.skip
@@ -430,11 +516,11 @@ def test_copy_object(s3_client, bucket):
     s3_client.put_object(Bucket=bucket, Key=key, Body=body,
                          ContentType='text/plain')
 
-    res = s3_client.copy_object(Bucket=bucket, CopySource=bucket+"/"+key,
+    res = s3_client.copy_object(Bucket=bucket, CopySource=bucket + "/" + key,
                                 Key=f'{key}-copy')
 
     res = s3_client.get_object(Bucket=bucket, Key=f'{key}-copy')
 
-    assert(res['ContentLength'] == len(body))
-    assert(res['ETag'] == f'"{etag}"')
+    assert (res['ContentLength'] == len(body))
+    assert (res['ETag'] == f'"{etag}"')
     assert (res['ContentType'] == 'text/plain')

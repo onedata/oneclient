@@ -75,33 +75,47 @@ std::string OnezoneClient::createSpaceSupportToken(
     return object->getValue<std::string>("token");
 }
 
-std::vector<std::string> OnezoneClient::listUserSpaces(const std::string &token)
+std::vector<model::Space> OnezoneClient::listUserSpaces(
+    const std::string &token)
 {
-    std::vector<std::string> result;
+    std::vector<model::Space> result;
 
-    Poco::Net::HTTPRequest request{Poco::Net::HTTPRequest::HTTP_GET,
-        "/api/v3/onezone/user/effective_spaces"};
+    Poco::JSON::Object body;
+    body.set("token", token);
+    auto bodyStr = toString(body);
+
+    Poco::Net::HTTPRequest request{Poco::Net::HTTPRequest::HTTP_POST,
+        "/api/v3/onezone/tokens/infer_access_token_scope"};
     request.setContentType("application/json");
-    request.add("X-Auth-Token", token);
-    request.setContentLength(0);
+    request.setContentLength(bodyStr.size());
 
-    session_.sendRequest(request);
+    auto &requestStream = session_.sendRequest(request);
+    requestStream << bodyStr;
 
     Poco::Net::HTTPResponse response;
 
     auto &responseStream = session_.receiveResponse(response);
 
     auto statusCode = response.getStatus();
+
     if (statusCode != Poco::Net::HTTPResponse::HTTP_OK) {
         throwHTTPExceptionFromRESTErrorResponse(responseStream);
     }
 
     Poco::JSON::Parser p;
     auto value = p.parse(responseStream);
+
     Poco::JSON::Object::Ptr object = value.extract<Poco::JSON::Object::Ptr>();
 
-    for (const auto &spaceId : *object->getArray("spaces")) {
-        result.emplace_back(spaceId.toString());
+    for (const auto &space :
+        *object->getObject("dataAccessScope")->getObject("spaces")) {
+        model::Space s;
+        s.id = space.first;
+        s.name = space.second.extract<Poco::JSON::Object::Ptr>()
+                     ->get("name")
+                     .toString();
+
+        result.emplace_back(std::move(s));
     }
 
     return result;

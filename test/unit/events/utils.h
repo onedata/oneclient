@@ -202,9 +202,11 @@ one::clproto::FileRenamedEvent fileRenamedEvent(std::string fileUuid)
     return event;
 }
 
-std::shared_ptr<one::client::Context> testContext()
+std::shared_ptr<one::client::Context<one::communication::Communicator>>
+testContext()
 {
-    auto context = std::make_shared<one::client::Context>();
+    auto context = std::make_shared<
+        one::client::Context<one::communication::Communicator>>();
     context->setOptions(std::make_shared<one::client::options::Options>());
     context->setScheduler(std::make_shared<one::Scheduler>(0));
     context->setCommunicator(std::make_shared<one::communication::Communicator>(

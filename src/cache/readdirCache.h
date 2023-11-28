@@ -44,7 +44,7 @@ public:
      * @param context Pointer to @c Context to access options and scheduler.
      */
     ReaddirCache(OpenFileMetadataCache &metadataCache,
-        std::weak_ptr<Context> context,
+        std::weak_ptr<OneclientContext> context,
         std::shared_ptr<virtualfs::VirtualFsHelpersCache> virtualFsHelpersCache,
         std::function<void(folly::Function<void()>)> runInFiber);
 
@@ -117,7 +117,7 @@ private:
     /**
      * Pointer to Oneclient context, used to access options and scheduler.
      */
-    std::weak_ptr<Context> m_context;
+    std::weak_ptr<OneclientContext> m_context;
 
     /**
      *

@@ -13,6 +13,7 @@
 #include "events/manager.h"
 #include "fslogic/fsLogic.h"
 #include "fslogic/withUuids.h"
+#include "helpers/init.h"
 #include "messages/configuration.h"
 #include "options/options.h"
 #include "scheduler.h"
@@ -84,9 +85,10 @@ private:
     std::unique_ptr<PyThreadState, decltype(&PyEval_RestoreThread)> threadState;
 };
 
-class HelpersCacheProxy : public one::client::cache::HelpersCache {
+class HelpersCacheProxy
+    : public one::client::cache::HelpersCache<communication::Communicator> {
 public:
-    using HelpersCache::HelpersCache;
+    using HelpersCache<communication::Communicator>::HelpersCache;
 
     std::shared_ptr<NullHelperMock> m_helper =
         std::make_shared<NullHelperMock>();
@@ -107,7 +109,7 @@ constexpr auto FSLOGIC_PROXY_RETRY_COUNT = 2;
 
 class FsLogicProxy {
 public:
-    FsLogicProxy(std::shared_ptr<Context> context,
+    FsLogicProxy(std::shared_ptr<Context<communication::Communicator>> context,
         unsigned int metadataCacheSize = 10000,
         unsigned int dropDirectoryCacheAfter = 60)
         : m_helpersCache{new HelpersCacheProxy(*context->communicator(),
@@ -560,7 +562,7 @@ private:
 
     HelpersCacheProxy *m_helpersCache;
     fslogic::FsLogic m_fsLogic;
-    std::shared_ptr<Context> m_context;
+    std::shared_ptr<Context<communication::Communicator>> m_context;
 };
 
 namespace {
@@ -568,15 +570,18 @@ boost::shared_ptr<FsLogicProxy> create(std::string ip, int port,
     unsigned int metadataCacheSize, unsigned int dropDirectoryCacheAfter,
     std::string cliOptions = "")
 {
-    FLAGS_minloglevel = 1;
+    FLAGS_v = 0;
+
+    one::helpers::init();
 
     auto communicator = std::make_shared<Communicator>(/*connections*/ 10,
         /*threads*/ 1, ip, port,
         /*verifyServerCertificate*/ false, /*upgrade to clproto*/ true,
         /*perform handshake*/ false);
 
-    auto context = std::make_shared<Context>();
+    auto context = std::make_shared<Context<communication::Communicator>>();
     context->setScheduler(std::make_shared<Scheduler>(1));
+    communicator->setScheduler(context->scheduler());
     context->setCommunicator(communicator);
 
     const auto globalConfigPath = boost::filesystem::unique_path();

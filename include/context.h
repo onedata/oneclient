@@ -23,27 +23,57 @@ namespace options {
 class Options;
 } // namespace options
 
-class Context {
+template <typename T = communication::Communicator> class Context {
 public:
-    std::shared_ptr<options::Options> options() const;
-    void setOptions(std::shared_ptr<options::Options> options);
+    using CommunicatorT = T;
 
-    std::shared_ptr<Scheduler> scheduler() const;
-    void setScheduler(std::shared_ptr<Scheduler> scheduler);
+    std::shared_ptr<options::Options> options() const
+    {
+        std::shared_lock<std::shared_timed_mutex> lock{m_optionsMutex};
+        return m_options;
+    }
 
-    std::shared_ptr<communication::Communicator> communicator() const;
-    void setCommunicator(
-        std::shared_ptr<communication::Communicator> communicator);
+    void setOptions(std::shared_ptr<options::Options> options)
+    {
+        std::lock_guard<std::shared_timed_mutex> guard{m_optionsMutex};
+        m_options = std::move(options);
+    }
+
+    std::shared_ptr<Scheduler> scheduler() const
+    {
+        std::shared_lock<std::shared_timed_mutex> lock{m_schedulerMutex};
+        return m_scheduler;
+    }
+
+    void setScheduler(std::shared_ptr<Scheduler> scheduler)
+    {
+        std::lock_guard<std::shared_timed_mutex> guard{m_schedulerMutex};
+        m_scheduler = std::move(scheduler);
+    }
+
+    std::shared_ptr<T> communicator() const
+    {
+        std::shared_lock<std::shared_timed_mutex> lock{m_communicatorMutex};
+        return m_communicator;
+    }
+
+    void setCommunicator(std::shared_ptr<T> communicator)
+    {
+        std::lock_guard<std::shared_timed_mutex> guard{m_communicatorMutex};
+        m_communicator = std::move(communicator);
+    }
 
 private:
     std::shared_ptr<options::Options> m_options;
     std::shared_ptr<Scheduler> m_scheduler;
-    std::shared_ptr<communication::Communicator> m_communicator;
+    std::shared_ptr<T> m_communicator;
 
     mutable std::shared_timed_mutex m_optionsMutex;
     mutable std::shared_timed_mutex m_schedulerMutex;
     mutable std::shared_timed_mutex m_communicatorMutex;
 };
+
+using OneclientContext = Context<communication::Communicator>;
 
 } // namespace client
 } // namespace one

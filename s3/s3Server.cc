@@ -276,11 +276,10 @@ void S3Server::putBucket(const HttpRequestPtr &req,
         try {
             // List spaces to check if that space already exists (regardless of
             // its seed)
-            for (const auto &spaceId :
+            for (const auto &space :
                 onezoneClient.listUserSpaces(auth->getToken())) {
-                if (onezoneClient.getUserSpace(auth->getToken(), spaceId)
-                        .name == bucket) {
-                    if (onepanelClient.ensureSpaceIsSupported(spaceId))
+                if (space.name == bucket) {
+                    if (onepanelClient.ensureSpaceIsSupported(space.id))
                         throw one::s3::error::BucketAlreadyOwnedByYou(
                             bucket, bucket, requestId);
                 }
@@ -392,8 +391,10 @@ bool S3Server::ensureSpaceIsSupported(const std::string &bucket,
             // Get the space id
             std::string spaceId;
             for (const auto &space : onezoneClient.listUserSpaces(token)) {
-                if (onezoneClient.getUserSpace(token, space).name == bucket)
-                    spaceId = space;
+                if (space.name == bucket) {
+                    spaceId = space.id;
+                    break;
+                }
             }
 
             if (spaceId.empty()) {
@@ -502,77 +503,88 @@ void S3Server::deleteBucket(const HttpRequestPtr &req,
     ONE_METRIC_COUNTER_INC(toMetricName("delete_bucket", bucket));
 
     try {
-        folly::Optional<std::string> spaceIdToDelete;
+        try {
+            folly::Optional<std::string> spaceIdToDelete;
 
-        if (m_options->areOneS3BucketOperationsDisabled())
-            throw one::s3::error::AccessDenied(bucket, bucket, requestId);
+            if (m_options->areOneS3BucketOperationsDisabled())
+                throw one::s3::error::AccessDenied(bucket, bucket, requestId);
 
-        // Check if space exists
-        auto userSpaceIds = onezoneClient.listUserSpaces(auth->getToken());
-        for (const auto &spaceId : userSpaceIds) {
-            auto userSpace =
-                onezoneClient.getUserSpace(auth->getToken(), spaceId);
-            if (userSpace.name == bucket) {
-                spaceIdToDelete = spaceId;
-            }
-        }
-
-        if (!spaceIdToDelete)
-            throw one::s3::error::NoSuchBucket(bucket, bucket, requestId);
-
-        bool isEmpty =
-            m_logicCache->get(auth->getToken())
-                .thenValue([&bucket](std::shared_ptr<S3Logic> &&s3) {
-                    return s3->readDirV2Recursive(bucket, "", {}, {}, 2, false)
-                        .thenValue(
-                            [](Aws::S3::Model::ListObjectsV2Result &&result) {
-                                return result.GetKeyCount() == 0;
-                            });
-                })
-                .get();
-
-        if (!isEmpty)
-            throw one::s3::error::BucketNotEmpty(bucket, bucket, requestId);
-
-        onezoneClient.deleteSpace(auth->getToken(), spaceIdToDelete.value());
-
-        constexpr auto kRetryCount{200};
-        constexpr auto kRetryDelayMs{250};
-        auto retries = kRetryCount;
-
-        while (retries-- > 0) {
-            bool bucketStillListing{false};
-
-            auto buckets =
-                m_logicCache->get(auth->getToken())
-                    .delayed(std::chrono::milliseconds(kRetryDelayMs))
-                    .thenValue([](std::shared_ptr<S3Logic> &&s3) {
-                        return s3->listBuckets();
-                    })
-                    .thenError(folly::tag_t<std::exception>{},
-                        [callback](auto && /*e*/) mutable {
-                            return Aws::S3::Model::ListBucketsResult{};
-                        })
-                    .get();
-
-            for (const auto &listedBucket : buckets.GetBuckets()) {
-                if (listedBucket.GetName() == bucket) {
-                    bucketStillListing = true;
+            // Check if space exists
+            for (const auto &space :
+                onezoneClient.listUserSpaces(auth->getToken())) {
+                if (space.name == bucket) {
+                    spaceIdToDelete = space.id;
+                    break;
                 }
             }
 
-            if (!bucketStillListing)
-                break;
+            if (!spaceIdToDelete)
+                throw one::s3::error::NoSuchBucket(bucket, bucket, requestId);
+
+            bool isEmpty =
+                m_logicCache->get(auth->getToken())
+                    .thenValue([&bucket](std::shared_ptr<S3Logic> &&s3) {
+                        return s3
+                            ->readDirV2Recursive(bucket, "", {}, {}, 2, false)
+                            .thenValue([](Aws::S3::Model::ListObjectsV2Result
+                                               &&result) {
+                                return result.GetKeyCount() == 0;
+                            });
+                    })
+                    .get();
+
+            if (!isEmpty)
+                throw one::s3::error::BucketNotEmpty(bucket, bucket, requestId);
+
+            onezoneClient.deleteSpace(
+                auth->getToken(), spaceIdToDelete.value());
+
+            constexpr auto kRetryCount{200};
+            constexpr auto kRetryDelayMs{250};
+            auto retries = kRetryCount;
+
+            while (retries-- > 0) {
+                bool bucketStillListing{false};
+
+                auto buckets =
+                    m_logicCache->get(auth->getToken())
+                        .delayed(std::chrono::milliseconds(kRetryDelayMs))
+                        .thenValue([](std::shared_ptr<S3Logic> &&s3) {
+                            return s3->listBuckets();
+                        })
+                        .thenError(folly::tag_t<std::exception>{},
+                            [callback](auto && /*e*/) mutable {
+                                return Aws::S3::Model::ListBucketsResult{};
+                            })
+                        .get();
+
+                for (const auto &listedBucket : buckets.GetBuckets()) {
+                    if (listedBucket.GetName() == bucket) {
+                        bucketStillListing = true;
+                    }
+                }
+
+                if (!bucketStillListing)
+                    break;
+            }
+
+            if (retries <= 0)
+                throw one::s3::error::InternalServerError(
+                    bucket, bucket, requestId);
+
+            response->setStatusCode(HttpStatusCode::k204NoContent);
         }
-
-        if (retries <= 0)
-            throw one::s3::error::InternalServerError(
-                bucket, bucket, requestId);
-
-        response->setStatusCode(HttpStatusCode::k204NoContent);
+        catch (Poco::Net::HTTPException &e) {
+            one::s3::error::S3Exception::raiseFromPocoHTTPException(
+                e, bucket, bucket, requestId);
+        }
+        catch (std::system_error &e) {
+            one::s3::error::S3Exception::raiseFromSystemError(
+                e, bucket, bucket, requestId);
+        }
     }
     catch (one::s3::error::S3Exception &e) {
-        LOG_REQUEST_ERROR(requestId, "Delete bucket failed due to", e.what());
+        LOG_REQUEST_ERROR(requestId, "Delete bucket failed due to: ", e.what());
         e.fillResponse(response);
     }
 
@@ -1065,17 +1077,22 @@ void S3Server::putCompleteObject(const HttpRequestPtr &req,
                     callback(response);
                 });
         })
+        .thenError(folly::tag_t<std::system_error>{},
+            [response, callback, requestId, bucket, path](auto &&e) {
+                one::s3::error::S3Exception::raiseFromSystemError(
+                    e, bucket, path, requestId);
+            })
         .thenError(folly::tag_t<one::s3::error::S3Exception>{},
             [response, callback, requestId](auto &&e) mutable {
                 LOG_REQUEST_ERROR(
-                    requestId, "Put object failed due to", e.what());
+                    requestId, "Put object failed due to: ", e.what());
                 e.fillResponse(response);
                 callback(response);
             })
         .thenError(folly::tag_t<std::exception>{},
             [callback, requestId](auto &&e) mutable {
                 LOG_REQUEST_ERROR(
-                    requestId, "Put object failed due to", e.what());
+                    requestId, "Put object failed due to: ", e.what());
                 auto response = HttpResponse::newHttpResponse();
                 response->setStatusCode(drogon::k500InternalServerError);
                 callback(response);
@@ -1105,19 +1122,18 @@ void S3Server::deleteObject(const HttpRequestPtr &req,
         .thenValue([callback, &bucket, &path, requestId](
                        std::shared_ptr<S3Logic> &&s3) {
             return s3->deleteObject(requestId, bucket, path)
-                .thenTry([callback](folly::Try<folly::Unit> &&value) {
-                    if (value.hasException()) {
-                        auto response = HttpResponse::newHttpResponse();
-                        response->setStatusCode(HttpStatusCode::k404NotFound);
-                        callback(response);
-                        return;
-                    }
-
+                .thenError(folly::tag_t<std::system_error>{},
+                    [requestId, bucket, path](auto &&e) mutable {
+                        one::s3::error::S3Exception::raiseFromSystemError(
+                            e, bucket, path, requestId);
+                    })
+                .thenValue([callback](auto && /*unit*/) {
                     auto response = HttpResponse::newHttpResponse();
                     response->setStatusCode(drogon::k204NoContent);
                     callback(response);
                 });
         })
+
         .thenError(folly::tag_t<one::s3::error::S3Exception>{},
             [response, callback, requestId](auto &&e) mutable {
                 LOG_REQUEST_ERROR(
@@ -1350,12 +1366,13 @@ void S3Server::listObjects(const HttpRequestPtr &req,
     auto tokenFuture = m_logicCache->get(auth->getToken());
     if (delimiter.empty()) {
         std::move(tokenFuture)
-            .thenValue([listVersion, callback = std::move(callback), bucket,
-                           prefix, continuationToken, startAfter, maxKeys,
+            .thenValue([listVersion, callback, bucket, prefix,
+                           continuationToken, startAfter, maxKeys, requestId,
                            fetchOwner](std::shared_ptr<S3Logic> &&s3) mutable {
                 if (listVersion == 2)
-                    s3->readDirV2Recursive(bucket, prefix, continuationToken,
-                          startAfter, maxKeys, fetchOwner)
+                    return s3
+                        ->readDirV2Recursive(bucket, prefix, continuationToken,
+                            startAfter, maxKeys, fetchOwner)
                         .thenValue([callback](auto &&result) {
                             auto response = HttpResponse::newHttpResponse();
                             response->setContentTypeString("application/xml");
@@ -1364,51 +1381,105 @@ void S3Server::listObjects(const HttpRequestPtr &req,
                                     result));
                             callback(response);
                         })
-                        .get();
-                else
-                    s3->readDirRecursive(bucket, prefix, continuationToken,
-                          startAfter, maxKeys)
-                        .thenValue([callback](auto &&result) {
-                            auto response = HttpResponse::newHttpResponse();
-                            response->setContentTypeString("application/xml");
-                            response->setBody(
-                                serialize<Aws::S3::Model::ListObjectsResult>(
-                                    result));
-                            callback(response);
-                        })
-                        .get();
-            });
+                        .thenError(folly::tag_t<std::system_error>{},
+                            [callback, requestId, bucket, prefix](
+                                auto &&e) mutable {
+                                one::s3::error::S3Exception::
+                                    raiseFromSystemError(
+                                        e, bucket, prefix, requestId);
+                            });
+
+                return s3
+                    ->readDirRecursive(
+                        bucket, prefix, continuationToken, startAfter, maxKeys)
+                    .thenValue([callback](auto &&result) {
+                        auto response = HttpResponse::newHttpResponse();
+                        response->setContentTypeString("application/xml");
+                        response->setBody(
+                            serialize<Aws::S3::Model::ListObjectsResult>(
+                                result));
+                        callback(response);
+                    })
+                    .thenError(folly::tag_t<std::system_error>{},
+                        [callback, requestId, bucket, prefix](
+                            auto &&e) mutable {
+                            one::s3::error::S3Exception::raiseFromSystemError(
+                                e, bucket, prefix, requestId);
+                        });
+            })
+            .thenError(folly::tag_t<one::s3::error::S3Exception>{},
+                [callback, requestId](auto &&e) mutable {
+                    LOG_REQUEST_ERROR(
+                        requestId, "List objects failed due to", e.what());
+                    auto response = HttpResponse::newHttpResponse();
+                    e.fillResponse(response);
+                    callback(response);
+                })
+            .thenError(folly::tag_t<std::exception>{},
+                [callback, requestId](auto &&e) mutable {
+                    LOG_REQUEST_ERROR(
+                        requestId, "List objects failed due to", e.what());
+                    auto response = HttpResponse::newHttpResponse();
+                    response->setStatusCode(drogon::k500InternalServerError);
+                    callback(response);
+                }) FUTURE_GET();
     }
     else {
         std::move(tokenFuture)
-            .thenValue([listVersion, callback = std::move(callback), bucket,
-                           prefix, marker, &delimiter,
+            .thenValue([listVersion, callback, bucket, prefix, marker,
+                           &delimiter, requestId,
                            maxKeys](std::shared_ptr<S3Logic> &&s3) mutable {
                 if (listVersion == 2)
-                    s3->readDirV2(bucket, prefix, marker, delimiter, maxKeys)
-                        .thenTry([callback = std::move(callback)](
-                                     auto &&result) {
+                    return s3
+                        ->readDirV2(bucket, prefix, marker, delimiter, maxKeys)
+                        .thenValue([callback](auto &&result) {
                             auto response = HttpResponse::newHttpResponse();
                             response->setContentTypeString("application/xml");
                             response->setBody(
                                 serialize<Aws::S3::Model::ListObjectsV2Result>(
-                                    result.value()));
-                            callback(response);
-                        })
-                        .get();
-                else
-                    s3->readDir(bucket, prefix, marker, delimiter, maxKeys)
-                        .thenValue([callback = std::move(callback)](
-                                       auto &&result) {
-                            auto response = HttpResponse::newHttpResponse();
-                            response->setContentTypeString("application/xml");
-                            response->setBody(
-                                serialize<Aws::S3::Model::ListObjectsResult>(
                                     result));
                             callback(response);
                         })
-                        .get();
-            });
+                        .thenError(folly::tag_t<std::system_error>{},
+                            [callback, requestId, bucket, prefix](
+                                auto &&e) mutable {
+                                one::s3::error::S3Exception::
+                                    raiseFromSystemError(
+                                        e, bucket, prefix, requestId);
+                            });
+
+                return s3->readDir(bucket, prefix, marker, delimiter, maxKeys)
+                    .thenValue([callback](auto &&result) {
+                        auto response = HttpResponse::newHttpResponse();
+                        response->setContentTypeString("application/xml");
+                        response->setBody(
+                            serialize<Aws::S3::Model::ListObjectsResult>(
+                                result));
+                        callback(response);
+                    })
+                    .thenError(folly::tag_t<std::system_error>{},
+                        [callback, requestId, bucket, prefix](
+                            auto &&e) mutable {
+                            one::s3::error::S3Exception::raiseFromSystemError(
+                                e, bucket, prefix, requestId);
+                        });
+            })
+            .thenError(folly::tag_t<one::s3::error::S3Exception>{},
+                [callback, requestId](auto &&e) mutable {
+                    LOG_REQUEST_ERROR(
+                        requestId, "List objects failed due to", e.what());
+                    auto response = HttpResponse::newHttpResponse();
+                    e.fillResponse(response);
+                    callback(response);
+                })
+            .thenError(folly::tag_t<std::exception>{},
+                [callback, requestId](auto &&e) mutable {
+                    LOG_REQUEST_ERROR(
+                        requestId, "List objects failed due to", e.what());
+                    auto response = HttpResponse::newHttpResponse();
+                    response->setStatusCode(drogon::k500InternalServerError);
+                    callback(response);
+                }) FUTURE_GET();
     }
 }
 

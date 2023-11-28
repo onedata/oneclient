@@ -57,6 +57,14 @@ namespace s3 {
 
 constexpr auto SYNCHRONIZE_BLOCK_PRIORITY_IMMEDIATE = 32;
 
+using namespace one::communication;
+
+using OneS3Communicator = layers::Translator<layers::Replier<
+    layers::Inbox<layers::AsyncResponder<layers::BinaryTranslator<
+        layers::Logger<layers::Retrier<ConnectionPool>>>>>>>;
+
+using OneS3Context = client::Context<OneS3Communicator>;
+
 namespace detail {
 /**
  * Filters given flags set to one of RDONLY, WRONLY or RDWR.
@@ -309,8 +317,8 @@ private:
         one::messages::fuse::MultipartUpload &&msg,
         const folly::fbstring &bucket, const folly::fbstring &path);
 
-    std::shared_ptr<client::auth::AuthManager> m_authManager;
-    std::shared_ptr<one::client::Context> m_context;
+    std::shared_ptr<client::auth::AuthManager<OneS3Context>> m_authManager;
+    std::shared_ptr<OneS3Context> m_context;
 
     std::shared_ptr<one::messages::Configuration> m_configuration;
     client::cache::HelpersCacheThreadSafeAdapter m_helpersCache;

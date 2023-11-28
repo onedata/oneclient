@@ -50,9 +50,11 @@ private:
 
 class ManagerProxy {
 public:
-    ManagerProxy(std::shared_ptr<Context> context)
+    ManagerProxy(
+        std::shared_ptr<Context<one::communication::Communicator>> context)
         : m_context{std::move(context)}
-        , m_manager{m_context}
+        , m_manager{*m_context->scheduler(), m_context->communicator(),
+              std::chrono::seconds{30}}
     {
 #ifdef ENABLE_BACKWARD_CPP
         backward::SignalHandling sh;
@@ -196,7 +198,7 @@ private:
     }
 
     tbb::concurrent_hash_map<std::string, std::int64_t> m_counters;
-    std::shared_ptr<Context> m_context;
+    std::shared_ptr<Context<communication::Communicator>> m_context;
     Manager m_manager;
 
     using CounterAcc = typename decltype(m_counters)::accessor;
@@ -229,7 +231,8 @@ boost::shared_ptr<ManagerProxy> create(
 
     options->parse(cmdArgs.size(), cmdArgs.data());
 
-    auto context = std::make_shared<Context>();
+    auto context =
+        std::make_shared<Context<one::communication::Communicator>>();
     context->setScheduler(std::make_shared<Scheduler>(1));
     context->setCommunicator(communicator);
     context->setOptions(std::move(options));

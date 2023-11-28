@@ -69,6 +69,9 @@ void throwHTTPExceptionFromRESTErrorResponse(std::istream &responseStream)
     if (errorId == "badToken")
         throw Poco::Net::HTTPException(
             Poco::Net::HTTPResponse::HTTPStatus::HTTP_UNAUTHORIZED);
+    if (errorId == "badValueToken")
+        throw Poco::Net::HTTPException(
+            Poco::Net::HTTPResponse::HTTPStatus::HTTP_UNAUTHORIZED);
     if (errorId == "badServiceToken")
         throw Poco::Net::HTTPException(
             Poco::Net::HTTPResponse::HTTPStatus::HTTP_UNAUTHORIZED);
@@ -81,7 +84,9 @@ void throwHTTPExceptionFromRESTErrorResponse(std::istream &responseStream)
     if (errorId == "notAnAccessToken")
         throw Poco::Net::HTTPException(
             Poco::Net::HTTPResponse::HTTPStatus::HTTP_UNAUTHORIZED);
-
+    if (errorId == "cannotRemoveLastOwner")
+        throw Poco::Net::HTTPException(
+            Poco::Net::HTTPResponse::HTTPStatus::HTTP_UNAUTHORIZED);
     throw Poco::Net::HTTPException(
         Poco::Net::HTTPResponse::HTTPStatus::HTTP_INTERNAL_SERVER_ERROR);
 }

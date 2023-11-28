@@ -90,8 +90,10 @@ private:
 
 class HelpersCacheProxy {
 public:
-    HelpersCacheProxy(std::shared_ptr<Context> context)
-        : m_helpersCache{std::make_shared<HelpersCache>(
+    HelpersCacheProxy(
+        std::shared_ptr<Context<communication::Communicator>> context)
+        : m_helpersCache{std::make_shared<
+              HelpersCache<communication::Communicator>>(
               *context->communicator(), context->scheduler(),
               *context->options(), 1)}
         , m_context{context}
@@ -156,9 +158,11 @@ public:
 
         auto accessType = m_helpersCache->getAccessType(storageId);
 
-        if (accessType == HelpersCache::AccessType::DIRECT)
+        if (accessType ==
+            HelpersCache<communication::Communicator>::AccessType::DIRECT)
             return "direct";
-        else if (accessType == HelpersCache::AccessType::PROXY)
+        else if (accessType ==
+            HelpersCache<communication::Communicator>::AccessType::PROXY)
             return "proxy";
         else
             return "unknown";
@@ -180,8 +184,8 @@ public:
     }
 
 private:
-    std::shared_ptr<HelpersCache> m_helpersCache;
-    std::shared_ptr<Context> m_context;
+    std::shared_ptr<HelpersCache<communication::Communicator>> m_helpersCache;
+    std::shared_ptr<Context<communication::Communicator>> m_context;
     std::atomic_flag m_stopped = ATOMIC_FLAG_INIT;
 };
 
@@ -203,7 +207,7 @@ boost::shared_ptr<HelpersCacheProxy> create(
         /*threads*/ 4, ip, port, /*verifyServerCertificate*/ false,
         /*upgrade to clproto*/ true, /*perform handshake*/ false);
 
-    auto context = std::make_shared<Context>();
+    auto context = std::make_shared<Context<communication::Communicator>>();
     context->setScheduler(std::make_shared<Scheduler>(4));
     context->setCommunicator(communicator);
     const auto globalConfigPath = boost::filesystem::unique_path();
