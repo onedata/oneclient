@@ -113,7 +113,6 @@ folly::Future<std::shared_ptr<S3Logic>> S3Logic::connect()
         messages::handshake::ClientType::ones3);
     m_context->setCommunicator(communicator);
     communicator->connect();
-    //    communicator->schedulePeriodicMessageRequest();
     m_authManager->scheduleRefresh(
         one::client::auth::RESTRICTED_MACAROON_REFRESH);
 
