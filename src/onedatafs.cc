@@ -262,8 +262,8 @@ void OnedataFS::close()
 {
     if (!m_stopped.test_and_set()) {
         ReleaseGIL guard;
-        m_authManager.reset();
         m_fsLogic->stop();
+        m_authManager.reset();
 
         m_eventBase.runInEventBaseThread([this]() {
             // Make sure that FsLogic destructor is called before EventBase
@@ -722,6 +722,8 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(
     auto comm = getCommunicator<Context<communication::Communicator>>(sessionId,
         authManager, context, messages::handshake::ClientType::onedatafs);
     context->setCommunicator(comm);
+    comm->setScheduler(context->scheduler());
+
     comm->connect();
     comm->schedulePeriodicMessageRequest();
     authManager->scheduleRefresh(auth::RESTRICTED_MACAROON_REFRESH);
