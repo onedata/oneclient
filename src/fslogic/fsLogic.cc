@@ -352,7 +352,7 @@ void FsLogic::stop()
 
         m_directoryCachePruneBaton.post();
 
-        LOG(ERROR) << "Stopping FsLogic communicator...";
+        LOG(INFO) << "Stopping FsLogic communicator...";
 
         folly::makeSemiFuture()
             .via(folly::getGlobalCPUExecutor().get())
@@ -365,7 +365,7 @@ void FsLogic::stop()
                 [this](auto && /*unit*/) { m_context->communicator()->stop(); })
             .get();
 
-        LOG(ERROR) << "FsLogic communicator stopped...";
+        LOG(INFO) << "FsLogic communicator stopped...";
     }
 }
 
