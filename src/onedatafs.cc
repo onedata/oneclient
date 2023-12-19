@@ -8,6 +8,15 @@
 
 #include "onedatafs.h"
 
+#ifdef ENABLE_BACKWARD_CPP
+#define BACKWARD_HAS_DW 1
+#define BACKWARD_HAS_LIBUNWIND 1
+#include <backward.hpp>
+namespace backward {
+backward::SignalHandling sh; // NOLINT
+} // namespace backward
+#endif
+
 bool Stat::operator==(const Stat &o) const
 {
     return atime == o.atime && mtime == o.mtime && ctime == o.ctime &&
@@ -249,11 +258,6 @@ OnedataFS::OnedataFS(std::string sessionId, std::string rootUuid,
         std::move(configuration), std::move(helpersCache), metadataCacheSize,
         readEventsDisabled, forceFullblockRead, providerTimeout,
         dropDirectoryCacheAfter, makeRunInFiber());
-
-    m_thread = std::thread{[this] {
-        folly::setThreadName("OnedataFS");
-        m_eventBase.loopForever();
-    }};
 }
 
 OnedataFS::~OnedataFS() { close(); }
@@ -262,18 +266,10 @@ void OnedataFS::close()
 {
     if (!m_stopped.test_and_set()) {
         ReleaseGIL guard;
+
         m_fsLogic->stop();
+
         m_authManager.reset();
-
-        m_eventBase.runInEventBaseThread([this]() {
-            // Make sure that FsLogic destructor is called before EventBase
-            // destructor, in order to stop FsLogic background tasks
-            m_eventBase.terminateLoopSoon();
-        });
-    }
-
-    if (m_thread.joinable()) {
-        m_thread.join();
     }
 }
 

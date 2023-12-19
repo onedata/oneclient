@@ -347,6 +347,10 @@ void FsLogic::stop()
     if (!m_stopped) {
         m_stopped = true;
 
+        m_runInFiber([this]() {
+            reset();
+        });
+
         m_fsSubscriptions.unsubscribeAll();
         m_fsSubscriptions.stop();
 

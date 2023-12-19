@@ -45,6 +45,7 @@
 #else
 #include <fuse/fuse.h>
 #endif
+#include <folly/io/async/EventBaseThread.h>
 
 #include <memory>
 
@@ -232,17 +233,17 @@ private:
 
     std::string uuidFromPath(const std::string &path);
 
-    std::shared_ptr<FiberFsLogic> m_fsLogic;
     std::string m_rootUuid;
     std::string m_sessionId;
     std::shared_ptr<Context<communication::Communicator>> m_context;
     std::shared_ptr<auth::AuthManager<Context<communication::Communicator>>>
         m_authManager;
-    folly::EventBase m_eventBase;
+    folly::EventBaseThread m_eventBaseThread{true, nullptr, "OneFS"};
 
-    folly::fibers::FiberManager &m_fiberManager{
-        folly::fibers::getFiberManager(m_eventBase, makeFiberManagerOpts())};
-    std::thread m_thread;
+    folly::fibers::FiberManager &m_fiberManager{folly::fibers::getFiberManager(
+        *m_eventBaseThread.getEventBase(), makeFiberManagerOpts())};
+
+    std::shared_ptr<FiberFsLogic> m_fsLogic;
 
     std::atomic_flag m_stopped = ATOMIC_FLAG_INIT;
 };
