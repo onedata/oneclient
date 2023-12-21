@@ -89,3 +89,15 @@ def s3_support_storage_id(request, oneprovider_ip, onezone_admin_token):
 def odfs_proxy(oneprovider_ip, onezone_admin_token):
     return onedatafs.OnedataFS(oneprovider_ip, onezone_admin_token,
                                insecure=True, force_proxy_io=True)
+
+
+@pytest.fixture()
+def odfs_direct(oneprovider_ip, onezone_admin_token, ceph_monitor_ip,
+                ceph_support_storage_id):
+
+    override_param = f'--override {ceph_support_storage_id}:monitorHostname:{ceph_monitor_ip}'
+
+    return onedatafs.OnedataFS(oneprovider_ip, onezone_admin_token,
+                               insecure=True, force_direct_io=True,
+                               provider_timeout=10,
+                               cli_args=override_param)
