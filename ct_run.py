@@ -68,8 +68,6 @@ parser.add_argument(
     dest='no_shed_privileges')
 
 
-
-
 [args, pass_args] = parser.parse_known_args()
 dockers_config.ensure_image(args, 'image', 'builder')
 
@@ -177,9 +175,8 @@ pytest.main({args} + ['{test_dirs}'])" """]
 else:
     command = ['python3'] + ['-m'] + ['pytest'] + {args} + ['{test_dirs}']
 
-if(not os.path.exists('{script_dir}/{release}/test/integration/onedatafs_test/onedatafs.so')):
-    shutil.copyfile('{script_dir}/{release}/onedatafs_py3.so',
-                    '{script_dir}/{release}/test/integration/onedatafs_test/onedatafs.so')
+shutil.copyfile('{script_dir}/{release}/onedatafs_py3.so',
+                '{script_dir}/{release}/test/onenv_tests/onedatafs_test/onedatafs.so')
 
 ret = subprocess.call(command)
 sys.exit(ret)

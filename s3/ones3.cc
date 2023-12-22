@@ -18,7 +18,7 @@
 
 #ifdef ENABLE_BACKWARD_CPP
 #define BACKWARD_HAS_DW 1
-#define BACKWARD_HAS_UNWIND 1
+#define BACKWARD_HAS_LIBUNWIND 1
 #include <backward.hpp>
 #endif
 
