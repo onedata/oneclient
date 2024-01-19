@@ -38,6 +38,7 @@ requirements:
     - conda-forge::libtool
     - conda-forge::libunwind
     - conda-forge::libuuid
+    - conda-forge::libxcrypt
     - conda-forge::make
     - conda-forge::nspr
     - conda-forge::nss
@@ -72,6 +73,7 @@ requirements:
     - conda-forge::libfuse =3.10.*
     - conda-forge::libunwind
     - conda-forge::libuuid
+    - conda-forge::libxcrypt
     - conda-forge::nspr
     - conda-forge::nss
     - conda-forge::openssl =1.1.1o
