@@ -4,6 +4,19 @@ Release notes for project oneclient
 CHANGELOG
 ---------
 
+### 21.02.4
+
+-   **VFS-11466** Add test cases for various kinds of possible errors in
+    ones3 responses and check if they are compatible with S3 standard
+    errors.
+-   **VFS-11459** Added option to set custom region in S3 storage
+    helper.
+-   **VFS-11402** Refactored OneS3 packaging so that ones3 has a
+    separate package from oneclient.
+-   **VFS-11142** Added Onepanel basic auth option to OneS3 service,
+    removing the requirement for full access token to support new
+    buckets.
+
 ### 21.02.3
 
 -   **VFS-11231** Refactored oneclient connection pool to improve
