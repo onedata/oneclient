@@ -3,7 +3,7 @@ Checks: >-
   -*braces-around-statements,
   -*osx*,
   -*use-override,
-  -*unused-parameters,  
+  -*unused-parameters,
   -abseil*,
   -android*,
   -bugprone-branch-clone,

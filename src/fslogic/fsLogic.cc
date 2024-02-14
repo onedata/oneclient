@@ -286,7 +286,7 @@ FsLogic::FsLogic(std::shared_ptr<OneclientContext> context,
     m_metadataCache.onMarkDeleted(
         [this](const folly::fbstring &uuid) { m_onMarkDeleted(uuid); });
 
-    m_helpersCache->onHelperCreated([this](folly::fbstring storageId) {
+    m_helpersCache->onHelperCreated([this](const folly::fbstring &storageId) {
         m_fsSubscriptions.subscribeHelperParamsChanged(storageId);
     });
 
