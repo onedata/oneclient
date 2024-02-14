@@ -498,7 +498,7 @@ def test_helper_should_refresh_parameters(
 
     with reply(endpoint, [posix_helper_params]) as queue:
         # Refresh helper parameters
-        hc_directio.refresh_helper_parameters(storage_id, space_id)
+        hc_directio.refresh_helper_parameters(storage_id)
 
         res = hc_directio.get(file_uuid, space_id, storage_id, False, False)
         assert res

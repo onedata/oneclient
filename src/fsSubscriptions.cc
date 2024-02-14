@@ -8,6 +8,7 @@
 
 #include "fsSubscriptions.h"
 #include "cache/forceProxyIOCache.h"
+#include "cache/helpersCache.h"
 #include "cache/openFileMetadataCache.h"
 #include "events/events.h"
 #include "messages/fuse/fileAttr.h"
@@ -24,10 +25,12 @@ namespace client {
 FsSubscriptions::FsSubscriptions(events::Manager &eventManager,
     cache::OpenFileMetadataCache &metadataCache,
     cache::ForceProxyIOCache &forceProxyIOCache,
+    cache::HelpersCache<communication::Communicator> &helpersCache,
     std::function<void(folly::Function<void()>)> runInFiber)
     : m_eventManager{eventManager}
     , m_metadataCache{metadataCache}
     , m_forceProxyIOCache{forceProxyIOCache}
+    , m_helpersCache{helpersCache}
     , m_runInFiber{std::move(runInFiber)}
 {
 }
@@ -36,6 +39,52 @@ void FsSubscriptions::unsubscribeAll()
 {
     SubscriptionAcc subscriptionAcc;
     m_subscriptions.clear();
+}
+
+void FsSubscriptions::subscribeHelperParamsChanged(
+    const folly::fbstring &storageId)
+{
+    LOG_FCALL() << LOG_FARG(storageId);
+
+    ONE_METRIC_COUNTER_INC(
+        "comp.oneclient.mod.events.submod.subscriptions.helper_params_changed");
+
+    LOG_DBG(2) << "Subscribing for HelperParamsChanged for storage "
+               << storageId;
+
+    subscribe(storageId,
+        events::HelperParamsChangedSubscription{
+            storageId.toStdString(), [this](auto events) mutable {
+                this->handleHelperParamsChangedSubscription(std::move(events));
+            }});
+}
+
+bool FsSubscriptions::unsubscribeHelperParamsChanged(
+    const folly::fbstring &storageId)
+{
+    LOG_FCALL() << LOG_FARG(storageId);
+
+    ONE_METRIC_COUNTER_DEC(
+        "comp.oneclient.mod.events.submod.subscriptions.helper_params_changed");
+
+    LOG_DBG(2) << "Unsubscribing for HelperParamsChanged for storage "
+               << storageId;
+
+    return unsubscribe(events::StreamKey::HELPER_PARAMS_CHANGED, storageId);
+}
+
+void FsSubscriptions::handleHelperParamsChangedSubscription(
+    events::Events<events::HelperParamsChanged> events)
+{
+    ONE_METRIC_COUNTER_INC(
+        "comp.oneclient.mod.events.submod.received.helper_params_changed");
+    m_runInFiber([this, events = std::move(events)] {
+        if (m_stopped)
+            return;
+        if (!events.empty()) {
+            m_helpersCache.refreshHelperParameters(events.front()->storageId());
+        }
+    });
 }
 
 void FsSubscriptions::subscribeFileAttrChanged(const folly::fbstring &fileUuid)

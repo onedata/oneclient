@@ -60,12 +60,12 @@ HelpersCacheBase::AccessType HelpersCacheThreadSafeAdapter::getAccessType(
 
 folly::Future<folly::Unit>
 HelpersCacheThreadSafeAdapter::refreshHelperParameters(
-    const folly::fbstring &storageId, const folly::fbstring &spaceId)
+    const folly::fbstring &storageId)
 {
     assert(m_cache);
 
     std::lock_guard<std::mutex> l{m_cacheMutex};
-    return m_cache->refreshHelperParameters(storageId, spaceId);
+    return m_cache->refreshHelperParameters(storageId);
 }
 
 } // namespace cache

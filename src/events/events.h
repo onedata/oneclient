@@ -27,6 +27,7 @@
 #include "subscriptions/fileRemovedSubscription.h"
 #include "subscriptions/fileRenamedSubscription.h"
 #include "subscriptions/fileWrittenSubscription.h"
+#include "subscriptions/helperParamsChangedSubscription.h"
 #include "subscriptions/quotaExceededSubscription.h"
 #include "subscriptions/remoteSubscription.h"
 #include "subscriptions/replicaStatusChangedSubscription.h"
@@ -39,6 +40,7 @@
 #include "types/fileRenamed.h"
 #include "types/fileTruncated.h"
 #include "types/fileWritten.h"
+#include "types/helperParamsChanged.h"
 #include "types/quotaExceeded.h"
 #include "types/remoteEvent.h"
 
