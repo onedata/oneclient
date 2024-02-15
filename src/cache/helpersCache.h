@@ -366,12 +366,12 @@ HelpersCache<CommunicatorT>::get(const folly::fbstring &fileUuid,
                 << LOG_FARG(forceProxyIO);
 
     LOG_DBG(2) << "Getting storage helper for file " << fileUuid
-               << " on storage " << storageId;
+               << " on storage " << storageId << " and space " << spaceId;
 
     if (!proxyFallback) {
         if (m_options.isDirectIOForced() && forceProxyIO) {
             LOG(ERROR) << "Direct IO and force IO options cannot be "
-                          "simultanously set.";
+                          "simultaneously set.";
             throw std::errc::operation_not_supported; // NOLINT
         }
 
@@ -404,7 +404,7 @@ HelpersCache<CommunicatorT>::get(const folly::fbstring &fileUuid,
                 [this, storageId](auto &&helper) {
                     helper.throwIfFailed();
 
-                    if (helper.value()->name() != "proxy")
+                    if (m_onHelperCreated && helper.value()->name() != "proxy")
                         m_onHelperCreated(storageId);
                     return helper.value();
                 });
@@ -439,7 +439,7 @@ HelpersCache<CommunicatorT>::get(const folly::fbstring &fileUuid,
         [this, storageId](auto &&helper) {
             helper.throwIfFailed();
 
-            if (helper.value()->name() != "proxy")
+            if (m_onHelperCreated && helper.value()->name() != "proxy")
                 m_onHelperCreated(storageId);
             return helper.value();
         });
