@@ -342,17 +342,23 @@ folly::Future<folly::Unit> HelpersCache<CommunicatorT>::refreshHelperParameters(
                     messages::fuse::GetHelperParams::HelperMode::directMode}),
                 m_providerTimeout);
 
-            auto helperParams = helpers::StorageHelperParams::create(
-                params.name(), params.args());
+            auto paramsWithType{params.args()};
+            paramsWithType["type"] = params.name();
 
             auto bufferedHelper =
                 std::dynamic_pointer_cast<helpers::buffering::BufferAgent>(
                     helper);
-            if (bufferedHelper)
-                return bufferedHelper->helper()->refreshParams(
-                    std::move(helperParams));
+            if (bufferedHelper) {
+                LOG_DBG(2) << "Refreshing buffered helper " << params.name()
+                           << " params for storage: " << storageId;
 
-            return helper->refreshParams(std::move(helperParams));
+                return bufferedHelper->helper()->updateHelper(paramsWithType);
+            }
+
+            LOG_DBG(2) << "Refreshing helper " << params.name()
+                       << " params for storage: " << storageId;
+
+            return helper->updateHelper(paramsWithType);
         });
 }
 
@@ -404,7 +410,8 @@ HelpersCache<CommunicatorT>::get(const folly::fbstring &fileUuid,
                 [this, storageId](auto &&helper) {
                     helper.throwIfFailed();
 
-                    if (m_onHelperCreated && helper.value()->name() != "proxy")
+                    if (m_onHelperCreated && helper.value().get() != nullptr &&
+                        helper.value()->name() != "proxy")
                         m_onHelperCreated(storageId);
                     return helper.value();
                 });
@@ -706,8 +713,14 @@ HelpersCache<CommunicatorT>::handleStorageTestFile(
             return {};
         }
 
+        LOG_DBG(2)
+            << "Got storage helper - attempting to modify storage test file";
+
         auto fileContent =
             one::client::modifyStorageTestFile(storageId, helper, *testFile);
+
+        LOG_DBG(2) << "Storage test file modified with content: "
+                   << fileContent;
 
         requestStorageTestFileVerification(*testFile, storageId, fileContent);
 
@@ -731,6 +744,17 @@ HelpersCache<CommunicatorT>::handleStorageTestFile(
 
         return {};
     }
+    catch (const std::exception &e) {
+        LOG(ERROR) << "Storage test file handling error:  message: '"
+                   << e.what() << "'";
+
+        LOG(INFO) << "Storage '" << storageId
+                  << "' is not directly accessible to the client.";
+
+        m_accessType[storageId] = AccessType::PROXY;
+
+        return {};
+    }
 }
 
 template <typename CommunicatorT>
@@ -738,8 +762,8 @@ void HelpersCache<CommunicatorT>::requestStorageTestFileVerification(
     const messages::fuse::StorageTestFile &testFile,
     const folly::fbstring &storageId, const folly::fbstring &fileContent)
 {
-    LOG(INFO) << "Requesting verification of storage: '" << storageId
-              << "' of type '" << testFile.helperParams().name();
+    LOG(INFO) << "Requesting verification of modified storage test file: '"
+              << storageId << "' of type '" << testFile.helperParams().name();
 
     if (testFile.helperParams().name() == helpers::NULL_DEVICE_HELPER_NAME) {
         handleStorageTestFileVerification({}, storageId);
