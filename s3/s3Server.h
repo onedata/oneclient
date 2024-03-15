@@ -44,7 +44,7 @@ struct S3AuthorizationV4 : public S3Authorization {
 
     std::string getToken() const override { return accessKeyId; }
 
-    void parseCredential(const std::string &credential);
+    bool parseCredential(const std::string &credential);
 
     // E.g. AWS4-HMAC-SHA256
     std::string algorithm;
