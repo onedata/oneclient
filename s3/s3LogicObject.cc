@@ -71,9 +71,11 @@ folly::Future<Aws::S3::Model::HeadObjectResult> S3Logic::headObject(
 
             if (!isDirectory) {
                 auto md5Xattr = communicate<XAttr>(
-                    GetXAttr{uuid, ONEDATA_S3_XATTR_CONTENT_MD5}).via(m_executor.get());
+                    GetXAttr{uuid, ONEDATA_S3_XATTR_CONTENT_MD5})
+                                    .via(m_executor.get());
                 auto contentTypeXattr = communicate<XAttr>(
-                    GetXAttr{uuid, ONEDATA_S3_XATTR_CONTENT_TYPE}).via(m_executor.get());
+                    GetXAttr{uuid, ONEDATA_S3_XATTR_CONTENT_TYPE})
+                                            .via(m_executor.get());
 
                 PUSH_FUTURES_3(attr, md5Xattr, contentTypeXattr);
             }
@@ -109,7 +111,7 @@ folly::Future<Aws::S3::Model::HeadObjectResult> S3Logic::headObject(
         });
 }
 
-folly::Future<std::pair<Aws::S3::Model::HeadObjectResult,
+folly::Future<std::pair<Aws::S3::Model::GetObjectResult,
     std::pair<std::function<std::size_t(char *, std::size_t)>, std::string>>>
 S3Logic::getObject(const folly::fbstring &bucket, const folly::fbstring &path,
     const std::string &requestId,
@@ -256,19 +258,20 @@ S3Logic::getObject(const folly::fbstring &bucket, const folly::fbstring &path,
                                 return std::string{};
                             });
 
-                PUSH_FUTURES_7(bucketAttr, attr, streamReader, md5Xattr,
-                    contentTypeXattr, requestSize, responseBodyStr);
+                PUSH_FUTURES_8(bucketAttr, attr, streamReader, md5Xattr,
+                    contentTypeXattr, requestSize, requestOffset,
+                    responseBodyStr);
             }
 
             std::string responseBodyStr{};
-            PUSH_FUTURES_7(bucketAttr, attr, streamReader, md5Xattr,
-                contentTypeXattr, requestSize, responseBodyStr);
+            PUSH_FUTURES_8(bucketAttr, attr, streamReader, md5Xattr,
+                contentTypeXattr, requestSize, requestOffset, responseBodyStr);
         })
         .thenValue([](auto &&args) {
-            POP_FUTURES_7(args, bucketAttr, attr, streamReader, md5Xattr,
-                contentTypeXattr, requestSize, responseBodyStr);
+            POP_FUTURES_8(args, bucketAttr, attr, streamReader, md5Xattr,
+                contentTypeXattr, requestSize, requestOffset, responseBodyStr);
 
-            Aws::S3::Model::HeadObjectResult result;
+            Aws::S3::Model::GetObjectResult result;
 
             if (md5Xattr.hasValue()) {
                 auto md5 = md5Xattr.value();
@@ -287,6 +290,19 @@ S3Logic::getObject(const folly::fbstring &bucket, const folly::fbstring &path,
 
             result.SetContentLength(requestSize.value());
             result.SetLastModified(attr.value().mtime());
+
+            size_t fileSize{0};
+            if (attr.value().size()) {
+                fileSize = attr.value().size().value();
+            }
+
+            if (requestSize.value() < fileSize) {
+                result.SetContentRange(
+                    fmt::format("bytes {}-{}/{}", requestOffset.value(),
+                        std::max<size_t>(
+                            0, requestOffset.value() + requestSize.value() - 1),
+                        fileSize));
+            }
 
             return folly::makeFuture(std::make_pair(std::move(result),
                 std::make_pair(std::move(streamReader.value()),

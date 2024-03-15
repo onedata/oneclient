@@ -305,6 +305,10 @@ def test_get_object_range(s3_client, bucket):
     res = s3_client.get_object(Bucket=bucket, Key=key, Range="bytes=2-4")
 
     assert (res['ContentLength'] == 3)
+    assert (res['ContentRange'] == 'bytes 2-4/10')
+    assert (res['ResponseMetadata']['HTTPStatusCode'] == 206)
+    assert (res['ResponseMetadata']['HTTPHeaders']['content-range']
+            == 'bytes 2-4/10')
     assert (res['ETag'] == f'"{etag}"')
     assert (res['Body'].read() == body[2:5])
 
@@ -415,6 +419,10 @@ def test_get_object_range_multiple(s3_client, bucket, uuid_str):
         res = s3_client.get_object(Bucket=bucket, Key=key, Range="bytes=2-4")
 
         assert (res['ContentLength'] == 3)
+        assert (res['ContentRange'] == 'bytes 2-4/10')
+        assert (res['ResponseMetadata']['HTTPStatusCode'] == 206)
+        assert (res['ResponseMetadata']['HTTPHeaders']['content-range']
+                == 'bytes 2-4/10')
         assert (res['ETag'] == f'"{etag}"')
         assert (res['Body'].read() == body[2:5])
 

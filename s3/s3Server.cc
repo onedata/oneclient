@@ -787,23 +787,30 @@ void S3Server::getObject(const HttpRequestPtr &req,
                     })
                 .thenValue([callback, path, timer = std::move(timer)](
                                auto &&args) mutable {
-                    auto &headResult = args.first;
+                    auto &getResult = args.first;
                     auto streamReaderPair = args.second;
 
                     if (std::get<0>(streamReaderPair) != nullptr) {
                         auto response = HttpResponse::newStreamResponse(
                             streamReaderPair.first, path, CT_NONE,
-                            headResult.GetContentType());
+                            getResult.GetContentType());
 
                         response->setContentTypeString(
-                            headResult.GetContentType());
+                            getResult.GetContentType());
+
+                        if (!getResult.GetContentRange().empty()) {
+                            response->addHeader(
+                                "content-range", getResult.GetContentRange());
+                            response->setStatusCode(
+                                drogon::HttpStatusCode::k206PartialContent);
+                        }
 
                         response->addHeader("content-length",
-                            std::to_string(headResult.GetContentLength()));
-                        response->addHeader("etag", headResult.GetETag());
+                            std::to_string(getResult.GetContentLength()));
+                        response->addHeader("etag", getResult.GetETag());
                         response->addHeader("accept-ranges", "bytes");
                         response->addHeader("last-modified",
-                            headResult.GetLastModified().ToGmtString(
+                            getResult.GetLastModified().ToGmtString(
                                 Aws::Utils::DateFormat::RFC822));
 
                         callback(response);
@@ -812,14 +819,20 @@ void S3Server::getObject(const HttpRequestPtr &req,
                         auto response = HttpResponse::newHttpResponse();
 
                         response->setContentTypeString(
-                            headResult.GetContentType());
+                            getResult.GetContentType());
 
+                        if (!getResult.GetContentRange().empty()) {
+                            response->addHeader(
+                                "content-range", getResult.GetContentRange());
+                            response->setStatusCode(
+                                drogon::HttpStatusCode::k206PartialContent);
+                        }
                         response->addHeader("content-length",
-                            std::to_string(headResult.GetContentLength()));
-                        response->addHeader("etag", headResult.GetETag());
+                            std::to_string(getResult.GetContentLength()));
+                        response->addHeader("etag", getResult.GetETag());
                         response->addHeader("accept-ranges", "bytes");
                         response->addHeader("last-modified",
-                            headResult.GetLastModified().ToGmtString(
+                            getResult.GetLastModified().ToGmtString(
                                 Aws::Utils::DateFormat::RFC822));
 
                         response->setBody(std::move(streamReaderPair.second));
