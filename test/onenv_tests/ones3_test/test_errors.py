@@ -82,6 +82,16 @@ def test_error_put_object_readonly_token(s3_readonly_client, bucket):
     assert e.value.response['Error']['Code'] == 'AccessDenied'
 
 
+def test_error_put_object_empty_token(s3_readonly_client, bucket):
+    body = random_bytes()
+
+    with pytest.raises(botocore.exceptions.ClientError) as e:
+        s3_readonly_client.put_object(Bucket=bucket, Key='__INVALID__',
+                                      Body=body)
+
+    assert e.value.response['Error']['Code'] == 'AccessDenied'
+
+
 def test_error_directory_is_not_object(s3_client, bucket):
     key = 'dir1/dir2/' + random_str()
 

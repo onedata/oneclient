@@ -123,8 +123,12 @@ std::unique_ptr<S3Authorization> S3Authorization::fromHttpRequest(
             auth->algorithm = "AWS4-HMAC-SHA256";
 
             if (req->parameters().find("X-Amz-Credential") !=
-                req->parameters().end())
-                auth->parseCredential(req->getParameter("X-Amz-Credential"));
+                req->parameters().end()) {
+                if (!auth->parseCredential(
+                        req->getParameter("X-Amz-Credential"))) {
+                    return std::make_unique<S3AuthorizationInvalid>();
+                }
+            }
             else
                 return std::make_unique<S3AuthorizationInvalid>();
 
@@ -157,7 +161,9 @@ std::unique_ptr<S3Authorization> S3Authorization::fromHttpRequest(
         credentialsIdx += strlen("Credential=");
         std::string credential = authorizationHeader.substr(
             credentialsIdx, authorizationHeader.find(',') - credentialsIdx);
-        auth->parseCredential(credential);
+        if (!auth->parseCredential(credential)) {
+            return std::make_unique<S3AuthorizationInvalid>();
+        }
 
         auto signedHeadersIdx = authorizationHeader.find("SignedHeaders=");
         signedHeadersIdx += strlen("SignedHeaders=");
@@ -175,15 +181,40 @@ std::unique_ptr<S3Authorization> S3Authorization::fromHttpRequest(
     return std::make_unique<S3AuthorizationNone>();
 }
 
-void S3AuthorizationV4::parseCredential(const std::string &credential)
+bool S3AuthorizationV4::parseCredential(const std::string &credential)
 {
     std::vector<std::string> credentialTokens;
     folly::split("/", credential, credentialTokens, false);
 
-    accessKeyId = credentialTokens[0];
-    date = credentialTokens[1];
-    region = credentialTokens[2];
-    service = credentialTokens[3];
+    if (credentialTokens.size() < 4) {
+        return false;
+    }
+
+    accessKeyId = credentialTokens.at(0);
+
+    if (accessKeyId.empty()) {
+        return false;
+    }
+
+    date = credentialTokens.at(1);
+
+    if (date.empty()) {
+        return false;
+    }
+
+    region = credentialTokens.at(2);
+
+    if (region.empty()) {
+        return false;
+    }
+
+    service = credentialTokens.at(3);
+
+    if (service.empty()) {
+        return false; // NOLINT
+    }
+
+    return true;
 }
 
 void S3Server::listBuckets(
@@ -787,23 +818,30 @@ void S3Server::getObject(const HttpRequestPtr &req,
                     })
                 .thenValue([callback, path, timer = std::move(timer)](
                                auto &&args) mutable {
-                    auto &headResult = args.first;
+                    auto &getResult = args.first;
                     auto streamReaderPair = args.second;
 
                     if (std::get<0>(streamReaderPair) != nullptr) {
                         auto response = HttpResponse::newStreamResponse(
                             streamReaderPair.first, path, CT_NONE,
-                            headResult.GetContentType());
+                            getResult.GetContentType());
 
                         response->setContentTypeString(
-                            headResult.GetContentType());
+                            getResult.GetContentType());
+
+                        if (!getResult.GetContentRange().empty()) {
+                            response->addHeader(
+                                "content-range", getResult.GetContentRange());
+                            response->setStatusCode(
+                                drogon::HttpStatusCode::k206PartialContent);
+                        }
 
                         response->addHeader("content-length",
-                            std::to_string(headResult.GetContentLength()));
-                        response->addHeader("etag", headResult.GetETag());
+                            std::to_string(getResult.GetContentLength()));
+                        response->addHeader("etag", getResult.GetETag());
                         response->addHeader("accept-ranges", "bytes");
                         response->addHeader("last-modified",
-                            headResult.GetLastModified().ToGmtString(
+                            getResult.GetLastModified().ToGmtString(
                                 Aws::Utils::DateFormat::RFC822));
 
                         callback(response);
@@ -812,14 +850,20 @@ void S3Server::getObject(const HttpRequestPtr &req,
                         auto response = HttpResponse::newHttpResponse();
 
                         response->setContentTypeString(
-                            headResult.GetContentType());
+                            getResult.GetContentType());
 
+                        if (!getResult.GetContentRange().empty()) {
+                            response->addHeader(
+                                "content-range", getResult.GetContentRange());
+                            response->setStatusCode(
+                                drogon::HttpStatusCode::k206PartialContent);
+                        }
                         response->addHeader("content-length",
-                            std::to_string(headResult.GetContentLength()));
-                        response->addHeader("etag", headResult.GetETag());
+                            std::to_string(getResult.GetContentLength()));
+                        response->addHeader("etag", getResult.GetETag());
                         response->addHeader("accept-ranges", "bytes");
                         response->addHeader("last-modified",
-                            headResult.GetLastModified().ToGmtString(
+                            getResult.GetLastModified().ToGmtString(
                                 Aws::Utils::DateFormat::RFC822));
 
                         response->setBody(std::move(streamReaderPair.second));
