@@ -7,6 +7,9 @@ import hashlib
 import pytest
 import time
 from concurrent.futures import ThreadPoolExecutor, wait, ALL_COMPLETED
+
+import requests
+
 from .common import *
 from .big_list_of_naughty_strings import big_list_of_naughty_strings
 
@@ -334,7 +337,8 @@ def test_get_object_remote(s3_client, oneprovider_2_ip, onezone_admin_token,
     success = False
     while retries > 0 and not success:
         try:
-            r = put_file(oneprovider_2_ip, onezone_admin_token, bucket, key, data)
+            r = put_file(oneprovider_2_ip, onezone_admin_token, bucket, key,
+                         data)
 
             if r.status_code != 201:
                 raise FileLocationNotYetReplicated
@@ -359,7 +363,8 @@ def test_get_object_remote(s3_client, oneprovider_2_ip, onezone_admin_token,
             assert (res['Body'].read() == data)
 
             success = True
-        except (s3_client.exceptions.NoSuchKey, FileLocationNotYetReplicated) as e:
+        except (
+        s3_client.exceptions.NoSuchKey, FileLocationNotYetReplicated) as e:
             # Wait for the file to show up at oneprovider 1
             time.sleep(2)
         finally:
@@ -532,3 +537,51 @@ def test_copy_object(s3_client, bucket):
     assert (res['ContentLength'] == len(body))
     assert (res['ETag'] == f'"{etag}"')
     assert (res['ContentType'] == 'text/plain')
+
+
+def test_get_object_presigned(s3_client, bucket):
+    key = random_path()
+
+    body = random_bytes()
+    etag = hashlib.md5(body).hexdigest()
+
+    s3_client.put_object(Bucket=bucket, Key=key, Body=body,
+                         ContentType='text/plain')
+
+    presigned_url = create_presigned_url(s3_client, bucket, key, 'get_object',
+                                         'GET')
+
+    response = requests.get(presigned_url, data=body)
+
+    assert (response.status_code == 200)
+    assert (response.headers['ETag'] == f'"{etag}"')
+    assert (response.headers['Content-Length'] == str(len(body)))
+    assert (response.content == body)
+
+
+@pytest.mark.parametrize(
+    "file_size",
+    [
+        pytest.param(20),
+        pytest.param(25*1024*1024)
+    ],
+)
+def test_put_object_presigned(s3_client, bucket, file_size):
+    key = random_path()
+
+    body = random_bytes(file_size)
+    etag = hashlib.md5(body).hexdigest()
+
+    presigned_url = create_presigned_url(s3_client, bucket, key, 'put_object',
+                                         'PUT')
+
+    response = requests.put(presigned_url, data=body)
+
+    assert (response.status_code == 200)
+    assert (response.headers['ETag'] == f'"{etag}"')
+
+    res = s3_client.get_object(Bucket=bucket, Key=key)
+
+    assert (res['ContentLength'] == len(body))
+    assert (res['ETag'] == f'"{etag}"')
+    assert (res['Body'].read() == body)

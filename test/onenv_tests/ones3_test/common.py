@@ -6,8 +6,11 @@ import os
 import random
 import string
 import time
-
 import requests
+
+import boto3
+
+from botocore.exceptions import ClientError
 
 
 def random_int(lower_bound=1, upper_bound=100):
@@ -100,3 +103,20 @@ def put_file(oneprovider_host, token, bucket_name, path, data,
                         headers={'X-Auth-Token': token,
                                  'Content-type': content_type},
                         verify=False)
+
+
+def create_presigned_url(s3_client, bucket, key, s3_method, http_method=None,
+                         expiration=3600):
+    """Generate a presigned URL to share an S3 object
+
+    :param bucket_name: string
+    :param key: string
+    :param expiration: Time in seconds for the presigned URL to remain valid
+    :return: Presigned URL as string. If error, returns None.
+    """
+
+    return s3_client.generate_presigned_url(ClientMethod=s3_method,
+                                                Params={'Bucket': bucket,
+                                                        'Key': key},
+                                                ExpiresIn=expiration,
+                                            HttpMethod=http_method)
