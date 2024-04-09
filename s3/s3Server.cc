@@ -67,9 +67,12 @@ folly::Optional<size_t> getParameter(
 } // namespace
 
 #define LOG_REQUEST_5(op, bucket, requestId, req, other)                       \
-    LOG_DBG(1) << fmt::format("ones3 [{}] {} {} {}{}{}", requestId,            \
+    LOG_DBG(1) << fmt::format("ones3 [{}] {} {} {} {}{}{}", requestId,         \
         Poco::DateTimeFormatter::format(                                       \
             Poco::Timestamp{}, Poco::DateTimeFormat::ISO8601_FORMAT),          \
+        req->headers().count("x-forwarded-for") > 0                            \
+            ? req->headers().at("x-forwarded-for")                             \
+            : req->peerAddr().toIpPort(),                                      \
         op, (req)->getPath(),                                                  \
         (req)->getQuery().empty() ? ""                                         \
                                   : fmt::format("?{}", (req)->getQuery()),     \
@@ -226,7 +229,7 @@ void S3Server::listBuckets(
 
     std::string token = auth->getToken();
 
-    LOG_REQUEST("LIST_BUCKETS", "", requestId, req);
+    LOG_REQUEST("LIST_BUCKETS", "*", requestId, req);
 
     ONE_METRIC_COUNTER_INC("comp.ones3.mod.s3server.list_buckets");
 
@@ -254,16 +257,6 @@ void S3Server::listBuckets(
                 callback(response);
             }) FUTURE_GET();
 }
-
-// EXAMPLE HEADERS
-// 'User-Agent': b'aws-cli/1.22.34 Python/3.10.4 Linux/5.15.14-051514-generic
-// botocore/1.23.34' 'X-Amz-Date': b'20220902T132615Z' 'X-Amz-Content-SHA256':
-// b'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
-// 'Authorization': b'AWS4-HMAC-SHA256
-// Credential=MDAzM2xvY2F00aW9uIGRldi1vbmV6b25lLmRlZmF1bHQuc3ZjLmNsdXN00ZXIubG9jYWwKMDA2YmlkZW500aWZpZXIgMi9ubWQvdXNyLTljMjU00OTkyMmZiMzhmMGJiYTYyNGJiNTU00NDk3M2Y5Y2hiMzhmL2FjdC9lOTBjOGY5YzI3NzIxYzJkOGJjYjFhMzMwMmM00ODk5NmNoN2IzOAowMDFlY2lkIGludGVyZmFjZSA9IG9uZWNsaWVudAowMDJmc2lnbmF00dXJlIPItGH7wQJgbXGFMP2DHz14YMlamjaoYpl003avAb5VjmCg/20220902/us-east-1/s3/aws4_request,
-// SignedHeaders=host;x-amz-content-sha256;x-amz-date
-// Signature=25b80f3b16e18b082b5425629efa215f14c47a38926f9683e4ba673a8f63924a'
-// 'Content-Length': '0'
 
 void S3Server::putBucket(const HttpRequestPtr &req,
     HttpResponseCallback &&callback, const std::string &bucket) const
@@ -1042,7 +1035,8 @@ void S3Server::putCompleteObject(const HttpRequestPtr &req,
 {
     const auto requestId = getRequestId();
 
-    LOG_REQUEST("PUT_OBJECT", bucket, requestId, req);
+    LOG_REQUEST("PUT_OBJECT", bucket, requestId, req,
+        fmt::format("content-length={}", req->bodyLength()));
 
     auto auth = S3Authorization::fromHttpRequest(req);
 
