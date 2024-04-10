@@ -64,8 +64,8 @@ def test_create_delete_nonempty_bucket(s3_client, uuid_str):
 
 def test_create_buckets_with_the_same_name_and_write(s3_client, uuid_str):
     name = uuid_str
-    thread_count = 10
-    bucket_count = 50
+    thread_count = 100
+    bucket_count = 500
 
     def task(args):
         s3_client2 = s3_client

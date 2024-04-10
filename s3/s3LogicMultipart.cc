@@ -72,7 +72,7 @@ S3Logic::createMultipartUpload(const folly::fbstring &bucket,
     assert(!bucket.empty());
     assert(!path.empty());
 
-    return getBucketAttr(bucket)
+    return getBucketAttr(bucket, requestId.toStdString())
         //
         // Create multipart upload on the server
         //
@@ -131,8 +131,8 @@ S3Logic::createMultipartUpload(const folly::fbstring &bucket,
 }
 
 folly::Future<Aws::S3::Model::AbortMultipartUploadResult>
-S3Logic::abortMultipartUpload(
-    const folly::fbstring &bucket, const folly::fbstring &uploadId)
+S3Logic::abortMultipartUpload(const folly::fbstring &bucket,
+    const folly::fbstring &uploadId, const std::string &requestId)
 {
     folly::Optional<folly::fbstring> indexToken;
 
@@ -141,7 +141,7 @@ S3Logic::abortMultipartUpload(
 
     constexpr auto kMaxListSize{10000};
 
-    return getBucketAttr(bucket)
+    return getBucketAttr(bucket, requestId)
         //
         // Get the uuid of the temporary upload directory
         //
@@ -200,7 +200,7 @@ folly::Future<Aws::S3::Model::UploadPartResult> S3Logic::uploadMultipartPart(
     const size_t partNumber, const size_t partSize,
     const folly::fbstring &partMD5, std::shared_ptr<folly::IOBuf> buf)
 {
-    return getBucketAttr(bucket)
+    return getBucketAttr(bucket, requestId)
         //
         // Get path to the temporary upload directory and file name
         //
@@ -310,7 +310,7 @@ S3Logic::completeMultipartUpload(const std::string requestId,
     LOG_DBG(2) << "Completing multipart upload " << uploadId;
 
     constexpr auto kMaxPartsList{10000};
-    auto bucketAttr = getBucketAttr(bucket);
+    auto bucketAttr = getBucketAttr(bucket, requestId);
     auto parts =
         listMultipartUploadParts(uploadId, bucket, path, kMaxPartsList, {0});
 
@@ -638,9 +638,10 @@ S3Logic::listMultipartUploadParts(const folly::fbstring &uploadId,
 
 folly::Future<Aws::S3::Model::ListMultipartUploadsResult>
 S3Logic::listMultipartUploads(const folly::fbstring &bucket, size_t maxUploads,
-    const folly::Optional<folly::fbstring> &indexToken)
+    const folly::Optional<folly::fbstring> &indexToken,
+    const std::string &requestId)
 {
-    return getBucketAttr(bucket)
+    return getBucketAttr(bucket, requestId)
         .thenValue([this, bucket, maxUploads, indexToken](auto &&attr) {
             return communicate<MultipartUploads>(
                 ListMultipartUploads{attr.uuid(), maxUploads, indexToken});

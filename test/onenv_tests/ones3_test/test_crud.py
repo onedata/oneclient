@@ -268,10 +268,10 @@ def test_delete_object(s3_client, bucket):
 
     s3_client.delete_object(Bucket=bucket, Key=key)
 
-    with pytest.raises(s3_client.exceptions.NoSuchKey) as excinfo:
+    with pytest.raises(s3_client.exceptions.ClientError) as excinfo:
         s3_client.get_object(Bucket=bucket, Key=key)
 
-    assert 'The specified key does not exist' in str(excinfo.value)
+    assert 'Not Found' in str(excinfo.value)
 
 
 def test_delete_objects(s3_client, bucket):
@@ -364,7 +364,7 @@ def test_get_object_remote(s3_client, oneprovider_2_ip, onezone_admin_token,
 
             success = True
         except (
-        s3_client.exceptions.NoSuchKey, FileLocationNotYetReplicated) as e:
+        s3_client.exceptions.ClientError, FileLocationNotYetReplicated) as e:
             # Wait for the file to show up at oneprovider 1
             time.sleep(2)
         finally:
@@ -400,7 +400,7 @@ def test_get_object_remote_readonly_token(s3_client, s3_readonly_client,
             assert (res['Body'].read() == data)
 
             break
-        except s3_client.exceptions.NoSuchKey as e:
+        except s3_client.exceptions.ClientError as e:
             # Wait for the file to show up at oneprovider 1
             time.sleep(2)
         finally:

@@ -2,7 +2,7 @@
 <project version="4">
   <component name="CMakeSharedSettings">
     <configurations>
-      <configuration PROFILE_NAME="Debug" ENABLED="true" CONFIG_NAME="Debug" GENERATION_OPTIONS="-DCMAKE_BUILD_TYPE=Debug -DWITH_XROOTD=NO -DGIT_VERSION=21.02.1" BUILD_OPTIONS="-j 8" />
+      <configuration PROFILE_NAME="Debug" ENABLED="true" CONFIG_NAME="Debug" TOOLCHAIN_NAME="Default" GENERATION_OPTIONS="-DCMAKE_BUILD_TYPE=Debug -DWITH_XROOTD=NO -DGIT_VERSION=21.02.1" BUILD_OPTIONS="-j 8" />
     </configurations>
   </component>
 </project>

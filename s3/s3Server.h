@@ -214,7 +214,7 @@ private:
 
     bool ensureSpaceIsSupported(const std::string &bucket,
         const HttpResponseCallback &callback, const std::string &requestId,
-        const std::string &token) const;
+        const std::string &token, bool emptyBodyOn404 = false) const;
 
     std::string toMetricName(
         const std::string &op, const std::string &bucket) const;

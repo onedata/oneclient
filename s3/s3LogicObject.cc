@@ -48,7 +48,7 @@ folly::Future<Aws::S3::Model::HeadObjectResult> S3Logic::headObject(
         return headBucket(bucket, requestId);
     }
 
-    return getBucketAttr(bucket)
+    return getBucketAttr(bucket, requestId)
         .thenValue([this, path](auto &&attr) {
             return getFileAttrByPath(attr.uuid(), path);
         })
@@ -119,7 +119,7 @@ S3Logic::getObject(const folly::fbstring &bucket, const folly::fbstring &path,
     std::function<void(size_t)> completionCallback,
     std::function<void(const error::S3Exception &)> errorCallback)
 {
-    return getBucketAttr(bucket)
+    return getBucketAttr(bucket, requestId)
         .via(m_executor.get())
         //
         // Get the attribute of the file to download
@@ -448,7 +448,7 @@ folly::Future<size_t> S3Logic::uploadObject(const std::string &requestId,
     const folly::fbstring &md5, const folly::fbstring &contentType,
     std::shared_ptr<folly::IOBuf> buf)
 {
-    return getBucketAttr(bucket)
+    return getBucketAttr(bucket, requestId)
         .via(m_executor.get())
         //
         // Get temporary upload directory attr or create it if necessary
@@ -461,7 +461,7 @@ folly::Future<size_t> S3Logic::uploadObject(const std::string &requestId,
 
             auto bucketAttr = maybeBucketAttr.value();
 
-            auto tmpDirAttr = getBucketTmpDirAttr(bucketAttr.name());
+            auto tmpDirAttr = getBucketTmpDirAttr(bucketAttr.name(), requestId);
 
             PUSH_FUTURES_2(bucketAttr, tmpDirAttr);
         })
@@ -566,11 +566,10 @@ folly::Future<size_t> S3Logic::uploadObject(const std::string &requestId,
         });
 }
 
-folly::Future<folly::Unit> S3Logic::deleteObject(
-    const std::string & /*requestId*/, const folly::fbstring &bucket,
-    const folly::fbstring &path)
+folly::Future<folly::Unit> S3Logic::deleteObject(const std::string &requestId,
+    const folly::fbstring &bucket, const folly::fbstring &path)
 {
-    return getBucketAttr(bucket)
+    return getBucketAttr(bucket, requestId)
         .thenValue([this, path](auto &&attr) {
             return getFileAttrByPath(attr.uuid(), path);
         })

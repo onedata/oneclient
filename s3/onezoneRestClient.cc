@@ -57,19 +57,23 @@ std::string OnezoneClient::createSpaceSupportToken(
     request.add("X-Auth-Token", token);
     request.setContentLength(bodyStr.size());
 
+    logRequest("Onezone", request);
+
     auto &requestStream = session_.sendRequest(request);
     requestStream << bodyStr;
 
     Poco::Net::HTTPResponse response;
-    auto &responseStream = session_.receiveResponse(response);
+    auto responseStr = toString(session_.receiveResponse(response));
+
+    logResponse("Onezone", responseStr);
 
     auto statusCode = response.getStatus();
     if (statusCode != Poco::Net::HTTPResponse::HTTP_CREATED) {
-        throwHTTPExceptionFromRESTErrorResponse(responseStream);
+        throwHTTPExceptionFromRESTErrorResponse(responseStr);
     }
 
     Poco::JSON::Parser p;
-    auto value = p.parse(responseStream);
+    auto value = p.parse(responseStr);
     Poco::JSON::Object::Ptr object = value.extract<Poco::JSON::Object::Ptr>();
 
     return object->getValue<std::string>("token");
@@ -89,21 +93,25 @@ std::vector<model::Space> OnezoneClient::listUserSpaces(
     request.setContentType("application/json");
     request.setContentLength(bodyStr.size());
 
+    logRequest("Onezone", request);
+
     auto &requestStream = session_.sendRequest(request);
     requestStream << bodyStr;
 
     Poco::Net::HTTPResponse response;
 
-    auto &responseStream = session_.receiveResponse(response);
+    auto responseStr = toString(session_.receiveResponse(response));
+
+    logResponse("Onezone", responseStr);
 
     auto statusCode = response.getStatus();
 
     if (statusCode != Poco::Net::HTTPResponse::HTTP_OK) {
-        throwHTTPExceptionFromRESTErrorResponse(responseStream);
+        throwHTTPExceptionFromRESTErrorResponse(responseStr);
     }
 
     Poco::JSON::Parser p;
-    auto value = p.parse(responseStream);
+    auto value = p.parse(responseStr);
 
     Poco::JSON::Object::Ptr object = value.extract<Poco::JSON::Object::Ptr>();
 
@@ -130,18 +138,22 @@ model::UserSpaceDetails OnezoneClient::getUserSpace(
     request.add("X-Auth-Token", token);
     request.setContentLength(0);
 
+    logRequest("Onezone", request);
+
     session_.sendRequest(request);
 
     Poco::Net::HTTPResponse response;
-    auto &responseStream = session_.receiveResponse(response);
+    auto responseStr = toString(session_.receiveResponse(response));
+
+    logResponse("Onezone", responseStr);
 
     auto statusCode = response.getStatus();
     if (statusCode != Poco::Net::HTTPResponse::HTTP_OK) {
-        throwHTTPExceptionFromRESTErrorResponse(responseStream);
+        throwHTTPExceptionFromRESTErrorResponse(responseStr);
     }
 
     Poco::JSON::Parser p;
-    auto value = p.parse(responseStream);
+    auto value = p.parse(responseStr);
     Poco::JSON::Object::Ptr object = value.extract<Poco::JSON::Object::Ptr>();
 
     model::UserSpaceDetails result;
@@ -166,15 +178,19 @@ std::string OnezoneClient::createSpace(
     request.add("X-Auth-Token", token);
     request.setContentLength(bodyStr.size());
 
+    logRequest("Onezone", request);
+
     auto &requestStream = session_.sendRequest(request);
     requestStream << bodyStr;
 
     Poco::Net::HTTPResponse response;
-    auto &responseStream = session_.receiveResponse(response);
+    auto responseStr = toString(session_.receiveResponse(response));
+
+    logResponse("Onezone", responseStr);
 
     auto statusCode = response.getStatus();
     if (statusCode != Poco::Net::HTTPResponse::HTTP_CREATED) {
-        throwHTTPExceptionFromRESTErrorResponse(responseStream);
+        throwHTTPExceptionFromRESTErrorResponse(responseStr);
     }
 
     if (!response.has("Location")) {
@@ -198,14 +214,18 @@ void OnezoneClient::deleteSpace(
     request.add("X-Auth-Token", token);
     request.setContentLength(0);
 
+    logRequest("Onezone", request);
+
     session_.sendRequest(request);
 
     Poco::Net::HTTPResponse response;
-    auto &responseStream = session_.receiveResponse(response);
+    auto responseStr = toString(session_.receiveResponse(response));
+
+    logResponse("Onezone", responseStr);
 
     auto statusCode = response.getStatus();
     if (statusCode != Poco::Net::HTTPResponse::HTTP_NO_CONTENT) {
-        throwHTTPExceptionFromRESTErrorResponse(responseStream);
+        throwHTTPExceptionFromRESTErrorResponse(responseStr);
     }
 }
 

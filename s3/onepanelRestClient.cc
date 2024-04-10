@@ -53,11 +53,15 @@ void OnepanelClient::supportSpace(
 
     request.setContentLength(bodyStr.size());
 
+    logRequest("Onepanel", request);
+
     auto &requestStream = session_.sendRequest(request);
     requestStream << bodyStr;
 
     Poco::Net::HTTPResponse response;
     auto responseStream = toString(session_.receiveResponse(response));
+
+    logResponse("Onepanel", responseStream);
 
     auto statusCode = response.getStatus();
     if (statusCode != Poco::Net::HTTPResponse::HTTP_CREATED) {
@@ -91,81 +95,6 @@ void OnepanelClient::updateRequestCredentials(
     }
 }
 
-std::string OnepanelClient::getProviderId()
-{
-    Poco::Net::HTTPRequest request{
-        Poco::Net::HTTPRequest::HTTP_GET, "/configuration"};
-
-    session_.sendRequest(request);
-
-    Poco::Net::HTTPResponse response;
-    auto responseStream = toString(session_.receiveResponse(response));
-
-    auto statusCode = response.getStatus();
-    if (statusCode != Poco::Net::HTTPResponse::HTTP_OK) {
-        throw Poco::Net::HTTPException(statusCode);
-    }
-
-    Poco::JSON::Parser p;
-    auto value = p.parse(responseStream);
-    Poco::JSON::Object::Ptr object = value.extract<Poco::JSON::Object::Ptr>();
-
-    return object->getValue<std::string>("providerId");
-}
-
-bool OnepanelClient::isSpaceSupported(
-    const std::string &spaceId, const std::string &providerId)
-{
-    std::string result;
-
-    Poco::Net::HTTPRequest request{Poco::Net::HTTPRequest::HTTP_GET,
-        std::string("/api/v3/onepanel/provider/spaces/") + spaceId};
-    request.setContentType("application/json");
-    updateRequestCredentials(request);
-    request.setContentLength(0);
-
-    session_.sendRequest(request);
-
-    Poco::Net::HTTPResponse response;
-    auto responseStream = toString(session_.receiveResponse(response));
-
-    auto statusCode = response.getStatus();
-
-    if (statusCode == Poco::Net::HTTPResponse::HTTP_FORBIDDEN ||
-        statusCode == Poco::Net::HTTPResponse::HTTP_UNAUTHORIZED) {
-        return false;
-    }
-
-    if (statusCode != Poco::Net::HTTPResponse::HTTP_OK) {
-        throw Poco::Net::HTTPException(statusCode);
-    }
-
-    Poco::JSON::Parser p;
-    auto value = p.parse(responseStream);
-    Poco::JSON::Object::Ptr object = value.extract<Poco::JSON::Object::Ptr>();
-
-    return object->has("supportingProviders") &&
-        object->getObject("supportingProviders")->has(providerId);
-}
-
-bool OnepanelClient::ensureSpaceIsSupported(const std::string &spaceId)
-{
-    using namespace std::literals::chrono_literals; // NOLINT
-
-    const std::string providerId = getProviderId();
-
-    constexpr auto kRetryCountMax = 100UL;
-
-    auto retryCount = kRetryCountMax;
-    while (retryCount-- != 0) {
-        if (isSpaceSupported(spaceId, providerId))
-            return true;
-
-        std::this_thread::sleep_for(100ms);
-    }
-
-    return false;
-}
 } // namespace onepanel
 } // namespace rest
 } // namespace one

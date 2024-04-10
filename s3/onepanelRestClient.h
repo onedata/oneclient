@@ -60,13 +60,6 @@ public:
     void supportSpace(const std::string &supportToken,
         const std::string &storageId, size_t size);
 
-    std::string getProviderId();
-
-    bool isSpaceSupported(
-        const std::string &spaceId, const std::string &providerId);
-
-    bool ensureSpaceIsSupported(const std::string &spaceId);
-
 private:
     void updateRequestCredentials(Poco::Net::HTTPRequest &request) const;
 
