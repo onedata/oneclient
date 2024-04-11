@@ -274,7 +274,7 @@ void S3Server::putBucket(const HttpRequestPtr &req,
             throw one::s3::error::AccessDenied(bucket, bucket, requestId);
 
         auto auth = S3Authorization::fromHttpRequest(req);
-        auto token = auth->getToken();
+        const auto token = auth->getToken();
 
         auto onezoneHost = m_options->getOnezoneHost().value();
 
@@ -285,18 +285,8 @@ void S3Server::putBucket(const HttpRequestPtr &req,
 
         one::rest::onepanel::OnepanelClient onepanelClient{
             m_options->getProviderHost().value()};
-        if (m_options->getOneS3SupportStorageCredentials()) {
-            onepanelClient.setCredentials(
-                one::rest::onepanel::OnepanelBasicAuth{
-                    *m_options->getOneS3SupportStorageCredentials()});
-        }
-        else if (m_options->getAccessToken()) {
-            onepanelClient.setCredentials(
-                one::rest::onepanel::OnepanelTokenAuth{
-                    *m_options->getAccessToken()});
-        }
-        else
-            throw one::s3::error::AccessDenied(bucket, bucket, requestId);
+
+        setOnepanelCredentials(bucket, requestId, onepanelClient);
 
         if (bucketNameCached(bucket))
             throw one::s3::error::BucketAlreadyOwnedByYou(
@@ -305,30 +295,11 @@ void S3Server::putBucket(const HttpRequestPtr &req,
         try {
             // List spaces to check if that space already exists (regardless of
             // its seed)
-            for (const auto &space :
-                onezoneClient.listUserSpaces(auth->getToken())) {
-                if (space.name == bucket) {
-                    if (oneproviderClient.ensureSpaceIsSupported(
-                            space.id, token))
-                        throw one::s3::error::BucketAlreadyOwnedByYou(
-                            bucket, bucket, requestId);
-                }
-            }
+            checkIfSpaceExistsInOnezone(
+                bucket, requestId, token, onezoneClient, oneproviderClient);
 
             // Create the new space
-            std::string spaceId;
-            try {
-                spaceId = onezoneClient.createSpace(auth->getToken(), bucket);
-            }
-            catch (Poco::Net::HTTPException &e) {
-                if (e.code() == Poco::Net::HTTPResponse::HTTP_CONFLICT) {
-                    if (oneproviderClient.ensureSpaceIsSupported(
-                            spaceId, token))
-                        throw one::s3::error::BucketAlreadyOwnedByYou(
-                            bucket, bucket, requestId);
-                }
-                throw e;
-            }
+            auto spaceId = onezoneClient.createSpace(token, bucket);
 
             // Add new space to admin group if specified on the command line
             // TODO: ...
@@ -345,32 +316,19 @@ void S3Server::putBucket(const HttpRequestPtr &req,
             // Wait for space to be visible
             //
             if (oneproviderClient.ensureSpaceIsSupported(spaceId, token)) {
-                // Why do I have to do this? Shouldn't ensureSpaceIsSupported()
-                // be enough
-                const int kEnsureSpaceSupportRetryCount = 100;
-                const int kEnsureSpaceSupportDelayMS = 100;
-                auto retries = kEnsureSpaceSupportRetryCount;
-                while (retries-- > 0) {
-                    auto buckets = m_logicCache->get(auth->getToken())
-                                       .delayed(std::chrono::milliseconds(
-                                           kEnsureSpaceSupportDelayMS))
-                                       .thenTry([](auto &&s3) {
-                                           return s3.value()->listBuckets();
-                                       })
-                                       .get();
+                if (waitUntilSpaceIsVisibleInS3Logic(bucket, spaceId, token)) {
+                    cacheBucketName(bucket, spaceId);
+                    response->addHeader("Location", "/" + bucket);
+                    callback(response);
 
-                    for (const auto &listedBucket : buckets.GetBuckets()) {
-                        if (listedBucket.GetName() == bucket) {
-                            cacheBucketName(bucket, spaceId);
-                            response->addHeader("Location", "/" + bucket);
-                            callback(response);
-                            return;
-                        }
-                    }
+                    ONE_METRIC_COUNTER_INC(toMetricName("put_bucket", bucket));
+
+                    return;
                 }
             }
 
-            ONE_METRIC_COUNTER_INC(toMetricName("put_bucket", bucket));
+            LOG(ERROR) << "Failed to create bucket " << bucket
+                       << " - bucket not visible through CLProto...";
 
             throw one::s3::error::InternalServerError(
                 bucket, bucket, requestId);
@@ -390,6 +348,58 @@ void S3Server::putBucket(const HttpRequestPtr &req,
         response->setStatusCode(drogon::k500InternalServerError);
         callback(response);
     }
+}
+
+bool S3Server::waitUntilSpaceIsVisibleInS3Logic(const std::string &bucket,
+    const std::string &spaceId, const std::string &token) const
+{
+    const int kEnsureSpaceSupportRetryCount = 100;
+    const int kEnsureSpaceSupportDelayMS = 100;
+    auto retries = kEnsureSpaceSupportRetryCount;
+    while (retries-- > 0) {
+        auto buckets =
+            m_logicCache->get(token)
+                .delayed(std::chrono::milliseconds(kEnsureSpaceSupportDelayMS))
+                .thenTry([](auto &&s3) { return s3.value()->listBuckets(); })
+                .get();
+
+        for (const auto &listedBucket : buckets.GetBuckets()) {
+            if (listedBucket.GetName() == bucket) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+void S3Server::checkIfSpaceExistsInOnezone(const std::string &bucket,
+    const std::string &requestId, const std::string &token,
+    rest::onezone::OnezoneClient &onezoneClient,
+    rest::oneprovider::OneproviderClient &oneproviderClient) const
+{
+    for (const auto &space : onezoneClient.listUserSpaces(token)) {
+        if (space.name == bucket) {
+            if (oneproviderClient.ensureSpaceIsSupported(space.id, token))
+                throw error::BucketAlreadyOwnedByYou(bucket, bucket, requestId);
+        }
+    }
+}
+
+void S3Server::setOnepanelCredentials(const std::string &bucket,
+    const std::string &requestId,
+    rest::onepanel::OnepanelClient &onepanelClient) const
+{
+    if (m_options->getOneS3SupportStorageCredentials()) {
+        onepanelClient.setCredentials(rest::onepanel::OnepanelBasicAuth{
+            *m_options->getOneS3SupportStorageCredentials()});
+    }
+    else if (m_options->getAccessToken()) {
+        onepanelClient.setCredentials(
+            rest::onepanel::OnepanelTokenAuth{*m_options->getAccessToken()});
+    }
+    else
+        throw error::AccessDenied(bucket, bucket, requestId);
 }
 
 bool S3Server::ensureSpaceIsSupported(const std::string &bucket,
@@ -423,28 +433,9 @@ bool S3Server::ensureSpaceIsSupported(const std::string &bucket,
             }
 
             if (oneproviderClient.ensureSpaceIsSupported(spaceId, token)) {
-
-                // Why do I have to do this? Shouldn't ensureSpaceIsSupported()
-                // be enough
-                const int kEnsureSpaceSupportRetryCount = 100;
-                const int kEnsureSpaceSupportDelayMS = 100;
-
-                auto retries = kEnsureSpaceSupportRetryCount;
-                while (retries-- > 0) {
-                    auto buckets = m_logicCache->get(token)
-                                       .delayed(std::chrono::milliseconds(
-                                           kEnsureSpaceSupportDelayMS))
-                                       .thenTry([](auto &&s3) {
-                                           return s3.value()->listBuckets();
-                                       })
-                                       .get();
-
-                    for (const auto &listedBucket : buckets.GetBuckets()) {
-                        if (listedBucket.GetName() == bucket) {
-                            cacheBucketName(bucket, spaceId);
-                            return true;
-                        }
-                    }
+                if (waitUntilSpaceIsVisibleInS3Logic(bucket, spaceId, token)) {
+                    cacheBucketName(bucket, spaceId);
+                    return true;
                 }
             }
 
@@ -801,7 +792,7 @@ void S3Server::getObject(const HttpRequestPtr &req,
     auto timer = ONE_METRIC_TIMERCTX_CREATE(toMetricName("get_object", bucket));
 
     m_logicCache->get(auth->getToken())
-        .thenValue([callback, bucket, path, rangeHeader, requestId,
+        .thenValue([this, callback, bucket, path, rangeHeader, requestId,
                        timer = std::move(timer)](
                        std::shared_ptr<S3Logic> &&s3) mutable {
             // Extract range header if exist
@@ -817,62 +808,18 @@ void S3Server::getObject(const HttpRequestPtr &req,
                         e.fillResponse(response);
                         callback(response);
                     })
-                .thenValue([callback, path, timer = std::move(timer)](
+                .thenValue([this, callback, path, timer = std::move(timer)](
                                auto &&args) mutable {
                     auto &getResult = args.first;
                     auto streamReaderPair = args.second;
 
                     if (std::get<0>(streamReaderPair) != nullptr) {
-                        auto response = HttpResponse::newStreamResponse(
-                            streamReaderPair.first, path, CT_NONE,
-                            getResult.GetContentType());
-
-                        response->setContentTypeString(
-                            getResult.GetContentType());
-
-                        if (!getResult.GetContentRange().empty()) {
-                            response->addHeader(
-                                "content-range", getResult.GetContentRange());
-                            response->setStatusCode(
-                                drogon::HttpStatusCode::k206PartialContent);
-                        }
-
-                        response->addHeader("content-length",
-                            std::to_string(getResult.GetContentLength()));
-                        response->addHeader("etag", getResult.GetETag());
-                        response->addHeader("accept-ranges", "bytes");
-                        response->addHeader("last-modified",
-                            getResult.GetLastModified().ToGmtString(
-                                Aws::Utils::DateFormat::RFC822));
-
-                        callback(response);
+                        handleGetObjectStreamResponse(
+                            getResult, streamReaderPair.first, path, callback);
                     }
                     else {
-                        auto response = HttpResponse::newHttpResponse();
-
-                        response->setContentTypeString(
-                            getResult.GetContentType());
-
-                        if (!getResult.GetContentRange().empty()) {
-                            response->addHeader(
-                                "content-range", getResult.GetContentRange());
-                            response->setStatusCode(
-                                drogon::HttpStatusCode::k206PartialContent);
-                        }
-                        response->addHeader("content-length",
-                            std::to_string(getResult.GetContentLength()));
-                        response->addHeader("etag", getResult.GetETag());
-                        response->addHeader("accept-ranges", "bytes");
-                        response->addHeader("last-modified",
-                            getResult.GetLastModified().ToGmtString(
-                                Aws::Utils::DateFormat::RFC822));
-
-                        response->setBody(std::move(streamReaderPair.second));
-
-                        response->addHeader("Content-Disposition",
-                            "attachment; filename=" + path);
-
-                        callback(response);
+                        handleGetObjectResponse(getResult,
+                            std::move(streamReaderPair.second), path, callback);
                     }
                 });
         })

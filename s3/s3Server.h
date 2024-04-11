@@ -9,8 +9,10 @@
 #pragma once
 
 #include "bucketAPI.h"
-#include "types.h"
+#include "oneproviderRestClient.h"
+#include "onezoneRestClient.h"
 #include "s3LogicCache.h"
+#include "types.h"
 
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/random_generator.hpp>
@@ -219,6 +221,72 @@ private:
     std::string toMetricName(
         const std::string &op, const std::string &bucket) const;
 
+    void setOnepanelCredentials(const std::string &bucket,
+        const std::string &requestId,
+        rest::onepanel::OnepanelClient &onepanelClient) const;
+
+    void checkIfSpaceExistsInOnezone(const std::string &bucket,
+        const std::string &requestId, const std::string &token,
+        one::rest::onezone::OnezoneClient &onezoneClient,
+        one::rest::oneprovider::OneproviderClient &oneproviderClient) const;
+
+    bool waitUntilSpaceIsVisibleInS3Logic(const std::string &bucket,
+        const std::string &spaceId, const std::string &token) const;
+
+    void handleGetObjectStreamResponse(
+        Aws::S3::Model::GetObjectResult &getResult,
+        std::function<std::size_t(char *, std::size_t)> handler,
+        const std::string &path, HttpResponseCallback &callback) const
+    {
+        auto response = HttpResponse::newStreamResponse(
+            handler, path, CT_NONE, getResult.GetContentType());
+
+        response->setContentTypeString(getResult.GetContentType());
+
+        if (!getResult.GetContentRange().empty()) {
+            response->addHeader("content-range", getResult.GetContentRange());
+            response->setStatusCode(drogon::HttpStatusCode::k206PartialContent);
+        }
+
+        response->addHeader(
+            "content-length", std::to_string(getResult.GetContentLength()));
+        response->addHeader("etag", getResult.GetETag());
+        response->addHeader("accept-ranges", "bytes");
+        response->addHeader("last-modified",
+            getResult.GetLastModified().ToGmtString(
+                Aws::Utils::DateFormat::RFC822));
+
+        callback(response);
+    }
+
+    void handleGetObjectResponse(Aws::S3::Model::GetObjectResult &getResult,
+        std::string body, const std::string &path,
+        HttpResponseCallback &callback) const
+    {
+        auto response = HttpResponse::newHttpResponse();
+
+        response->setContentTypeString(getResult.GetContentType());
+
+        if (!getResult.GetContentRange().empty()) {
+            response->addHeader("content-range", getResult.GetContentRange());
+            response->setStatusCode(drogon::HttpStatusCode::k206PartialContent);
+        }
+        response->addHeader(
+            "content-length", std::to_string(getResult.GetContentLength()));
+        response->addHeader("etag", getResult.GetETag());
+        response->addHeader("accept-ranges", "bytes");
+        response->addHeader("last-modified",
+            getResult.GetLastModified().ToGmtString(
+                Aws::Utils::DateFormat::RFC822));
+
+        response->setBody(std::move(body));
+
+        response->addHeader(
+            "Content-Disposition", "attachment; filename=" + path);
+
+        callback(response);
+    }
+
     std::shared_ptr<S3LogicCache> m_logicCache;
     std::shared_ptr<one::client::options::Options> m_options;
 
@@ -231,8 +299,7 @@ private:
 
     mutable std::mutex m_uuidGeneratorMutex;
     std::mt19937 m_randomGenerator;
-    mutable boost::uuids::basic_random_generator<std::mt19937>
-        m_uuidGenerator;
+    mutable boost::uuids::basic_random_generator<std::mt19937> m_uuidGenerator;
 
     mutable folly::ConcurrentHashMap<std::string /* bucketName */,
         std::string /* spaceId */>

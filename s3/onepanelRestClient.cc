@@ -7,7 +7,9 @@
  */
 
 #include "onepanelRestClient.h"
+
 #include "helpers/logging.h"
+#include "s3Exception.h"
 
 #include <Poco/Net/HTTPBasicCredentials.h>
 #include <boost/algorithm/algorithm.hpp>

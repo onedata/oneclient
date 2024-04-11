@@ -93,7 +93,7 @@ bool OneproviderClient::ensureSpaceIsSupported(
     const std::string providerId = getProviderId();
 
     constexpr auto kRetryCountMax = 100UL;
-    const auto kRetryDelay = 100ms;
+    const auto kRetryDelay = 250ms;
 
     auto retryCount = kRetryCountMax;
     while (retryCount-- != 0) {

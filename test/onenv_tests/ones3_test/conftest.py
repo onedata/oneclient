@@ -176,7 +176,7 @@ def s3_server(request, onezone_ip, oneprovider_ip, ceph_monitor_ip,
     print("STARTING ONES3")
 
     ones3_cli = (
-        f'debug/s3/ones3 -i -v 3 --onezone-host {onezone_ip} -H {oneprovider_ip}'
+        f'debug/s3/ones3 -i -v 1 --onezone-host {onezone_ip} -H {oneprovider_ip}'
         f' --ones3-support-storage-id {support_storage_id}'
         f' --ones3-support-storage-credentials onepanel:password'
         f' --override {support_storage_id}:monitorHostname:{ceph_monitor_ip}'
