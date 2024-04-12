@@ -56,26 +56,38 @@ public:
 
     std::string requestId() const { return m_requestId; }
 
-    void fillResponse(std::shared_ptr<drogon::HttpResponse> &response) const
+    void fillResponse(std::shared_ptr<drogon::HttpResponse> &response,
+        bool emptyBody = false) const
     {
-        std::string body = fmt::format(
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-            "<Error>"
-            "<Code>{}</Code>"
-            "<Message>{}</Message>"
-            "<BucketName>{}</BucketName>"
-            "<Resource>/{}</Resource>"
-            "<RequestId>{}</RequestId>"
-            "<HostId>e225541b-7a4b-409c-b254-880c6b7c52c7</HostId>"
-            "</Error>",
-            statusName(), what(), bucketName(), resourceName(), requestId());
-
         response->setStatusCode(statusCode());
         response->addHeader("x-amz-request-id", requestId());
-        response->addHeader("content-length", std::to_string(body.size()));
-        response->setContentTypeString("application/xml");
 
-        response->setBody(std::move(body));
+        if (emptyBody ||
+            ((statusCode() == drogon::HttpStatusCode::k404NotFound) &&
+                (std::string{what()} !=
+                    "The specified bucket does not exist"))) {
+            response->setContentTypeCode(drogon::CT_NONE);
+        }
+        else {
+            std::string body = fmt::format(
+                "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                "<Error>"
+                "<Code>{}</Code>"
+                "<Message>{}</Message>"
+                "<BucketName>{}</BucketName>"
+                "<Resource>/{}</Resource>"
+                "<RequestId>{}</RequestId>"
+                // TODO: Generate host id
+                "<HostId>e225541b-7a4b-409c-b254-880c6b7c52c7</HostId>"
+                "</Error>",
+                statusName(), what(), bucketName(), resourceName(),
+                requestId());
+
+            response->addHeader("content-length", std::to_string(body.size()));
+            response->setContentTypeString("application/xml");
+
+            response->setBody(std::move(body));
+        }
     }
 
 private:

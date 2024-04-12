@@ -53,11 +53,79 @@ def test_error_create_bucket_readonly_token(s3_readonly_client):
     assert e.value.response['Error']['Code'] == 'AccessDenied'
 
 
+def test_error_remove_bucket_invalid_bucket(s3_client):
+    bucket = random_str()
+
+    with pytest.raises(botocore.exceptions.ClientError) as e:
+        s3_client.delete_bucket(Bucket=bucket)
+
+    assert e.value.response['Error']['Code'] == 'NoSuchBucket'
+
+    response_metadata = e.value.response['ResponseMetadata']
+    assert response_metadata['HTTPStatusCode'] == 404
+    assert response_metadata['HTTPHeaders']['content-type'] == 'application/xml'
+
+
 def test_error_remove_bucket_readonly_token(s3_readonly_client, bucket):
     with pytest.raises(botocore.exceptions.ClientError) as e:
         s3_readonly_client.delete_bucket(Bucket=bucket)
 
     assert e.value.response['Error']['Code'] == 'AccessDenied'
+
+
+def test_error_head_bucket_invalid(s3_client):
+    bucket = random_str()
+
+    with pytest.raises(botocore.exceptions.ClientError) as e:
+        s3_client.head_bucket(Bucket=bucket)
+
+    response_metadata = e.value.response['ResponseMetadata']
+    assert response_metadata['HTTPStatusCode'] == 404
+    assert response_metadata['HTTPHeaders']['content-length'] == '0'
+    assert 'content-type' not in response_metadata['HTTPHeaders']
+
+
+def test_error_head_object_invalid_key(s3_client, bucket):
+    key = random_str()
+
+    with pytest.raises(botocore.exceptions.ClientError) as e:
+        s3_client.head_object(Bucket=bucket, Key=key)
+
+    response_metadata = e.value.response['ResponseMetadata']
+    assert response_metadata['HTTPStatusCode'] == 404
+    assert response_metadata['HTTPHeaders']['content-length'] == '0'
+    assert 'content-type' not in response_metadata['HTTPHeaders']
+
+
+def test_error_get_object_invalid_key(s3_client, bucket):
+    key = random_str()
+
+    with pytest.raises(botocore.exceptions.ClientError) as e:
+        s3_client.get_object(Bucket=bucket, Key=key)
+
+    response_metadata = e.value.response['ResponseMetadata']
+    assert response_metadata['HTTPStatusCode'] == 404
+    assert response_metadata['HTTPHeaders']['content-length'] == '0'
+    assert 'content-type' not in response_metadata['HTTPHeaders']
+
+
+def test_error_delete_object_invalid_key(s3_client, bucket):
+    key = random_str()
+
+    res = s3_client.delete_object(Bucket=bucket, Key=key)
+
+    assert (res['ResponseMetadata']['HTTPStatusCode'] == 204)
+
+
+def test_error_delete_objects_invalid_keys(s3_client, bucket):
+    files = [f'f-{i}.txt' for i in range(10)]
+    objects = {'Objects': [{'Key': f} for f in files]}
+
+    res = s3_client.delete_objects(Bucket=bucket,
+                                   Delete=objects)
+
+    assert (res['ResponseMetadata']['HTTPStatusCode'] == 200)
+    assert (res['Deleted'] == objects['Objects'])
 
 
 def test_error_put_object_no_such_bucket(s3_client):
@@ -69,6 +137,13 @@ def test_error_put_object_no_such_bucket(s3_client):
         s3_client.put_object(Bucket="no_such_bucket", Key=key, Body=body)
 
     assert e.value.response['Error']['Code'] == 'NoSuchBucket'
+    assert e.value.response['Error'][
+               'Message'] == 'The specified bucket does not exist'
+    assert e.value.response['Error']['BucketName'] == "no_such_bucket"
+
+    response_metadata = e.value.response['ResponseMetadata']
+    assert response_metadata['HTTPStatusCode'] == 404
+    assert response_metadata['HTTPHeaders']['content-type'] == 'application/xml'
 
 
 def test_error_put_object_readonly_token(s3_readonly_client, bucket):
@@ -102,7 +177,12 @@ def test_error_directory_is_not_object(s3_client, bucket):
     with pytest.raises(botocore.exceptions.ClientError) as e:
         s3_client.get_object(Bucket=bucket, Key='dir1/dir2')
 
-    assert e.value.response['Error']['Code'] == 'NoSuchKey'
+    assert e.value.response['Error']['Code'] == '404'
+
+    response_metadata = e.value.response['ResponseMetadata']
+    assert response_metadata['HTTPStatusCode'] == 404
+    assert response_metadata['HTTPHeaders']['content-length'] == '0'
+    assert 'content-type' not in response_metadata['HTTPHeaders']
 
 
 def test_error_list_buckets_user_with_no_spaces(s3_client_noone):
@@ -113,7 +193,7 @@ def test_error_list_buckets_user_with_no_spaces(s3_client_noone):
             s3_client_noone.list_buckets()
 
         assert (e.value.response['Error']['Code'] == 'AccessDenied') \
-                or (e.value.response['Error']['Code'] == '500')
+               or (e.value.response['Error']['Code'] == '500')
 
 
 def test_error_list_small_bucket_by_another_user(s3_client, s3_client_joe,

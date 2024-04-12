@@ -123,8 +123,8 @@ public:
         const folly::fbstring &contentType);
 
     folly::Future<Aws::S3::Model::AbortMultipartUploadResult>
-    abortMultipartUpload(
-        const folly::fbstring &bucket, const folly::fbstring &uploadId);
+    abortMultipartUpload(const folly::fbstring &bucket,
+        const folly::fbstring &uploadId, const std::string &requestId);
 
     folly::Future<Aws::S3::Model::UploadPartResult> uploadMultipartPart(
         const std::string &requestId, const folly::fbstring &bucket,
@@ -144,7 +144,8 @@ public:
 
     folly::Future<Aws::S3::Model::ListMultipartUploadsResult>
     listMultipartUploads(const folly::fbstring &bucket, size_t maxUploads,
-        const folly::Optional<folly::fbstring> &indexToken);
+        const folly::Optional<folly::fbstring> &indexToken,
+        const std::string &requestId);
 
     folly::Future<std::pair<Aws::S3::Model::GetObjectResult,
         std::pair<std::function<std::size_t(char *, std::size_t)>,
@@ -159,26 +160,29 @@ public:
         const folly::fbstring &bucket, const folly::fbstring &prefix,
         const folly::Optional<folly::fbstring> &token,
         const folly::Optional<folly::fbstring> &startAfter,
-        const size_t maxKeys, bool fetchOwner, bool includeDirectories = true);
+        const size_t maxKeys, bool fetchOwner, const std::string &requestId,
+        bool includeDirectories = true);
 
     folly::Future<Aws::S3::Model::ListObjectsResult> readDirRecursive(
         const folly::fbstring &bucket, const folly::fbstring &prefix,
         const folly::Optional<folly::fbstring> &token,
         const folly::Optional<folly::fbstring> &startAfter,
-        const size_t maxKeys);
+        const size_t maxKeys, const std::string &requestId);
 
     folly::Future<Aws::S3::Model::ListObjectsResult> readDir(
         const folly::fbstring &bucket, const folly::fbstring &prefix,
         const folly::Optional<folly::fbstring> &marker,
-        const folly::fbstring &delimiter, const size_t maxKeys);
+        const folly::fbstring &delimiter, const size_t maxKeys,
+        const std::string &requestId);
 
     folly::Future<Aws::S3::Model::ListObjectsV2Result> readDirV2(
         const folly::fbstring &bucket, const folly::fbstring &prefix,
         const folly::Optional<folly::fbstring> &marker,
-        const folly::fbstring &delimiter, const size_t maxKeys);
+        const folly::fbstring &delimiter, const size_t maxKeys,
+        const std::string &requestId);
 
     folly::Future<Aws::S3::Model::HeadObjectResult> headBucket(
-        const folly::fbstring &bucket, const folly::fbstring &requestId);
+        const folly::fbstring &bucket, const std::string &requestId);
 
     folly::Future<Aws::S3::Model::HeadObjectResult> headObject(
         const folly::fbstring &bucket, const folly::fbstring &path,
@@ -213,10 +217,10 @@ public:
         const folly::fbstring &spaceId, const folly::fbstring &path);
 
     folly::Future<one::messages::fuse::FileAttr> getBucketAttr(
-        const folly::fbstring &bucket);
+        const folly::fbstring &bucket, const std::string &requestId);
 
     folly::Future<one::messages::fuse::FileAttr> getBucketTmpDirAttr(
-        const folly::fbstring &bucket);
+        const folly::fbstring &bucket, const std::string &requestId);
 
     folly::Future<one::messages::fuse::FileAttr> getFileAttr(
         const folly::fbstring &parentId, std::vector<std::string> path);

@@ -11,6 +11,7 @@
 #include "events/types/fileWritten.h"
 #include "monitoring/monitoring.h"
 #include "onepanelRestClient.h"
+#include "oneproviderRestClient.h"
 #include "onezoneRestClient.h"
 #include "s3Exception.h"
 #include "serialization.h"
@@ -67,9 +68,12 @@ folly::Optional<size_t> getParameter(
 } // namespace
 
 #define LOG_REQUEST_5(op, bucket, requestId, req, other)                       \
-    LOG_DBG(1) << fmt::format("ones3 [{}] {} {} {}{}{}", requestId,            \
+    LOG_DBG(1) << fmt::format("ones3 [{}] {} {} {} {}{}{}", requestId,         \
         Poco::DateTimeFormatter::format(                                       \
             Poco::Timestamp{}, Poco::DateTimeFormat::ISO8601_FORMAT),          \
+        (req)->headers().count("x-forwarded-for") > 0                          \
+            ? (req)->headers().at("x-forwarded-for")                           \
+            : (req)->peerAddr().toIpPort(),                                    \
         op, (req)->getPath(),                                                  \
         (req)->getQuery().empty() ? ""                                         \
                                   : fmt::format("?{}", (req)->getQuery()),     \
@@ -226,7 +230,7 @@ void S3Server::listBuckets(
 
     std::string token = auth->getToken();
 
-    LOG_REQUEST("LIST_BUCKETS", "", requestId, req);
+    LOG_REQUEST("LIST_BUCKETS", "*", requestId, req);
 
     ONE_METRIC_COUNTER_INC("comp.ones3.mod.s3server.list_buckets");
 
@@ -255,16 +259,6 @@ void S3Server::listBuckets(
             }) FUTURE_GET();
 }
 
-// EXAMPLE HEADERS
-// 'User-Agent': b'aws-cli/1.22.34 Python/3.10.4 Linux/5.15.14-051514-generic
-// botocore/1.23.34' 'X-Amz-Date': b'20220902T132615Z' 'X-Amz-Content-SHA256':
-// b'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
-// 'Authorization': b'AWS4-HMAC-SHA256
-// Credential=MDAzM2xvY2F00aW9uIGRldi1vbmV6b25lLmRlZmF1bHQuc3ZjLmNsdXN00ZXIubG9jYWwKMDA2YmlkZW500aWZpZXIgMi9ubWQvdXNyLTljMjU00OTkyMmZiMzhmMGJiYTYyNGJiNTU00NDk3M2Y5Y2hiMzhmL2FjdC9lOTBjOGY5YzI3NzIxYzJkOGJjYjFhMzMwMmM00ODk5NmNoN2IzOAowMDFlY2lkIGludGVyZmFjZSA9IG9uZWNsaWVudAowMDJmc2lnbmF00dXJlIPItGH7wQJgbXGFMP2DHz14YMlamjaoYpl003avAb5VjmCg/20220902/us-east-1/s3/aws4_request,
-// SignedHeaders=host;x-amz-content-sha256;x-amz-date
-// Signature=25b80f3b16e18b082b5425629efa215f14c47a38926f9683e4ba673a8f63924a'
-// 'Content-Length': '0'
-
 void S3Server::putBucket(const HttpRequestPtr &req,
     HttpResponseCallback &&callback, const std::string &bucket) const
 {
@@ -280,25 +274,19 @@ void S3Server::putBucket(const HttpRequestPtr &req,
             throw one::s3::error::AccessDenied(bucket, bucket, requestId);
 
         auto auth = S3Authorization::fromHttpRequest(req);
+        const auto token = auth->getToken();
 
         auto onezoneHost = m_options->getOnezoneHost().value();
 
         one::rest::onezone::OnezoneClient onezoneClient{onezoneHost};
+
+        one::rest::oneprovider::OneproviderClient oneproviderClient{
+            m_options->getProviderHost().value()};
+
         one::rest::onepanel::OnepanelClient onepanelClient{
             m_options->getProviderHost().value()};
 
-        if (m_options->getOneS3SupportStorageCredentials()) {
-            onepanelClient.setCredentials(
-                one::rest::onepanel::OnepanelBasicAuth{
-                    *m_options->getOneS3SupportStorageCredentials()});
-        }
-        else if (m_options->getAccessToken()) {
-            onepanelClient.setCredentials(
-                one::rest::onepanel::OnepanelTokenAuth{
-                    *m_options->getAccessToken()});
-        }
-        else
-            throw one::s3::error::AccessDenied(bucket, bucket, requestId);
+        setOnepanelCredentials(bucket, requestId, onepanelClient);
 
         if (bucketNameCached(bucket))
             throw one::s3::error::BucketAlreadyOwnedByYou(
@@ -307,28 +295,11 @@ void S3Server::putBucket(const HttpRequestPtr &req,
         try {
             // List spaces to check if that space already exists (regardless of
             // its seed)
-            for (const auto &space :
-                onezoneClient.listUserSpaces(auth->getToken())) {
-                if (space.name == bucket) {
-                    if (onepanelClient.ensureSpaceIsSupported(space.id))
-                        throw one::s3::error::BucketAlreadyOwnedByYou(
-                            bucket, bucket, requestId);
-                }
-            }
+            checkIfSpaceExistsInOnezone(
+                bucket, requestId, token, onezoneClient, oneproviderClient);
 
             // Create the new space
-            std::string spaceId;
-            try {
-                spaceId = onezoneClient.createSpace(auth->getToken(), bucket);
-            }
-            catch (Poco::Net::HTTPException &e) {
-                if (e.code() == Poco::Net::HTTPResponse::HTTP_CONFLICT) {
-                    if (onepanelClient.ensureSpaceIsSupported(spaceId))
-                        throw one::s3::error::BucketAlreadyOwnedByYou(
-                            bucket, bucket, requestId);
-                }
-                throw e;
-            }
+            auto spaceId = onezoneClient.createSpace(token, bucket);
 
             // Add new space to admin group if specified on the command line
             // TODO: ...
@@ -344,33 +315,20 @@ void S3Server::putBucket(const HttpRequestPtr &req,
             //
             // Wait for space to be visible
             //
-            if (onepanelClient.ensureSpaceIsSupported(spaceId)) {
-                // Why do I have to do this? Shouldn't ensureSpaceIsSupported()
-                // be enough
-                const int kEnsureSpaceSupportRetryCount = 100;
-                const int kEnsureSpaceSupportDelayMS = 100;
-                auto retries = kEnsureSpaceSupportRetryCount;
-                while (retries-- > 0) {
-                    auto buckets = m_logicCache->get(auth->getToken())
-                                       .delayed(std::chrono::milliseconds(
-                                           kEnsureSpaceSupportDelayMS))
-                                       .thenTry([](auto &&s3) {
-                                           return s3.value()->listBuckets();
-                                       })
-                                       .get();
+            if (oneproviderClient.ensureSpaceIsSupported(spaceId, token)) {
+                if (waitUntilSpaceIsVisibleInS3Logic(bucket, spaceId, token)) {
+                    cacheBucketName(bucket, spaceId);
+                    response->addHeader("Location", "/" + bucket);
+                    callback(response);
 
-                    for (const auto &listedBucket : buckets.GetBuckets()) {
-                        if (listedBucket.GetName() == bucket) {
-                            cacheBucketName(bucket, spaceId);
-                            response->addHeader("Location", "/" + bucket);
-                            callback(response);
-                            return;
-                        }
-                    }
+                    ONE_METRIC_COUNTER_INC(toMetricName("put_bucket", bucket));
+
+                    return;
                 }
             }
 
-            ONE_METRIC_COUNTER_INC(toMetricName("put_bucket", bucket));
+            LOG(ERROR) << "Failed to create bucket " << bucket
+                       << " - bucket not visible through CLProto...";
 
             throw one::s3::error::InternalServerError(
                 bucket, bucket, requestId);
@@ -392,9 +350,61 @@ void S3Server::putBucket(const HttpRequestPtr &req,
     }
 }
 
+bool S3Server::waitUntilSpaceIsVisibleInS3Logic(const std::string &bucket,
+    const std::string &spaceId, const std::string &token) const
+{
+    const int kEnsureSpaceSupportRetryCount = 100;
+    const int kEnsureSpaceSupportDelayMS = 100;
+    auto retries = kEnsureSpaceSupportRetryCount;
+    while (retries-- > 0) {
+        auto buckets =
+            m_logicCache->get(token)
+                .delayed(std::chrono::milliseconds(kEnsureSpaceSupportDelayMS))
+                .thenTry([](auto &&s3) { return s3.value()->listBuckets(); })
+                .get();
+
+        for (const auto &listedBucket : buckets.GetBuckets()) {
+            if (listedBucket.GetName() == bucket) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+void S3Server::checkIfSpaceExistsInOnezone(const std::string &bucket,
+    const std::string &requestId, const std::string &token,
+    rest::onezone::OnezoneClient &onezoneClient,
+    rest::oneprovider::OneproviderClient &oneproviderClient) const
+{
+    for (const auto &space : onezoneClient.listUserSpaces(token)) {
+        if (space.name == bucket) {
+            if (oneproviderClient.ensureSpaceIsSupported(space.id, token))
+                throw error::BucketAlreadyOwnedByYou(bucket, bucket, requestId);
+        }
+    }
+}
+
+void S3Server::setOnepanelCredentials(const std::string &bucket,
+    const std::string &requestId,
+    rest::onepanel::OnepanelClient &onepanelClient) const
+{
+    if (m_options->getOneS3SupportStorageCredentials()) {
+        onepanelClient.setCredentials(rest::onepanel::OnepanelBasicAuth{
+            *m_options->getOneS3SupportStorageCredentials()});
+    }
+    else if (m_options->getAccessToken()) {
+        onepanelClient.setCredentials(
+            rest::onepanel::OnepanelTokenAuth{*m_options->getAccessToken()});
+    }
+    else
+        throw error::AccessDenied(bucket, bucket, requestId);
+}
+
 bool S3Server::ensureSpaceIsSupported(const std::string &bucket,
     const HttpResponseCallback &callback, const std::string &requestId,
-    const std::string &token) const
+    const std::string &token, bool emptyBodyOn404) const
 {
     if (bucketNameCached(bucket))
         return true;
@@ -404,18 +414,8 @@ bool S3Server::ensureSpaceIsSupported(const std::string &bucket,
     one::rest::onezone::OnezoneClient onezoneClient{
         m_options->getOnezoneHost().value()};
 
-    one::rest::onepanel::OnepanelClient onepanelClient{
+    one::rest::oneprovider::OneproviderClient oneproviderClient{
         m_options->getProviderHost().value()};
-    if (m_options->getOneS3SupportStorageCredentials()) {
-        onepanelClient.setCredentials(one::rest::onepanel::OnepanelBasicAuth{
-            *m_options->getOneS3SupportStorageCredentials()});
-    }
-    else if (m_options->getAccessToken()) {
-        onepanelClient.setCredentials(one::rest::onepanel::OnepanelTokenAuth{
-            *m_options->getAccessToken()});
-    }
-    else
-        throw one::s3::error::AccessDenied(bucket, bucket, requestId);
 
     try {
         try {
@@ -432,29 +432,10 @@ bool S3Server::ensureSpaceIsSupported(const std::string &bucket,
                 throw one::s3::error::NoSuchBucket(bucket, bucket, requestId);
             }
 
-            if (onepanelClient.ensureSpaceIsSupported(spaceId)) {
-
-                // Why do I have to do this? Shouldn't ensureSpaceIsSupported()
-                // be enough
-                const int kEnsureSpaceSupportRetryCount = 100;
-                const int kEnsureSpaceSupportDelayMS = 100;
-
-                auto retries = kEnsureSpaceSupportRetryCount;
-                while (retries-- > 0) {
-                    auto buckets = m_logicCache->get(token)
-                                       .delayed(std::chrono::milliseconds(
-                                           kEnsureSpaceSupportDelayMS))
-                                       .thenTry([](auto &&s3) {
-                                           return s3.value()->listBuckets();
-                                       })
-                                       .get();
-
-                    for (const auto &listedBucket : buckets.GetBuckets()) {
-                        if (listedBucket.GetName() == bucket) {
-                            cacheBucketName(bucket, spaceId);
-                            return true;
-                        }
-                    }
+            if (oneproviderClient.ensureSpaceIsSupported(spaceId, token)) {
+                if (waitUntilSpaceIsVisibleInS3Logic(bucket, spaceId, token)) {
+                    cacheBucketName(bucket, spaceId);
+                    return true;
                 }
             }
 
@@ -469,9 +450,15 @@ bool S3Server::ensureSpaceIsSupported(const std::string &bucket,
                 e, bucket, bucket, requestId);
         }
     }
+    catch (one::s3::error::NoSuchBucket &e) {
+        LOG_REQUEST_ERROR(requestId,
+            fmt::format("Request for bucket {} failed", bucket), e.what());
+        e.fillResponse(response, emptyBodyOn404);
+        callback(response);
+    }
     catch (one::s3::error::S3Exception &e) {
-        LOG_REQUEST_ERROR(
-            requestId, "Request failed to create bucket", e.what());
+        LOG_REQUEST_ERROR(requestId,
+            fmt::format("Request for bucket {} failed", bucket), e.what());
         e.fillResponse(response);
         callback(response);
     }
@@ -489,15 +476,16 @@ void S3Server::headBucket(const HttpRequestPtr &req,
     LOG_REQUEST("HEAD_BUCKET", bucket, requestId, req);
 
     if (!ensureSpaceIsSupported(
-            bucket, callback, requestId, auth->getToken())) {
+            bucket, callback, requestId, auth->getToken(), true)) {
         return;
     }
 
     ONE_METRIC_COUNTER_INC(toMetricName("head_bucket", bucket));
 
     m_logicCache->get(auth->getToken())
-        .thenTry(
-            [bucket](auto &&s3) { return s3.value()->getBucketAttr(bucket); })
+        .thenTry([bucket, requestId](auto &&s3) {
+            return s3.value()->getBucketAttr(bucket, requestId);
+        })
         .thenValue([callback](messages::fuse::FileAttr && /*bucketAttr*/) {
             auto response = HttpResponse::newHttpResponse();
             callback(response);
@@ -554,9 +542,11 @@ void S3Server::deleteBucket(const HttpRequestPtr &req,
 
             bool isEmpty =
                 m_logicCache->get(auth->getToken())
-                    .thenValue([&bucket](std::shared_ptr<S3Logic> &&s3) {
+                    .thenValue([&bucket, requestId](
+                                   std::shared_ptr<S3Logic> &&s3) {
                         return s3
-                            ->readDirV2Recursive(bucket, "", {}, {}, 2, false)
+                            ->readDirV2Recursive(
+                                bucket, "", {}, {}, 2, false, requestId)
                             .thenValue([](Aws::S3::Model::ListObjectsV2Result
                                                &&result) {
                                 return result.GetKeyCount() == 0;
@@ -570,8 +560,8 @@ void S3Server::deleteBucket(const HttpRequestPtr &req,
             onezoneClient.deleteSpace(
                 auth->getToken(), spaceIdToDelete.value());
 
-            constexpr auto kRetryCount{200};
-            constexpr auto kRetryDelayMs{250};
+            constexpr auto kRetryCount{250};
+            constexpr auto kRetryDelayMs{100};
             auto retries = kRetryCount;
 
             while (retries-- > 0) {
@@ -615,7 +605,7 @@ void S3Server::deleteBucket(const HttpRequestPtr &req,
         }
     }
     catch (one::s3::error::S3Exception &e) {
-        LOG_REQUEST_ERROR(requestId, "Delete bucket failed due to: ", e.what());
+        LOG_REQUEST_ERROR(requestId, "Delete bucket failed", e.what());
         e.fillResponse(response);
     }
 
@@ -637,8 +627,9 @@ void S3Server::getLocationConstraint(const HttpRequestPtr &req,
     }
 
     m_logicCache->get(auth->getToken())
-        .thenTry(
-            [bucket](auto &&s3) { return s3.value()->getBucketAttr(bucket); })
+        .thenTry([bucket, requestId](auto &&s3) {
+            return s3.value()->getBucketAttr(bucket, requestId);
+        })
         .thenTry([callback](auto &&bucketAttr) {
             bucketAttr.value();
 
@@ -676,8 +667,9 @@ void S3Server::getVersioning(const HttpRequestPtr &req,
     }
 
     m_logicCache->get(auth->getToken())
-        .thenTry(
-            [&bucket](auto &&s3) { return s3.value()->getBucketAttr(bucket); })
+        .thenTry([&bucket, requestId](auto &&s3) {
+            return s3.value()->getBucketAttr(bucket, requestId);
+        })
         .thenTry([callback](auto &&bucketAttr) {
             bucketAttr.value();
 
@@ -800,7 +792,7 @@ void S3Server::getObject(const HttpRequestPtr &req,
     auto timer = ONE_METRIC_TIMERCTX_CREATE(toMetricName("get_object", bucket));
 
     m_logicCache->get(auth->getToken())
-        .thenValue([callback, bucket, path, rangeHeader, requestId,
+        .thenValue([this, callback, bucket, path, rangeHeader, requestId,
                        timer = std::move(timer)](
                        std::shared_ptr<S3Logic> &&s3) mutable {
             // Extract range header if exist
@@ -816,62 +808,18 @@ void S3Server::getObject(const HttpRequestPtr &req,
                         e.fillResponse(response);
                         callback(response);
                     })
-                .thenValue([callback, path, timer = std::move(timer)](
+                .thenValue([this, callback, path, timer = std::move(timer)](
                                auto &&args) mutable {
                     auto &getResult = args.first;
                     auto streamReaderPair = args.second;
 
                     if (std::get<0>(streamReaderPair) != nullptr) {
-                        auto response = HttpResponse::newStreamResponse(
-                            streamReaderPair.first, path, CT_NONE,
-                            getResult.GetContentType());
-
-                        response->setContentTypeString(
-                            getResult.GetContentType());
-
-                        if (!getResult.GetContentRange().empty()) {
-                            response->addHeader(
-                                "content-range", getResult.GetContentRange());
-                            response->setStatusCode(
-                                drogon::HttpStatusCode::k206PartialContent);
-                        }
-
-                        response->addHeader("content-length",
-                            std::to_string(getResult.GetContentLength()));
-                        response->addHeader("etag", getResult.GetETag());
-                        response->addHeader("accept-ranges", "bytes");
-                        response->addHeader("last-modified",
-                            getResult.GetLastModified().ToGmtString(
-                                Aws::Utils::DateFormat::RFC822));
-
-                        callback(response);
+                        handleGetObjectStreamResponse(
+                            getResult, streamReaderPair.first, path, callback);
                     }
                     else {
-                        auto response = HttpResponse::newHttpResponse();
-
-                        response->setContentTypeString(
-                            getResult.GetContentType());
-
-                        if (!getResult.GetContentRange().empty()) {
-                            response->addHeader(
-                                "content-range", getResult.GetContentRange());
-                            response->setStatusCode(
-                                drogon::HttpStatusCode::k206PartialContent);
-                        }
-                        response->addHeader("content-length",
-                            std::to_string(getResult.GetContentLength()));
-                        response->addHeader("etag", getResult.GetETag());
-                        response->addHeader("accept-ranges", "bytes");
-                        response->addHeader("last-modified",
-                            getResult.GetLastModified().ToGmtString(
-                                Aws::Utils::DateFormat::RFC822));
-
-                        response->setBody(std::move(streamReaderPair.second));
-
-                        response->addHeader("Content-Disposition",
-                            "attachment; filename=" + path);
-
-                        callback(response);
+                        handleGetObjectResponse(getResult,
+                            std::move(streamReaderPair.second), path, callback);
                     }
                 });
         })
@@ -1042,7 +990,8 @@ void S3Server::putCompleteObject(const HttpRequestPtr &req,
 {
     const auto requestId = getRequestId();
 
-    LOG_REQUEST("PUT_OBJECT", bucket, requestId, req);
+    LOG_REQUEST("PUT_OBJECT", bucket, requestId, req,
+        fmt::format("content-length={}", req->bodyLength()));
 
     auto auth = S3Authorization::fromHttpRequest(req);
 
@@ -1168,8 +1117,11 @@ void S3Server::deleteObject(const HttpRequestPtr &req,
             return s3->deleteObject(requestId, bucket, path)
                 .thenError(folly::tag_t<std::system_error>{},
                     [requestId, bucket, path](auto &&e) mutable {
-                        one::s3::error::S3Exception::raiseFromSystemError(
-                            e, bucket, path, requestId);
+                        if (e.code().value() != ENOENT)
+                            one::s3::error::S3Exception::raiseFromSystemError(
+                                e, bucket, path, requestId);
+
+                        return folly::makeFuture();
                     })
                 .thenValue([callback](auto && /*unit*/) {
                     auto response = HttpResponse::newHttpResponse();
@@ -1227,8 +1179,17 @@ void S3Server::deleteObjects(const HttpRequestPtr &req,
                 [this, bucket, requestId, s3](const auto &object) {
                     return s3->deleteObject(requestId, bucket, object.GetKey())
                         .via(m_logicCache->executor())
-                        .thenTry([key = object.GetKey()](auto &&result) {
+                        .thenTry([key = object.GetKey()](
+                                     folly::Try<folly::Unit> &&result) {
                             if (result.hasException()) {
+                                if (result.hasException<std::system_error>() &&
+                                    result.exception()
+                                            .get_exception<std::system_error>()
+                                            ->code()
+                                            .value() == ENOENT) {
+                                    return std::make_pair(
+                                        key, folly::Optional<std::string>{});
+                                }
                                 return std::make_pair(key,
                                     folly::Optional<std::string>(
                                         "AccessDenied"));
@@ -1416,7 +1377,7 @@ void S3Server::listObjects(const HttpRequestPtr &req,
                 if (listVersion == 2)
                     return s3
                         ->readDirV2Recursive(bucket, prefix, continuationToken,
-                            startAfter, maxKeys, fetchOwner)
+                            startAfter, maxKeys, fetchOwner, requestId)
                         .thenValue([callback](auto &&result) {
                             auto response = HttpResponse::newHttpResponse();
                             response->setContentTypeString("application/xml");
@@ -1434,8 +1395,8 @@ void S3Server::listObjects(const HttpRequestPtr &req,
                             });
 
                 return s3
-                    ->readDirRecursive(
-                        bucket, prefix, continuationToken, startAfter, maxKeys)
+                    ->readDirRecursive(bucket, prefix, continuationToken,
+                        startAfter, maxKeys, requestId)
                     .thenValue([callback](auto &&result) {
                         auto response = HttpResponse::newHttpResponse();
                         response->setContentTypeString("application/xml");
@@ -1475,7 +1436,8 @@ void S3Server::listObjects(const HttpRequestPtr &req,
                            maxKeys](std::shared_ptr<S3Logic> &&s3) mutable {
                 if (listVersion == 2)
                     return s3
-                        ->readDirV2(bucket, prefix, marker, delimiter, maxKeys)
+                        ->readDirV2(bucket, prefix, marker, delimiter, maxKeys,
+                            requestId)
                         .thenValue([callback](auto &&result) {
                             auto response = HttpResponse::newHttpResponse();
                             response->setContentTypeString("application/xml");
@@ -1492,7 +1454,9 @@ void S3Server::listObjects(const HttpRequestPtr &req,
                                         e, bucket, prefix, requestId);
                             });
 
-                return s3->readDir(bucket, prefix, marker, delimiter, maxKeys)
+                return s3
+                    ->readDir(
+                        bucket, prefix, marker, delimiter, maxKeys, requestId)
                     .thenValue([callback](auto &&result) {
                         auto response = HttpResponse::newHttpResponse();
                         response->setContentTypeString("application/xml");
@@ -1604,9 +1568,9 @@ void S3Server::abortMultipartUpload(const HttpRequestPtr &req,
     auto response = HttpResponse::newHttpResponse();
 
     m_logicCache->get(auth->getToken())
-        .thenValue([response, callback = std::move(callback), bucket, path](
-                       std::shared_ptr<S3Logic> &&s3) mutable {
-            return s3->abortMultipartUpload(bucket, path)
+        .thenValue([response, requestId, callback = std::move(callback), bucket,
+                       path](std::shared_ptr<S3Logic> &&s3) mutable {
+            return s3->abortMultipartUpload(bucket, path, requestId)
                 .thenValue([response, callback = std::move(callback)](
                                auto && /*result*/) {
                     response->setStatusCode(HttpStatusCode::k204NoContent);

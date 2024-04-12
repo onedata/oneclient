@@ -54,9 +54,9 @@ folly::Future<Aws::S3::Model::ListBucketsResult> S3Logic::listBuckets()
 }
 
 folly::Future<Aws::S3::Model::HeadObjectResult> S3Logic::headBucket(
-    const folly::fbstring &bucket, const folly::fbstring & /*requestId*/)
+    const folly::fbstring &bucket, const std::string &requestId)
 {
-    return getBucketAttr(bucket).thenValue([](auto &&attr) {
+    return getBucketAttr(bucket, requestId).thenValue([](auto &&attr) {
         Aws::S3::Model::HeadObjectResult result;
         result.SetETag(one::client::util::md5::md5(attr.uuid().toStdString()));
         result.SetContentLength(0);
@@ -69,9 +69,10 @@ folly::Future<Aws::S3::Model::HeadObjectResult> S3Logic::headBucket(
 folly::Future<Aws::S3::Model::ListObjectsResult> S3Logic::readDir(
     const folly::fbstring &bucket, const folly::fbstring &prefix,
     const folly::Optional<folly::fbstring> &marker,
-    const folly::fbstring & /*delimiter*/, const size_t maxKeys)
+    const folly::fbstring & /*delimiter*/, const size_t maxKeys,
+    const std::string &requestId)
 {
-    return getBucketAttr(bucket)
+    return getBucketAttr(bucket, requestId)
         .thenValue([this, prefix](FileAttr &&attr) {
             if (prefix.empty() || prefix == "/")
                 return folly::makeFuture<FileAttr>(std::move(attr));
@@ -162,9 +163,10 @@ folly::Future<Aws::S3::Model::ListObjectsResult> S3Logic::readDir(
 folly::Future<Aws::S3::Model::ListObjectsV2Result> S3Logic::readDirV2(
     const folly::fbstring &bucket, const folly::fbstring &prefix,
     const folly::Optional<folly::fbstring> &marker,
-    const folly::fbstring & /*delimiter*/, const size_t maxKeys)
+    const folly::fbstring & /*delimiter*/, const size_t maxKeys,
+    const std::string &requestId)
 {
-    return getBucketAttr(bucket)
+    return getBucketAttr(bucket, requestId)
         .thenValue([this, prefix](FileAttr &&attr) {
             if (prefix.empty() || prefix == "/")
                 return folly::makeFuture<FileAttr>(std::move(attr));
@@ -264,9 +266,10 @@ folly::Future<Aws::S3::Model::ListObjectsV2Result> S3Logic::readDirV2Recursive(
     const folly::fbstring &bucket, const folly::fbstring &prefix,
     const folly::Optional<folly::fbstring> &token,
     const folly::Optional<folly::fbstring> &startAfter, const size_t maxKeys,
-    const bool fetchOwner, const bool includeDirectories)
+    const bool fetchOwner, const std::string &requestId,
+    const bool includeDirectories)
 {
-    return getBucketAttr(bucket)
+    return getBucketAttr(bucket, requestId)
         .thenTry([this, maxKeys, startAfter, includeDirectories, token, prefix](
                      auto &&maybeAttr) {
             maybeAttr.throwIfFailed();
@@ -380,11 +383,12 @@ folly::Future<Aws::S3::Model::ListObjectsV2Result> S3Logic::readDirV2Recursive(
 folly::Future<Aws::S3::Model::ListObjectsResult> S3Logic::readDirRecursive(
     const folly::fbstring &bucket, const folly::fbstring &prefix,
     const folly::Optional<folly::fbstring> &token,
-    const folly::Optional<folly::fbstring> &startAfter, const size_t maxKeys)
+    const folly::Optional<folly::fbstring> &startAfter, const size_t maxKeys,
+    const std::string &requestId)
 {
     const auto effectiveMaxKeys = maxKeys;
 
-    return getBucketAttr(bucket)
+    return getBucketAttr(bucket, requestId)
         .thenValue([this, maxKeys = effectiveMaxKeys, token, startAfter,
                        prefix](auto &&attr) {
             return communicate<FileList>(

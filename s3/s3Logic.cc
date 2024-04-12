@@ -220,36 +220,43 @@ folly::Future<FileAttr> S3Logic::getFileAttr(
     return getFileAttr(spaceId, pathVector);
 }
 
-folly::Future<FileAttr> S3Logic::getBucketAttr(const folly::fbstring &bucket)
+folly::Future<FileAttr> S3Logic::getBucketAttr(
+    const folly::fbstring &bucket, const std::string &requestId)
 {
     if (m_bucketIdCache.find(bucket) != m_bucketIdCache.end())
         return folly::makeFuture(m_bucketIdCache.at(bucket));
 
     return communicate<FileAttr>(GetChildAttr{m_rootUuid, bucket})
         .via(m_executor.get())
-        .thenTry([this, bucket](folly::Try<FileAttr> &&bucketAttr) {
+        .thenTry([this, requestId, bucket](folly::Try<FileAttr> &&bucketAttr) {
+            if (bucketAttr.hasException()) {
+                throw one::s3::error::NoSuchBucket(
+                    bucket.toStdString(), bucket.toStdString(), requestId);
+            }
+
             m_bucketIdCache.emplace(bucket, bucketAttr.value());
             return std::move(bucketAttr);
         });
 }
 
 folly::Future<FileAttr> S3Logic::getBucketTmpDirAttr(
-    const folly::fbstring &bucket)
+    const folly::fbstring &bucket, const std::string &requestId)
 {
     if (m_bucketTmpDirCache.find(bucket) != m_bucketTmpDirCache.end())
         return folly::makeFuture(m_bucketTmpDirCache.at(bucket));
 
-    return getBucketAttr(bucket).thenValue([this, bucket](auto &&bucketAttr) {
-        const auto tmpDirId =
-            one::client::util::uuid::uuidToTmpDirId(bucketAttr.uuid());
+    return getBucketAttr(bucket, requestId)
+        .thenValue([this, bucket](auto &&bucketAttr) {
+            const auto tmpDirId =
+                one::client::util::uuid::uuidToTmpDirId(bucketAttr.uuid());
 
-        return communicate<FileAttr>(
-            CreatePath{tmpDirId, ONEDATA_S3_MULTIPART_PREFIX})
-            .thenTry([this, bucket](folly::Try<FileAttr> &&tmpDirAttr) {
-                m_bucketTmpDirCache.emplace(bucket, tmpDirAttr.value());
-                return std::move(tmpDirAttr);
-            });
-    });
+            return communicate<FileAttr>(
+                CreatePath{tmpDirId, ONEDATA_S3_MULTIPART_PREFIX})
+                .thenTry([this, bucket](folly::Try<FileAttr> &&tmpDirAttr) {
+                    m_bucketTmpDirCache.emplace(bucket, tmpDirAttr.value());
+                    return std::move(tmpDirAttr);
+                });
+        });
 }
 
 folly::Future<FileAttr> S3Logic::getFileAttr(
