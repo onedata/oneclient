@@ -155,12 +155,10 @@ public:
      * @brief Refresh helper parameters
      *
      * @param storageId
-     * @param spaceId
      * @return folly::Future<folly::Unit>
      */
     folly::Future<folly::Unit> refreshHelperParameters(
-        const folly::fbstring &storageId,
-        const folly::fbstring &spaceId) override
+        const folly::fbstring &storageId) override
     {
         return folly::makeFuture();
     }

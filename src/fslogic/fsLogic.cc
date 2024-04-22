@@ -155,7 +155,7 @@ FsLogic::FsLogic(std::shared_ptr<OneclientContext> context,
     , m_readEventsDisabled{readEventsDisabled}
     , m_forceFullblockRead{forceFullblockRead}
     , m_fsSubscriptions{m_eventManager, m_metadataCache, m_forceProxyIOCache,
-          runInFiber}
+          *m_helpersCache, runInFiber}
     , m_nextFuseHandleId{0}
     , m_storageTimeout{m_context->options()->getStorageTimeout()}
     , m_runInFiber{std::move(runInFiber)} /* clang-format off */
@@ -285,6 +285,10 @@ FsLogic::FsLogic(std::shared_ptr<OneclientContext> context,
     // Called when file is removed
     m_metadataCache.onMarkDeleted(
         [this](const folly::fbstring &uuid) { m_onMarkDeleted(uuid); });
+
+    m_helpersCache->onHelperCreated([this](const folly::fbstring &storageId) {
+        m_fsSubscriptions.subscribeHelperParamsChanged(storageId);
+    });
 
     if (m_clusterPrefetchThresholdRandom) {
         m_clusterPrefetchDistribution = std::uniform_int_distribution<int>(
@@ -987,11 +991,11 @@ folly::IOBufQueue FsLogic::readInternal(const folly::fbstring &uuid,
         const std::size_t availableSize =
             boost::icl::size(wantedAvailableRange);
 
+        auto handleFuture = fuseFileHandle->getHelperHandle(uuid,
+            m_metadataCache.getSpaceId(uuid), fileBlock.storageId(),
+            fileBlock.fileId());
         auto helperHandle =
-            communication::wait(fuseFileHandle->getHelperHandle(uuid,
-                                    m_metadataCache.getSpaceId(uuid),
-                                    fileBlock.storageId(), fileBlock.fileId()),
-                m_storageTimeout);
+            communication::wait(std::move(handleFuture), m_storageTimeout);
 
         if (checksum) {
             LOG_DBG(1) << "Waiting on helper flush for " << uuid
@@ -1122,8 +1126,7 @@ folly::IOBufQueue FsLogic::readInternal(const folly::fbstring &uuid,
                 [this, storageId, spaceId, fileId, fuseFileHandle, uuid]() {
                     // Invalidate the read cache so that it forgets
                     // the ekeyexpired exception
-                    return m_helpersCache
-                        ->refreshHelperParameters(storageId, spaceId)
+                    return m_helpersCache->refreshHelperParameters(storageId)
                         .within(m_providerTimeout)
                         .get();
                 });
@@ -1496,7 +1499,7 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
                             // Invalidate the read cache so that it forgets
                             // the ekeyexpired exception
                             return m_helpersCache
-                                ->refreshHelperParameters(storageId, spaceId)
+                                ->refreshHelperParameters(storageId)
                                 .within(m_providerTimeout)
                                 .get();
                         });

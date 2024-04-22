@@ -113,8 +113,8 @@ public:
             }
 
             for (const auto &mountPoint : mountPoints) {
-                LOG(INFO) << "Verifying POSIX storage " << storageId
-                          << " test file under mountpoint " << mountPoint;
+                LOG_DBG(2) << "Verifying POSIX storage " << storageId
+                           << " test file under mountpoint " << mountPoint;
 
                 auto helper =
                     m_helperFactory.getStorageHelper(helpers::POSIX_HELPER_NAME,
@@ -122,11 +122,23 @@ public:
                             mountPoint.string()}},
                         m_options.isIOBuffered());
 
-                if (detail::verifyStorageTestFile(
-                        storageId, helper, testFile)) {
-                    LOG(INFO) << "POSIX storage " << storageId
-                              << " successfully located under " << mountPoint;
-                    return helper;
+                if (!helper) {
+                    continue;
+                }
+
+                try {
+                    if (detail::verifyStorageTestFile(
+                            storageId, helper, testFile)) {
+                        LOG_DBG(2)
+                            << "POSIX storage " << storageId
+                            << " successfully located under " << mountPoint;
+                        return helper;
+                    }
+                }
+                catch (const std::exception &e) {
+                    LOG_DBG(2)
+                        << "Verification of POSIX storage under mountpoint "
+                        << mountPoint << " failed due to: " << e.what();
                 }
             }
         }

@@ -29,6 +29,8 @@
 namespace one {
 namespace client {
 
+constexpr std::chrono::seconds VERIFY_TEST_REQUEST_TIMEOUT{5};
+
 bool checkPosixMountpointOverride(const folly::fbstring &storageId,
     const std::unordered_map<folly::fbstring, folly::fbstring> &overrideParams)
 {
@@ -67,6 +69,8 @@ folly::fbstring modifyStorageTestFile(const folly::fbstring &storageId,
     std::shared_ptr<helpers::StorageHelper> helper,
     const messages::fuse::StorageTestFile &testFile)
 {
+    LOG_FCALL() << LOG_FARG(storageId);
+
     auto size = testFile.fileContent().size();
     folly::IOBufQueue buf{folly::IOBufQueue::cacheChainLength()};
 
@@ -77,15 +81,24 @@ folly::fbstring modifyStorageTestFile(const folly::fbstring &storageId,
     std::uniform_int_distribution<char> distribution('a', 'z');
     std::generate_n(data, size, [&]() { return distribution(engine); });
 
-    auto handle = communication::wait(
-        helper->open(testFile.fileId(), O_WRONLY, {}), helper->timeout());
+    LOG_DBG(2) << "Opening storage test file for modification: "
+               << testFile.fileId();
+
+    auto handle =
+        communication::wait(helper->open(testFile.fileId(), O_WRONLY, {}),
+            VERIFY_TEST_REQUEST_TIMEOUT);
 
     std::string content;
     buf.appendToString(content);
 
+    LOG_DBG(2) << "Writing modified content to storage test file: " << content;
+
     communication::wait(
-        handle->write(0, std::move(buf), {}), helper->timeout());
-    communication::wait(handle->fsync(true), helper->timeout());
+        handle->write(0, std::move(buf), {}), VERIFY_TEST_REQUEST_TIMEOUT);
+
+    LOG_DBG(2) << "Flushing modifed content to file: " << content;
+
+    communication::wait(handle->fsync(true), VERIFY_TEST_REQUEST_TIMEOUT);
 
     LOG_DBG(1) << "Storage " << storageId << " test file " << testFile.fileId()
                << " in space " << testFile.spaceId()
@@ -139,7 +152,10 @@ std::vector<boost::filesystem::path> getMountPoints()
 
 std::vector<boost::filesystem::path> getMountPoints()
 {
-    std::vector<boost::filesystem::path> mountPoints;
+    LOG_FCALL();
+
+    namespace fs = boost::filesystem;
+    std::vector<fs::path> mountPoints;
 
     FILE *file = setmntent("/proc/mounts", "r");
     if (file == nullptr) {
@@ -152,11 +168,21 @@ std::vector<boost::filesystem::path> getMountPoints()
         std::string type(ent->mnt_type);
         std::string path(ent->mnt_dir);
         if (type.compare(0, strlen("fuse"), "fuse") != 0 &&
+            type.compare(0, strlen("fuse.oneclient"), "fuse.oneclient") != 0 &&
             path.compare(0, strlen("/proc"), "/proc") != 0 &&
             path.compare(0, strlen("/dev"), "/dev") != 0 &&
             path.compare(0, strlen("/sys"), "/sys") != 0 &&
             path.compare(0, strlen("/etc"), "/etc") != 0 && path != "/") {
-            mountPoints.emplace_back(ent->mnt_dir);
+            fs::path boostPath{ent->mnt_dir};
+            // Only consider mountpoints which are directories
+            try {
+                if (fs::exists(boostPath) && fs::is_directory(boostPath))
+                    mountPoints.emplace_back(ent->mnt_dir);
+            }
+            catch (...) {
+                LOG_DBG(2) << "Cannot access mounpoint: " << boostPath
+                           << " - ignoring...";
+            }
         }
     }
 
@@ -171,15 +197,19 @@ bool verifyStorageTestFile(const folly::fbstring &storageId,
     std::shared_ptr<helpers::StorageHelper> helper,
     const messages::fuse::StorageTestFile &testFile)
 {
-    try {
+    LOG_FCALL() << LOG_FARG(storageId);
 
+    assert(helper);
+
+    try {
         auto size = testFile.fileContent().size();
 
-        auto handle = communication::wait(
-            helper->open(testFile.fileId(), O_RDONLY, {}), helper->timeout());
+        auto handle =
+            communication::wait(helper->open(testFile.fileId(), O_RDONLY, {}),
+                VERIFY_TEST_REQUEST_TIMEOUT);
 
-        auto buf =
-            communication::wait(handle->read(0, size), helper->timeout());
+        auto buf = communication::wait(
+            handle->read(0, size), VERIFY_TEST_REQUEST_TIMEOUT);
         std::string content;
         buf.appendToString(content);
 
@@ -203,11 +233,16 @@ bool verifyStorageTestFile(const folly::fbstring &storageId,
         return true;
     }
     catch (const std::system_error &e) {
+        LOG_DBG(2) << "System error while validating test file: " << e.what();
+
         auto code = e.code().value();
         if (code != ENOENT && code != ENOTDIR && code != EPERM) {
-            LOG(WARNING) << "Storage test file validation failed!";
+            LOG_DBG(2) << "Storage test file validation failed!";
             throw;
         }
+    }
+    catch (const std::exception &e) {
+        LOG_DBG(2) << "Exception while validating test file: " << e.what();
     }
 
     return false;

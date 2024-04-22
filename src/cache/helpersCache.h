@@ -79,7 +79,7 @@ public:
         const folly::fbstring &storageId) = 0;
 
     virtual folly::Future<folly::Unit> refreshHelperParameters(
-        const folly::fbstring &storageId, const folly::fbstring &spaceId) = 0;
+        const folly::fbstring &storageId) = 0;
 };
 
 // TODO: Refactor to promises
@@ -100,8 +100,7 @@ public:
         const folly::fbstring &storageId) override;
 
     folly::Future<folly::Unit> refreshHelperParameters(
-        const folly::fbstring &storageId,
-        const folly::fbstring &spaceId) override;
+        const folly::fbstring &storageId) override;
 
 private:
     mutable std::mutex m_cacheMutex;
@@ -180,6 +179,11 @@ public:
      */
     virtual ~HelpersCache() = default;
 
+    void onHelperCreated(std::function<void(folly::fbstring)> callback)
+    {
+        m_onHelperCreated = std::move(callback);
+    };
+
     /**
      * Retrieves a helper instance.
      * @param fileUuid UUID of a file for which helper will be used.
@@ -189,7 +193,7 @@ public:
      * @param forceProxyIO Determines whether to return a ProxyIO helper.
      * @return Retrieved future to helper instance shared pointer.
      */
-    virtual folly::Future<HelpersCacheBase::HelperPtr> get(
+    folly::Future<HelpersCacheBase::HelperPtr> get(
         const folly::fbstring &fileUuid, const folly::fbstring &spaceId,
         const folly::fbstring &storageId, bool forceProxyIO,
         bool proxyFallback) override;
@@ -198,12 +202,11 @@ public:
      * Returns the storage access type for specific storage, if not
      * determined yet UNKNOWN value will be returned.
      */
-    virtual HelpersCache::AccessType getAccessType(
+    HelpersCache::AccessType getAccessType(
         const folly::fbstring &storageId) override;
 
-    virtual folly::Future<folly::Unit> refreshHelperParameters(
-        const folly::fbstring &storageId,
-        const folly::fbstring &spaceId) override;
+    folly::Future<folly::Unit> refreshHelperParameters(
+        const folly::fbstring &storageId) override;
 
 private:
     HelpersCache::HelperPtr requestStorageTestFileCreation(
@@ -228,6 +231,9 @@ private:
     HelpersCache::HelperPtr performForcedDirectIOStorageDetection(
         const folly::fbstring &fileUuid, const folly::fbstring &spaceId,
         const folly::fbstring &storageId);
+
+    folly::Future<folly::Unit> refreshHelperParameters(
+        const folly::fbstring &storageId, const folly::fbstring &spaceId);
 
     CommunicatorT &m_communicator;
     std::shared_ptr<Scheduler> m_scheduler;
@@ -254,12 +260,13 @@ private:
 
     // Helpers are stored in a map where keys are defined using 2 values:
     //  - storageId of the storage
+    //  - spaceId in the context of which the helper operates
     //  - forceProxyIO flag
-    using HelpersCacheKey = std::tuple<folly::fbstring, bool>;
+    using HelpersCacheKey = std::tuple<folly::fbstring, folly::fbstring, bool>;
 
     // Helpers are stored as shared promises to helpers, so that in
     // case multiple requests for the same storageId are called
-    // simultanously, only one storage detection request will be performed
+    // simultaneously, only one storage detection request will be performed
     // and the other requests will wait for fulfillment of the future
     std::unordered_map<HelpersCacheKey,
         std::shared_ptr<folly::SharedPromise<HelperPtr>>>
@@ -270,6 +277,8 @@ private:
     std::chrono::milliseconds m_providerTimeout;
 
     int m_maxAttempts;
+
+    std::function<void(folly::fbstring)> m_onHelperCreated;
 };
 
 template <typename CommunicatorT>
@@ -286,14 +295,34 @@ HelpersCache<CommunicatorT>::getAccessType(const folly::fbstring &storageId)
 
 template <typename CommunicatorT>
 folly::Future<folly::Unit> HelpersCache<CommunicatorT>::refreshHelperParameters(
+    const folly::fbstring &storageId)
+{
+    LOG_FCALL() << LOG_FARG(storageId);
+
+    std::lock_guard<std::mutex> guard(m_cacheMutex);
+
+    folly::fbvector<folly::Future<folly::Unit>> futs;
+
+    for (const auto &kv : m_cache) {
+        if (std::get<0>(kv.first) == storageId) {
+            const auto &spaceId = std::get<1>(kv.first);
+            futs.emplace_back(refreshHelperParameters(storageId, spaceId));
+        }
+    }
+
+    return folly::collectAll(futs)
+        .via(m_helpersIOExecutor.get())
+        .thenTry([](auto && /*maybe*/) { return folly::makeFuture(); });
+}
+
+template <typename CommunicatorT>
+folly::Future<folly::Unit> HelpersCache<CommunicatorT>::refreshHelperParameters(
     const folly::fbstring &storageId, const folly::fbstring &spaceId)
 {
     LOG_FCALL() << LOG_FARG(storageId) << LOG_FARG(spaceId);
 
-    std::lock_guard<std::mutex> guard(m_cacheMutex);
-
     // Get the helper promise if exists already
-    auto helperKey = std::make_pair(storageId, false);
+    auto helperKey = std::make_tuple(storageId, spaceId, false);
     auto helperPromiseIt = m_cache.find(helperKey);
 
     if (helperPromiseIt == m_cache.end()) {
@@ -313,17 +342,23 @@ folly::Future<folly::Unit> HelpersCache<CommunicatorT>::refreshHelperParameters(
                     messages::fuse::GetHelperParams::HelperMode::directMode}),
                 m_providerTimeout);
 
-            auto helperParams = helpers::StorageHelperParams::create(
-                params.name(), params.args());
+            auto paramsWithType{params.args()};
+            paramsWithType["type"] = params.name();
 
             auto bufferedHelper =
                 std::dynamic_pointer_cast<helpers::buffering::BufferAgent>(
                     helper);
-            if (bufferedHelper)
-                return bufferedHelper->helper()->refreshParams(
-                    std::move(helperParams));
+            if (bufferedHelper) {
+                LOG_DBG(2) << "Refreshing buffered helper " << params.name()
+                           << " params for storage: " << storageId;
 
-            return helper->refreshParams(std::move(helperParams));
+                return bufferedHelper->helper()->updateHelper(paramsWithType);
+            }
+
+            LOG_DBG(2) << "Refreshing helper " << params.name()
+                       << " params for storage: " << storageId;
+
+            return helper->updateHelper(paramsWithType);
         });
 }
 
@@ -337,17 +372,17 @@ HelpersCache<CommunicatorT>::get(const folly::fbstring &fileUuid,
                 << LOG_FARG(forceProxyIO);
 
     LOG_DBG(2) << "Getting storage helper for file " << fileUuid
-               << " on storage " << storageId;
+               << " on storage " << storageId << " and space " << spaceId;
 
     if (!proxyFallback) {
         if (m_options.isDirectIOForced() && forceProxyIO) {
             LOG(ERROR) << "Direct IO and force IO options cannot be "
-                          "simultanously set.";
+                          "simultaneously set.";
             throw std::errc::operation_not_supported; // NOLINT
         }
 
         if (m_options.isDirectIOForced()) {
-            auto helperKey = std::make_pair(storageId, false);
+            auto helperKey = std::make_tuple(storageId, spaceId, false);
             auto helperPromiseIt = m_cache.find(helperKey);
 
             std::lock_guard<std::mutex> guard(m_cacheMutex);
@@ -360,7 +395,7 @@ HelpersCache<CommunicatorT>::get(const folly::fbstring &fileUuid,
 
                 auto p = std::make_shared<folly::SharedPromise<HelperPtr>>();
 
-                m_cache.emplace(std::make_tuple(storageId, false), p);
+                m_cache.emplace(std::make_tuple(storageId, spaceId, false), p);
 
                 m_scheduler->post(
                     [this, &fileUuid, &spaceId, &storageId, p = std::move(p)] {
@@ -371,13 +406,21 @@ HelpersCache<CommunicatorT>::get(const folly::fbstring &fileUuid,
                     });
             }
 
-            return m_cache.find(helperKey)->second->getFuture();
+            return m_cache.find(helperKey)->second->getFuture().thenTry(
+                [this, storageId](auto &&helper) {
+                    helper.throwIfFailed();
+
+                    if (m_onHelperCreated && helper.value().get() != nullptr &&
+                        helper.value()->name() != "proxy")
+                        m_onHelperCreated(storageId);
+                    return helper.value();
+                });
         }
     }
 
     forceProxyIO |= (m_options.isProxyIOForced() || proxyFallback);
 
-    auto helperKey = std::make_pair(storageId, forceProxyIO);
+    auto helperKey = std::make_tuple(storageId, spaceId, forceProxyIO);
 
     std::lock_guard<std::mutex> guard(m_cacheMutex);
 
@@ -388,7 +431,7 @@ HelpersCache<CommunicatorT>::get(const folly::fbstring &fileUuid,
 
         auto p = std::make_shared<folly::SharedPromise<HelperPtr>>();
 
-        m_cache.emplace(std::make_tuple(storageId, forceProxyIO), p);
+        m_cache.emplace(std::make_tuple(storageId, spaceId, forceProxyIO), p);
 
         m_scheduler->post([this, &fileUuid, &spaceId, &storageId, forceProxyIO,
                               p = std::move(p)] {
@@ -399,7 +442,14 @@ HelpersCache<CommunicatorT>::get(const folly::fbstring &fileUuid,
         });
     }
 
-    return m_cache.find(helperKey)->second->getFuture();
+    return m_cache.find(helperKey)->second->getFuture().thenTry(
+        [this, storageId](auto &&helper) {
+            helper.throwIfFailed();
+
+            if (m_onHelperCreated && helper.value()->name() != "proxy")
+                m_onHelperCreated(storageId);
+            return helper.value();
+        });
 }
 
 template <typename CommunicatorT>
@@ -479,7 +529,7 @@ HelpersCache<CommunicatorT>::performAutoIOStorageDetection(
                        << " wasn't determined on first attempt - "
                           "scheduling retry and return proxy helper as "
                           "fallback";
-            m_scheduler->post([this, fileUuid, storageId,
+            m_scheduler->post([this, fileUuid, storageId, spaceId,
                                   storageType = params.name()] {
                 auto directIOHelper = requestStorageTestFileCreation(
                     fileUuid, storageId, m_maxAttempts);
@@ -489,8 +539,8 @@ HelpersCache<CommunicatorT>::performAutoIOStorageDetection(
                                << " using automatic storage detection";
                     {
                         std::lock_guard<std::mutex> guard(m_cacheMutex);
-                        m_cache[std::make_tuple(storageId, false)]->setValue(
-                            directIOHelper);
+                        m_cache[std::make_tuple(storageId, spaceId, false)]
+                            ->setValue(directIOHelper);
                     }
 
                     {
@@ -663,8 +713,14 @@ HelpersCache<CommunicatorT>::handleStorageTestFile(
             return {};
         }
 
+        LOG_DBG(2)
+            << "Got storage helper - attempting to modify storage test file";
+
         auto fileContent =
             one::client::modifyStorageTestFile(storageId, helper, *testFile);
+
+        LOG_DBG(2) << "Storage test file modified with content: "
+                   << fileContent;
 
         requestStorageTestFileVerification(*testFile, storageId, fileContent);
 
@@ -688,6 +744,17 @@ HelpersCache<CommunicatorT>::handleStorageTestFile(
 
         return {};
     }
+    catch (const std::exception &e) {
+        LOG(ERROR) << "Storage test file handling error:  message: '"
+                   << e.what() << "'";
+
+        LOG(INFO) << "Storage '" << storageId
+                  << "' is not directly accessible to the client.";
+
+        m_accessType[storageId] = AccessType::PROXY;
+
+        return {};
+    }
 }
 
 template <typename CommunicatorT>
@@ -695,8 +762,8 @@ void HelpersCache<CommunicatorT>::requestStorageTestFileVerification(
     const messages::fuse::StorageTestFile &testFile,
     const folly::fbstring &storageId, const folly::fbstring &fileContent)
 {
-    LOG(INFO) << "Requesting verification of storage: '" << storageId
-              << "' of type '" << testFile.helperParams().name();
+    LOG(INFO) << "Requesting verification of modified storage test file: '"
+              << storageId << "' of type '" << testFile.helperParams().name();
 
     if (testFile.helperParams().name() == helpers::NULL_DEVICE_HELPER_NAME) {
         handleStorageTestFileVerification({}, storageId);

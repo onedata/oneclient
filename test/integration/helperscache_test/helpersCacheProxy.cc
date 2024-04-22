@@ -168,11 +168,11 @@ public:
             return "unknown";
     }
 
-    void refreshHelperParameters(std::string storageId, std::string spaceId)
+    void refreshHelperParameters(std::string storageId)
     {
         ReleaseGIL guard;
 
-        m_helpersCache->refreshHelperParameters(storageId, spaceId);
+        m_helpersCache->refreshHelperParameters(storageId);
     }
 
     void stop()

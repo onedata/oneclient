@@ -42,6 +42,7 @@ void Router::handle(const ProtoEvents &msg)
 {
     LOG_FCALL() << LOG_FARG(msg.DebugString());
 
+    // Handle events received from Oneprovider
     for (const auto &eventMsg : msg.events()) {
         LOG_DBG(2) << "Handling event " << LOG_FARG(eventMsg.DebugString());
 
@@ -80,6 +81,12 @@ void Router::handle(const ProtoEvents &msg)
                 std::make_unique<QuotaExceeded>(eventMsg.quota_exceeded()));
             ONE_METRIC_COUNTER_INC(
                 "comp.oneclient.mod.events.submod.emitted.quota_exceeded");
+        }
+        else if (eventMsg.has_helper_params_changed()) {
+            m_eventManager.emit(std::make_unique<HelperParamsChanged>(
+                eventMsg.helper_params_changed()));
+            ONE_METRIC_COUNTER_INC("comp.oneclient.mod.events.submod.emitted."
+                                   "helper_params_changed");
         }
         else {
             LOG_DBG(1) << "Received unhandled event '" << eventMsg.DebugString()
