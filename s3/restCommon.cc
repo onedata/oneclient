@@ -13,16 +13,18 @@
 namespace one {
 namespace rest {
 
-void throwHTTPExceptionFromRESTErrorResponse(std::istream &responseStream)
+void throwHTTPExceptionFromRESTErrorResponse(const std::string &response)
 {
     Poco::JSON::Parser p;
-    auto value = p.parse(responseStream);
+    auto value = p.parse(response);
     Poco::JSON::Object::Ptr object = value.extract<Poco::JSON::Object::Ptr>();
 
-    std::stringstream ss;
-    object->stringify(ss);
+    if (VLOG_IS_ON(1)) {
+        std::stringstream ss;
+        object->stringify(ss);
 
-    LOG_DBG(1) << "Response error: " << ss.str();
+        LOG_DBG(1) << "Response error: " << ss.str();
+    }
 
     if (object.isNull())
         throw Poco::Net::HTTPException(
@@ -103,6 +105,23 @@ std::string toString(std::istream &is)
     std::ostringstream os;
     os << is.rdbuf();
     return os.str();
+}
+
+void logRequest(
+    const std::string &service, const Poco::Net::HTTPRequest &request)
+{
+    if (VLOG_IS_ON(ONES3_REST_LOG_LEVEL)) {
+        std::stringstream ss;
+        request.write(ss);
+
+        LOG_DBG(ONES3_REST_LOG_LEVEL) << service << " REST request:\n"
+                                      << ss.str();
+    }
+}
+
+void logResponse(const std::string &service, const std::string &response)
+{
+    LOG_DBG(ONES3_REST_LOG_LEVEL) << service << " REST response:\n" << response;
 }
 
 } // namespace rest

@@ -27,8 +27,15 @@ folly::Future<std::shared_ptr<S3Logic>> S3LogicCache::get(
     assert(m_options);
 
     folly::fbstring effectiveToken = token;
-    if (effectiveToken.empty())
-        effectiveToken = m_options->getAccessToken().get();
+
+    if (effectiveToken.empty()) {
+        if (m_options->getAccessToken().has_value()) {
+            effectiveToken = m_options->getAccessToken().get();
+        }
+        else {
+            effectiveToken = "__INVALID__";
+        }
+    }
 
     try {
         std::lock_guard<std::mutex> lock{m_cacheMutex};
@@ -38,20 +45,25 @@ folly::Future<std::shared_ptr<S3Logic>> S3LogicCache::get(
                 folly::SharedPromise<std::shared_ptr<S3Logic>>>();
             m_cache.emplace(effectiveToken, p);
 
-            auto s3LogicPtr = std::make_shared<S3Logic>(
-                m_options, effectiveToken, m_executor);
+            if (effectiveToken == "__INVALID__") {
+                p->setException(one::s3::error::AccessDenied("", "", ""));
+            }
+            else {
+                auto s3LogicPtr = std::make_shared<S3Logic>(
+                    m_options, effectiveToken, m_executor);
 
-            s3LogicPtr->connect().thenTry(
-                [this, effectiveToken, s3LogicPtr, p = std::move(p)](
-                    auto &&s3Logic) mutable {
-                    if (s3Logic.hasException()) {
-                        std::lock_guard<std::mutex> lock{m_cacheMutex};
-                        m_cache.erase(effectiveToken);
-                        throw one::s3::error::AccessDenied("", "", "");
-                    }
+                s3LogicPtr->connect().thenTry(
+                    [this, effectiveToken, s3LogicPtr, p = std::move(p)](
+                        auto &&s3Logic) mutable {
+                        if (s3Logic.hasException()) {
+                            std::lock_guard<std::mutex> lock{m_cacheMutex};
+                            m_cache.erase(effectiveToken);
+                            throw one::s3::error::AccessDenied("", "", "");
+                        }
 
-                    p->setValue(std::move(s3Logic.value()));
-                });
+                        p->setValue(std::move(s3Logic.value()));
+                    });
+            }
         }
 
         return m_cache.at(effectiveToken)->getFuture();

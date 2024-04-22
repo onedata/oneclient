@@ -15,8 +15,9 @@ import requests
 import subprocess
 import time
 import configparser
-
 import logging
+
+from functools import wraps
 
 #
 # Uncomment to trace boto3 requests
@@ -24,32 +25,6 @@ import logging
 # boto3.set_stream_logger('', logging.DEBUG)
 
 FIXTURE_SCOPE = "session"
-
-
-def clean_bucket(s3_client, name, prefix=''):
-    continuation_token = ''
-    while True:
-        res = s3_client.list_objects_v2(Bucket=name, Delimiter='',
-                                        EncodingType='url', MaxKeys=1000,
-                                        Prefix=prefix,
-                                        ContinuationToken=continuation_token)
-        if 'CommonPrefixes' in res:
-            for cp in res['CommonPrefixes']:
-                p = cp['Prefix']
-                clean_bucket(s3_client, name, p)
-
-        if 'Contents' in res:
-            objects = []
-            for k in res['Contents']:
-                key = k['Key']
-                objects.append({'Key': key})
-
-            s3_client.delete_objects(Bucket=name, Delete={'Objects': objects})
-
-        if res['IsTruncated']:
-            continuation_token = res['NextContinuationToken']
-        else:
-            break
 
 
 @pytest.fixture(scope=FIXTURE_SCOPE)
@@ -198,6 +173,8 @@ def s3_endpoint(s3_host, s3_port):
 def s3_server(request, onezone_ip, oneprovider_ip, ceph_monitor_ip,
               onezone_admin_token,
               support_storage_id, s3_port):
+    print("STARTING ONES3")
+
     ones3_cli = (
         f'debug/s3/ones3 -i -v 1 --onezone-host {onezone_ip} -H {oneprovider_ip}'
         f' --ones3-support-storage-id {support_storage_id}'
@@ -327,8 +304,7 @@ def minio_setup(onezone_admin_token, secret_access_key, s3_server, s3_endpoint):
         f'mc alias set --insecure s3proxy "{s3_endpoint}" {onezone_admin_token} {secret_access_key}')
 
 
-@pytest.fixture
-def bucket(s3_client, uuid_str):
+def create_bucket(s3_client, uuid_str):
     with pytest.raises(Exception) as e:
         s3_client.create_bucket(Bucket=uuid_str,
                                 CreateBucketConfiguration={
@@ -338,7 +314,44 @@ def bucket(s3_client, uuid_str):
         else:
             raise e
 
+
+def clean_bucket(s3_client, name, prefix=''):
+    continuation_token = ''
+    while True:
+        res = s3_client.list_objects_v2(Bucket=name, Delimiter='',
+                                        EncodingType='url', MaxKeys=1000,
+                                        Prefix=prefix,
+                                        ContinuationToken=continuation_token)
+        if 'CommonPrefixes' in res:
+            for cp in res['CommonPrefixes']:
+                p = cp['Prefix']
+                clean_bucket(s3_client, name, p)
+
+        if 'Contents' in res:
+            objects = []
+            for k in res['Contents']:
+                key = k['Key']
+                objects.append({'Key': key})
+
+            s3_client.delete_objects(Bucket=name, Delete={'Objects': objects})
+
+        if res['IsTruncated']:
+            continuation_token = res['NextContinuationToken']
+        else:
+            break
+
+
+def delete_bucket(s3_client, uuid_str):
+    s3_client.delete_bucket(Bucket=uuid_str)
+
+
+@pytest.fixture
+def bucket(s3_client, uuid_str):
+
+    create_bucket(s3_client, uuid_str)
+
     yield uuid_str
 
     clean_bucket(s3_client, uuid_str)
-    s3_client.delete_bucket(Bucket=uuid_str)
+
+    delete_bucket(s3_client, uuid_str)

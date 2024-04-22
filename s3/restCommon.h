@@ -10,6 +10,7 @@
 
 #include <Poco/JSON/Object.h>
 #include <Poco/JSON/Parser.h>
+#include <Poco/Net/HTTPRequest.h>
 #include <Poco/Net/HTTPResponse.h>
 #include <Poco/Net/NetException.h>
 
@@ -18,11 +19,18 @@
 namespace one {
 namespace rest {
 
-void throwHTTPExceptionFromRESTErrorResponse(std::istream &responseStream);
+#define ONES3_REST_LOG_LEVEL 4
+
+void throwHTTPExceptionFromRESTErrorResponse(const std::string &response);
 
 std::string toString(const Poco::JSON::Object &o);
 
 std::string toString(std::istream &is);
+
+void logRequest(
+    const std::string &service, const Poco::Net::HTTPRequest &request);
+
+void logResponse(const std::string &service, const std::string &response);
 
 } // namespace rest
 } // namespace one

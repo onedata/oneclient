@@ -70,6 +70,7 @@ add_executable(ones3
         s3Exception.cc
         restCommon.cc
         onepanelRestClient.cc
+        oneproviderRestClient.cc
         onezoneRestClient.cc
         $<TARGET_OBJECTS:helpers>
         $<TARGET_OBJECTS:client>
