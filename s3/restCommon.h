@@ -30,6 +30,9 @@ std::string toString(std::istream &is);
 void logRequest(
     const std::string &service, const Poco::Net::HTTPRequest &request);
 
+void logRequest(const std::string &service,
+    const Poco::Net::HTTPRequest &request, const Poco::JSON::Object &body);
+
 void logResponse(const std::string &service, const std::string &response);
 
 } // namespace rest

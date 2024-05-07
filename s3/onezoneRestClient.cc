@@ -93,7 +93,7 @@ std::vector<model::Space> OnezoneClient::listUserSpaces(
     request.setContentType("application/json");
     request.setContentLength(bodyStr.size());
 
-    logRequest("Onezone", request);
+    logRequest("Onezone", request, body);
 
     auto &requestStream = session_.sendRequest(request);
     requestStream << bodyStr;
