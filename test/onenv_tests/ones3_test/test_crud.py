@@ -556,6 +556,7 @@ def test_get_object_presigned(s3_client, bucket):
     assert (response.status_code == 200)
     assert (response.headers['ETag'] == f'"{etag}"')
     assert (response.headers['Content-Length'] == str(len(body)))
+    assert (response.headers['Access-Control-Allow-Origin'] == '*')
     assert (response.content == body)
 
 

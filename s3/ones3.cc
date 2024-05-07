@@ -22,7 +22,6 @@
 #include <backward.hpp>
 #endif
 
-
 using namespace drogon;
 using namespace one::client;
 
@@ -135,6 +134,15 @@ int main(int argc, char *argv[])
     app().setClientMaxMemoryBodySize(options->getOneS3MaxBodyMemorySize());
     app().setIdleConnectionTimeout(options->getOneS3IdleConnectionTimeout());
     app().setMaxConnectionNum(kOneS3MaxConnectionNum);
+
+    app().registerPostHandlingAdvice(
+        [](const HttpRequestPtr &req, const HttpResponsePtr &resp) {
+            if (req->method() == HttpMethod::Get ||
+                req->method() == HttpMethod::Head ||
+                req->method() == HttpMethod::Post) {
+                resp->addHeader("Access-Control-Allow-Origin", "*");
+            }
+        });
 
     app().run();
 }

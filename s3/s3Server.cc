@@ -118,7 +118,7 @@ std::unique_ptr<S3Authorization> S3Authorization::fromHttpRequest(
     const auto &authorizationHeader = req->getHeader("Authorization");
 
     if (authorizationHeader.empty()) {
-        // authorization can be also in the query directly sometimes
+        // authorization can be also in the query directly for presigned urls
         if (req->parameters().find("X-Amz-Algorithm") !=
                 req->parameters().end() &&
             req->getParameter("X-Amz-Algorithm") == "AWS4-HMAC-SHA256") {
@@ -148,6 +148,25 @@ std::unique_ptr<S3Authorization> S3Authorization::fromHttpRequest(
                     auth->signedHeaders, false);
             else
                 return std::make_unique<S3AuthorizationInvalid>();
+
+            return auth;
+        }
+
+        // Handle presigned V2 requests
+        if (req->parameters().find("AWSAccessKeyId") !=
+                req->parameters().end() &&
+            req->parameters().find("Signature") != req->parameters().end()) {
+            auto auth = std::make_unique<S3AuthorizationV2>();
+            auth->accessKeyId = req->getParameter("AWSAccessKeyId");
+            auth->signature = req->getParameter("Signature");
+            try {
+                if (req->parameters().find("Expires") !=
+                    req->parameters().end())
+                    auth->expires = std::stoll(req->getParameter("Signature"));
+            }
+            catch (...) {
+                LOG_DBG(1) << "Invalid Expires query parameter";
+            }
 
             return auth;
         }

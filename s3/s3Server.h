@@ -42,6 +42,20 @@ struct S3AuthorizationInvalid final : public S3Authorization {
     std::string getToken() const override { return "__INVALID__"; }
 };
 
+struct S3AuthorizationV2 : public S3Authorization {
+
+    std::string getToken() const override { return accessKeyId; }
+
+    bool parseCredential(const std::string &credential);
+
+    // The users access key id
+    std::string accessKeyId;
+    // Signature value
+    std::string signature;
+    // Expire value
+    size_t expires;
+};
+
 struct S3AuthorizationV4 : public S3Authorization {
 
     std::string getToken() const override { return accessKeyId; }
@@ -67,37 +81,39 @@ struct S3AuthorizationV4 : public S3Authorization {
 class S3Server : public drogon::HttpController<S3Server, false> {
 public:
     METHOD_LIST_BEGIN
+
     //
     // Bucket methods
     //
-    ADD_METHOD_TO(S3Server::listBuckets, "/", Get);
-    ADD_METHOD_TO(S3Server::putBucket, "/{bucket}", Put);
-    //    ADD_METHOD_TO(S3Server::getBucket, "/{bucket}", Get);
-    ADD_METHOD_TO(S3Server::headBucket, "/{bucket}", Head);
-    ADD_METHOD_TO(S3Server::deleteBucket, "/{bucket}", Delete);
+    ADD_METHOD_TO(S3Server::listBuckets, "/", {Get, Options});
+    ADD_METHOD_TO(S3Server::putBucket, "/{bucket}", {Put, Options});
+    ADD_METHOD_TO(S3Server::headBucket, "/{bucket}", {Head, Options});
+    ADD_METHOD_TO(S3Server::deleteBucket, "/{bucket}", {Delete, Options});
 
     //
     // Object methods
     //
-    ADD_METHOD_TO(S3Server::getObject, "/{bucket}/{file}", {Get, Head});
-    ADD_METHOD_TO(S3Server::getObject, "/{bucket}/(.*)", {Get, Head});
-    ADD_METHOD_TO(S3Server::putObject, "/{bucket}/{file}", Put);
-    ADD_METHOD_TO(S3Server::putObject, "/{bucket}/(.*)", Put);
-    ADD_METHOD_TO(S3Server::deleteObject, "/{bucket}/{file}", Delete);
-    ADD_METHOD_TO(S3Server::deleteObject, "/{bucket}/(.*)", Delete);
-    ADD_METHOD_TO(S3Server::getBucket, "/{bucket}", Get);
-    ADD_METHOD_TO(S3Server::headBucket, "/{bucket}", Head);
+    ADD_METHOD_TO(
+        S3Server::getObject, "/{bucket}/{file}", {Get, Head, Options});
+    ADD_METHOD_TO(S3Server::getObject, "/{bucket}/(.*)", {Get, Head, Options});
+    ADD_METHOD_TO(S3Server::putObject, "/{bucket}/{file}", {Put, Options});
+    ADD_METHOD_TO(S3Server::putObject, "/{bucket}/(.*)", {Put, Options});
+    ADD_METHOD_TO(
+        S3Server::deleteObject, "/{bucket}/{file}", {Delete, Options});
+    ADD_METHOD_TO(S3Server::deleteObject, "/{bucket}/(.*)", {Delete, Options});
+    ADD_METHOD_TO(S3Server::getBucket, "/{bucket}", {Get, Options});
+    ADD_METHOD_TO(S3Server::headBucket, "/{bucket}", {Head, Options});
 
     //
     // Multipart upload methods
     //
-    ADD_METHOD_TO(S3Server::postObject, "/{bucket}/{file}", Post);
-    ADD_METHOD_TO(S3Server::postObject, "/{bucket}/(.*)", Post);
+    ADD_METHOD_TO(S3Server::postObject, "/{bucket}/{file}", {Post, Options});
+    ADD_METHOD_TO(S3Server::postObject, "/{bucket}/(.*)", {Post, Options});
 
     //
     // Delete multiple objects
     //
-    ADD_METHOD_TO(S3Server::postBucket, "/{bucket}", Post);
+    ADD_METHOD_TO(S3Server::postBucket, "/{bucket}", {Post, Options});
 
     //
     // Readiness probe endpoint

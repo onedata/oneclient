@@ -119,6 +119,18 @@ void logRequest(
     }
 }
 
+void logRequest(const std::string &service,
+    const Poco::Net::HTTPRequest &request, const Poco::JSON::Object &body)
+{
+    if (VLOG_IS_ON(ONES3_REST_LOG_LEVEL)) {
+        std::stringstream ss;
+        request.write(ss);
+
+        LOG_DBG(ONES3_REST_LOG_LEVEL) << service << " REST request:\n"
+                                      << ss.str() << '\n' << toString(body);
+    }
+}
+
 void logResponse(const std::string &service, const std::string &response)
 {
     LOG_DBG(ONES3_REST_LOG_LEVEL) << service << " REST response:\n" << response;
