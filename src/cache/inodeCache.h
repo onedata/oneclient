@@ -40,6 +40,8 @@ public:
     InodeCache(const folly::fbstring &rootUuid,
         const std::size_t targetCacheSize = 100000);
 
+    folly::fbstring providerId(const fuse_ino_t inode) const;
+
     /**
      * Looks up an number by its uuid and increments lookup count for the
      * entry.
@@ -93,6 +95,7 @@ private:
 
         fuse_ino_t inode;
         folly::fbstring uuid;
+        folly::fbstring providerId;
         std::size_t lookupCount{1};
         folly::Optional<std::list<fuse_ino_t>::iterator> lruIt;
         bool deleted{false};
@@ -109,7 +112,7 @@ private:
     const std::size_t m_targetCacheSize;
     Map m_cache;
     std::list<fuse_ino_t> m_lru;
-    std::size_t m_nextInode = FUSE_ROOT_ID + 1;
+    std::size_t m_nextInode = FUSE_ROOT_ID + 1024;
 };
 
 } // namespace cache

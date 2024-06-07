@@ -15,6 +15,7 @@
 #define _XOPEN_SOURCE 700
 #endif
 
+#include "../s3/onezoneRestClient.h"
 #include "auth/authException.h"
 #include "auth/authManager.h"
 #include "communication/exception.h"
@@ -64,6 +65,7 @@
 #ifdef ENABLE_BACKWARD_CPP
 #define BACKWARD_HAS_DW 1
 #define BACKWARD_HAS_UNWIND 1
+#include <Poco/Net/SSLManager.h>
 #include <backward.hpp>
 #endif
 
@@ -154,6 +156,16 @@ void unmountFuse(std::shared_ptr<options::Options> options)
     exit(status);
 }
 
+class InsecureCertificateHandler : public Poco::Net::InvalidCertificateHandler {
+    using Poco::Net::InvalidCertificateHandler::InvalidCertificateHandler;
+
+    void onInvalidCertificate(const void * /*pSender*/,
+        Poco::Net::VerificationErrorArgs &errorCert) override
+    {
+        errorCert.setIgnoreError(true);
+    }
+};
+
 int main(int argc, char *argv[])
 {
     helpers::init();
@@ -175,20 +187,30 @@ int main(int argc, char *argv[])
     if (options->getUnmount()) {
         unmountFuse(options);
     }
-    if (!options->getProviderHost()) {
+    if (!options->getOnezoneHost()) {
         fmt::print(stderr,
-            "The option 'host' is required but missing\nSee '{} --help'.\n",
+            "The option 'onezone-host' is required but missing\nSee '{} "
+            "--help'.\n",
             argv[0]);
         return EXIT_FAILURE;
     }
     if (options->hasDeprecated()) {
         std::cout << options->formatDeprecated();
     }
+    if (options->isInsecure()) {
+        constexpr auto kVerificationDepth{9};
 
+        // Initialize insecure access to Onedata REST services
+        Poco::Net::Context::Ptr pContext =
+            new Poco::Net::Context(Poco::Net::Context::CLIENT_USE, "", "", "",
+                Poco::Net::Context::VERIFY_NONE, kVerificationDepth, true,
+                "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
+        Poco::Net::SSLManager::instance().initializeClient({},
+            Poco::SharedPtr<InsecureCertificateHandler>(
+                new InsecureCertificateHandler(true)),
+            pContext);
+    }
     startLogging(argv[0], options);
-
-    context->setScheduler(
-        std::make_shared<Scheduler>(options->getSchedulerThreadCount()));
 
     int res{};
 
@@ -201,8 +223,7 @@ int main(int argc, char *argv[])
         struct fuse_session *fuse{nullptr};
 
 #if FUSE_USE_VERSION > 30
-        struct fuse_cmdline_opts opts {
-        };
+        struct fuse_cmdline_opts opts { };
         res = fuse_parse_cmdline(&args, &opts);
         if (res == -1)
             return EXIT_FAILURE;
@@ -222,19 +243,54 @@ int main(int argc, char *argv[])
             free(mountpoint); // NOLINT
         }};
 
-        // Create test communicator with single connection to test the
-        // authentication and get protocol configuration
-        auto authManager =
-            getCLIAuthManager<client::Context<communication::Communicator>>(
-                context);
-        auto sessionId = generateSessionId();
-        auto configuration = getConfiguration(sessionId, authManager, context,
-            messages::handshake::ClientType::oneclient);
+        fmt::print(stderr, "Connecting to Onezone at: {}",
+            options->getOnezoneHost().value());
 
-        if (!configuration)
-            return EXIT_FAILURE;
+        one::rest::onezone::OnezoneClient onezoneRestClient{
+            options->getOnezoneHost().value()};
 
-        std::unique_ptr<fslogic::Composite> fsLogic;
+        auto spaces =
+            onezoneRestClient.listUserSpaces(options->getAccessToken().value());
+
+        auto providers = onezoneRestClient.getUserProviders(
+            options->getAccessToken().value());
+
+        fmt::print(stderr, "Got the following spaces: ");
+        for (const auto &s : spaces) {
+            fmt::print(stderr, "\t Space: {} {}\n", s.id, s.name);
+        }
+
+        std::unique_ptr<fslogic::Composite> fsLogic =
+            std::make_unique<fslogic::Composite>(options);
+
+        for (const auto &p : providers) {
+            fsLogic->setProviderDetails(p.second);
+        }
+
+        for (const auto &space : spaces) {
+            auto userSpace = onezoneRestClient.getUserSpace(
+                options->getAccessToken().value(), space.id);
+
+            if(userSpace.providers.begin() != userSpace.providers.end()) {
+                auto selectedProviderId = userSpace.providers.begin()->first;
+                if (providers.count(selectedProviderId)) {
+                    fsLogic->setProviderForSpace(
+                        userSpace.name, selectedProviderId);
+                }
+            }
+        }
+        /*
+                // Create test communicator with single connection to test the
+                // authentication and get protocol configuration
+                auto authManager =
+                    getCLIAuthManager<client::Context<communication::Communicator>>(
+                        context);
+                auto sessionId = generateSessionId();
+                auto configuration = getConfiguration(sessionId, authManager,
+           context, messages::handshake::ClientType::oneclient); if
+           (!configuration) return EXIT_FAILURE;
+        */
+
         fuse = fuse_session_new(&args, &fuse_oper, sizeof(fuse_oper), &fsLogic);
         if (fuse == nullptr)
             return EXIT_FAILURE;
@@ -358,7 +414,7 @@ int main(int argc, char *argv[])
 
         if (startPerformanceMonitoring(options) != EXIT_SUCCESS)
             return EXIT_FAILURE;
-
+/*
         auto communicator =
             getCommunicator<client::Context<communication::Communicator>>(
                 sessionId, authManager, context,
@@ -381,10 +437,9 @@ int main(int argc, char *argv[])
             options->areFileReadEventsDisabled(),
             options->isFullblockReadEnabled(), options->getProviderTimeout(),
             options->getDirectoryCacheDropAfter());
-
+*/
 #if FUSE_USE_VERSION > 31
-        struct fuse_loop_config config {
-        };
+        struct fuse_loop_config config { };
         config.clone_fd = opts.clone_fd;
         config.max_idle_threads = opts.max_idle_threads;
         res = (multithreaded != 0) ? fuse_session_loop_mt(fuse, &config)

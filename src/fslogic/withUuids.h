@@ -8,12 +8,19 @@
 
 #pragma once
 
+#include "../../s3/onezoneRestClient.h"
 #include "attrs.h"
+#include "cache/helpersCache.h"
 #include "cache/inodeCache.h"
+#include "configuration.h"
+#include "context.h"
 #include "helpers/logging.h"
+#include "helpers/storageHelper.h"
 #include "ioTraceLogger.h"
 #include "messages/fuse/fileAttr.h"
+#include "options/options.h"
 
+#include <boost/bimap.hpp>
 #include <folly/FBString.h>
 #include <folly/io/IOBufQueue.h>
 
@@ -35,23 +42,128 @@ struct stat toStatbuf(const FileAttrPtr &attr, const fuse_ino_t ino);
 template <typename FsLogicT> class WithUuids {
 public:
     template <typename... Args>
-    WithUuids(folly::fbstring rootUuid, Args &&...args)
-        : m_inodeCache{std::move(rootUuid)}
+    WithUuids(std::shared_ptr<options::Options> options,
+        std::function<void(folly::Function<void()>)> runInFiber)
+        : m_inodeCache{std::move("")}
         , m_generation{std::chrono::system_clock::to_time_t(
               std::chrono::system_clock::now())}
-        , m_fsLogic{std::forward<Args>(args)...}
+        , m_options{std::move(options)}
+        , m_runInFiber{std::move(runInFiber)}
     {
-        m_fsLogic.onMarkDeleted(std::bind(&cache::InodeCache::markDeleted,
-            &m_inodeCache, std::placeholders::_1));
+        // TODO:
+        for (auto &kv : m_fsLogicMap) {
+            kv.second->onMarkDeleted(std::bind(&cache::InodeCache::markDeleted,
+                &m_inodeCache, std::placeholders::_1));
 
-        m_fsLogic.onRename(std::bind(&cache::InodeCache::rename, &m_inodeCache,
-            std::placeholders::_1, std::placeholders::_2,
-            std::placeholders::_3));
+            kv.second->onRename(std::bind(&cache::InodeCache::rename,
+                &m_inodeCache, std::placeholders::_1, std::placeholders::_2,
+                std::placeholders::_3));
+        }
     }
 
     auto lookup(const fuse_ino_t ino, const folly::fbstring &name)
     {
         LOG_FCALL() << LOG_FARG(ino) << LOG_FARG(name);
+
+        if (ino == FUSE_ROOT_ID) {
+
+            if (m_providersForSpaceMap.count(name) == 0) {
+                throw one::helpers::makePosixException(ENOENT);
+            }
+
+            if (m_spacesToInodes.left.count(name) == 0) {
+                auto newInode = m_spaceNextInode++;
+                m_spacesToInodes.insert({name, newInode});
+            }
+
+            // If the name refers to a space which already has been assigned
+            // an inode, return attr for that space. If not, check if the
+            // space exists and assign it a new inode.
+            if (m_spacesToInodes.left.count(name) > 0) {
+                struct fuse_entry_param result;
+                result.ino = m_spacesToInodes.left.at(name);
+                result.generation = m_generation;
+
+                struct stat attr;
+                attr.st_ino = result.ino;
+                attr.st_uid = getuid();
+                attr.st_gid = getgid();
+                attr.st_mode = S_IFDIR | 0755;
+                // Set access and modification times of attr to now
+                attr.st_atim = {};
+                attr.st_mtim = {};
+
+                result.attr = attr;
+
+                return result;
+            }
+        }
+
+        // otherwise if the inode refers to a space, check if an FsLogic
+        // instance exists for the space. If not, create a new one.
+        if (m_spacesToInodes.right.count(ino)) {
+            auto spaceName = m_spacesToInodes.right.at(ino);
+            // Here, we have to decide which provider to choose or create a
+            // new one
+            auto maybeProviderForSpace = getProviderForSpace(spaceName);
+            if (!maybeProviderForSpace.has_value())
+                throw one::helpers::makePosixException(ENOENT);
+
+            const auto &providerId = maybeProviderForSpace.value().providerId;
+
+            // Check if FsLogic instance already exists for this space
+            if (m_fsLogicMap.count(providerId) == 0) {
+
+                auto context = std::make_shared<OneclientContext>();
+                context->setOptions(m_options);
+                context->setScheduler(std::make_shared<Scheduler>(
+                    m_options->getSchedulerThreadCount()));
+                // Add new FsLogic for providerId
+                // Create test communicator with single connection to test
+                // the authentication and get protocol configuration
+                auto authManager = getCLIAuthManager<OneclientContext>(context);
+                auto sessionId = generateSessionId();
+                auto configuration = getConfiguration(sessionId, authManager,
+                    context, messages::handshake::ClientType::oneclient);
+
+                if (configuration) {
+                    std::shared_ptr<communication::Communicator> communicator =
+                        getCommunicator<OneclientContext>(sessionId,
+                            authManager, context,
+                            messages::handshake::ClientType::oneclient);
+
+                    static_assert(std::is_same<OneclientContext::CommunicatorT,
+                        communication::Communicator>());
+
+                    context->setCommunicator(communicator);
+                    communicator->setScheduler(context->scheduler());
+                    communicator->connect();
+
+                    communicator->schedulePeriodicMessageRequest();
+
+                    authManager->scheduleRefresh(
+                        auth::RESTRICTED_MACAROON_REFRESH);
+
+                    auto helpersCache = std::make_unique<
+                        cache::HelpersCache<communication::Communicator>>(
+                        *communicator, context->scheduler(), *m_options);
+
+                    auto fsLogic = std::make_shared<FsLogicT>(
+                        std::move(context), std::move(configuration),
+                        std::move(helpersCache),
+                        m_options->getMetadataCacheSize(),
+                        m_options->areFileReadEventsDisabled(),
+                        m_options->isFullblockReadEnabled(),
+                        m_options->getProviderTimeout(),
+                        m_options->getDirectoryCacheDropAfter(), m_runInFiber);
+
+                    m_fsLogicMap.emplace(providerId, std::move(fsLogic));
+                }
+                else {
+                    throw one::helpers::makePosixException(ECONNREFUSED);
+                }
+            }
+        }
 
         FileAttrPtr attr = wrap(&FsLogicT::lookup, ino, name);
         return toEntry(std::move(attr));
@@ -67,6 +179,19 @@ public:
     auto getattr(const fuse_ino_t ino)
     {
         LOG_FCALL() << LOG_FARG(ino);
+
+        if (ino == FUSE_ROOT_ID || m_spacesToInodes.right.count(ino) > 0) {
+            struct stat attr;
+            attr.st_ino = ino;
+            attr.st_uid = getuid();
+            attr.st_gid = getgid();
+            attr.st_mode = S_IFDIR | 0755;
+            // Set access and modification times of attr to now
+            attr.st_atim = {};
+            attr.st_mtim = {};
+
+            return attr;
+        }
 
         FileAttrPtr attr = wrap(&FsLogicT::getattr, ino);
         return detail::toStatbuf(std::move(attr), ino);
@@ -268,10 +393,51 @@ public:
 
     bool isFullBlockReadForced() const
     {
-        return m_fsLogic.isFullBlockReadForced();
+        return true; // m_fsLogic.isFullBlockReadForced();
     }
 
-    void stop() { m_fsLogic.stop(); }
+    void stop()
+    {
+        for (auto &kv : m_fsLogicMap) {
+            kv.second->stop();
+        }
+    }
+
+    void setProviderForSpace(
+        const folly::fbstring &spaceName, const folly::fbstring &providerId)
+    {
+        // Add new mapping or override existing one
+        m_providersForSpaceMap[spaceName] = providerId;
+    }
+
+    void setProviderDetails(const one::rest::onezone::model::Provider &provider)
+    {
+        // Add new mapping or override existing one
+        folly::fbstring providerId = provider.providerId;
+        m_providers.emplace(providerId, provider);
+    }
+
+    folly::fbstring getProviderIdForSpace(const folly::fbstring &spaceName)
+    {
+        // Add new mapping or override existing one
+        if (m_providersForSpaceMap.count(spaceName))
+            return m_providersForSpaceMap.at(spaceName);
+
+        return {};
+    }
+
+    boost::optional<one::rest::onezone::model::Provider> getProviderForSpace(
+        const folly::fbstring &spaceName)
+    {
+        // Add new mapping or override existing one
+        if (m_providersForSpaceMap.count(spaceName)) {
+            auto providerId = m_providersForSpaceMap.at(spaceName);
+            if (m_providers.count(providerId) > 0)
+                return m_providers.at(providerId);
+        }
+
+        return {};
+    }
 
 private:
     template <typename Ret, typename... FunArgs, typename... Args>
@@ -279,8 +445,10 @@ private:
         Ret (FsLogicT::*fun)(const folly::fbstring &, FunArgs...),
         const fuse_ino_t inode, Args &&...args)
     {
+        const auto &providerId = m_inodeCache.providerId(inode);
         const auto &uuid = m_inodeCache.at(inode);
-        return (m_fsLogic.*fun)(uuid, std::forward<Args>(args)...);
+        return ((m_fsLogicMap.at(providerId)).get()->*fun)(
+            uuid, std::forward<Args>(args)...);
     }
 
     struct fuse_entry_param toEntry(const FileAttrPtr attr)
@@ -294,8 +462,27 @@ private:
     }
 
     cache::InodeCache m_inodeCache;
-    const long long m_generation;
-    FsLogicT m_fsLogic;
+    const long long m_generation{};
+
+    std::map</* providerId */ folly::fbstring, std::shared_ptr<FsLogicT>>
+        m_fsLogicMap;
+    std::map</* spaceName */ folly::fbstring,
+        /* providerId */ folly::fbstring>
+        m_providersForSpaceMap;
+    std::map</* providerId */ folly::fbstring,
+        one::rest::onezone::model::Provider>
+        m_providers;
+
+    // Mapping from inodes to spaces
+    boost::bimap</* space name */ folly::fbstring, /* inode */ fuse_ino_t>
+        m_spacesToInodes;
+
+    std::shared_ptr<options::Options> m_options;
+
+    // Function pointer to run callbacks in fiber
+    std::function<void(folly::Function<void()>)> m_runInFiber;
+
+    std::atomic<uint64_t> m_spaceNextInode{FUSE_ROOT_ID + 1};
 };
 
 } // namespace fslogic

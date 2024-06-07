@@ -5,6 +5,7 @@
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
+#pragma once
 
 #include "auth/authManager.h"
 #include "communication/communicator.h"

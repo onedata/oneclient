@@ -23,10 +23,18 @@ namespace rest {
 namespace onezone {
 
 namespace model {
+
+struct Provider {
+    std::string providerId;
+    std::string version;
+    std::string name;
+    std::string host;
+};
+
 struct UserSpaceDetails {
     std::string spaceId;
     std::string name;
-    std::map<std::string, size_t> providers;
+    std::map</* providerId */ std::string, size_t> providers;
     unsigned long long creationTime;
 };
 
@@ -46,6 +54,9 @@ public:
         const std::string &token, const std::string &spaceId);
 
     std::vector<model::Space> listUserSpaces(const std::string &token);
+
+    std::map<std::string, model::Provider> getUserProviders(
+        const std::string &token);
 
     model::UserSpaceDetails getUserSpace(
         const std::string &token, const std::string &spaceId);

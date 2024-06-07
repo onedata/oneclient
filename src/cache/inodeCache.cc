@@ -34,6 +34,24 @@ InodeCache::InodeCache(
         "comp.oneclient.mod.inodecache.maxsize", targetCacheSize);
 }
 
+folly::fbstring InodeCache::providerId(const fuse_ino_t inode) const
+{
+    LOG_FCALL() << LOG_FARG(inode);
+
+    const auto &index = boost::multi_index::get<ByInode>(m_cache);
+    auto entryIt = index.find(inode);
+    if (entryIt == index.end() || entryIt->lruIt) {
+        LOG(ERROR) << "No provider found for inode " << inode;
+        throw std::out_of_range{
+            "no active mapping for inode " + std::to_string(inode)};
+    }
+
+    LOG_DBG(2) << "Returning providerId " << entryIt->uuid << " for inode "
+               << inode;
+
+    return entryIt->providerId;
+}
+
 fuse_ino_t InodeCache::lookup(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);

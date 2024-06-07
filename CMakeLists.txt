@@ -523,6 +523,8 @@ if(WITH_ONECLIENT)
 set(CLIENT_SOURCES
     ${MAIN_SOURCE_FILE}
     $<TARGET_OBJECTS:client>
+    ${CMAKE_CURRENT_SOURCE_DIR}/s3/onezoneRestClient.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/s3/restCommon.cc
     ${PROJECT_SOURCES})
 endif(WITH_ONECLIENT)
 
@@ -575,7 +577,7 @@ endif(WITH_ONEDATAFS)
 
 if(WITH_ONECLIENT)
 add_executable(oneclient ${CLIENT_SOURCES})
-target_link_libraries(oneclient PRIVATE ${CLIENT_LIBRARIES})
+target_link_libraries(oneclient PRIVATE ${CLIENT_LIBRARIES} ${POCO_LIBRARIES})
 set_target_properties(oneclient PROPERTIES
     BUILD_WITH_INSTALL_RPATH true
     INSTALL_RPATH_USE_LINK_PATH true
