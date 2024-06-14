@@ -4,6 +4,20 @@ Release notes for project oneclient
 CHANGELOG
 ---------
 
+### 21.02.5
+
+-   **VFS-11999** Improved listing objects on S3 storages during data
+    import.
+-   **VFS-11938** Added support for CORS requests in OneS3.
+-   **VFS-11918** Added test cases for presigned URL support in S3.
+-   **VFS-11904** Implemented storage specific health check, to check
+    and monitor storage availability.
+-   **VFS-11875** Improved error handling in OneS3.
+-   **VFS-11850** Fixed handling of content-range response in OneS3 for
+    partial GET requests.
+-   **VFS-11625** Extended functionality of runtime storage parameter
+    updates to all storage backends.
+
 ### 21.02.4
 
 -   **VFS-11466** Add test cases for various kinds of possible errors in
