@@ -129,6 +129,63 @@ std::vector<model::Space> OnezoneClient::listUserSpaces(
     return result;
 }
 
+std::vector<model::UserSpaceDetails> OnezoneClient::listUserSpacesDetails(
+    const std::string &token)
+{
+    std::vector<model::UserSpaceDetails> result;
+
+    Poco::JSON::Object body;
+    body.set("token", token);
+    auto bodyStr = toString(body);
+
+    Poco::Net::HTTPRequest request{Poco::Net::HTTPRequest::HTTP_POST,
+        "/api/v3/onezone/tokens/infer_access_token_scope"};
+    request.setContentType("application/json");
+    request.setContentLength(bodyStr.size());
+
+    logRequest("Onezone", request, body);
+
+    auto &requestStream = session_.sendRequest(request);
+    requestStream << bodyStr;
+
+    Poco::Net::HTTPResponse response;
+
+    auto responseStr = toString(session_.receiveResponse(response));
+
+    logResponse("Onezone", responseStr);
+
+    auto statusCode = response.getStatus();
+
+    if (statusCode != Poco::Net::HTTPResponse::HTTP_OK) {
+        throwHTTPExceptionFromRESTErrorResponse(responseStr);
+    }
+
+    Poco::JSON::Parser p;
+    auto value = p.parse(responseStr);
+
+    Poco::JSON::Object::Ptr object = value.extract<Poco::JSON::Object::Ptr>();
+
+    for (const auto &space :
+        *object->getObject("dataAccessScope")->getObject("spaces")) {
+        model::UserSpaceDetails s;
+        s.spaceId = space.first;
+        const auto &spaceDetails =
+            space.second.extract<Poco::JSON::Object::Ptr>();
+
+        s.name = spaceDetails->get("name").toString();
+        s.creationTime = 0;
+        if (spaceDetails->has("supports")) {
+            for (const auto &kv : *spaceDetails->getObject("supports")) {
+                s.providers.emplace(kv.first, 1024);
+            }
+        }
+
+        result.emplace_back(std::move(s));
+    }
+
+    return result;
+}
+
 model::UserSpaceDetails OnezoneClient::getUserSpace(
     const std::string &token, const std::string &spaceId)
 {
@@ -160,6 +217,11 @@ model::UserSpaceDetails OnezoneClient::getUserSpace(
     result.spaceId = object->getValue<std::string>("spaceId");
     result.name = object->getValue<std::string>("name");
     result.creationTime = object->getValue<uint64_t>("creationTime");
+    if (object->has("supports")) {
+        for (const auto &kv : *object->getObject("supports")) {
+            result.providers.emplace(kv.first, 1024);
+        }
+    }
 
     return result;
 }

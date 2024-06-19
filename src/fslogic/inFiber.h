@@ -147,6 +147,11 @@ public:
         m_fsLogic.setProviderDetails(provider);
     }
 
+    void addSpace(const one::rest::onezone::model::UserSpaceDetails &space)
+    {
+        m_fsLogic.addSpace(space);
+    }
+
 private:
     std::function<void(folly::Function<void()>)> makeRunInFiber()
     {

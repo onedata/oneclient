@@ -42,6 +42,9 @@ public:
 
     folly::fbstring providerId(const fuse_ino_t inode) const;
 
+    fuse_ino_t generateInode(
+        const folly::fbstring &uuid, const folly::fbstring &providerId);
+
     /**
      * Looks up an number by its uuid and increments lookup count for the
      * entry.
@@ -57,7 +60,7 @@ public:
      * @param ino Inode to look up by.
      * @returns Uuid associated with the inode.
      */
-    folly::fbstring at(const fuse_ino_t ino) const;
+    std::pair<folly::fbstring, folly::fbstring> at(const fuse_ino_t ino) const;
 
     /**
      * Decrements lookup cound of a cached inode.
@@ -85,13 +88,11 @@ public:
 private:
     void prune();
 
-    struct ByInode {
-    };
-    struct ByUuid {
-    };
+    struct ByInode { };
+    struct ByUuid { };
 
     struct Entry {
-        Entry(fuse_ino_t, folly::fbstring);
+        Entry(fuse_ino_t, folly::fbstring, folly::fbstring);
 
         fuse_ino_t inode;
         folly::fbstring uuid;
@@ -112,7 +113,7 @@ private:
     const std::size_t m_targetCacheSize;
     Map m_cache;
     std::list<fuse_ino_t> m_lru;
-    std::size_t m_nextInode = FUSE_ROOT_ID + 1024;
+    std::size_t m_nextInode = FUSE_ROOT_ID + 1;
 };
 
 } // namespace cache

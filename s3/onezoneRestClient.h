@@ -55,6 +55,8 @@ public:
 
     std::vector<model::Space> listUserSpaces(const std::string &token);
 
+    std::vector<model::UserSpaceDetails> listUserSpacesDetails(const std::string &token);
+
     std::map<std::string, model::Provider> getUserProviders(
         const std::string &token);
 

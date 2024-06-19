@@ -250,14 +250,14 @@ int main(int argc, char *argv[])
             options->getOnezoneHost().value()};
 
         auto spaces =
-            onezoneRestClient.listUserSpaces(options->getAccessToken().value());
+            onezoneRestClient.listUserSpacesDetails(options->getAccessToken().value());
 
         auto providers = onezoneRestClient.getUserProviders(
             options->getAccessToken().value());
 
         fmt::print(stderr, "Got the following spaces: ");
         for (const auto &s : spaces) {
-            fmt::print(stderr, "\t Space: {} {}\n", s.id, s.name);
+            fmt::print(stderr, "\t Space: {} {}\n", s.spaceId, s.name);
         }
 
         std::unique_ptr<fslogic::Composite> fsLogic =
@@ -267,16 +267,14 @@ int main(int argc, char *argv[])
             fsLogic->setProviderDetails(p.second);
         }
 
-        for (const auto &space : spaces) {
-            auto userSpace = onezoneRestClient.getUserSpace(
-                options->getAccessToken().value(), space.id);
-
+        for (const auto &userSpace : spaces) {
             if(userSpace.providers.begin() != userSpace.providers.end()) {
                 auto selectedProviderId = userSpace.providers.begin()->first;
                 if (providers.count(selectedProviderId)) {
                     fsLogic->setProviderForSpace(
                         userSpace.name, selectedProviderId);
                 }
+                fsLogic->addSpace(userSpace);
             }
         }
         /*
