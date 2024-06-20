@@ -108,6 +108,12 @@ public:
      */
     void reset();
 
+    void setAuthManager(
+        std::shared_ptr<auth::AuthManager<OneclientContext>> authManager)
+    {
+        m_authManager = std::move(authManager);
+    }
+
     /**
      * FUSE @c lookup callback.
      * @see https://libfuse.github.io/doxygen/structfuse__lowlevel__ops.html
@@ -475,6 +481,8 @@ private:
     folly::fibers::Baton m_directoryCachePruneBaton;
     std::atomic_bool m_stopped = ATOMIC_VAR_INIT(false);
     int m_maxRetryCount{FsLogic::MAX_RETRY_COUNT};
+
+    std::shared_ptr<auth::AuthManager<OneclientContext>> m_authManager;
 };
 } // namespace fslogic
 } // namespace client

@@ -483,7 +483,9 @@ FileAttrPtr FsLogic::lookup(
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(name);
 
-    IOTRACE_START()
+    assert(!uuid.empty());
+
+    IOTRACE_START();
 
     assertInFiber();
 
@@ -537,6 +539,8 @@ FileAttrPtr FsLogic::lookup(
 FileAttrPtr FsLogic::getattr(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
+
+    assert(!uuid.empty());
 
     IOTRACE_GUARD(IOTraceGetAttr, IOTraceLogger::OpType::GETATTR, uuid, 0)
 

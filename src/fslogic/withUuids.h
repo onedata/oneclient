@@ -148,7 +148,9 @@ public:
         }
         else {
             // Get the providerId from the parent
-            providerId = m_inodeCache.at(ino).second;
+            auto uuidProviderPair = m_inodeCache.at(ino);
+            uuid = uuidProviderPair.first;
+            providerId = uuidProviderPair.second;
         }
 
         // Otherwise, just handle a regular file or directory by directly
@@ -182,6 +184,8 @@ public:
         // Check if FsLogic instance already exists for this space
         if (m_fsLogicMap.count(providerId) == 0) {
 
+            const auto &provider = m_providers.at(providerId);
+
             auto context = std::make_shared<OneclientContext>();
             context->setOptions(m_options);
             context->setScheduler(std::make_shared<Scheduler>(
@@ -189,7 +193,8 @@ public:
             // Add new FsLogic for providerId
             // Create test communicator with single connection to test
             // the authentication and get protocol configuration
-            auto authManager = getCLIAuthManager<OneclientContext>(context);
+            auto authManager = getCLIAuthManager<OneclientContext>(
+                context, provider.host, 443);
             auto sessionId = generateSessionId();
             auto configuration = getConfiguration(sessionId, authManager,
                 context, messages::handshake::ClientType::oneclient);
@@ -221,6 +226,8 @@ public:
                     m_options->isFullblockReadEnabled(),
                     m_options->getProviderTimeout(),
                     m_options->getDirectoryCacheDropAfter(), m_runInFiber);
+
+                fsLogic->setAuthManager(authManager);
 
                 m_fsLogicMap.emplace(providerId, std::move(fsLogic));
             }
@@ -318,6 +325,9 @@ public:
         if (ino == FUSE_ROOT_ID) {
             // List user spaces
             folly::fbvector<folly::fbstring> result;
+            if (m_spaces.empty() || off >= m_spaces.size())
+                return result;
+
             auto it = std::begin(m_spaces);
             std::advance(it, off);
             int extraFilesCount = 2;
@@ -326,9 +336,6 @@ public:
                 result.emplace_back(".");
                 result.emplace_back("..");
             }
-
-            if (m_spaces.empty())
-                return result;
 
             unsigned int count = result.size();
             for (; it != m_spaces.end() && count <= maxSize; it++, count++) {
@@ -503,12 +510,23 @@ public:
     {
         LOG_FCALL() << LOG_FARG(ino);
 
-        return wrap(&FsLogicT::listxattr, ino);
+        auto result = wrap(&FsLogicT::listxattr, ino);
+
+        // Add 'org.onedata.provider_id' to result
+        result.push_back("org.onedata.provider_id");
+
+        return result;
     }
 
     auto getxattr(const fuse_ino_t ino, const folly::fbstring &name)
     {
         LOG_FCALL() << LOG_FARG(ino) << LOG_FARG(name);
+
+        // Return provider id for ino if request 'org.onedata.provider_id'
+        if (name.toStdString() == "org.onedata.provider_id") {
+            auto providerId = m_inodeCache.at(ino).second;
+            return "\"" + providerId + "\"";
+        }
 
         return wrap(&FsLogicT::getxattr, ino, name);
     }

@@ -55,13 +55,12 @@ std::shared_ptr<typename ContextT::CommunicatorT> handshake(
 
 template <typename ContextT>
 std::shared_ptr<auth::AuthManager<ContextT>> getCLIAuthManager(
-    std::shared_ptr<ContextT> context)
+    std::shared_ptr<ContextT> context, const std::string &host, uint16_t port)
 {
     auto options = context->options();
     return std::make_shared<
         auth::MacaroonAuthManager<auth::CLIMacaroonHandler, ContextT>>(context,
-        options->getProviderHost().get(), options->getProviderPort(),
-        !options->isInsecure(), options->getProviderTimeout());
+        host, port, !options->isInsecure(), options->getProviderTimeout());
 }
 
 template <typename ContextT>
@@ -130,6 +129,7 @@ std::shared_ptr<typename ContextT::CommunicatorT> getCommunicator(
         context->options()->getCommunicatorThreadCount(), sessionId,
         ONECLIENT_VERSION, ONECLIENT_COMPATIBLE_ONEPROVIDER_VERSIONS,
         clientType, handshakeHandler);
+
     auto communicator =
         std::get<std::shared_ptr<typename ContextT::CommunicatorT>>(
             communicatorTuple);
