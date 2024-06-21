@@ -223,7 +223,8 @@ int main(int argc, char *argv[])
         struct fuse_session *fuse{nullptr};
 
 #if FUSE_USE_VERSION > 30
-        struct fuse_cmdline_opts opts { };
+        struct fuse_cmdline_opts opts {
+        };
         res = fuse_parse_cmdline(&args, &opts);
         if (res == -1)
             return EXIT_FAILURE;
@@ -249,8 +250,8 @@ int main(int argc, char *argv[])
         one::rest::onezone::OnezoneClient onezoneRestClient{
             options->getOnezoneHost().value()};
 
-        auto spaces =
-            onezoneRestClient.listUserSpacesDetails(options->getAccessToken().value());
+        auto spaces = onezoneRestClient.listUserSpacesDetails(
+            options->getAccessToken().value());
 
         auto providers = onezoneRestClient.getUserProviders(
             options->getAccessToken().value());
@@ -268,7 +269,7 @@ int main(int argc, char *argv[])
         }
 
         for (const auto &userSpace : spaces) {
-            if(userSpace.providers.begin() != userSpace.providers.end()) {
+            if (userSpace.providers.begin() != userSpace.providers.end()) {
                 auto selectedProviderId = userSpace.providers.begin()->first;
                 if (providers.count(selectedProviderId)) {
                     fsLogic->setProviderForSpace(
@@ -437,7 +438,8 @@ int main(int argc, char *argv[])
             options->getDirectoryCacheDropAfter());
 */
 #if FUSE_USE_VERSION > 31
-        struct fuse_loop_config config { };
+        struct fuse_loop_config config {
+        };
         config.clone_fd = opts.clone_fd;
         config.max_idle_threads = opts.max_idle_threads;
         res = (multithreaded != 0) ? fuse_session_loop_mt(fuse, &config)

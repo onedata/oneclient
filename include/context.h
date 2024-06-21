@@ -9,8 +9,8 @@
 #ifndef ONECLIENT_CONTEXT_H
 #define ONECLIENT_CONTEXT_H
 
-#include "communication/communicator.h"
 #include "auth/authManager.h"
+#include "communication/communicator.h"
 
 #include <list>
 #include <memory>

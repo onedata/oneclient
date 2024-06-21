@@ -76,17 +76,17 @@ Options::Options(messages::handshake::ClientType clientType)
         .withDescription("Specify the hostname of the Oneprovider instance to "
                          "which the Oneclient should connect.");
 
-//    if (m_clientType == messages::handshake::ClientType::ones3) {
-        add<std::string>()
-            ->withShortName("Z")
-            .withLongName("onezone-host")
-            .withEnvName("onezone_host")
-            .withConfigName("onezone_host")
-            .withValueName("<onezone_host>")
-            .withGroup(OptionGroup::GENERAL)
-            .withDescription("Specify the hostname of the Onezone instance to "
-                             "which the OneS3 should connect.");
-//    }
+    //    if (m_clientType == messages::handshake::ClientType::ones3) {
+    add<std::string>()
+        ->withShortName("Z")
+        .withLongName("onezone-host")
+        .withEnvName("onezone_host")
+        .withConfigName("onezone_host")
+        .withValueName("<onezone_host>")
+        .withGroup(OptionGroup::GENERAL)
+        .withDescription("Specify the hostname of the Onezone instance to "
+                         "which the OneS3 should connect.");
+    //    }
 
     add<unsigned int>()
         ->withShortName("P")

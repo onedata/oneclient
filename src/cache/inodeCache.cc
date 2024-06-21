@@ -96,8 +96,7 @@ fuse_ino_t InodeCache::lookup(const folly::fbstring &uuid)
     }
 
     LOG(ERROR) << "No file found for uuid " << uuid;
-    throw std::out_of_range{
-        "no active mapping for uuid " + uuid.toStdString()};
+    throw std::out_of_range{"no active mapping for uuid " + uuid.toStdString()};
 }
 
 std::pair<folly::fbstring, folly::fbstring> InodeCache::at(

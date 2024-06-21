@@ -88,8 +88,10 @@ public:
 private:
     void prune();
 
-    struct ByInode { };
-    struct ByUuid { };
+    struct ByInode {
+    };
+    struct ByUuid {
+    };
 
     struct Entry {
         Entry(fuse_ino_t, folly::fbstring, folly::fbstring);
