@@ -18,7 +18,9 @@
 #include "helpers/storageHelper.h"
 #include "ioTraceLogger.h"
 #include "messages/fuse/fileAttr.h"
+#include "monitoring/monitoring.h"
 #include "options/options.h"
+#include "util/cdmi.h"
 #include "util/uuid.h"
 
 #include <boost/bimap.hpp>
@@ -35,6 +37,8 @@ namespace fslogic {
 
 namespace detail {
 struct stat toStatbuf(const FileAttrPtr &attr, const fuse_ino_t ino);
+const auto ONEDATA_FILEID_ACCESS_PREFIX = ".__onedata__file_id__";
+
 } // namespace detail
 
 using one::client::util::uuid::spaceIdToSpaceUUID;
@@ -69,6 +73,39 @@ public:
         LOG_FCALL() << LOG_FARG(ino) << LOG_FARG(name);
 
         if (ino == FUSE_ROOT_ID) {
+            // Handle
+            folly::fbstring maybeUUID = getFileIdFromFilename(name);
+            if (!maybeUUID.empty()) {
+                std::string spaceId =
+                    util::uuid::uuidToSpaceId(maybeUUID).toStdString();
+
+                std::string spaceName;
+                for (const auto &space : m_spaces) {
+                    if (space.spaceId == spaceId) {
+                        spaceName = space.name;
+                        break;
+                    }
+                }
+
+                createFsLogicForSpace(spaceName);
+
+                std::string providerId =
+                    m_providersForSpaceMap.at(spaceName).toStdString();
+
+                auto providerFsLogic = m_fsLogicMap.at(providerId);
+                FileAttrPtr attr = providerFsLogic->lookup("whatever", name);
+
+                auto newInode =
+                    m_inodeCache.generateInode(attr->uuid(), providerId);
+
+                struct fuse_entry_param entry = {0};
+                entry.generation = m_generation;
+                entry.ino = newInode;
+                entry.attr = detail::toStatbuf(attr, entry.ino);
+
+                return entry;
+            }
+
             if (m_providersForSpaceMap.count(name) == 0) {
                 throw one::helpers::makePosixException(ENOENT);
             }
@@ -170,11 +207,9 @@ public:
         return entry;
     }
 
-    void createFsLogic(const fuse_ino_t ino)
+    void createFsLogicForSpace(const folly::fbstring &spaceName)
     {
-        auto spaceName = m_spacesToInodes.right.at(ino);
-        // Here, we have to decide which provider to choose or create a
-        // new one
+
         auto maybeProviderForSpace = getProviderForSpace(spaceName);
         if (!maybeProviderForSpace.has_value())
             throw helpers::makePosixException(ENOENT);
@@ -235,6 +270,14 @@ public:
                 throw helpers::makePosixException(ECONNREFUSED);
             }
         }
+    }
+
+    void createFsLogic(const fuse_ino_t ino)
+    {
+        auto spaceName = m_spacesToInodes.right.at(ino);
+        // Here, we have to decide which provider to choose or create a
+        // new one
+        createFsLogicForSpace(spaceName);
     }
 
     void forget(const fuse_ino_t ino, const std::size_t count)
@@ -404,7 +447,16 @@ public:
         LOG_FCALL() << LOG_FARG(ino) << LOG_FARG(name) << LOG_FARG(mode);
 
         FileAttrPtr attr = wrap(&FsLogicT::mkdir, ino, name, mode);
-        return toEntry(std::move(attr));
+
+        auto newInode = m_inodeCache.generateInode(
+            attr->uuid(), m_inodeCache.at(ino).second);
+
+        struct fuse_entry_param entry = {0};
+        entry.generation = m_generation;
+        entry.ino = newInode;
+        entry.attr = detail::toStatbuf(attr, entry.ino);
+
+        return entry;
     }
 
     auto mknod(
@@ -413,7 +465,16 @@ public:
         LOG_FCALL() << LOG_FARG(ino) << LOG_FARG(name) << LOG_FARG(mode);
 
         FileAttrPtr attr = wrap(&FsLogicT::mknod, ino, name, mode);
-        return toEntry(std::move(attr));
+
+        auto newInode = m_inodeCache.generateInode(
+            attr->uuid(), m_inodeCache.at(ino).second);
+
+        struct fuse_entry_param entry = {0};
+        entry.generation = m_generation;
+        entry.ino = newInode;
+        entry.attr = detail::toStatbuf(attr, entry.ino);
+
+        return entry;
     }
 
     auto link(const fuse_ino_t ino, const fuse_ino_t newParent,
@@ -424,7 +485,16 @@ public:
 
         FileAttrPtr attr = wrap(
             &FsLogicT::link, ino, m_inodeCache.at(newParent).first, newName);
-        return toEntry(std::move(attr));
+
+        auto newInode = m_inodeCache.generateInode(
+            attr->uuid(), m_inodeCache.at(ino).second);
+
+        struct fuse_entry_param entry = {0};
+        entry.generation = m_generation;
+        entry.ino = newInode;
+        entry.attr = detail::toStatbuf(attr, entry.ino);
+
+        return entry;
     }
 
     auto symlink(const fuse_ino_t parent, const folly::fbstring &name,
@@ -433,7 +503,16 @@ public:
         LOG_FCALL() << LOG_FARG(parent) << LOG_FARG(name) << LOG_FARG(link);
 
         FileAttrPtr attr = wrap(&FsLogicT::symlink, parent, name, link);
-        return toEntry(std::move(attr));
+
+        auto newInode = m_inodeCache.generateInode(
+            attr->uuid(), m_inodeCache.at(parent).second);
+
+        struct fuse_entry_param entry = {0};
+        entry.generation = m_generation;
+        entry.ino = newInode;
+        entry.attr = detail::toStatbuf(attr, entry.ino);
+
+        return entry;
     }
 
     auto readlink(const fuse_ino_t ino)
@@ -479,7 +558,17 @@ public:
                     << LOG_FARG(flags);
 
         auto ret = wrap(&FsLogicT::create, ino, name, mode, flags);
-        return {toEntry(std::move(ret.first)), ret.second};
+        auto attr = ret.first;
+        auto fuseFileHandleId = ret.second;
+        auto newInode = m_inodeCache.generateInode(
+            attr->uuid(), m_inodeCache.at(ino).second);
+
+        struct fuse_entry_param entry = {0};
+        entry.generation = m_generation;
+        entry.ino = newInode;
+        entry.attr = detail::toStatbuf(attr, entry.ino);
+
+        return {std::move(entry), ret.second};
     }
 
     auto statfs(const fuse_ino_t ino)
@@ -600,7 +689,16 @@ public:
         return {};
     }
 
-    void createFsLogicForSpace(const folly::fbstring &spaceName) { }
+    folly::fbstring getFileIdFromFilename(const folly::fbstring &name)
+    {
+        if (name.find(detail::ONEDATA_FILEID_ACCESS_PREFIX) == 0) {
+            return util::cdmi::objectIdToUUID(
+                name.substr(strlen(detail::ONEDATA_FILEID_ACCESS_PREFIX))
+                    .toStdString());
+        }
+
+        return {};
+    }
 
 private:
     template <typename Ret, typename... FunArgs, typename... Args>
