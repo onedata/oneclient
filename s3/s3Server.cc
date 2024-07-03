@@ -255,7 +255,7 @@ void S3Server::listBuckets(
 
     m_logicCache->get(token)
         .thenTry([](auto &&s3) {
-            s3.throwIfFailed();
+            s3.throwUnlessValue();
             return s3.value()->listBuckets();
         })
         .thenValue([callback](auto &&buckets) {
@@ -941,7 +941,7 @@ void S3Server::putMultipartPart(const HttpRequestPtr &req,
     m_logicCache->get(auth->getToken())
         .thenTry([&req, uploadId, partNumber, response, callback, bucket, path,
                      requestId, timer](auto &&s3) {
-            s3.throwIfFailed();
+            s3.throwUnlessValue();
 
             const char *bodyData{nullptr};
             size_t bodyLength{0};
@@ -1182,7 +1182,7 @@ void S3Server::deleteObjects(const HttpRequestPtr &req,
 
     auto response = HttpResponse::newHttpResponse();
 
-    std::string body = req->getBody().to_string();
+    std::string body{req->getBody()};
     auto requestXml = Aws::Utils::Xml::XmlDocument::CreateFromXmlString(body);
     auto deleteRequest = Aws::S3::Model::Delete{requestXml.GetRootElement()};
 
@@ -1225,7 +1225,7 @@ void S3Server::deleteObjects(const HttpRequestPtr &req,
         })
         .via(m_logicCache->executor())
         .thenTry([callback](auto &&futs) {
-            futs.throwIfFailed();
+            futs.throwUnlessValue();
 
             Aws::S3::Model::DeleteObjectsResult result;
 
@@ -1633,7 +1633,7 @@ void S3Server::completeMultipartUpload(const HttpRequestPtr &req,
                 requestId, bucket, path, uploadId);
         })
         .thenTry([response, callback](auto &&result) {
-            result.throwIfFailed();
+            result.throwUnlessValue();
 
             response->setStatusCode(HttpStatusCode::k200OK);
             std::string body =

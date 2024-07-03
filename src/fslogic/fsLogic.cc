@@ -1108,7 +1108,7 @@ folly::IOBufQueue FsLogic::readInternal(const folly::fbstring &uuid,
         // Folly fibers does not allow to recursively call from exception
         // handler Keep the error data, and retry after the catch block
         ec = e.code().value();
-        ew = folly::exception_wrapper(std::current_exception(), e);
+        ew = folly::exception_wrapper(std::in_place_t{}, e);
     }
 
     // Retry on error or rethrow exception
@@ -1482,7 +1482,7 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
         // Folly fibers does not allow to recursively call from exception
         // handler Keep the error data, and retry after the catch block
         ec = e.code().value();
-        ew = folly::exception_wrapper(std::current_exception(), e);
+        ew = folly::exception_wrapper(std::in_place_t{}, e);
     }
 
     if (ec != 0) {

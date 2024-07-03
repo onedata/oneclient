@@ -76,7 +76,7 @@ folly::Future<helpers::FileHandlePtr> FuseFileHandle::getHelperHandle(
 
     return helper->open(fileId, filteredFlags, makeParameters(uuid))
         .thenTry([this, key](auto &&maybeHandle) {
-            maybeHandle.throwIfFailed();
+            maybeHandle.throwUnlessValue();
             assert(maybeHandle.value());
             m_helperHandles[key] = maybeHandle.value();
             return maybeHandle.value();

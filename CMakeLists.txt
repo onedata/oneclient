@@ -1,4 +1,11 @@
 cmake_minimum_required(VERSION 3.7.0)
+if (POLICY CMP0148)
+  cmake_policy(SET CMP0148 OLD)
+endif()
+if (POLICY CMP0153)
+  cmake_policy(SET CMP0153 NEW)
+endif()
+
 project(oneclient C CXX)
 
 option(CODE_COVERAGE "Enable code coverage (gcc only)." OFF)
@@ -153,14 +160,14 @@ else(FETCH_FOLLY)
     include(ExternalProject)
     ExternalProject_Add(folly
         GIT_REPOSITORY    https://github.com/facebook/folly.git
-        GIT_TAG           v2021.01.04.00
+        GIT_TAG           v2024.06.24.00
         INSTALL_DIR       ${CMAKE_BINARY_DIR}/contrib
-        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC';-DCMAKE_C_FLAGS='-Wl,-lrt';-DCMAKE_EXE_LINKER_FLAGS='-lrt';-DCMAKE_EXE_LINKER_FLAGS='-lrt';-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
+        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC';-DBUILD_TESTS=OFF;-DCMAKE_C_FLAGS='-Wl,-lrt';-DCMAKE_EXE_LINKER_FLAGS='-lrt';-DCMAKE_EXE_LINKER_FLAGS='-lrt';-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
     )
     ExternalProject_Add_StepTargets(folly install)
     ExternalProject_Add(fizz
         GIT_REPOSITORY    https://github.com/facebookincubator/fizz.git
-        GIT_TAG           v2021.01.04.00
+        GIT_TAG           v2024.06.24.00
         SOURCE_SUBDIR     fizz
         DEPENDS           folly-install
         INSTALL_DIR       ${CMAKE_BINARY_DIR}/contrib
@@ -169,19 +176,27 @@ else(FETCH_FOLLY)
     ExternalProject_Add_StepTargets(fizz install)
     ExternalProject_Add(wangle
         GIT_REPOSITORY    https://github.com/facebook/wangle.git
-        GIT_TAG           v2021.01.04.00
+        GIT_TAG           v2024.06.24.00
         SOURCE_SUBDIR     wangle
         DEPENDS           fizz-install
         INSTALL_DIR       ${CMAKE_BINARY_DIR}/contrib
-        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC';-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/contrib;-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
+        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC';-DBUILD_TESTS=OFF;-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/contrib;-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
     )
     ExternalProject_Add_StepTargets(wangle install)
-    ExternalProject_Add(proxygen
-        GIT_REPOSITORY    https://github.com/facebook/proxygen.git
-        GIT_TAG           v2021.01.04.00
+    ExternalProject_Add(mvfst
+        GIT_REPOSITORY    https://github.com/facebook/mvfst.git
+        GIT_TAG           v2024.06.24.00
         DEPENDS           wangle-install
         INSTALL_DIR       ${CMAKE_BINARY_DIR}/contrib
-        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC';-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/contrib;-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
+        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC';-DBUILD_TESTS=OFF;-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/contrib;-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
+    )
+    ExternalProject_Add_StepTargets(mvfst install)
+    ExternalProject_Add(proxygen
+        GIT_REPOSITORY    https://github.com/facebook/proxygen.git
+        GIT_TAG           v2024.06.24.00
+        DEPENDS           mvfst-install
+        INSTALL_DIR       ${CMAKE_BINARY_DIR}/contrib
+        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC';-DBUILD_TESTS=OFF;-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/contrib;-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
     )
     ExternalProject_Add_StepTargets(proxygen install)
     set(FOLLY_INCLUDE_DIR ${CMAKE_BINARY_DIR}/contrib/include)
@@ -196,6 +211,9 @@ else(FETCH_FOLLY)
         ${DOUBLE_CONVERSION_LIBRARY}
         gflags
         glog)
+    if(NOT FOLLY_SHARED)
+        list(APPEND FOLLY_LIBRARIES unwind gflags)
+    endif(NOT FOLLY_SHARED)
 endif(NOT FETCH_FOLLY)
 
 # Setup Boost
@@ -241,7 +259,7 @@ endif(FOLLY_SHARED)
 
 # Utility libs
 find_library(LTDL_LIBRARY NAMES ltdl)
-find_library(ZLIB_LIBRARY NAMES z)
+find_package(ZLIB)
 
 if(WITH_LIBRT)
 find_library(RT_LIBRARY rt)
@@ -261,17 +279,10 @@ endif(WITH_CEPH)
 
 # AWS SDK library
 if(WITH_S3)
-    find_library(AWS_SDK_C_COMMON_LIBRARY aws-c-common HINTS /usr/lib/x86_64-linux-gnu)
-    find_library(AWS_SDK_CHECKSUMS_LIBRARY aws-checksums HINTS /usr/lib/x86_64-linux-gnu)
-    find_library(AWS_SDK_C_EVENT_STREAM_LIBRARY aws-c-event-stream HINTS /usr/lib/x86_64-linux-gnu)
-    find_library(AWS_SDK_CORE_LIBRARY aws-cpp-sdk-core HINTS /usr/lib/x86_64-linux-gnu)
-    find_library(AWS_SDK_S3_LIBRARY aws-cpp-sdk-s3 HINTS /usr/lib/x86_64-linux-gnu)
+    find_package(AWSSDK REQUIRED COMPONENTS s3)
     set(AWS_SDK_LIBRARIES
-        ${AWS_SDK_S3_LIBRARY}
-        ${AWS_SDK_CORE_LIBRARY}
-        ${AWS_SDK_C_COMMON_LIBRARY}
-        ${AWS_SDK_CHECKSUMS_LIBRARY}
-        ${AWS_SDK_C_EVENT_STREAM_LIBRARY}
+        ${AWSSDK_LINK_LIBRARIES}
+        ${AWSSDK_PLATFORM_DEPS}
         ${CURL_LIBRARIES})
     add_definitions(-DWITH_S3=1)
     if(APPLE)
@@ -354,7 +365,7 @@ list(REMOVE_ITEM SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/onedatafs.cc)
 set(PLATFORM_EXTRA_LIBS
     ${CMAKE_THREAD_LIBS_INIT}
     ${LTDL_LIBRARY}
-    ${ZLIB_LIBRARY}
+    ZLIB::ZLIB
     ${DL_LIBRARY})
 
 if(STATIC_LIBSTDCPP)
@@ -379,7 +390,7 @@ endif(APPLE)
 
 # Define build settings
 add_compile_options(${SECTION_FRAGMENTATION_FLAGS} -Wall -Wno-unused-result)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -fdiagnostics-color")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fdiagnostics-color")
 
 add_definitions(
     ${FUSE_DEFINITIONS}

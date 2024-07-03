@@ -300,7 +300,7 @@ folly::Future<std::shared_ptr<FuseFileHandle>> S3Logic::open(
         .thenTry([this, filteredFlags, flags, attr, requestedOffset,
                      requestedSize, requestId](auto &&opened) {
             if (opened.hasException()) {
-                opened.throwIfFailed();
+                opened.throwUnlessValue();
             }
 
             {
@@ -328,7 +328,7 @@ folly::Future<std::shared_ptr<FuseFileHandle>> S3Logic::open(
                 LOG(ERROR) << "Failed to prefetch file range "
                            << requestedOffset << ":" << requestedSize
                            << "due to: " << fileLocation.exception().what();
-                fileLocation.throwIfFailed();
+                fileLocation.throwUnlessValue();
             }
 
             S3RequestContext context{};

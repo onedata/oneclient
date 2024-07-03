@@ -127,7 +127,7 @@ folly::Future<std::size_t> S3Logic::write(
                         if (written.hasException()) {
                             LOG(ERROR) << "Write failed: "
                                        << written.exception().what();
-                            written.throwIfFailed();
+                            written.throwUnlessValue();
                         }
 
                         return communicate(ReportFileWritten{uuid.toStdString(),

@@ -408,7 +408,7 @@ HelpersCache<CommunicatorT>::get(const folly::fbstring &fileUuid,
 
             return m_cache.find(helperKey)->second->getFuture().thenTry(
                 [this, storageId](auto &&helper) {
-                    helper.throwIfFailed();
+                    helper.throwUnlessValue();
 
                     if (m_onHelperCreated && helper.value().get() != nullptr &&
                         helper.value()->name() != "proxy")
@@ -444,7 +444,7 @@ HelpersCache<CommunicatorT>::get(const folly::fbstring &fileUuid,
 
     return m_cache.find(helperKey)->second->getFuture().thenTry(
         [this, storageId](auto &&helper) {
-            helper.throwIfFailed();
+            helper.throwUnlessValue();
 
             if (m_onHelperCreated && helper.value()->name() != "proxy")
                 m_onHelperCreated(storageId);
