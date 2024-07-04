@@ -73,7 +73,7 @@ using namespace one::client::logging; // NOLINT
 using namespace one::monitoring;      // NOLINT
 
 namespace {
-std::shared_ptr<options::Options> __options{};
+std::shared_ptr<options::Options> _options{};
 } // namespace
 
 std::shared_ptr<options::Options> getOptions(int argc, char *argv[])
@@ -92,11 +92,11 @@ std::shared_ptr<options::Options> getOptions(int argc, char *argv[])
 
 void sigtermHandler(int signum)
 {
-    if (!__options)
+    if (!_options)
         exit(signum);
 
 #ifdef ENABLE_BACKWARD_CPP
-    const auto crashDumpPath = __options->getLogDirPath() /
+    const auto crashDumpPath = _options->getLogDirPath() /
         fmt::format("crash-{}.log", std::time(nullptr));
     constexpr auto kStackTraceSizeMax = 48U;
     std::ofstream crashDumpStream(crashDumpPath.c_str(), std::ios::trunc);
@@ -111,7 +111,7 @@ void sigtermHandler(int signum)
 
     fmt::print(stderr,
         "Oneclient received ({}) signal - releasing mountpoint: {}\n", signum,
-        __options->getMountpoint().c_str());
+        _options->getMountpoint().c_str());
 
 #if FUSE_USE_VERSION > 30
     const auto *exec = "/bin/fusermount3";
@@ -119,7 +119,7 @@ void sigtermHandler(int signum)
     auto exec = "/bin/fusermount";
 #endif
     // NOLINTNEXTLINE(hicpp-vararg,cppcoreguidelines-pro-type-vararg)
-    execl(exec, exec, "-uz", __options->getMountpoint().c_str(), NULL);
+    execl(exec, exec, "-uz", _options->getMountpoint().c_str(), NULL);
 
     // Raise signal again. Should usually terminate the program.
     std::raise(signum);
@@ -160,7 +160,7 @@ int main(int argc, char *argv[])
 
     auto context = std::make_shared<OneclientContext>();
     auto options = getOptions(argc, argv);
-    __options = options;
+    _options = options;
     context->setOptions(options);
 
     if (options->getHelp()) {
@@ -201,8 +201,7 @@ int main(int argc, char *argv[])
         struct fuse_session *fuse{nullptr};
 
 #if FUSE_USE_VERSION > 30
-        struct fuse_cmdline_opts opts {
-        };
+        struct fuse_cmdline_opts opts { };
         res = fuse_parse_cmdline(&args, &opts);
         if (res == -1)
             return EXIT_FAILURE;
@@ -383,8 +382,7 @@ int main(int argc, char *argv[])
             options->getDirectoryCacheDropAfter());
 
 #if FUSE_USE_VERSION > 31
-        struct fuse_loop_config config {
-        };
+        struct fuse_loop_config config { };
         config.clone_fd = opts.clone_fd;
         config.max_idle_threads = opts.max_idle_threads;
         res = (multithreaded != 0) ? fuse_session_loop_mt(fuse, &config)
@@ -407,7 +405,7 @@ int main(int argc, char *argv[])
         fmt::print(stderr,
             "ERROR: Invalid token - please make sure that the access token is "
             "valid for Oneclient access to Oneprovider: {}\n",
-            *__options->getProviderHost());
+            *_options->getProviderHost());
         return EXIT_FAILURE;
     }
     catch (const std::system_error &e) {
@@ -423,7 +421,7 @@ int main(int argc, char *argv[])
             fmt::print(stderr,
                 "ERROR: Invalid token - the provided token is not valid for "
                 "Oneclient access to Oneprovider: {}\n",
-                *__options->getProviderHost());
+                *_options->getProviderHost());
         else if (e.code() == ErrorCode::incompatible_version)
             fmt::print(stderr,
                 "ERROR: This Oneclient version ({}) is not compatible with "
@@ -431,10 +429,10 @@ int main(int argc, char *argv[])
                 "https://{}/api/v3/oneprovider/configuration\nPlease also "
                 "consult the current Onedata compatibility matrix: "
                 "https://onedata.org/#/home/versions\n",
-                ONECLIENT_VERSION, *__options->getProviderHost());
+                ONECLIENT_VERSION, *_options->getProviderHost());
         else {
             fmt::print(stderr, "ERROR: Cannot connect to Oneprovider {} - {}\n",
-                *__options->getProviderHost(), e.what());
+                *_options->getProviderHost(), e.what());
         }
 
         return EXIT_FAILURE;
@@ -455,13 +453,13 @@ int main(int argc, char *argv[])
         }
 
         fmt::print(stderr, "ERROR: Cannot connect to Oneprovider {} - {}\n",
-            *__options->getProviderHost(), message);
+            *_options->getProviderHost(), message);
 
         return EXIT_FAILURE;
     }
     catch (const std::exception &e) {
         fmt::print(stderr, "ERROR: Cannot connect to Oneprovider {} - {}\n",
-            *__options->getProviderHost(), e.what());
+            *_options->getProviderHost(), e.what());
     }
 
     return res == -1 ? EXIT_FAILURE : EXIT_SUCCESS;
