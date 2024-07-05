@@ -718,7 +718,7 @@ void FsLogic::release(
 
     auto releaseExceptionFuture =
         folly::collectAll(releaseFutures)
-            .via(folly::getCPUExecutor().get())
+            .via(folly::getUnsafeMutableGlobalCPUExecutor().get())
             .thenValue([](std::vector<folly::Try<folly::Unit>> &&tries) {
                 for (auto &t : tries)
                     t.value();

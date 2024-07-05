@@ -87,7 +87,7 @@ void TestWorkerRndWr::operator()()
             }
 
             folly::collectAll(futs.begin(), futs.end())
-                .via(folly::getIOExecutor().get())
+                .via(folly::getUnsafeMutableGlobalIOExecutor().get())
                 .thenValue([this, handles, fileSize](auto && /*f*/) {
                     folly::fbvector<folly::Future<folly::Unit>> futs;
                     for (auto &h : handles) {
@@ -95,7 +95,7 @@ void TestWorkerRndWr::operator()()
                             m_helper->flushBuffer(h->fileId(), fileSize));
                     }
                     return folly::collectAll(futs.begin(), futs.end())
-                        .via(folly::getIOExecutor().get());
+                        .via(folly::getUnsafeMutableGlobalIOExecutor().get());
                 })
                 .get();
         }
