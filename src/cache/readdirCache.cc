@@ -75,42 +75,41 @@ void ReaddirCache::fetch(const folly::fbstring &uuid,
             LOG_DBG(2) << "Requesting directory entries for directory " << uuid
                        << " starting at offset " << chunkIndex;
 
-            auto ew = folly::try_and_catch<std::exception>(
-                [this, p, &isLast, uuid, &chunkIndex, &fetchedSize, &futs,
-                    &indexToken, includeReplicationStatus,
-                    includeHardLinkCount]() {
-                    auto msg =
-                        communicate<one::messages::fuse::FileChildrenAttrs>(
-                            one::messages::fuse::GetFileChildrenAttrs{uuid,
-                                static_cast<off_t>(chunkIndex), m_prefetchSize,
-                                indexToken, includeReplicationStatus,
-                                includeHardLinkCount},
-                            m_providerTimeout);
+            auto ew = folly::try_and_catch([this, p, &isLast, uuid, &chunkIndex,
+                                               &fetchedSize, &futs, &indexToken,
+                                               includeReplicationStatus,
+                                               includeHardLinkCount]() {
+                auto msg = communicate<one::messages::fuse::FileChildrenAttrs>(
+                    one::messages::fuse::GetFileChildrenAttrs{uuid,
+                        static_cast<off_t>(chunkIndex), m_prefetchSize,
+                        indexToken, includeReplicationStatus,
+                        includeHardLinkCount},
+                    m_providerTimeout);
 
-                    fetchedSize = msg.childrenAttrs().size();
-                    indexToken.assign(msg.indexToken());
-                    isLast = msg.isLast() && *msg.isLast();
-                    chunkIndex += fetchedSize;
+                fetchedSize = msg.childrenAttrs().size();
+                indexToken.assign(msg.indexToken());
+                isLast = msg.isLast() && *msg.isLast();
+                chunkIndex += fetchedSize;
 
-                    folly::Promise<folly::Unit> partialPromise;
-                    futs.emplace_back(partialPromise.getFuture());
-                    m_runInFiber([this, msg = std::move(msg),
-                                     partialPromise = std::move(partialPromise),
-                                     uuid, includeReplicationStatus]() mutable {
-                        for (const auto it :
-                            folly::enumerate(msg.childrenAttrs())) {
-                            auto attr = std::make_shared<FileAttr>(*it);
-                            if (includeReplicationStatus &&
-                                (attr->type() == FileAttr::FileType::regular) &&
-                                !attr->fullyReplicated())
-                                continue;
+                folly::Promise<folly::Unit> partialPromise;
+                futs.emplace_back(partialPromise.getFuture());
+                m_runInFiber([this, msg = std::move(msg),
+                                 partialPromise = std::move(partialPromise),
+                                 uuid, includeReplicationStatus]() mutable {
+                    for (const auto it :
+                        folly::enumerate(msg.childrenAttrs())) {
+                        auto attr = std::make_shared<FileAttr>(*it);
+                        if (includeReplicationStatus &&
+                            (attr->type() == FileAttr::FileType::regular) &&
+                            !attr->fullyReplicated())
+                            continue;
 
-                            m_metadataCache.updateAttr(
-                                std::move(attr), false, true, true);
-                        }
-                        partialPromise.setValue();
-                    });
+                        m_metadataCache.updateAttr(
+                            std::move(attr), false, true, true);
+                    }
+                    partialPromise.setValue();
                 });
+            });
 
             if (bool(ew)) {
                 p->setException(ew);

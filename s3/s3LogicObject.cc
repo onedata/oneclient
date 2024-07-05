@@ -575,7 +575,7 @@ folly::Future<folly::Unit> S3Logic::deleteObject(const std::string &requestId,
         })
         .thenTry([this](folly::Try<FileAttr> &&value) {
             if (value.hasException()) {
-                value.throwIfFailed();
+                value.throwUnlessValue();
             }
 
             return communicate(DeleteFile{value.value().uuid().toStdString()});
