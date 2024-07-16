@@ -271,7 +271,7 @@ int main(int argc, char *argv[])
         for (const auto &userSpace : spaces) {
             if (userSpace.providers.begin() != userSpace.providers.end()) {
                 auto selectedProviderId = userSpace.providers.begin()->first;
-                if (providers.count(selectedProviderId)) {
+                if (providers.count(selectedProviderId) != 0U) {
                     fsLogic->setProviderForSpace(
                         userSpace.name, selectedProviderId);
                 }

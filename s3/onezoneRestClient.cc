@@ -132,6 +132,8 @@ std::vector<model::Space> OnezoneClient::listUserSpaces(
 std::vector<model::UserSpaceDetails> OnezoneClient::listUserSpacesDetails(
     const std::string &token)
 {
+    constexpr size_t kSpaceSizePlaceholderValue = 1024;
+
     std::vector<model::UserSpaceDetails> result;
 
     Poco::JSON::Object body;
@@ -176,7 +178,7 @@ std::vector<model::UserSpaceDetails> OnezoneClient::listUserSpacesDetails(
         s.creationTime = 0;
         if (spaceDetails->has("supports")) {
             for (const auto &kv : *spaceDetails->getObject("supports")) {
-                s.providers.emplace(kv.first, 1024);
+                s.providers.emplace(kv.first, kSpaceSizePlaceholderValue);
             }
         }
 
@@ -189,6 +191,8 @@ std::vector<model::UserSpaceDetails> OnezoneClient::listUserSpacesDetails(
 model::UserSpaceDetails OnezoneClient::getUserSpace(
     const std::string &token, const std::string &spaceId)
 {
+    constexpr size_t kSpaceSizePlaceholderValue = 1024;
+
     Poco::Net::HTTPRequest request{Poco::Net::HTTPRequest::HTTP_GET,
         "/api/v3/onezone/user/spaces/" + spaceId};
     request.setContentType("application/json");
@@ -219,7 +223,7 @@ model::UserSpaceDetails OnezoneClient::getUserSpace(
     result.creationTime = object->getValue<uint64_t>("creationTime");
     if (object->has("supports")) {
         for (const auto &kv : *object->getObject("supports")) {
-            result.providers.emplace(kv.first, 1024);
+            result.providers.emplace(kv.first, kSpaceSizePlaceholderValue);
         }
     }
 
