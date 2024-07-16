@@ -88,6 +88,7 @@ envs={'BASE_TEST_DIR': base_test_dir,
       'PYTHONWARNINGS': 'ignore:Unverified HTTPS request',
       'BACKWARD_CXX_SOURCE_PREFIXES': os.path.join(script_dir, args.release)}
 
+add_host = {}
 # Setup oneenv environment
 if args.onenv_config is not None:
     if not os.path.exists(args.onenv_config):
@@ -156,6 +157,9 @@ if args.onenv_config is not None:
 
     print(f'Environment passed to pytest container: {str(envs)}')
 
+    add_host = {'dev-onezone.default.svc.cluster.local': onezone_ip.decode('utf-8'),
+                'dev-oneprovider-krakow.default.svc.cluster.local': oneprovider_ip.decode('utf-8'),
+                'dev-oneprovider-paris.default.svc.cluster.local': oneprovider_2_ip.decode('utf-8')}
 
 command = '''
 import os, subprocess, sys, stat, shutil
@@ -194,9 +198,7 @@ command = command.format(
 ret = docker.run(tty=True,
                  rm=True,
                  interactive=True,
-                 add_host={'dev-onezone.default.svc.cluster.local': onezone_ip.decode('utf-8'),
-                           'dev-oneprovider-krakow.default.svc.cluster.local': oneprovider_ip.decode('utf-8'),
-                           'dev-oneprovider-paris.default.svc.cluster.local': oneprovider_2_ip.decode('utf-8')},
+                 add_host=add_host,
                  workdir=script_dir,
                  reflect=[(script_dir, 'rw'),
                           ('/var/run/docker.sock', 'rw')],
