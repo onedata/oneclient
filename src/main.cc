@@ -38,6 +38,7 @@
 #include "scopeExit.h"
 #include "version.h"
 
+#include <Poco/Net/SSLManager.h>
 #include <folly/Singleton.h>
 #if FUSE_USE_VERSION > 30
 #include <fuse3/fuse_lowlevel.h>
@@ -65,7 +66,6 @@
 #ifdef ENABLE_BACKWARD_CPP
 #define BACKWARD_HAS_DW 1
 #define BACKWARD_HAS_UNWIND 1
-#include <Poco/Net/SSLManager.h>
 #include <backward.hpp>
 #endif
 
