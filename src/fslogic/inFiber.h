@@ -60,8 +60,9 @@ public:
      * Constructor.
      * Starts the fiber worker thread.
      */
-    InFiber(std::shared_ptr<options::Options> options)
-        : m_fsLogic{options, makeRunInFiber()}
+    InFiber(std::shared_ptr<options::Options> options,
+        std::unique_ptr<one::rest::onezone::OnezoneClient> onezoneRestClient)
+        : m_fsLogic{options, std::move(onezoneRestClient), makeRunInFiber()}
     {
         m_thread = std::thread{[this] {
             folly::setThreadName("InFiber");

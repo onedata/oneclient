@@ -162,7 +162,7 @@ else(FETCH_FOLLY)
         GIT_REPOSITORY    https://github.com/facebook/folly.git
         GIT_TAG           v2024.06.24.00
         INSTALL_DIR       ${CMAKE_BINARY_DIR}/contrib
-        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC';-DBUILD_TESTS=OFF;-DCMAKE_C_FLAGS='-Wl,-lrt';-DCMAKE_EXE_LINKER_FLAGS='-lrt';-DCMAKE_EXE_LINKER_FLAGS='-lrt';-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
+        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC';-DBUILD_TESTS=OFF;-DCMAKE_C_FLAGS='-Wl,-lrt';-DCMAKE_EXE_LINKER_FLAGS='-lrt';-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
     )
     ExternalProject_Add_StepTargets(folly install)
     ExternalProject_Add(fizz
@@ -200,20 +200,17 @@ else(FETCH_FOLLY)
     )
     ExternalProject_Add_StepTargets(proxygen install)
     set(FOLLY_INCLUDE_DIR ${CMAKE_BINARY_DIR}/contrib/include)
-    set(FOLLY_LIBRARIES
-        ${CMAKE_BINARY_DIR}/contrib/lib/libfolly.a
-        ${CMAKE_BINARY_DIR}/contrib/lib/libfollybenchmark.a
-        ${CMAKE_BINARY_DIR}/contrib/lib/libwangle.a
-        ${LIBEVENT_LIBRARY}
-        ${IBERTY_LIBRARY}
-        ${CMAKE_BINARY_DIR}/contrib/lib/libfizz.a
-        ${CMAKE_BINARY_DIR}/contrib/lib/libproxygen.a
-        ${DOUBLE_CONVERSION_LIBRARY}
-        gflags
-        glog)
-    if(NOT FOLLY_SHARED)
-        list(APPEND FOLLY_LIBRARIES unwind gflags)
-    endif(NOT FOLLY_SHARED)
+    find_package(gflags REQUIRED)
+
+    set_target_properties(gflags_shared PROPERTIES
+        MAP_IMPORTED_CONFIG_DEBUG Release
+    )
+    find_package(folly REQUIRED PATHS ${CMAKE_BINARY_DIR}/contrib NO_DEFAULT_PATH)
+    find_package(Fizz REQUIRED PATHS ${CMAKE_BINARY_DIR}/contrib NO_DEFAULT_PATH)
+    find_package(mvfst REQUIRED PATHS ${CMAKE_BINARY_DIR}/contrib NO_DEFAULT_PATH)
+    find_package(wangle REQUIRED PATHS ${CMAKE_BINARY_DIR}/contrib NO_DEFAULT_PATH)
+    find_package(proxygen REQUIRED PATHS ${CMAKE_BINARY_DIR}/contrib NO_DEFAULT_PATH)
+    set(FOLLY_LIBRARIES proxygen::proxygen)
 endif(NOT FETCH_FOLLY)
 
 # Setup Boost

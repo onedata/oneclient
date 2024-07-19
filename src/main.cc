@@ -40,13 +40,8 @@
 
 #include <Poco/Net/SSLManager.h>
 #include <folly/Singleton.h>
-#if FUSE_USE_VERSION > 30
 #include <fuse3/fuse_lowlevel.h>
 #include <fuse3/fuse_opt.h>
-#else
-#include <fuse/fuse_lowlevel.h>
-#include <fuse/fuse_opt.h>
-#endif
 #include <macaroons.hpp>
 
 #include <sys/mount.h>
@@ -115,11 +110,8 @@ void sigtermHandler(int signum)
         "Oneclient received ({}) signal - releasing mountpoint: {}\n", signum,
         _options->getMountpoint().c_str());
 
-#if FUSE_USE_VERSION > 30
     const auto *exec = "/bin/fusermount3";
-#else
-    auto exec = "/bin/fusermount";
-#endif
+
     // NOLINTNEXTLINE(hicpp-vararg,cppcoreguidelines-pro-type-vararg)
     execl(exec, exec, "-uz", _options->getMountpoint().c_str(), NULL);
 
@@ -141,11 +133,7 @@ void unmountFuse(std::shared_ptr<options::Options> options)
         // NOLINTNEXTLINE(hicpp-vararg,cppcoreguidelines-pro-type-vararg)
         execl(exec, exec, "unmount", options->getMountpoint().c_str(), nullptr);
 #else
-#if FUSE_USE_VERSION > 30
         const auto *exec = "/bin/fusermount3";
-#else
-        auto exec = "/bin/fusermount";
-#endif
         // NOLINTNEXTLINE(hicpp-vararg,cppcoreguidelines-pro-type-vararg)
         execl(exec, exec, "-uz", options->getMountpoint().c_str(), nullptr);
 #endif
@@ -222,7 +210,6 @@ int main(int argc, char *argv[])
         int foreground{0};
         struct fuse_session *fuse{nullptr};
 
-#if FUSE_USE_VERSION > 30
         struct fuse_cmdline_opts opts {
         };
         res = fuse_parse_cmdline(&args, &opts);
@@ -247,48 +234,13 @@ int main(int argc, char *argv[])
         fmt::print(stderr, "Connecting to Onezone at: {}",
             options->getOnezoneHost().value());
 
-        one::rest::onezone::OnezoneClient onezoneRestClient{
-            options->getOnezoneHost().value()};
-
-        auto spaces = onezoneRestClient.listUserSpacesDetails(
-            options->getAccessToken().value());
-
-        auto providers = onezoneRestClient.getUserProviders(
-            options->getAccessToken().value());
-
-        fmt::print(stderr, "Got the following spaces: ");
-        for (const auto &s : spaces) {
-            fmt::print(stderr, "\t Space: {} {}\n", s.spaceId, s.name);
-        }
+        auto onezoneRestClient =
+            std::make_unique<one::rest::onezone::OnezoneClient>(
+                options->getOnezoneHost().value());
 
         std::unique_ptr<fslogic::Composite> fsLogic =
-            std::make_unique<fslogic::Composite>(options);
-
-        for (const auto &p : providers) {
-            fsLogic->setProviderDetails(p.second);
-        }
-
-        for (const auto &userSpace : spaces) {
-            if (userSpace.providers.begin() != userSpace.providers.end()) {
-                auto selectedProviderId = userSpace.providers.begin()->first;
-                if (providers.count(selectedProviderId) != 0U) {
-                    fsLogic->setProviderForSpace(
-                        userSpace.name, selectedProviderId);
-                }
-                fsLogic->addSpace(userSpace);
-            }
-        }
-        /*
-                // Create test communicator with single connection to test the
-                // authentication and get protocol configuration
-                auto authManager =
-                    getCLIAuthManager<client::Context<communication::Communicator>>(
-                        context);
-                auto sessionId = generateSessionId();
-                auto configuration = getConfiguration(sessionId, authManager,
-           context, messages::handshake::ClientType::oneclient); if
-           (!configuration) return EXIT_FAILURE;
-        */
+            std::make_unique<fslogic::Composite>(
+                options, std::move(onezoneRestClient));
 
         fuse = fuse_session_new(&args, &fuse_oper, sizeof(fuse_oper), &fsLogic);
         if (fuse == nullptr)
@@ -333,110 +285,10 @@ int main(int argc, char *argv[])
         else {
             FLAGS_stderrthreshold = options->getDebug() ? 0 : 1;
         }
-#else
-        res =
-            fuse_parse_cmdline(&args, &mountpoint, &multithreaded, &foreground);
-        if (res == -1)
-            return EXIT_FAILURE;
-
-        if (foreground == 0) {
-            FLAGS_stderrthreshold = 3;
-        }
-        else {
-            FLAGS_stderrthreshold = options->getDebug() ? 0 : 1;
-        }
-
-        // Create test communicator with single connection to test the
-        // authentication and get protocol configuration
-        auto authManager = getAuthManager(context);
-        auto sessionId = generateSessionId();
-        auto configuration = getConfiguration(sessionId, authManager, context,
-            messages::handshake::ClientType::oneclient);
-
-        if (!configuration)
-            return EXIT_FAILURE;
-
-        ScopeExit freeMountpoint{[=] {
-            free(mountpoint); // NOLINT
-        }};
-
-        auto ch = fuse_mount(mountpoint, &args);
-        if (ch == nullptr)
-            return EXIT_FAILURE;
-
-        ScopeExit unmountFuse{[=] { fuse_unmount(mountpoint, ch); }};
-
-        std::signal(SIGINT, sigtermHandler);
-        std::signal(SIGTERM, sigtermHandler);
-        std::signal(SIGSEGV, sigtermHandler);
-
-        // NOLINTNEXTLINE(hicpp-vararg,cppcoreguidelines-pro-type-vararg)
-        res = fcntl(fuse_chan_fd(ch), F_SETFD, FD_CLOEXEC);
-        if (res == -1)
-            perror("WARNING: failed to set FD_CLOEXEC on fuse device");
-
-        std::unique_ptr<fslogic::Composite> fsLogic;
-        fuse =
-            fuse_lowlevel_new(&args, &fuse_oper, sizeof(fuse_oper), &fsLogic);
-        if (fuse == nullptr)
-            return EXIT_FAILURE;
-
-        ScopeExit destroyFuse{[=] { fuse_session_destroy(fuse); }, unmountFuse};
-
-        fuse_set_signal_handlers(fuse);
-        ScopeExit removeHandlers{[&] { fuse_remove_signal_handlers(fuse); }};
-
-        fuse_session_add_chan(fuse, ch);
-        ScopeExit removeChannel{[&] { fuse_session_remove_chan(ch); }};
-
-        std::cout << "Oneclient has been successfully mounted in '"
-                  << options->getMountpoint().c_str() << "'." << std::endl;
-
-        if (foreground == 0) {
-            context->scheduler()->prepareForDaemonize();
-            folly::SingletonVault::singleton()->destroyInstances();
-
-            fuse_remove_signal_handlers(fuse);
-            res = fuse_daemonize(foreground);
-
-            if (res != -1)
-                res = fuse_set_signal_handlers(fuse);
-
-            if (res == -1) {
-                return EXIT_FAILURE;
-            }
-
-            folly::SingletonVault::singleton()->reenableInstances();
-            context->scheduler()->restartAfterDaemonize();
-        }
-#endif
 
         if (startPerformanceMonitoring(options) != EXIT_SUCCESS)
             return EXIT_FAILURE;
-/*
-        auto communicator =
-            getCommunicator<client::Context<communication::Communicator>>(
-                sessionId, authManager, context,
-                messages::handshake::ClientType::oneclient);
-        context->setCommunicator(communicator);
-        communicator->setScheduler(context->scheduler());
-        communicator->connect();
 
-        communicator->schedulePeriodicMessageRequest();
-        authManager->scheduleRefresh(auth::RESTRICTED_MACAROON_REFRESH);
-
-        auto helpersCache =
-            std::make_unique<cache::HelpersCache<communication::Communicator>>(
-                *communicator, context->scheduler(), *options);
-
-        const auto &rootUuid = configuration->rootUuid();
-        fsLogic = std::make_unique<fslogic::Composite>(rootUuid,
-            std::move(context), std::move(configuration),
-            std::move(helpersCache), options->getMetadataCacheSize(),
-            options->areFileReadEventsDisabled(),
-            options->isFullblockReadEnabled(), options->getProviderTimeout(),
-            options->getDirectoryCacheDropAfter());
-*/
 #if FUSE_USE_VERSION > 31
         struct fuse_loop_config config {
         };

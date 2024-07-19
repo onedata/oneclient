@@ -38,6 +38,12 @@ struct UserSpaceDetails {
     unsigned long long creationTime;
 };
 
+struct DataAccessScope {
+    bool readonly;
+    std::map<std::string, UserSpaceDetails> spaces;
+    std::map<std::string, Provider> providers;
+};
+
 struct Space {
     std::string id;
     std::string name;
@@ -55,7 +61,10 @@ public:
 
     std::vector<model::Space> listUserSpaces(const std::string &token);
 
-    std::vector<model::UserSpaceDetails> listUserSpacesDetails(const std::string &token);
+    std::vector<model::UserSpaceDetails> listUserSpacesDetails(
+        const std::string &token);
+
+    model::DataAccessScope inferAccessTokenScope(const std::string &token);
 
     std::map<std::string, model::Provider> getUserProviders(
         const std::string &token);

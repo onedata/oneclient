@@ -129,6 +129,81 @@ std::vector<model::Space> OnezoneClient::listUserSpaces(
     return result;
 }
 
+model::DataAccessScope OnezoneClient::inferAccessTokenScope(
+    const std::string &token)
+{
+    constexpr size_t kSpaceSizePlaceholderValue = 1024;
+
+    model::DataAccessScope result;
+
+    Poco::JSON::Object body;
+    body.set("token", token);
+    auto bodyStr = toString(body);
+
+    Poco::Net::HTTPRequest request{Poco::Net::HTTPRequest::HTTP_POST,
+        "/api/v3/onezone/tokens/infer_access_token_scope"};
+    request.setContentType("application/json");
+    request.setContentLength(bodyStr.size());
+
+    logRequest("Onezone", request, body);
+
+    auto &requestStream = session_.sendRequest(request);
+    requestStream << bodyStr;
+
+    Poco::Net::HTTPResponse response;
+
+    auto responseStr = toString(session_.receiveResponse(response));
+
+    logResponse("Onezone", responseStr);
+
+    auto statusCode = response.getStatus();
+
+    if (statusCode != Poco::Net::HTTPResponse::HTTP_OK) {
+        throwHTTPExceptionFromRESTErrorResponse(responseStr);
+    }
+
+    Poco::JSON::Parser p;
+    auto value = p.parse(responseStr);
+
+    Poco::JSON::Object::Ptr object = value.extract<Poco::JSON::Object::Ptr>();
+
+    auto dataAccessScope = object->getObject("dataAccessScope");
+
+    result.readonly = dataAccessScope->getValue<bool>("readonly");
+
+    for (const auto &space : *dataAccessScope->getObject("spaces")) {
+        model::UserSpaceDetails s;
+        s.spaceId = space.first;
+        const auto &spaceDetails =
+            space.second.extract<Poco::JSON::Object::Ptr>();
+
+        s.name = spaceDetails->get("name").toString();
+        s.creationTime = 0;
+        if (spaceDetails->has("supports")) {
+            for (const auto &kv : *spaceDetails->getObject("supports")) {
+                s.providers.emplace(kv.first, kSpaceSizePlaceholderValue);
+            }
+        }
+
+        result.spaces.emplace(space.first, std::move(s));
+    }
+
+    for (const auto &provider : *dataAccessScope->getObject("providers")) {
+        model::Provider p;
+        p.providerId = provider.first;
+        const auto providerDetails =
+            provider.second.extract<Poco::JSON::Object::Ptr>();
+
+        p.name = providerDetails->get("name").toString();
+        p.host = providerDetails->get("domain").toString();
+        p.version = providerDetails->get("version").toString();
+
+        result.providers.emplace(provider.first, std::move(p));
+    }
+
+    return result;
+}
+
 std::vector<model::UserSpaceDetails> OnezoneClient::listUserSpacesDetails(
     const std::string &token)
 {

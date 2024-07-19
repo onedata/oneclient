@@ -50,11 +50,13 @@ template <typename FsLogicT> class WithUuids {
 public:
     template <typename... Args>
     WithUuids(std::shared_ptr<options::Options> options,
+        std::unique_ptr<one::rest::onezone::OnezoneClient> onezoneRestClient,
         std::function<void(folly::Function<void()>)> runInFiber)
         : m_inodeCache{std::move("")}
         , m_generation{std::chrono::system_clock::to_time_t(
               std::chrono::system_clock::now())}
         , m_options{std::move(options)}
+        , m_onezoneRestClient{std::move(onezoneRestClient)}
         , m_runInFiber{std::move(runInFiber)}
     {
         // TODO:
@@ -66,6 +68,22 @@ public:
                 &m_inodeCache, std::placeholders::_1, std::placeholders::_2,
                 std::placeholders::_3));
         }
+
+        LOG_DBG(2) << "Getting access token scope from Onezone";
+
+        m_dataAccessScope = m_onezoneRestClient->inferAccessTokenScope(
+            m_options->getAccessToken().value());
+
+        auto accessScope = m_dataAccessScope.rlock();
+        for (const auto &[id, userSpace] : accessScope->spaces) {
+            if (userSpace.providers.begin() != userSpace.providers.end()) {
+                auto selectedProviderId = userSpace.providers.begin()->first;
+
+                if (accessScope->providers.count(selectedProviderId) != 0U) {
+                    setProviderForSpace(id, selectedProviderId);
+                }
+            }
+        }
     }
 
     auto lookup(const fuse_ino_t ino, const folly::fbstring &name)
@@ -74,74 +92,43 @@ public:
 
         if (ino == FUSE_ROOT_ID) {
             // Handle
-            folly::fbstring maybeUUID = getFileIdFromFilename(name);
-            if (!maybeUUID.empty()) {
-                std::string spaceId =
-                    util::uuid::uuidToSpaceId(maybeUUID).toStdString();
+            std::optional<folly::fbstring> spaceId;
 
-                std::string spaceName;
-                for (const auto &space : m_spaces) {
-                    if (space.spaceId == spaceId) {
-                        spaceName = space.name;
-                        break;
-                    }
-                }
+            auto maybeUUID = getFileIdFromFilename(name);
 
-                createFsLogicForSpace(spaceName);
-
-                std::string providerId =
-                    m_providersForSpaceMap.at(spaceName).toStdString();
-
-                auto providerFsLogic = m_fsLogicMap.at(providerId);
-                FileAttrPtr attr = providerFsLogic->lookup("whatever", name);
-
-                auto newInode =
-                    m_inodeCache.generateInode(attr->uuid(), providerId);
-
-                struct fuse_entry_param entry = {0};
-                entry.generation = m_generation;
-                entry.ino = newInode;
-                entry.attr = detail::toStatbuf(attr, entry.ino);
-
-                return entry;
+            if (maybeUUID.has_value()) {
+                return lookupByUUID(name, *maybeUUID);
             }
 
-            if (m_providersForSpaceMap.count(name) == 0) {
+            if (!spaceId.has_value()) {
+                spaceId = getSpaceIdByName(name);
+            }
+
+            if (!spaceId.has_value()) {
                 throw one::helpers::makePosixException(ENOENT);
             }
 
-            folly::fbstring spaceId;
-            if (m_spacesToInodes.left.count(name) == 0) {
-                for (const auto &space : m_spaces) {
-                    if (space.name == name) {
-                        spaceId = space.spaceId;
-                        break;
-                    }
-                }
+            if (m_selectedProviderForSpace.count(*spaceId) == 0) {
+                throw one::helpers::makePosixException(ENOENT);
+            }
 
-                auto spaceInode =
-                    m_inodeCache.generateInode(spaceIdToSpaceUUID(spaceId),
-                        m_providersForSpaceMap.at(name));
+            auto spaceUuid = spaceIdToSpaceUUID(*spaceId);
+
+            if (m_spacesToInodes.left.count(*spaceId) == 0) {
+                auto spaceInode = m_inodeCache.generateInode(
+                    spaceUuid, m_selectedProviderForSpace.at(*spaceId));
 
                 LOG_DBG(3) << "Assigned inode " << spaceInode << " to space "
-                           << name;
+                           << *spaceId;
 
-                m_spacesToInodes.insert({name, spaceInode});
+                m_spacesToInodes.insert({*spaceId, spaceInode});
             }
 
             // If the name refers to a space which already has been assigned
             // an inode, return attr for that space. If not, check if the
             // space exists and assign it a new inode.
-            if (m_spacesToInodes.left.count(name) > 0) {
-                folly::fbstring spaceId;
-                for (const auto &space : m_spaces) {
-                    if (space.name == name) {
-                        spaceId = space.spaceId;
-                        break;
-                    }
-                }
-                auto spaceInode =
-                    m_inodeCache.lookup(spaceIdToSpaceUUID(spaceId));
+            if (m_spacesToInodes.left.count(*spaceId) > 0) {
+                auto spaceInode = m_inodeCache.lookup(spaceUuid);
 
                 struct fuse_entry_param result;
                 result.ino = spaceInode;
@@ -172,16 +159,6 @@ public:
             auto res = m_inodeCache.at(ino);
             uuid = res.first;
             providerId = res.second;
-            //
-            //            // Now determine the providerId for this space
-            //            auto spaceName = m_spacesToInodes.right.at(ino);
-            //            providerId = m_providersForSpaceMap.at(spaceName);
-            //            for (const auto &space : m_spaces) {
-            //                if (space.name == name) {
-            //                    uuid = space.spaceId;
-            //                    break;
-            //                }
-            //            }
         }
         else {
             // Get the providerId from the parent
@@ -192,8 +169,6 @@ public:
 
         // Otherwise, just handle a regular file or directory by directly
         // connecting to a specific Oneprovider over clproto
-        // FileAttrPtr attr = wrap(&FsLogicT::lookup, ino, name);
-
         FileAttrPtr attr =
             m_fsLogicMap.at(providerId).get()->lookup(uuid, name);
 
@@ -207,10 +182,36 @@ public:
         return entry;
     }
 
-    void createFsLogicForSpace(const folly::fbstring &spaceName)
+    fuse_entry_param lookupByUUID(
+        const folly::fbstring &name, const folly::fbstring &maybeUUID)
     {
+        auto spaceId = util::uuid::uuidToSpaceId(maybeUUID);
 
-        auto maybeProviderForSpace = getProviderForSpace(spaceName);
+        createFsLogicForSpace(spaceId);
+
+        auto maybeProviderForSpace = getProviderForSpace(spaceId);
+        if (!maybeProviderForSpace.has_value()) {
+            throw helpers::makePosixException(ENOENT);
+        }
+
+        auto providerId = maybeProviderForSpace->providerId;
+
+        auto providerFsLogic = m_fsLogicMap.at(providerId);
+        FileAttrPtr attr = providerFsLogic->lookup("_", name);
+
+        auto newInode = m_inodeCache.generateInode(attr->uuid(), providerId);
+
+        struct fuse_entry_param entry = {0};
+        entry.generation = m_generation;
+        entry.ino = newInode;
+        entry.attr = detail::toStatbuf(attr, entry.ino);
+
+        return entry;
+    }
+
+    void createFsLogicForSpace(const folly::fbstring &spaceId)
+    {
+        auto maybeProviderForSpace = getProviderForSpace(spaceId);
         if (!maybeProviderForSpace.has_value())
             throw helpers::makePosixException(ENOENT);
 
@@ -218,13 +219,14 @@ public:
 
         // Check if FsLogic instance already exists for this space
         if (m_fsLogicMap.count(providerId) == 0) {
-
-            const auto &provider = m_providers.at(providerId);
+            one::rest::onezone::model::Provider provider =
+                m_dataAccessScope.rlock()->providers.at(providerId);
 
             auto context = std::make_shared<OneclientContext>();
             context->setOptions(m_options);
             context->setScheduler(std::make_shared<Scheduler>(
                 m_options->getSchedulerThreadCount()));
+
             // Add new FsLogic for providerId
             // Create test communicator with single connection to test
             // the authentication and get protocol configuration
@@ -274,10 +276,10 @@ public:
 
     void createFsLogic(const fuse_ino_t ino)
     {
-        auto spaceName = m_spacesToInodes.right.at(ino);
+        auto spaceId = m_spacesToInodes.right.at(ino);
         // Here, we have to decide which provider to choose or create a
         // new one
-        createFsLogicForSpace(spaceName);
+        createFsLogicForSpace(spaceId);
     }
 
     void forget(const fuse_ino_t ino, const std::size_t count)
@@ -305,14 +307,8 @@ public:
         }
 
         if (m_spacesToInodes.right.count(ino) > 0) {
-            folly::fbstring spaceId;
-            folly::fbstring spaceName = m_spacesToInodes.right.at(ino);
-            for (const auto &space : m_spaces) {
-                if (space.name == spaceName) {
-                    spaceId = space.spaceId;
-                    break;
-                }
-            }
+            folly::fbstring spaceId = m_spacesToInodes.right.at(ino);
+
             auto spaceInode = m_inodeCache.lookup(spaceIdToSpaceUUID(spaceId));
 
             assert(ino == spaceInode);
@@ -368,10 +364,12 @@ public:
         if (ino == FUSE_ROOT_ID) {
             // List user spaces
             folly::fbvector<folly::fbstring> result;
-            if (m_spaces.empty() || off >= m_spaces.size())
+            auto accessScope = m_dataAccessScope.rlock();
+            if (accessScope->spaces.empty() ||
+                off >= (accessScope->spaces.size()))
                 return result;
 
-            auto it = std::begin(m_spaces);
+            auto it = std::begin(accessScope->spaces);
             std::advance(it, off);
             int extraFilesCount = 2;
 
@@ -381,8 +379,9 @@ public:
             }
 
             unsigned int count = result.size();
-            for (; it != m_spaces.end() && count <= maxSize; it++, count++) {
-                std::string name = it->name;
+            for (; it != accessScope->spaces.end() && count <= maxSize;
+                 it++, count++) {
+                std::string name = it->second.name;
                 result.push_back(name);
             }
 
@@ -390,17 +389,15 @@ public:
         }
         else if (m_spacesToInodes.right.count(ino) > 0) {
             auto spaceName = m_spacesToInodes.right.at(ino);
-            auto providerId = m_providersForSpaceMap.at(spaceName);
+            auto providerId = m_selectedProviderForSpace.at(spaceName);
             auto fsLogicPtr = m_fsLogicMap.at(providerId);
-            folly::fbstring uuid;
-            for (const auto &space : m_spaces) {
-                if (space.name == spaceName) {
-                    uuid = space.spaceId;
-                    break;
-                }
-            }
+            auto spaceId = getSpaceIdByName(spaceName);
 
-            return fsLogicPtr->readdir(spaceIdToSpaceUUID(uuid), maxSize, off);
+            if (!spaceId.has_value())
+                throw one::helpers::makePosixException(ENOENT);
+
+            return fsLogicPtr->readdir(
+                spaceIdToSpaceUUID(*spaceId), maxSize, off);
         }
 
         return wrap(&FsLogicT::readdir, ino, maxSize, off);
@@ -649,47 +646,65 @@ public:
     }
 
     void setProviderForSpace(
-        const folly::fbstring &spaceName, const folly::fbstring &providerId)
+        const folly::fbstring &spaceId, const folly::fbstring &providerId)
     {
         // Add new mapping or override existing one
-        m_providersForSpaceMap[spaceName] = providerId;
+        m_selectedProviderForSpace[spaceId] = providerId;
     }
+    //
+    //    void setProviderDetails(const one::rest::onezone::model::Provider
+    //    &provider)
+    //    {
+    //        // Add new mapping or override existing one
+    //        folly::fbstring providerId = provider.providerId;
+    //        m_providers.emplace(providerId, provider);
+    //    }
 
-    void setProviderDetails(const one::rest::onezone::model::Provider &provider)
+    //    void addSpace(const one::rest::onezone::model::UserSpaceDetails
+    //    &space)
+    //    {
+    //        m_spaces.push_back(space);
+    //    }
+
+    std::optional<folly::fbstring> getSpaceIdByName(const folly::fbstring &name)
     {
-        // Add new mapping or override existing one
-        folly::fbstring providerId = provider.providerId;
-        m_providers.emplace(providerId, provider);
-    }
+        auto accessScope = m_dataAccessScope.rlock();
 
-    void addSpace(const one::rest::onezone::model::UserSpaceDetails &space)
-    {
-        m_spaces.push_back(space);
-    }
-
-    folly::fbstring getProviderIdForSpace(const folly::fbstring &spaceName)
-    {
-        // Add new mapping or override existing one
-        if (m_providersForSpaceMap.count(spaceName))
-            return m_providersForSpaceMap.at(spaceName);
-
-        return {};
-    }
-
-    boost::optional<one::rest::onezone::model::Provider> getProviderForSpace(
-        const folly::fbstring &spaceName)
-    {
-        // Add new mapping or override existing one
-        if (m_providersForSpaceMap.count(spaceName)) {
-            auto providerId = m_providersForSpaceMap.at(spaceName);
-            if (m_providers.count(providerId) > 0)
-                return m_providers.at(providerId);
+        for (const auto &[id, space] : accessScope->spaces) {
+            if (name == space.name) {
+                return id;
+            }
         }
 
         return {};
     }
 
-    folly::fbstring getFileIdFromFilename(const folly::fbstring &name)
+    folly::fbstring getProviderIdForSpace(const folly::fbstring &spaceName)
+    {
+        // Add new mapping or override existing one
+        if (m_selectedProviderForSpace.count(spaceName))
+            return m_selectedProviderForSpace.at(spaceName);
+
+        return {};
+    }
+
+    std::optional<one::rest::onezone::model::Provider> getProviderForSpace(
+        const folly::fbstring &spaceId)
+    {
+        // Add new mapping or override existing one
+        if (m_selectedProviderForSpace.count(spaceId)) {
+            auto providerId =
+                m_selectedProviderForSpace.at(spaceId).toStdString();
+            auto dataAccessScope = m_dataAccessScope.rlock();
+            if (dataAccessScope->providers.count(providerId) > 0)
+                return dataAccessScope->providers.at(providerId);
+        }
+
+        return {};
+    }
+
+    std::optional<folly::fbstring> getFileIdFromFilename(
+        const folly::fbstring &name)
     {
         if (name.find(detail::ONEDATA_FILEID_ACCESS_PREFIX) == 0) {
             return util::cdmi::objectIdToUUID(
@@ -729,21 +744,22 @@ private:
 
     std::map</* providerId */ folly::fbstring, std::shared_ptr<FsLogicT>>
         m_fsLogicMap;
-    std::map</* spaceName */ folly::fbstring,
-        /* providerId */ folly::fbstring>
-        m_providersForSpaceMap;
-    std::map</* providerId */ folly::fbstring,
-        one::rest::onezone::model::Provider>
-        m_providers;
 
-    std::vector<one::rest::onezone::model::UserSpaceDetails> m_spaces;
+    folly::Synchronized<one::rest::onezone::model::DataAccessScope>
+        m_dataAccessScope;
+
+    std::map</* spaceId */ folly::fbstring,
+        /* providerId */ folly::fbstring>
+        m_selectedProviderForSpace;
 
     // Mapping from inodes to spaces
-    boost::bimap</* space name */ folly::fbstring,
+    boost::bimap</* space id */ folly::fbstring,
         /* inode */ fuse_ino_t>
         m_spacesToInodes;
 
     std::shared_ptr<options::Options> m_options;
+
+    std::unique_ptr<one::rest::onezone::OnezoneClient> m_onezoneRestClient;
 
     // Function pointer to run callbacks in fiber
     std::function<void(folly::Function<void()>)> m_runInFiber;
