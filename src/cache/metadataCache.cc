@@ -48,12 +48,6 @@ MetadataCache::MetadataCache(communication::Communicator &communicator,
     , m_showHardLinkCount{showHardLinkCount}
     , m_showSpaceIdsNotNames{showSpaceIdsNotNames}
 {
-    for (const auto &name : spaceNames) {
-        m_whitelistedSpaceNames.emplace(name);
-    }
-    for (const auto &id : spaceIds) {
-        m_whitelistedSpaceIds.emplace(id);
-    }
 }
 
 void MetadataCache::setReaddirCache(std::shared_ptr<ReaddirCache> readdirCache)
@@ -80,30 +74,6 @@ bool MetadataCache::isDeleted(const folly::fbstring &uuid) const
     assertInFiber();
 
     return m_deletedUuids.find(uuid) != m_deletedUuids.end();
-}
-
-bool MetadataCache::isSpaceWhitelisted(const FileAttr &space)
-{
-    LOG_FCALL() << LOG_FARG(space.name());
-
-    assertInFiber();
-
-    if (m_whitelistedSpaceNames.empty() && m_whitelistedSpaceIds.empty())
-        return true;
-
-    folly::fbstring spaceId = util::uuid::uuidToSpaceId(space.uuid());
-
-    bool spaceIsWhitelistedByName =
-        m_whitelistedSpaceNames.find(space.name()) !=
-        m_whitelistedSpaceNames.end();
-
-    bool spaceIsWhitelistedById =
-        m_whitelistedSpaceIds.find(spaceId) != m_whitelistedSpaceIds.end();
-
-    LOG_DBG(2) << "Space " << space.name() << "(" << spaceId << ") is "
-               << spaceIsWhitelistedByName << ":" << spaceIsWhitelistedById;
-
-    return spaceIsWhitelistedByName || spaceIsWhitelistedById;
 }
 
 void MetadataCache::invalidateChildren(const folly::fbstring &uuid)
@@ -144,53 +114,24 @@ folly::fbvector<folly::fbstring> MetadataCache::readdir(
     auto &index = bmi::get<ByParent>(m_cache);
     auto irange = boost::make_iterator_range(index.equal_range(uuid));
 
-    if (uuid != m_rootUuid) {
-        // Advance the iterator to off safely
-        off_t offCount{0};
-        auto it = irange.begin();
-        for (; (offCount < off - extraFilesCount) && (it != irange.end());
-             it++, offCount++) { }
-        if (offCount < off - extraFilesCount)
-            return result;
+    // Advance the iterator to off safely
+    off_t offCount{0};
+    auto it = irange.begin();
+    for (; (offCount < off - extraFilesCount) && (it != irange.end());
+         it++, offCount++) { }
+    if (offCount < off - extraFilesCount)
+        return result;
 
-        for (size_t count = (off > 0) ? 0 : extraFilesCount;
-             (it != irange.end()) && (count < chunkSize); it++) {
-            if (!includeVirtual && it->attr->isVirtual() &&
-                !it->attr->isVirtualEntrypoint()) {
-                LOG_DBG(2) << "Skipping virtual file: " << it->attr->name();
-                continue;
-            }
-
-            result.emplace_back(it->attr->name());
-            count++;
+    for (size_t count = (off > 0) ? 0 : extraFilesCount;
+         (it != irange.end()) && (count < chunkSize); it++) {
+        if (!includeVirtual && it->attr->isVirtual() &&
+            !it->attr->isVirtualEntrypoint()) {
+            LOG_DBG(2) << "Skipping virtual file: " << it->attr->name();
+            continue;
         }
-    }
-    else {
-        // Handle space whitelisting
-        folly::fbvector<folly::fbstring> whitelistedSpaces;
 
-        for (const auto &m : irange)
-            if (isSpaceWhitelisted(*m.attr)) {
-                if (m_showSpaceIdsNotNames)
-                    whitelistedSpaces.emplace_back(
-                        util::uuid::uuidToSpaceId(m.attr->uuid()));
-                else
-                    whitelistedSpaces.emplace_back(m.attr->name());
-            }
-
-        off_t offCount{0};
-        auto *it = whitelistedSpaces.begin();
-        for (; (offCount < off - extraFilesCount) &&
-             (it != whitelistedSpaces.end());
-             it++, offCount++) { }
-        if (offCount < off - extraFilesCount)
-            return result;
-
-        for (size_t count = (off > 0) ? 0 : extraFilesCount;
-             (it != whitelistedSpaces.end()) && (count < chunkSize);
-             it++, count++) {
-            result.emplace_back(*it);
-        }
+        result.emplace_back(it->attr->name());
+        count++;
     }
 
     return result;
@@ -256,11 +197,6 @@ FileAttrPtr MetadataCache::getAttr(
                        << " exists, but size is undefined, fetch the "
                           "attribute again";
         }
-        else if (effectiveParentUuid == m_rootUuid &&
-            !isSpaceWhitelisted(*it->attr)) {
-            throw std::system_error(
-                std::make_error_code(std::errc::no_such_file_or_directory));
-        }
         else {
             return it->attr;
         }
@@ -272,12 +208,6 @@ FileAttrPtr MetadataCache::getAttr(
 
     auto fetchedIt = fetchAttr(messages::fuse::GetChildAttr{effectiveParentUuid,
         effectiveName.str(), m_showOnlyFullReplicas, m_showHardLinkCount});
-
-    if (effectiveParentUuid == m_rootUuid &&
-        !isSpaceWhitelisted(*fetchedIt->attr)) {
-        throw std::system_error(
-            std::make_error_code(std::errc::no_such_file_or_directory));
-    }
 
     LOG_DBG(2) << "Got metadata attr for file " << effectiveName
                << " in directory " << effectiveParentUuid << " from server";
