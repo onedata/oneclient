@@ -366,9 +366,16 @@ int main(int argc, char *argv[])
 
         return EXIT_FAILURE;
     }
+    catch (const Poco::Net::HostNotFoundException &e) {
+        fmt::print(stderr, "ERROR: Cannot connect to Onezone {} - {}\n",
+            *_options->getOnezoneHost(), e.what());
+    }
+    catch (const Poco::Net::HTTPException &e) {
+        fmt::print(stderr, "ERROR: Onezone {} cannot handle request - {}\n",
+            *_options->getOnezoneHost(), e.what());
+    }
     catch (const std::exception &e) {
-        fmt::print(stderr, "ERROR: Cannot connect to Oneprovider {} - {}\n",
-            *_options->getProviderHost(), e.what());
+        fmt::print(stderr, "ERROR: Unknown error {}\n", e.what());
     }
 
     return res == -1 ? EXIT_FAILURE : EXIT_SUCCESS;

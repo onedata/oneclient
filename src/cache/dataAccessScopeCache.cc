@@ -44,36 +44,33 @@ folly::Future<DataAccessScopePtr> DataAccessScopeCache::getDataAccessScope(
     if (!m_initiatedUpdate.load() &&
         (!m_dataAccessScopePromise || forceUpdate)) {
         m_initiatedUpdate.store(true);
-        m_dataAccessScopePromise.reset(
-            new folly::SharedPromise<DataAccessScopePtr>());
+        m_dataAccessScopePromise =
+            std::make_unique<folly::SharedPromise<DataAccessScopePtr>>();
     }
 
     if (!m_dataAccessScopePromise->isFulfilled()) {
-        folly::via(folly::getUnsafeMutableGlobalIOExecutor().get())
-            .thenValue([this](auto && /*unit*/) {
-                auto newAccessScope =
-                    m_onezoneRestClient->inferAccessTokenScope(m_accessToken);
+        m_dataAccessScopePromise->setWith([this]() {
+            auto newAccessScope =
+                m_onezoneRestClient->inferAccessTokenScope(m_accessToken);
 
-                m_lastUpdate = std::chrono::steady_clock::now();
+            m_lastUpdate = std::chrono::steady_clock::now();
 
-                for (const auto &[id, userSpace] : newAccessScope.spaces) {
-                    if (userSpace.providers.begin() !=
-                        userSpace.providers.end()) {
-                        auto selectedProviderId =
-                            userSpace.providers.begin()->first;
+            for (const auto &[id, userSpace] : newAccessScope.spaces) {
+                if (userSpace.providers.begin() != userSpace.providers.end()) {
+                    auto selectedProviderId =
+                        userSpace.providers.begin()->first;
 
-                        if (newAccessScope.providers.count(
-                                selectedProviderId) != 0U) {
-                            setProviderForSpace(id, selectedProviderId);
-                        }
+                    if (newAccessScope.providers.count(selectedProviderId) !=
+                        0U) {
+                        setProviderForSpace(id, selectedProviderId);
                     }
                 }
+            }
 
-                m_dataAccessScopePromise->setValue(
-                    std::make_shared<DataAccessScope>(
-                        std::move(newAccessScope)));
-                m_initiatedUpdate.store(false);
-            });
+            m_initiatedUpdate.store(false);
+
+            return std::make_shared<DataAccessScope>(std::move(newAccessScope));
+        });
     }
 
     return m_dataAccessScopePromise->getFuture();
@@ -130,11 +127,11 @@ DataAccessScopeCache::getProviderForSpace(const folly::fbstring &spaceId)
                 [providerId](auto &&accessScope)
                     -> std::optional<one::rest::onezone::model::Provider> {
                     if (accessScope->providers.count(
-                            providerId.value().toStdString()) > 0)
+                            providerId.value().toStdString()) > 0) {
                         return accessScope->providers.at(
                             providerId.value().toStdString());
-                    else
-                        return {};
+                    }
+                    return {};
                 })
             .get();
     }
@@ -191,7 +188,7 @@ folly::fbvector<folly::fbstring> DataAccessScopeCache::readdir(
         result.emplace_back(*it);
     }
 
-    LOG_DBG(4) << "Got readdir result: "
+    LOG_DBG(4) << "Got effective spaces list: "
                << fmt::format("[{}]", fmt::join(result, ","));
 
     return result;
