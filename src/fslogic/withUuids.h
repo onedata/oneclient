@@ -10,6 +10,7 @@
 
 #include "../../s3/onezoneRestClient.h"
 #include "attrs.h"
+#include "cache/dataAccessScopeCache.h"
 #include "cache/helpersCache.h"
 #include "cache/inodeCache.h"
 #include "configuration.h"
@@ -41,207 +42,9 @@ const auto ONEDATA_FILEID_ACCESS_PREFIX = ".__onedata__file_id__";
 
 } // namespace detail
 
+namespace {
 using one::client::util::uuid::spaceIdToSpaceUUID;
-
-class DataAccessScopeCache {
-public:
-    DataAccessScopeCache(std::shared_ptr<options::Options> options,
-        std::unique_ptr<one::rest::onezone::OnezoneClient> onezoneClient)
-        : m_onezoneRestClient{std::move(onezoneClient)}
-        , m_accessToken{options->getAccessToken().value()}
-        , m_showSpaceIdsNotNames{options->showSpaceIds()}
-    {
-        for (const auto &name : options->getSpaceNames()) {
-            m_whitelistedSpaceNames.emplace(name);
-        }
-        for (const auto &id : options->getSpaceIds()) {
-            m_whitelistedSpaceIds.emplace(id);
-        }
-    }
-
-    // Asynchronously schedule update
-    folly::Future<folly::Unit> asyncUpdate()
-    {
-        return folly::via(folly::getUnsafeMutableGlobalIOExecutor().get())
-            .thenValue([this](auto && /*unit*/) { update(); });
-    }
-
-    void update()
-    {
-        auto newAccessScope =
-            m_onezoneRestClient->inferAccessTokenScope(m_accessToken);
-
-        m_dataAccessScope.swap(newAccessScope);
-
-        auto accessScopeLock = m_dataAccessScope.wlock();
-
-        for (const auto &[id, userSpace] : accessScopeLock->spaces) {
-            if (userSpace.providers.begin() != userSpace.providers.end()) {
-                auto selectedProviderId = userSpace.providers.begin()->first;
-
-                if (accessScopeLock->providers.count(selectedProviderId) !=
-                    0U) {
-                    setProviderForSpace(id, selectedProviderId);
-                }
-            }
-        }
-    }
-
-    std::optional<folly::fbstring> getProviderIdForSpace(
-        const folly::fbstring &spaceId)
-    {
-        auto accessScopeLock = m_dataAccessScope.rlock();
-
-        if (m_selectedProviderForSpace.count(spaceId) == 0)
-            return {};
-
-        return m_selectedProviderForSpace.at(spaceId);
-    }
-
-    std::optional<folly::fbstring> getSpaceIdByName(const folly::fbstring &name)
-    {
-        auto accessScopeLock = m_dataAccessScope.rlock();
-
-        for (const auto &[id, space] : accessScopeLock->spaces) {
-            if (name == space.name) {
-                return id;
-            }
-        }
-
-        return {};
-    }
-
-    std::optional<one::rest::onezone::model::Provider> getProviderForSpace(
-        const folly::fbstring &spaceId)
-    {
-        auto accessScopeLock = m_dataAccessScope.rlock();
-
-        // Add new mapping or override existing one
-        if (m_selectedProviderForSpace.count(spaceId) > 0) {
-            auto providerId =
-                m_selectedProviderForSpace.at(spaceId).toStdString();
-            if (accessScopeLock->providers.count(providerId) > 0)
-                return accessScopeLock->providers.at(providerId);
-        }
-
-        return {};
-    }
-
-    folly::fbvector<folly::fbstring> readdir(
-        const size_t maxSize, const off_t off)
-    {
-        folly::fbvector<folly::fbstring> result;
-        auto accessScopeLock = m_dataAccessScope.rlock();
-        if (accessScopeLock->spaces.empty() ||
-            off >= (accessScopeLock->spaces.size()))
-            return result;
-
-        int extraFilesCount = 2;
-
-        if (off == 0) {
-            result.emplace_back(".");
-            result.emplace_back("..");
-        }
-
-        folly::fbvector<folly::fbstring> whitelistedSpaces;
-
-        for (const auto &[spaceId, spaceDetails] : accessScopeLock->spaces) {
-            if (isSpaceWhitelisted(spaceDetails)) {
-                if (m_showSpaceIdsNotNames)
-                    whitelistedSpaces.emplace_back(spaceId);
-                else
-                    whitelistedSpaces.emplace_back(spaceDetails.name);
-            }
-        }
-
-        off_t offCount{0};
-        auto *it = whitelistedSpaces.begin();
-        for (; (offCount < off - extraFilesCount) &&
-             (it != whitelistedSpaces.end());
-             it++, offCount++) { }
-        if (offCount < off - extraFilesCount)
-            return result;
-
-        for (size_t count = (off > 0) ? 0 : extraFilesCount;
-             (it != whitelistedSpaces.end()) && (count < maxSize);
-             it++, count++) {
-            result.emplace_back(*it);
-        }
-
-        return result;
-    }
-
-    std::optional<rest::onezone::model::UserSpaceDetails> getSpaceById(
-        const folly::fbstring &spaceId)
-    {
-        auto accessScopeLock = m_dataAccessScope.rlock();
-
-        for (const auto &[id, userSpace] : accessScopeLock->spaces) {
-            if (id == spaceId)
-                return userSpace;
-        }
-
-        return {};
-    }
-
-    bool isSpaceWhitelisted(const folly::fbstring &spaceId)
-    {
-        auto spaceDetails = getSpaceById(spaceId);
-        if (!spaceDetails)
-            throw one::helpers::makePosixException(ENOENT);
-
-        return isSpaceWhitelisted(*spaceDetails);
-    }
-
-    /**
-     * Checks if a space with a given name is whitelisted.
-     */
-    bool isSpaceWhitelisted(const rest::onezone::model::UserSpaceDetails &space)
-    {
-        LOG_FCALL() << LOG_FARG(space.name);
-
-        if (m_whitelistedSpaceNames.empty() && m_whitelistedSpaceIds.empty())
-            return true;
-
-        bool spaceIsWhitelistedByName =
-            m_whitelistedSpaceNames.find(space.name) !=
-            m_whitelistedSpaceNames.end();
-
-        bool spaceIsWhitelistedById =
-            m_whitelistedSpaceIds.find(space.spaceId) !=
-            m_whitelistedSpaceIds.end();
-
-        LOG_DBG(2) << "Space " << space.name << "(" << space.spaceId << ") is "
-                   << spaceIsWhitelistedByName << ":" << spaceIsWhitelistedById;
-
-        return spaceIsWhitelistedByName || spaceIsWhitelistedById;
-    }
-
-private:
-    void setProviderForSpace(
-        const folly::fbstring &spaceId, const folly::fbstring &providerId)
-    {
-        // Add new mapping or override existing one
-        m_selectedProviderForSpace[spaceId] = providerId;
-    }
-
-    mutable std::mutex m_cacheMutex;
-
-    std::unique_ptr<one::rest::onezone::OnezoneClient> m_onezoneRestClient;
-
-    std::string m_accessToken;
-
-    folly::Synchronized<one::rest::onezone::model::DataAccessScope>
-        m_dataAccessScope;
-
-    std::map</* spaceId */ folly::fbstring,
-        /* providerId */ folly::fbstring>
-        m_selectedProviderForSpace;
-
-    std::unordered_set<folly::fbstring> m_whitelistedSpaceNames;
-    std::unordered_set<folly::fbstring> m_whitelistedSpaceIds;
-    const bool m_showSpaceIdsNotNames;
-};
+} // namespace
 
 /**
  * @c WithUuids is responsible for translating inodes to uuids.
@@ -268,11 +71,6 @@ public:
                 &m_inodeCache, std::placeholders::_1, std::placeholders::_2,
                 std::placeholders::_3));
         }
-
-        LOG_DBG(2) << "Getting access token scope from Onezone";
-
-        // First update can be synchronous
-        m_dataAccessScopeCache.update();
     }
 
     auto lookup(const fuse_ino_t ino, const folly::fbstring &name)
@@ -739,7 +537,6 @@ public:
 
         auto ret = wrap(&FsLogicT::create, ino, name, mode, flags);
         auto attr = ret.first;
-        auto fuseFileHandleId = ret.second;
         auto newInode = m_inodeCache.generateInode(
             attr->uuid(), m_inodeCache.at(ino).second);
 
@@ -870,7 +667,7 @@ private:
     std::map</* providerId */ folly::fbstring, std::shared_ptr<FsLogicT>>
         m_fsLogicMap;
 
-    DataAccessScopeCache m_dataAccessScopeCache;
+    cache::DataAccessScopeCache m_dataAccessScopeCache;
 
     // Mapping from inodes to spaces
     boost::bimap</* space id */ folly::fbstring,

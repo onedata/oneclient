@@ -1,0 +1,258 @@
+/**
+ * @file dataAccessScopeCache.h
+ * @author Bartek Kryza
+ * @copyright (C) 2024 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
+
+#include "dataAccessScopeCache.h"
+
+#include "helpers/logging.h"
+#include "helpers/storageHelper.h"
+
+namespace one {
+namespace client {
+namespace cache {
+
+DataAccessScopeCache::DataAccessScopeCache(
+    std::shared_ptr<options::Options> options,
+    std::unique_ptr<one::rest::onezone::OnezoneClient> onezoneClient)
+    : m_onezoneRestClient{std::move(onezoneClient)}
+    , m_accessToken{options->getAccessToken().value()}
+    , m_showSpaceIdsNotNames{options->showSpaceIds()}
+{
+    for (const auto &name : options->getSpaceNames()) {
+        m_whitelistedSpaceNames.emplace(name);
+    }
+    for (const auto &id : options->getSpaceIds()) {
+        m_whitelistedSpaceIds.emplace(id);
+    }
+
+    getDataAccessScope().get();
+}
+
+folly::Future<DataAccessScopePtr> DataAccessScopeCache::getDataAccessScope(
+    bool forceUpdate)
+{
+    LOG_FCALL();
+
+    using namespace std::chrono_literals;
+
+    std::lock_guard<std::mutex> lock{m_cacheMutex};
+
+    if (!m_initiatedUpdate.load() &&
+        (!m_dataAccessScopePromise || forceUpdate)) {
+        m_initiatedUpdate.store(true);
+        m_dataAccessScopePromise.reset(
+            new folly::SharedPromise<DataAccessScopePtr>());
+    }
+
+    if (!m_dataAccessScopePromise->isFulfilled()) {
+        folly::via(folly::getUnsafeMutableGlobalIOExecutor().get())
+            .thenValue([this](auto && /*unit*/) {
+                auto newAccessScope =
+                    m_onezoneRestClient->inferAccessTokenScope(m_accessToken);
+
+                m_lastUpdate = std::chrono::steady_clock::now();
+
+                for (const auto &[id, userSpace] : newAccessScope.spaces) {
+                    if (userSpace.providers.begin() !=
+                        userSpace.providers.end()) {
+                        auto selectedProviderId =
+                            userSpace.providers.begin()->first;
+
+                        if (newAccessScope.providers.count(
+                                selectedProviderId) != 0U) {
+                            setProviderForSpace(id, selectedProviderId);
+                        }
+                    }
+                }
+
+                m_dataAccessScopePromise->setValue(
+                    std::make_shared<DataAccessScope>(
+                        std::move(newAccessScope)));
+                m_initiatedUpdate.store(false);
+            });
+    }
+
+    return m_dataAccessScopePromise->getFuture();
+}
+
+std::optional<folly::fbstring> DataAccessScopeCache::getProviderIdForSpace(
+    const folly::fbstring &spaceId)
+{
+    LOG_FCALL() << LOG_FARG(spaceId);
+
+    auto selectedProviders = m_selectedProviderForSpace.rlock();
+
+    if (selectedProviders->count(spaceId) == 0)
+        return {};
+
+    return selectedProviders->at(spaceId);
+}
+
+std::optional<folly::fbstring> DataAccessScopeCache::getSpaceIdByName(
+    const folly::fbstring &name)
+{
+    LOG_FCALL() << LOG_FARG(name);
+
+    auto accessScope = getDataAccessScope().get();
+
+    for (const auto &[id, space] : accessScope->spaces) {
+        if (name == space.name) {
+            return id;
+        }
+    }
+
+    return {};
+}
+
+std::optional<one::rest::onezone::model::Provider>
+DataAccessScopeCache::getProviderForSpace(const folly::fbstring &spaceId)
+{
+    LOG_FCALL() << LOG_FARG(spaceId);
+
+    std::optional<folly::fbstring> providerId;
+    {
+        auto selectedProviders = m_selectedProviderForSpace.rlock();
+
+        if (selectedProviders->count(spaceId) == 0) {
+            return {};
+        }
+
+        providerId = selectedProviders->at(spaceId);
+    }
+
+    if (providerId) {
+        return getDataAccessScope()
+            .thenValue(
+                [providerId](auto &&accessScope)
+                    -> std::optional<one::rest::onezone::model::Provider> {
+                    if (accessScope->providers.count(
+                            providerId.value().toStdString()) > 0)
+                        return accessScope->providers.at(
+                            providerId.value().toStdString());
+                    else
+                        return {};
+                })
+            .get();
+    }
+
+    return {};
+}
+
+folly::fbvector<folly::fbstring> DataAccessScopeCache::readdir(
+    const size_t maxSize, const off_t off)
+{
+    LOG_FCALL() << LOG_FARG(maxSize) << LOG_FARG(off);
+
+    using namespace std::chrono_literals;
+
+    folly::fbvector<folly::fbstring> result;
+
+    bool forceAccessScopeUpdate =
+        std::chrono::steady_clock::now() - m_lastUpdate.load() > 10s;
+
+    auto accessScope = getDataAccessScope(forceAccessScopeUpdate).get();
+
+    if (accessScope->spaces.empty() ||
+        off >= static_cast<off_t>(accessScope->spaces.size()))
+        return result;
+
+    int extraFilesCount = 2;
+
+    if (off == 0) {
+        result.emplace_back(".");
+        result.emplace_back("..");
+    }
+
+    folly::fbvector<folly::fbstring> whitelistedSpaces;
+
+    for (const auto &[spaceId, spaceDetails] : accessScope->spaces) {
+        if (isSpaceWhitelisted(spaceDetails)) {
+            if (m_showSpaceIdsNotNames)
+                whitelistedSpaces.emplace_back(spaceId);
+            else
+                whitelistedSpaces.emplace_back(spaceDetails.name);
+        }
+    }
+
+    off_t offCount{0};
+    auto *it = whitelistedSpaces.begin();
+    for (;
+         (offCount < off - extraFilesCount) && (it != whitelistedSpaces.end());
+         it++, offCount++) { }
+    if (offCount < off - extraFilesCount)
+        return result;
+
+    for (size_t count = (off > 0) ? 0 : extraFilesCount;
+         (it != whitelistedSpaces.end()) && (count < maxSize); it++, count++) {
+        result.emplace_back(*it);
+    }
+
+    LOG_DBG(4) << "Got readdir result: "
+               << fmt::format("[{}]", fmt::join(result, ","));
+
+    return result;
+}
+
+std::optional<rest::onezone::model::UserSpaceDetails>
+DataAccessScopeCache::getSpaceById(const folly::fbstring &spaceId)
+{
+    LOG_FCALL() << LOG_FARG(spaceId);
+
+    auto accessScope = getDataAccessScope().get();
+
+    for (const auto &[id, userSpace] : accessScope->spaces) {
+        if (id == spaceId)
+            return userSpace;
+    }
+
+    return {};
+}
+
+bool DataAccessScopeCache::isSpaceWhitelisted(const folly::fbstring &spaceId)
+{
+    LOG_FCALL() << LOG_FARG(spaceId);
+
+    auto spaceDetails = getSpaceById(spaceId);
+    if (!spaceDetails)
+        throw one::helpers::makePosixException(ENOENT);
+
+    return isSpaceWhitelisted(*spaceDetails);
+}
+
+/**
+ * Checks if a space with a given name is whitelisted.
+ */
+bool DataAccessScopeCache::isSpaceWhitelisted(
+    const rest::onezone::model::UserSpaceDetails &space)
+{
+    LOG_FCALL() << LOG_FARG(space.name);
+
+    if (m_whitelistedSpaceNames.empty() && m_whitelistedSpaceIds.empty())
+        return true;
+
+    bool spaceIsWhitelistedByName = m_whitelistedSpaceNames.find(space.name) !=
+        m_whitelistedSpaceNames.end();
+
+    bool spaceIsWhitelistedById = m_whitelistedSpaceIds.find(space.spaceId) !=
+        m_whitelistedSpaceIds.end();
+
+    LOG_DBG(2) << "Space " << space.name << "(" << space.spaceId << ") is "
+               << spaceIsWhitelistedByName << ":" << spaceIsWhitelistedById;
+
+    return spaceIsWhitelistedByName || spaceIsWhitelistedById;
+}
+
+void DataAccessScopeCache::setProviderForSpace(
+    const folly::fbstring &spaceId, const folly::fbstring &providerId)
+{
+    auto selectedProviders = m_selectedProviderForSpace.wlock();
+    // Add new mapping or override existing one
+    selectedProviders->emplace(spaceId, providerId);
+}
+} // namespace cache
+} // namespace client
+} // namespace one
