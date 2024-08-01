@@ -14,13 +14,20 @@ namespace one {
 namespace rest {
 namespace onezone {
 
-OnezoneClient::OnezoneClient(const std::string &hostname)
+OnezoneClient::OnezoneClient(const std::string &hostname,
+    const uint16_t port, const bool useTLS)
 {
-    session_.setHost(hostname);
-    session_.setKeepAlive(true);
+    if (useTLS)
+        session_ = std::make_unique<Poco::Net::HTTPSClientSession>();
+    else
+        session_ = std::make_unique<Poco::Net::HTTPClientSession>();
+
+    session_->setHost(hostname);
+    session_->setPort(port);
+    session_->setKeepAlive(true);
 }
 
-OnezoneClient::~OnezoneClient() { session_.reset(); }
+OnezoneClient::~OnezoneClient() { session_->reset(); }
 
 std::string OnezoneClient::createSpaceSupportToken(
     const std::string &token, const std::string &spaceId)
@@ -59,11 +66,13 @@ std::string OnezoneClient::createSpaceSupportToken(
 
     logRequest("Onezone", request);
 
-    auto &requestStream = session_.sendRequest(request);
+    auto& session = *session_;
+
+    auto &requestStream = session.sendRequest(request);
     requestStream << bodyStr;
 
     Poco::Net::HTTPResponse response;
-    auto responseStr = toString(session_.receiveResponse(response));
+    auto responseStr = toString(session.receiveResponse(response));
 
     logResponse("Onezone", responseStr);
 
@@ -95,12 +104,14 @@ std::vector<model::Space> OnezoneClient::listUserSpaces(
 
     logRequest("Onezone", request, body);
 
-    auto &requestStream = session_.sendRequest(request);
+    auto& session = *session_;
+
+    auto &requestStream = session.sendRequest(request);
     requestStream << bodyStr;
 
     Poco::Net::HTTPResponse response;
 
-    auto responseStr = toString(session_.receiveResponse(response));
+    auto responseStr = toString(session.receiveResponse(response));
 
     logResponse("Onezone", responseStr);
 
@@ -147,12 +158,14 @@ model::DataAccessScope OnezoneClient::inferAccessTokenScope(
 
     logRequest("Onezone", request, body);
 
-    auto &requestStream = session_.sendRequest(request);
+    auto& session = *session_;
+
+    auto &requestStream = session.sendRequest(request);
     requestStream << bodyStr;
 
     Poco::Net::HTTPResponse response;
 
-    auto responseStr = toString(session_.receiveResponse(response));
+    auto responseStr = toString(session.receiveResponse(response));
 
     logResponse("Onezone", responseStr);
 
@@ -222,12 +235,14 @@ std::vector<model::UserSpaceDetails> OnezoneClient::listUserSpacesDetails(
 
     logRequest("Onezone", request, body);
 
-    auto &requestStream = session_.sendRequest(request);
+    auto& session = *session_;
+
+    auto &requestStream = session.sendRequest(request);
     requestStream << bodyStr;
 
     Poco::Net::HTTPResponse response;
 
-    auto responseStr = toString(session_.receiveResponse(response));
+    auto responseStr = toString(session.receiveResponse(response));
 
     logResponse("Onezone", responseStr);
 
@@ -276,10 +291,12 @@ model::UserSpaceDetails OnezoneClient::getUserSpace(
 
     logRequest("Onezone", request);
 
-    session_.sendRequest(request);
+    auto& session = *session_;
+
+    session.sendRequest(request);
 
     Poco::Net::HTTPResponse response;
-    auto responseStr = toString(session_.receiveResponse(response));
+    auto responseStr = toString(session.receiveResponse(response));
 
     logResponse("Onezone", responseStr);
 
@@ -321,12 +338,14 @@ std::map<std::string, model::Provider> OnezoneClient::getUserProviders(
 
     logRequest("Onezone", request, body);
 
-    auto &requestStream = session_.sendRequest(request);
+    auto& session = *session_;
+
+    auto &requestStream = session.sendRequest(request);
     requestStream << bodyStr;
 
     Poco::Net::HTTPResponse response;
 
-    auto responseStr = toString(session_.receiveResponse(response));
+    auto responseStr = toString(session.receiveResponse(response));
 
     logResponse("Onezone", responseStr);
 
@@ -374,11 +393,13 @@ std::string OnezoneClient::createSpace(
 
     logRequest("Onezone", request);
 
-    auto &requestStream = session_.sendRequest(request);
+    auto& session = *session_;
+
+    auto &requestStream = session.sendRequest(request);
     requestStream << bodyStr;
 
     Poco::Net::HTTPResponse response;
-    auto responseStr = toString(session_.receiveResponse(response));
+    auto responseStr = toString(session.receiveResponse(response));
 
     logResponse("Onezone", responseStr);
 
@@ -410,10 +431,12 @@ void OnezoneClient::deleteSpace(
 
     logRequest("Onezone", request);
 
-    session_.sendRequest(request);
+    auto& session = *session_;
+
+    session.sendRequest(request);
 
     Poco::Net::HTTPResponse response;
-    auto responseStr = toString(session_.receiveResponse(response));
+    auto responseStr = toString(session.receiveResponse(response));
 
     logResponse("Onezone", responseStr);
 

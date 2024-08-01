@@ -538,6 +538,8 @@ if(WITH_ONEDATAFS)
   set(ONEDATAFS_SOURCES
       ${CMAKE_CURRENT_SOURCE_DIR}/src/onedatafs.cc
       $<TARGET_OBJECTS:client>
+      ${CMAKE_CURRENT_SOURCE_DIR}/s3/onezoneRestClient.cc
+      ${CMAKE_CURRENT_SOURCE_DIR}/s3/restCommon.cc
       ${PROJECT_SOURCES})
 
   if(PYTHON2_FOUND)

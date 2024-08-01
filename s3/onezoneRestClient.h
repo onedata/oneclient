@@ -52,7 +52,7 @@ struct Space {
 
 class OnezoneClient {
 public:
-    OnezoneClient(const std::string &hostname);
+    OnezoneClient(const std::string &hostname, const uint16_t port = 443, const bool useTLS = true);
 
     ~OnezoneClient();
 
@@ -77,7 +77,7 @@ public:
     void deleteSpace(const std::string &token, const std::string &spaceId);
 
 private:
-    Poco::Net::HTTPSClientSession session_;
+    std::unique_ptr<Poco::Net::HTTPClientSession> session_;
 };
 } // namespace onezone
 } // namespace rest

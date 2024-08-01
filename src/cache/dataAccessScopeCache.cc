@@ -28,8 +28,6 @@ DataAccessScopeCache::DataAccessScopeCache(
     for (const auto &id : options->getSpaceIds()) {
         m_whitelistedSpaceIds.emplace(id);
     }
-
-    getDataAccessScope().get();
 }
 
 folly::Future<DataAccessScopePtr> DataAccessScopeCache::getDataAccessScope(
@@ -153,18 +151,9 @@ folly::fbvector<folly::fbstring> DataAccessScopeCache::readdir(
 
     auto accessScope = getDataAccessScope(forceAccessScopeUpdate).get();
 
-    if (accessScope->spaces.empty() ||
-        off >= static_cast<off_t>(accessScope->spaces.size()))
-        return result;
-
-    int extraFilesCount = 2;
-
-    if (off == 0) {
-        result.emplace_back(".");
-        result.emplace_back("..");
-    }
-
     folly::fbvector<folly::fbstring> whitelistedSpaces;
+    whitelistedSpaces.emplace_back(".");
+    whitelistedSpaces.emplace_back("..");
 
     for (const auto &[spaceId, spaceDetails] : accessScope->spaces) {
         if (isSpaceWhitelisted(spaceDetails)) {
@@ -175,18 +164,21 @@ folly::fbvector<folly::fbstring> DataAccessScopeCache::readdir(
         }
     }
 
-    off_t offCount{0};
-    auto *it = whitelistedSpaces.begin();
-    for (;
-         (offCount < off - extraFilesCount) && (it != whitelistedSpaces.end());
-         it++, offCount++) { }
-    if (offCount < off - extraFilesCount)
-        return result;
+    LOG_DBG(4) << "Got whitelisted spaces list: "
+               << fmt::format("[{}]", fmt::join(whitelistedSpaces, ","));
 
-    for (size_t count = (off > 0) ? 0 : extraFilesCount;
-         (it != whitelistedSpaces.end()) && (count < maxSize); it++, count++) {
-        result.emplace_back(*it);
+    if (off >= static_cast<off_t>(whitelistedSpaces.size())) {
+        return {};
     }
+
+    // Calculate the number of elements that can be copied
+    size_t actualCount = std::min(maxSize, whitelistedSpaces.size() - off);
+
+    // Resize the result vector to accommodate the new elements
+    result.resize(actualCount);
+
+    // Use std::copy_n to copy the elements
+    std::copy_n(whitelistedSpaces.begin() + off, actualCount, result.begin());
 
     LOG_DBG(4) << "Got effective spaces list: "
                << fmt::format("[{}]", fmt::join(result, ","));
