@@ -49,11 +49,13 @@ struct Stat {
     int uid;
     int mode;
     size_t size;
+    uint64_t ino;
 
     bool operator==(const Stat &o)
     {
         return atime == o.atime && mtime == o.mtime && ctime == o.ctime &&
-            gid == o.gid && uid == o.uid && mode == o.mode && size == o.size;
+            gid == o.gid && uid == o.uid && mode == o.mode && size == o.size &&
+            ino == o.ino;
     }
 };
 
@@ -103,6 +105,7 @@ public:
             cb)
     {
     }
+
     void setAuthManager(
         std::shared_ptr<auth::AuthManager<OneclientContext>> authManager)
     {
@@ -118,6 +121,8 @@ public:
     {
         return {};
     }
+
+    FileAttrPtr getattr(const folly::fbstring &uuid) { return {}; }
 };
 
 class WithUuidsProxy {
@@ -136,6 +141,7 @@ public:
 
         Stat stat;
 
+        stat.ino = attr.ino;
         stat.atime = attr.attr.st_atime;
         stat.mtime = attr.attr.st_mtime;
         stat.ctime = attr.attr.st_ctime;
@@ -143,6 +149,26 @@ public:
         stat.uid = attr.attr.st_uid;
         stat.mode = attr.attr.st_mode;
         stat.size = attr.attr.st_size;
+
+        return stat;
+    }
+
+    Stat getattr(fuse_ino_t ino)
+    {
+        ReleaseGIL guard;
+
+        auto attr = m_withUuids.getattr(ino).get();
+
+        Stat stat;
+
+        stat.ino = ino;
+        stat.atime = attr.st_atime;
+        stat.mtime = attr.st_mtime;
+        stat.ctime = attr.st_ctime;
+        stat.gid = attr.st_gid;
+        stat.uid = attr.st_uid;
+        stat.mode = attr.st_mode;
+        stat.size = attr.st_size;
 
         return stat;
     }
@@ -312,6 +338,7 @@ BOOST_PYTHON_MODULE(withuuids)
         .def_readonly("uid", &Stat::uid)
         .def_readonly("mode", &Stat::mode)
         .def_readonly("size", &Stat::size)
+        .def_readonly("ino", &Stat::ino)
         .def("__eq__", &Stat::operator==);
 
     class_<std::vector<std::string>>("vector").def(
@@ -320,6 +347,7 @@ BOOST_PYTHON_MODULE(withuuids)
     class_<WithUuidsProxy, boost::noncopyable>("WithUuidsProxy", no_init)
         .def("__init__", make_constructor(create))
         .def("lookup", &WithUuidsProxy::lookup)
+        .def("getattr", &WithUuidsProxy::getattr)
         .def("readdir", &WithUuidsProxy::readdir);
 
     class_<HTTPMockServer, boost::noncopyable>("HTTPMockServer", no_init)
