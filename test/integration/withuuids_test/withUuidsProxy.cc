@@ -38,9 +38,6 @@ using namespace one::communication;
 using namespace boost::python;
 using namespace std::literals;
 
-#define MOCK(name, args)                                                       \
-    auto name(DECL_PARAMS(args)) { return m_withUuids.name(ARGS(args)); }
-
 struct Stat {
     time_t atime;
     time_t mtime;
@@ -190,50 +187,6 @@ public:
 
         return result;
     }
-
-    //    MOCK(lookup, (const fuse_ino_t)(const folly::fbstring &))
-    //    MOCK(getattr, (const fuse_ino_t))
-    //    MOCK(opendir, (const fuse_ino_t))
-    //    MOCK(releasedir, (const fuse_ino_t)(const std::uint64_t))
-    //    MOCK(readdir, (const fuse_ino_t)(const size_t)(const off_t))
-    //    MOCK(open, (const fuse_ino_t)(const int))
-    //    MOCK(release, (const fuse_ino_t)(const std::uint64_t))
-    //    MOCK(mkdir, (const fuse_ino_t)(const folly::fbstring &)(const mode_t))
-    //    MOCK(mknod, (const fuse_ino_t)(const folly::fbstring &)(const mode_t))
-    //    MOCK(link, (const fuse_ino_t)(const fuse_ino_t)(const folly::fbstring
-    //    &)) MOCK(symlink,
-    //        (const fuse_ino_t)(const folly::fbstring &)(const folly::fbstring
-    //        &))
-    //    MOCK(readlink, (const fuse_ino_t))
-    //    MOCK(unlink, (const fuse_ino_t)(const folly::fbstring &))
-    //    MOCK(forget, (const fuse_ino_t)(const std::size_t))
-    //    MOCK(setattr, (const fuse_ino_t)(const struct stat &)(const int))
-    //    MOCK(statfs, (const fuse_ino_t))
-    //    MOCK(flush, (const fuse_ino_t)(const std::uint64_t))
-    //    MOCK(fsync, (const fuse_ino_t)(const std::uint64_t)(const bool))
-    //
-    //    MOCK(create,
-    //        (const fuse_ino_t)(const folly::fbstring &)(const mode_t)(const
-    //        int))
-    //
-    //    MOCK(rename,
-    //        (const fuse_ino_t)(const folly::fbstring &)(const fuse_ino_t)(
-    //            const folly::fbstring &))
-    //
-    //    MOCK(read,
-    //        (const fuse_ino_t)(const std::uint64_t)(const off_t)(const
-    //        std::size_t))
-    //
-    //    MOCK(write,
-    //        (const fuse_ino_t)(const std::uint64_t)(const std::size_t)(
-    //            std::shared_ptr<folly::IOBuf>))
-    //
-    //    MOCK(listxattr, (const fuse_ino_t))
-    //    MOCK(getxattr, (const fuse_ino_t)(const folly::fbstring &))
-    //    MOCK(setxattr,
-    //        (const fuse_ino_t)(
-    //            const folly::fbstring &)(const folly::fbstring &)(bool)(bool))
-    //    MOCK(removexattr, (const fuse_ino_t)(const folly::fbstring &))
 
 private:
     fslogic::InFiber<fslogic::WithUuids<MockFsLogic>> m_withUuids;
