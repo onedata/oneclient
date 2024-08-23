@@ -4,6 +4,8 @@ Release notes for project oneclient
 CHANGELOG
 ---------
 
+### 21.02.6
+
 ### 21.02.5
 
 -   **VFS-11999** Improved listing objects on S3 storages during data
