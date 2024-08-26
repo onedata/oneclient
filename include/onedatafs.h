@@ -49,6 +49,8 @@
 
 #include <memory>
 
+#define FUTURE_GET() get()
+
 using namespace one;
 using namespace one::client;
 using namespace one::communication;
@@ -77,7 +79,6 @@ struct Xattr {
     std::string value;
 };
 
-#if PY_MAJOR_VERSION >= 3
 class ReleaseGIL {
 public:
     ReleaseGIL() { m_gilState = PyGILState_Ensure(); }
@@ -87,21 +88,6 @@ public:
 private:
     PyGILState_STATE m_gilState;
 };
-#else
-class ReleaseGIL {
-public:
-    ReleaseGIL()
-        : m_threadState{PyEval_SaveThread(), PyEval_RestoreThread}
-    {
-    }
-
-    ~ReleaseGIL() = default;
-
-private:
-    std::unique_ptr<PyThreadState, decltype(&PyEval_RestoreThread)>
-        m_threadState;
-};
-#endif
 
 using FiberFsLogic = fslogic::FsLogic;
 
@@ -162,26 +148,14 @@ private:
 
 class OnedataFS {
 public:
-    OnedataFS(std::string sessionId, std::string rootUuid,
-        std::shared_ptr<Context<communication::Communicator>> context,
-        std::shared_ptr<auth::AuthManager<Context<communication::Communicator>>>
-            authManager,
-        std::shared_ptr<messages::Configuration> configuration,
-        std::unique_ptr<cache::HelpersCache<communication::Communicator>>
-            helpersCache,
-        unsigned int metadataCacheSize, bool readEventsDisabled,
-        bool forceFullblockRead, const std::chrono::seconds providerTimeout,
-        const std::chrono::seconds dropDirectoryCacheAfter);
+    OnedataFS(std::shared_ptr<options::Options> options,
+        std::unique_ptr<one::rest::onezone::OnezoneClient> onezoneRestClient);
 
     ~OnedataFS();
 
     void close();
 
     static std::string version();
-
-    std::string rootUuid() const;
-
-    std::string sessionId() const;
 
     Stat stat(std::string path);
 
@@ -210,11 +184,7 @@ public:
 
     void truncate(std::string path, int size);
 
-#if PY_MAJOR_VERSION >= 3
     boost::python::object getxattr(std::string path, std::string name);
-#else
-    std::string getxattr(std::string path, std::string name);
-#endif
 
     void setxattr(std::string path, std::string name, std::string value,
         bool create = false, bool replace = false);
@@ -229,24 +199,60 @@ private:
     std::function<void(folly::Function<void()>)> makeRunInFiber();
 
     std::pair<std::string, std::string> splitToParentName(
+        std::shared_ptr<FiberFsLogic> fsLogic, const std::string &path);
+
+    std::string uuidFromPath(
+        std::shared_ptr<FiberFsLogic> fsLogic, const std::string &path);
+
+    void createFsLogicForSpace(const std::string &spaceId);
+
+    std::optional<std::string> getSpaceIdFromPath(const std::string &pathStr);
+
+    template <typename F> auto viaProviderGet(std::string path, F &&func);
+
+    template <typename F> auto viaProvider(std::string path, F &&func);
+
+    std::pair<std::string, std::string> getSpaceAndProviderId(
         const std::string &path);
 
-    std::string uuidFromPath(const std::string &path);
-
-    std::string m_rootUuid;
-    std::string m_sessionId;
-    std::shared_ptr<Context<communication::Communicator>> m_context;
-    std::shared_ptr<auth::AuthManager<Context<communication::Communicator>>>
-        m_authManager;
     folly::EventBaseThread m_eventBaseThread{true, nullptr, "OneFS"};
 
     folly::fibers::FiberManager &m_fiberManager{folly::fibers::getFiberManager(
         *m_eventBaseThread.getEventBase(), makeFiberManagerOpts())};
 
-    std::shared_ptr<FiberFsLogic> m_fsLogic;
+    std::shared_ptr<options::Options> m_options;
+
+    std::map</* providerId */ folly::fbstring, std::shared_ptr<FiberFsLogic>>
+        m_fsLogicMap;
+
+    cache::DataAccessScopeCache m_dataAccessScopeCache;
 
     std::atomic_flag m_stopped = ATOMIC_FLAG_INIT;
 };
+
+template <typename F> auto OnedataFS::viaProvider(std::string path, F &&func)
+{
+    const auto &[spaceId, providerId] = getSpaceAndProviderId(path);
+
+    return m_fiberManager.addTaskRemoteFuture(
+        [this, spaceId, f = std::forward<F>(func), providerId]() mutable {
+            createFsLogicForSpace(spaceId);
+            return f(m_fsLogicMap.at(providerId));
+        });
+}
+
+template <typename F> auto OnedataFS::viaProviderGet(std::string path, F &&func)
+{
+    const auto &[spaceId, providerId] = getSpaceAndProviderId(path);
+
+    return m_fiberManager
+        .addTaskRemoteFuture([this, spaceId, providerId]() {
+            createFsLogicForSpace(spaceId);
+            return m_fsLogicMap.at(providerId);
+        })
+        .thenValue(std::forward<F>(func))
+        .FUTURE_GET();
+}
 
 namespace {
 boost::shared_ptr<OnedataFS> makeOnedataFS(
@@ -349,7 +355,6 @@ BOOST_PYTHON_MODULE(onedatafs)
                  bp::arg("cli_args") = std::string{})))
         // clang-format on
         .def("version", &OnedataFS::version)
-        .def("session_id", &OnedataFS::sessionId)
         .def("stat", &OnedataFS::stat)
         .def("setattr", &OnedataFS::setattr)
         .def("unlink", &OnedataFS::unlink)
@@ -377,7 +382,6 @@ BOOST_PYTHON_MODULE(onedatafs)
                     bp::arg("create") = false, bp::arg("replace") = false)))
         .def("removexattr", &OnedataFS::removexattr)
         .def("location_map", &OnedataFS::locationMap)
-        .def("root_uuid", &OnedataFS::rootUuid)
         .def("close", &OnedataFS::close);
 
     def("regularMode", &regularMode);

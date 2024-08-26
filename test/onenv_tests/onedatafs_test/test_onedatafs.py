@@ -25,13 +25,13 @@ def test_onedatafs_should_connect_to_provider(odfs_proxy):
     odfs_proxy.close()
 
 
-def test_onedatafs_create_destroy_instance(oneprovider_ip, onezone_admin_token):
+def test_onedatafs_create_destroy_instance(onezone_ip, onezone_admin_token):
     space_name = 'test_onedatafs'
     test_file = random_str(10)
 
     for i in range(0,10):
         odfs = onedatafs.OnedataFS(
-            oneprovider_ip,
+            onezone_ip,
             onezone_admin_token,
             port=443,
             insecure=True,
@@ -39,18 +39,19 @@ def test_onedatafs_create_destroy_instance(oneprovider_ip, onezone_admin_token):
         odfs.close()
 
 
-def test_onedatafs_should_raise_exception_on_bad_token(oneprovider_ip,
+def test_onedatafs_should_raise_exception_on_bad_token(onezone_ip,
                                                        onezone_admin_token):
 
     with pytest.raises(RuntimeError) as excinfo:
             odfs = onedatafs.OnedataFS(
-                oneprovider_ip,
+                onezone_ip,
                 'BAD_TOKEN',
                 port=443,
                 insecure=True,
                 force_proxy_io=True)
+            odfs.readdir('', 1000, 0)
 
-    assert "macaroons: macaroon invalid" in str(excinfo.value)
+    assert "HTTP Exception" in str(excinfo.value)
 
 
 def test_onedatafs_read_write(odfs_proxy):

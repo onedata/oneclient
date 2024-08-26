@@ -17,6 +17,8 @@ backward::SignalHandling sh; // NOLINT
 } // namespace backward
 #endif
 
+#include <Poco/Net/SSLManager.h>
+
 bool Stat::operator==(const Stat &o) const
 {
     return atime == o.atime && mtime == o.mtime && ctime == o.ctime &&
@@ -24,6 +26,36 @@ bool Stat::operator==(const Stat &o) const
 }
 
 namespace {
+
+class InsecureCertificateHandler : public Poco::Net::InvalidCertificateHandler {
+    using Poco::Net::InvalidCertificateHandler::InvalidCertificateHandler;
+
+    void onInvalidCertificate(const void * /*pSender*/,
+        Poco::Net::VerificationErrorArgs &errorCert) override
+    {
+        errorCert.setIgnoreError(true);
+    }
+};
+
+namespace detail {
+const auto ONEDATA_FILEID_ACCESS_PREFIX = ".__onedata__file_id__";
+} // namespace detail
+
+std::optional<std::string> getFileIdFromFilename(const std::string &name)
+{
+    if (name.find(detail::ONEDATA_FILEID_ACCESS_PREFIX) == 0) {
+        return util::cdmi::objectIdToUUID(
+            name.substr(strlen(detail::ONEDATA_FILEID_ACCESS_PREFIX)));
+    }
+
+    return {};
+}
+
+int pathSize(const boost::filesystem::path &p)
+{
+    return std::distance(p.begin(), p.end());
+}
+
 struct stat toStatbuf(const FileAttrPtr &attr)
 {
     struct stat statbuf = {0};
@@ -239,25 +271,11 @@ void OnedataFileHandle::close()
     m_fsLogic.reset();
 }
 
-OnedataFS::OnedataFS(std::string sessionId, std::string rootUuid,
-    std::shared_ptr<Context<communication::Communicator>> context,
-    std::shared_ptr<auth::AuthManager<Context<communication::Communicator>>>
-        authManager,
-    std::shared_ptr<messages::Configuration> configuration,
-    std::unique_ptr<cache::HelpersCache<communication::Communicator>>
-        helpersCache,
-    unsigned int metadataCacheSize, bool readEventsDisabled,
-    bool forceFullblockRead, const std::chrono::seconds providerTimeout,
-    const std::chrono::seconds dropDirectoryCacheAfter)
-    : m_rootUuid{std::move(rootUuid)}
-    , m_sessionId{std::move(sessionId)}
-    , m_context{std::move(context)}
-    , m_authManager{std::move(authManager)}
+OnedataFS::OnedataFS(std::shared_ptr<options::Options> options,
+    std::unique_ptr<one::rest::onezone::OnezoneClient> onezoneRestClient)
+    : m_options{options}
+    , m_dataAccessScopeCache{options, std::move(onezoneRestClient)}
 {
-    m_fsLogic = std::make_unique<FiberFsLogic>(m_context,
-        std::move(configuration), std::move(helpersCache), metadataCacheSize,
-        readEventsDisabled, forceFullblockRead, providerTimeout,
-        dropDirectoryCacheAfter, makeRunInFiber());
 }
 
 OnedataFS::~OnedataFS() { close(); }
@@ -267,52 +285,145 @@ void OnedataFS::close()
     if (!m_stopped.test_and_set()) {
         ReleaseGIL guard;
 
-        m_fsLogic->stop();
-
-        m_authManager.reset();
+        for (const auto &[providerId, fsLogic] : m_fsLogicMap) {
+            fsLogic->stop();
+        }
     }
 }
 
+void OnedataFS::createFsLogicForSpace(const std::string &spaceId)
+{
+    auto maybeProviderForSpace =
+        m_dataAccessScopeCache.getProviderForSpace(spaceId);
+
+    if (!maybeProviderForSpace.has_value())
+        throw helpers::makePosixException(ENOENT);
+
+    const auto &providerId = maybeProviderForSpace.value().providerId;
+
+    // Check if FsLogic instance already exists for this space
+    if (m_fsLogicMap.count(providerId) == 0) {
+        one::rest::onezone::model::Provider provider = *maybeProviderForSpace;
+
+        auto context = std::make_shared<OneclientContext>();
+        context->setOptions(m_options);
+        context->setScheduler(
+            std::make_shared<Scheduler>(m_options->getSchedulerThreadCount()));
+
+        // Add new FsLogic for providerId
+        // Create test communicator with single connection to test
+        // the authentication and get protocol configuration
+        auto authManager =
+            getCLIAuthManager<OneclientContext>(context, provider.host, 443);
+        auto sessionId = generateSessionId();
+        auto configuration = getConfiguration(sessionId, authManager, context,
+            messages::handshake::ClientType::oneclient);
+
+        if (configuration) {
+            std::shared_ptr<communication::Communicator> communicator =
+                getCommunicator<OneclientContext>(sessionId, authManager,
+                    context, messages::handshake::ClientType::oneclient);
+
+            static_assert(std::is_same<OneclientContext::CommunicatorT,
+                communication::Communicator>());
+
+            context->setCommunicator(communicator);
+            communicator->setScheduler(context->scheduler());
+            communicator->connect();
+
+            communicator->schedulePeriodicMessageRequest();
+
+            authManager->scheduleRefresh(auth::RESTRICTED_MACAROON_REFRESH);
+
+            auto helpersCache = std::make_unique<
+                cache::HelpersCache<communication::Communicator>>(
+                *communicator, context->scheduler(), *m_options);
+
+            auto fsLogic = std::make_shared<FiberFsLogic>(std::move(context),
+                std::move(configuration), std::move(helpersCache),
+                m_options->getMetadataCacheSize(),
+                m_options->areFileReadEventsDisabled(),
+                m_options->isFullblockReadEnabled(),
+                m_options->getProviderTimeout(),
+                m_options->getDirectoryCacheDropAfter(), makeRunInFiber());
+
+            fsLogic->setAuthManager(authManager);
+
+            m_fsLogicMap.emplace(providerId, std::move(fsLogic));
+        }
+        else {
+            throw helpers::makePosixException(ECONNREFUSED);
+        }
+    }
+}
+
+std::optional<std::string> OnedataFS::getSpaceIdFromPath(
+    const std::string &pathStr)
+{
+    std::optional<std::string> spaceId;
+
+    if (pathStr.empty())
+        throw one::helpers::makePosixException(ENOENT);
+
+    auto maybeUUID = getFileIdFromFilename(pathStr);
+
+    if (maybeUUID.has_value()) {
+        // return lookupByUUID(pathStr, *maybeUUID);
+    }
+
+    boost::filesystem::path path{pathStr};
+
+    if (pathSize(path) == 0)
+        throw one::helpers::makePosixException(ENOENT);
+
+    const auto spaceName = path.begin()->string();
+
+    if (!spaceId.has_value()) {
+        spaceId = m_dataAccessScopeCache.getSpaceIdByName(spaceName);
+    }
+
+    if (!spaceId.has_value()) {
+        throw one::helpers::makePosixException(ENOENT);
+    }
+
+    if (!m_dataAccessScopeCache.isSpaceWhitelisted(spaceId.value())) {
+        throw one::helpers::makePosixException(ENOENT);
+    }
+
+    if (!m_dataAccessScopeCache.getProviderIdForSpace(*spaceId)) {
+        throw one::helpers::makePosixException(ENOENT);
+    }
+
+    return spaceId;
+}
+
 std::string OnedataFS::version() { return ONECLIENT_VERSION; }
-
-std::string OnedataFS::rootUuid() const { return m_rootUuid; }
-
-std::string OnedataFS::sessionId() const { return m_sessionId; }
 
 Stat OnedataFS::stat(std::string path)
 {
     ReleaseGIL guard;
 
-    auto res =
-        m_fiberManager
-            .addTaskRemoteFuture([this, path = std::move(path)]() mutable {
-                return attrToStat(m_fsLogic->getattr(uuidFromPath(path)));
-            })
-            .get();
-    return res;
+    return viaProviderGet(path, [this, path](auto &&fsLogic) mutable {
+        return attrToStat(fsLogic->getattr(uuidFromPath(fsLogic, path)));
+    });
 }
 
 int OnedataFS::opendir(std::string path)
 {
     ReleaseGIL guard;
 
-    return m_fiberManager
-        .addTaskRemoteFuture([this, path = std::move(path)]() mutable {
-            return m_fsLogic->opendir(uuidFromPath(path));
-        })
-        .get();
+    return viaProviderGet(path, [this, path](auto &&fsLogic) mutable {
+        return fsLogic->opendir(uuidFromPath(fsLogic, path));
+    });
 }
 
 void OnedataFS::releasedir(std::string path, int handleId)
 {
     ReleaseGIL guard;
 
-    m_fiberManager
-        .addTaskRemoteFuture(
-            [this, path = std::move(path), handleId]() mutable {
-                m_fsLogic->releasedir(uuidFromPath(path), handleId);
-            })
-        .get();
+    viaProviderGet(path, [this, path, handleId](auto &&fsLogic) mutable {
+        return fsLogic->releasedir(uuidFromPath(fsLogic, path), handleId);
+    });
 }
 
 std::vector<std::string> OnedataFS::readdir(
@@ -320,11 +431,25 @@ std::vector<std::string> OnedataFS::readdir(
 {
     ReleaseGIL guard;
 
-    return m_fiberManager
-        .addTaskRemoteFuture(
-            [this, path = std::move(path), maxSize, off]() mutable {
-                return m_fsLogic->readdir(uuidFromPath(path), maxSize, off);
-            })
+    if (path.empty() || path == "." || path == "/") {
+        // This is a request for a list of spaces
+        auto entries = m_dataAccessScopeCache.readdir(maxSize, off);
+        std::vector<std::string> result;
+        for (const auto &entry : entries) {
+            if (entry == "." || entry == "..")
+                continue;
+            result.emplace_back(entry.toStdString());
+        }
+        return result;
+    }
+
+    return viaProvider(path,
+        [this, path, maxSize, off](auto &&fsLogic) mutable {
+            return fsLogic->readdir(uuidFromPath(fsLogic, path), maxSize, off);
+        })
+        .thenError(folly::tag_t<std::exception>{},
+            [this, path](
+                auto &&e) -> folly::fbvector<folly::fbstring> { throw e; })
         .thenValue([](folly::fbvector<folly::fbstring> &&entries) {
             std::vector<std::string> result;
             for (const auto &entry : entries) {
@@ -334,33 +459,45 @@ std::vector<std::string> OnedataFS::readdir(
             }
             return result;
         })
-        .get();
+        .FUTURE_GET();
 }
 
 Stat OnedataFS::create(std::string path, const mode_t mode, const int flags)
 {
     ReleaseGIL guard;
 
-    return m_fiberManager
-        .addTaskRemoteFuture(
-            [this, path = std::move(path), mode, flags]() mutable {
-                auto parentPair = splitToParentName(path);
-                auto res = m_fsLogic->create(uuidFromPath(parentPair.first),
-                    parentPair.second, mode, flags);
+    return viaProviderGet(
+        path, [this, path, mode, flags](auto &&fsLogic) mutable {
+            auto parentPair = splitToParentName(fsLogic, path);
+            auto res = fsLogic->create(uuidFromPath(fsLogic, parentPair.first),
+                parentPair.second, mode, flags);
 
-                return attrToStat(res.first);
-            })
-        .get();
+            return attrToStat(res.first);
+        });
+}
+std::pair<std::string, std::string> OnedataFS::getSpaceAndProviderId(
+    const std::string &path)
+{
+    auto spaceId = getSpaceIdFromPath(path);
+    if (!spaceId)
+        throw one::helpers::makePosixException(ENOENT);
+
+    auto providerId = m_dataAccessScopeCache.getProviderIdForSpace(*spaceId);
+
+    if (!providerId)
+        throw one::helpers::makePosixException(ENOENT);
+
+    return {*spaceId, providerId->toStdString()};
 }
 
 boost::shared_ptr<OnedataFileHandle> OnedataFS::open(
     const std::string &path, const int flags)
 {
     ReleaseGIL guard;
-    return m_fiberManager
-        // First check if the file exists
-        .addTaskRemoteFuture(
-            [this, path]() mutable { return uuidFromPath(path); })
+
+    return viaProvider(path,
+        [this, path](
+            auto &&fsLogic) mutable { return uuidFromPath(fsLogic, path); })
         // If not, create it if 'flags' allow it
         .thenError(folly::tag_t<std::system_error>{},
             [this, path, flags](auto &&e) {
@@ -368,141 +505,130 @@ boost::shared_ptr<OnedataFileHandle> OnedataFS::open(
                     return m_fiberManager.addTaskRemoteFuture(
                         [this, path]() mutable {
                             constexpr auto defaultPerms = 0644;
-                            auto parentPair = splitToParentName(path);
-                            auto res = m_fsLogic->create(
-                                uuidFromPath(parentPair.first),
-                                parentPair.second, S_IFREG | defaultPerms, 0);
-                            return uuidFromPath(path);
+                            const auto &[spaceId, providerId] =
+                                getSpaceAndProviderId(path);
+                            auto parentPair = splitToParentName(
+                                m_fsLogicMap.at(providerId), path);
+
+                            auto res =
+                                m_fsLogicMap.at(providerId)
+                                    ->create(uuidFromPath(
+                                                 m_fsLogicMap.at(providerId),
+                                                 parentPair.first),
+                                        parentPair.second,
+                                        S_IFREG | defaultPerms, 0);
+                            return uuidFromPath(
+                                m_fsLogicMap.at(providerId), path);
                         });
                 }
 
                 throw e;
             })
         // Now try to open the file
-        .thenValue([this, flags](std::string &&uuid) {
+        .thenValue([this, path, flags](std::string &&uuid) {
             return m_fiberManager.addTaskRemoteFuture(
-                [this, uuid = std::move(uuid), flags]() mutable {
-                    return m_fsLogic->open(uuid, flags);
+                [this, path, uuid = std::move(uuid), flags]() mutable {
+                    const auto &[spaceId, providerId] =
+                        getSpaceAndProviderId(path);
+
+                    return m_fsLogicMap.at(providerId)->open(uuid, flags);
                 });
         })
         // Finally create a handle instance for this file
         .thenValue([this, path](std::uint64_t &&fuseFileHandleId) {
-            return boost::make_shared<OnedataFileHandle>(m_fsLogic,
-                fuseFileHandleId, uuidFromPath(path), m_fiberManager);
+            const auto &[spaceId, providerId] = getSpaceAndProviderId(path);
+            return boost::make_shared<OnedataFileHandle>(
+                m_fsLogicMap.at(providerId), fuseFileHandleId,
+                uuidFromPath(m_fsLogicMap.at(providerId), path),
+                m_fiberManager);
         })
-        .get();
+        .FUTURE_GET();
 }
 
 Stat OnedataFS::mkdir(std::string path, const mode_t mode)
 {
     ReleaseGIL guard;
 
-    return m_fiberManager
-        .addTaskRemoteFuture([this, path = std::move(path), mode]() mutable {
-            auto parentPair = splitToParentName(path);
-            return attrToStat(m_fsLogic->mkdir(
-                uuidFromPath(parentPair.first), parentPair.second, mode));
-        })
-        .get();
+    return viaProviderGet(path, [this, path, mode](auto &&fsLogic) mutable {
+        auto parentPair = splitToParentName(fsLogic, path);
+        return attrToStat(fsLogic->mkdir(
+            uuidFromPath(fsLogic, parentPair.first), parentPair.second, mode));
+    });
 }
 
 Stat OnedataFS::mknod(std::string path, const mode_t mode)
 {
     ReleaseGIL guard;
 
-    return m_fiberManager
-        .addTaskRemoteFuture([this, path = std::move(path), mode]() mutable {
-            auto parentPair = splitToParentName(path);
-            return attrToStat(m_fsLogic->mknod(
-                uuidFromPath(parentPair.first), parentPair.second, mode));
-        })
-        .get();
+    return viaProviderGet(path, [this, path, mode](auto &&fsLogic) mutable {
+        auto parentPair = splitToParentName(fsLogic, path);
+        return attrToStat(fsLogic->mknod(
+            uuidFromPath(fsLogic, parentPair.first), parentPair.second, mode));
+    });
 }
 
 void OnedataFS::unlink(std::string path)
 {
     ReleaseGIL guard;
 
-    m_fiberManager
-        .addTaskRemoteFuture([this, path = std::move(path)]() mutable {
-            auto parentPair = splitToParentName(path);
-            m_fsLogic->unlink(
-                uuidFromPath(parentPair.first), parentPair.second);
-        })
-        .get();
+    viaProviderGet(path, [this, path](auto &&fsLogic) mutable {
+        auto parentPair = splitToParentName(fsLogic, path);
+        fsLogic->unlink(
+            uuidFromPath(fsLogic, parentPair.first), parentPair.second);
+    });
 }
 
 void OnedataFS::rename(std::string from, std::string to)
 {
     ReleaseGIL guard;
 
-    m_fiberManager
-        .addTaskRemoteFuture(
-            [this, from = std::move(from), to = std::move(to)]() mutable {
-                auto fromPair = splitToParentName(from);
-                auto toPair = splitToParentName(to);
+    viaProviderGet(from, [this, from, to](auto &&fsLogic) mutable {
+        auto fromPair = splitToParentName(fsLogic, from);
+        auto toPair = splitToParentName(fsLogic, to);
 
-                m_fsLogic->rename(uuidFromPath(fromPair.first), fromPair.second,
-                    uuidFromPath(toPair.first), toPair.second);
-            })
-        .get();
+        fsLogic->rename(uuidFromPath(fsLogic, fromPair.first), fromPair.second,
+            uuidFromPath(fsLogic, toPair.first), toPair.second);
+    });
 }
 
 Stat OnedataFS::setattr(std::string path, Stat attr, const int toSet)
 {
     ReleaseGIL guard;
 
-    auto res = m_fiberManager
-                   .addTaskRemoteFuture(
-                       [this, path = std::move(path), attr, toSet]() mutable {
-                           return m_fsLogic->setattr(
-                               uuidFromPath(path), toStatBuf(attr), toSet);
-                       })
-                   .get();
-
-    return attrToStat(res);
+    return viaProviderGet(
+        path, [this, path, attr, toSet](auto &&fsLogic) mutable {
+            return attrToStat(fsLogic->setattr(
+                uuidFromPath(fsLogic, path), toStatBuf(attr), toSet));
+        });
 }
 
 void OnedataFS::truncate(std::string path, int size)
 {
     ReleaseGIL guard;
 
-    m_fiberManager
-        .addTaskRemoteFuture([this, path = std::move(path), size]() mutable {
-            struct stat statbuf = {};
-            statbuf.st_size = size;
-            return m_fsLogic->setattr(
-                uuidFromPath(path), statbuf, FUSE_SET_ATTR_SIZE);
-        })
-        .get();
+    viaProviderGet(path, [this, path, size](auto &&fsLogic) mutable {
+        struct stat statbuf = {};
+        statbuf.st_size = size;
+        return fsLogic->setattr(
+            uuidFromPath(fsLogic, path), statbuf, FUSE_SET_ATTR_SIZE);
+    });
 }
 
-#if PY_MAJOR_VERSION >= 3
 boost::python::object OnedataFS::getxattr(std::string path, std::string name)
-#else
-std::string OnedataFS::getxattr(std::string path, std::string name)
-#endif
+
 {
     ReleaseGIL guard;
 
-    auto res = m_fiberManager
-                   .addTaskRemoteFuture([this, path = std::move(path),
-                                            name = std::move(name)]() mutable {
-                       return m_fsLogic->getxattr(uuidFromPath(path), name)
-                           .toStdString();
-                   })
-                   .get();
+    return viaProviderGet(path, [this, path, name](auto &&fsLogic) mutable {
+        auto res =
+            fsLogic->getxattr(uuidFromPath(fsLogic, path), name).toStdString();
+        if (res.empty())
+            return boost::python::object(
+                boost::python::handle<>(PyBytes_FromStringAndSize(nullptr, 0)));
 
-#if PY_MAJOR_VERSION >= 3
-    if (res.empty())
-        return boost::python::object(
-            boost::python::handle<>(PyBytes_FromStringAndSize(nullptr, 0)));
-
-    return boost::python::object(boost::python::handle<>(
-        PyBytes_FromStringAndSize(res.c_str(), res.size())));
-#else
-    return res;
-#endif
+        return boost::python::object(boost::python::handle<>(
+            PyBytes_FromStringAndSize(res.c_str(), res.size())));
+    });
 }
 
 void OnedataFS::setxattr(std::string path, std::string name, std::string value,
@@ -510,59 +636,43 @@ void OnedataFS::setxattr(std::string path, std::string name, std::string value,
 {
     ReleaseGIL guard;
 
-    m_fiberManager
-        .addTaskRemoteFuture(
-            [this, path = std::move(path), name = std::move(name),
-                value = std::move(value), create, replace]() mutable {
-                return m_fsLogic->setxattr(
-                    uuidFromPath(path), name, value, create, replace);
-            })
-        .get();
+    viaProviderGet(path,
+        [this, path, name, value, create, replace](auto &&fsLogic) mutable {
+            return fsLogic->setxattr(
+                uuidFromPath(fsLogic, path), name, value, create, replace);
+        });
 }
 
 void OnedataFS::removexattr(std::string path, std::string name)
 {
     ReleaseGIL guard;
 
-    m_fiberManager
-        .addTaskRemoteFuture(
-            [this, path = std::move(path), name = std::move(name)]() mutable {
-                return m_fsLogic->removexattr(uuidFromPath(path), name);
-            })
-        .get();
+    viaProviderGet(path, [this, path, name](auto &&fsLogic) mutable {
+        return fsLogic->removexattr(uuidFromPath(fsLogic, path), name);
+    });
 }
 
 std::vector<std::string> OnedataFS::listxattr(std::string path)
 {
     ReleaseGIL guard;
 
-    return m_fiberManager
-        .addTaskRemoteFuture([this, path = std::move(path)]() mutable {
-            return m_fsLogic->listxattr(uuidFromPath(path));
-        })
-        .thenValue([](folly::fbvector<folly::fbstring> &&xattrs) mutable {
-            std::vector<std::string> result;
-            for (const auto &xattr : xattrs)
-                result.emplace_back(xattr.toStdString());
-            return result;
-        })
-        .get();
+    return viaProviderGet(path, [this, path](auto &&fsLogic) mutable {
+        auto xattrs = fsLogic->listxattr(uuidFromPath(fsLogic, path));
+        std::vector<std::string> result;
+        for (const auto &xattr : xattrs)
+            result.emplace_back(xattr.toStdString());
+        return result;
+    });
 }
 
 boost::python::dict OnedataFS::locationMap(std::string path)
 {
     ReleaseGIL guard;
 
-    return m_fiberManager
-        .addTaskRemoteFuture([this, path = std::move(path)]() mutable {
-            return m_fsLogic->getFileLocalBlocks(uuidFromPath(path));
-        })
-        .thenValue(
-            [](std::map<folly::fbstring,
-                folly::fbvector<std::pair<off_t, off_t>>> &&location) mutable {
-                return toPythonDict(location);
-            })
-        .get();
+    return viaProviderGet(path, [this, path](auto &&fsLogic) mutable {
+        return toPythonDict(
+            fsLogic->getFileLocalBlocks(uuidFromPath(fsLogic, path)));
+    });
 }
 
 std::function<void(folly::Function<void()>)> OnedataFS::makeRunInFiber()
@@ -573,22 +683,23 @@ std::function<void(folly::Function<void()>)> OnedataFS::makeRunInFiber()
 }
 
 std::pair<std::string, std::string> OnedataFS::splitToParentName(
-    const std::string &path)
+    std::shared_ptr<FiberFsLogic> fsLogic, const std::string &path)
 {
     if (path.empty() || path == "/")
-        return {m_rootUuid, ""};
+        return {fsLogic->rootUuid().toStdString(), ""};
 
     auto bpath = boost::filesystem::path(path);
 
     return {bpath.parent_path().string(), bpath.filename().string()};
 }
 
-std::string OnedataFS::uuidFromPath(const std::string &path)
+std::string OnedataFS::uuidFromPath(
+    std::shared_ptr<FiberFsLogic> fsLogic, const std::string &path)
 {
     using one::client::fslogic::ONEDATA_FILEID_ACCESS_PREFIX;
 
     if (path.empty() || path == "/")
-        return m_rootUuid;
+        return fsLogic->rootUuid().toStdString();
 
     if (path.find(ONEDATA_FILEID_ACCESS_PREFIX) != std::string::npos) {
         return util::cdmi::objectIdToUUID(
@@ -596,14 +707,14 @@ std::string OnedataFS::uuidFromPath(const std::string &path)
                 strlen(ONEDATA_FILEID_ACCESS_PREFIX)));
     }
 
-    auto parentUuid = m_rootUuid;
+    auto parentUuid = fsLogic->rootUuid().toStdString();
     FileAttrPtr fileAttrPtr;
 
     for (const auto &tok : boost::filesystem::path(path)) {
         if (tok == "/")
             continue;
 
-        fileAttrPtr = m_fsLogic->lookup(parentUuid, tok.string());
+        fileAttrPtr = fsLogic->lookup(parentUuid, tok.string());
 
         parentUuid = fileAttrPtr->uuid().toStdString();
     }
@@ -630,13 +741,12 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(
     std::string cli_args)
 // clang-format on
 {
-    FLAGS_minloglevel = 1;
-    FLAGS_v = 2;
-
     helpers::init();
 
     std::vector<const char *> cmdArgs;
     cmdArgs.push_back("onedatafs");
+    cmdArgs.push_back("-Z");
+    cmdArgs.push_back(host.c_str());
     cmdArgs.push_back("-H");
     cmdArgs.push_back(host.c_str());
     cmdArgs.push_back("--port");
@@ -691,10 +801,8 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(
     // This path is not used but required by the options parser
     cmdArgs.push_back("/tmp/none");
 
-    auto context = std::make_shared<Context<communication::Communicator>>();
     auto options = std::make_shared<options::Options>();
     options->parse(cmdArgs.size(), cmdArgs.data());
-    context->setOptions(options);
 
     ReleaseGIL guard;
 
@@ -703,39 +811,23 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(
             [&] { one::client::logging::startLogging("onedatafs", options); });
     }
 
-    context->setScheduler(
-        std::make_shared<Scheduler>(options->getSchedulerThreadCount()));
+    if (options->isInsecure()) {
+        constexpr auto kVerificationDepth{9};
 
-    auto authManager = getOptionsAuthManager(context);
-    auto sessionId = generateSessionId();
+        // Initialize insecure access to Onedata REST services
+        Poco::Net::Context::Ptr pContext =
+            new Poco::Net::Context(Poco::Net::Context::CLIENT_USE, "", "", "",
+                Poco::Net::Context::VERIFY_NONE, kVerificationDepth, true,
+                "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
+        Poco::Net::SSLManager::instance().initializeClient({},
+            Poco::SharedPtr<InsecureCertificateHandler>(
+                new InsecureCertificateHandler(true)),
+            pContext);
+    }
 
-    auto configuration = getConfiguration(sessionId, authManager, context,
-        messages::handshake::ClientType::onedatafs, true);
-
-    if (!configuration)
-        throw std::runtime_error("Authentication to Oneprovider failed...");
-
-    auto comm = getCommunicator<Context<communication::Communicator>>(sessionId,
-        authManager, context, messages::handshake::ClientType::onedatafs);
-    context->setCommunicator(comm);
-    comm->setScheduler(context->scheduler());
-
-    comm->connect();
-    comm->schedulePeriodicMessageRequest();
-    authManager->scheduleRefresh(auth::RESTRICTED_MACAROON_REFRESH);
-
-    auto helpersCache =
-        std::make_unique<cache::HelpersCache<communication::Communicator>>(
-            *comm, context->scheduler(), *options);
-
-    const auto &rootUuid = configuration->rootUuid();
-
-    auto onedatafs = boost::make_shared<OnedataFS>(sessionId,
-        rootUuid.toStdString(), std::move(context), std::move(authManager),
-        std::move(configuration), std::move(helpersCache),
-        options->getMetadataCacheSize(), options->areFileReadEventsDisabled(),
-        options->isFullblockReadEnabled(), options->getProviderTimeout(),
-        options->getDirectoryCacheDropAfter());
+    auto onedatafs = boost::make_shared<OnedataFS>(options,
+        std::make_unique<one::rest::onezone::OnezoneClient>(
+            options->getOnezoneHost().value()));
 
     return onedatafs;
 }
