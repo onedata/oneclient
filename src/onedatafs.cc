@@ -293,6 +293,8 @@ void OnedataFS::close()
 
 void OnedataFS::createFsLogicForSpace(const std::string &spaceId)
 {
+    const uint16_t kDefaultHTTPSPort = 443U;
+
     auto maybeProviderForSpace =
         m_dataAccessScopeCache.getProviderForSpace(spaceId);
 
@@ -313,8 +315,8 @@ void OnedataFS::createFsLogicForSpace(const std::string &spaceId)
         // Add new FsLogic for providerId
         // Create test communicator with single connection to test
         // the authentication and get protocol configuration
-        auto authManager =
-            getCLIAuthManager<OneclientContext>(context, provider.host, 443);
+        auto authManager = getCLIAuthManager<OneclientContext>(
+            context, provider.host, kDefaultHTTPSPort);
         auto sessionId = generateSessionId();
         auto configuration = getConfiguration(sessionId, authManager, context,
             messages::handshake::ClientType::oneclient);
@@ -399,7 +401,7 @@ std::optional<std::string> OnedataFS::getSpaceIdFromPath(
 
 std::string OnedataFS::version() { return ONECLIENT_VERSION; }
 
-Stat OnedataFS::stat(std::string path)
+Stat OnedataFS::stat(const std::string &path)
 {
     ReleaseGIL guard;
 
@@ -408,7 +410,7 @@ Stat OnedataFS::stat(std::string path)
     });
 }
 
-int OnedataFS::opendir(std::string path)
+int OnedataFS::opendir(const std::string &path)
 {
     ReleaseGIL guard;
 
@@ -417,7 +419,7 @@ int OnedataFS::opendir(std::string path)
     });
 }
 
-void OnedataFS::releasedir(std::string path, int handleId)
+void OnedataFS::releasedir(const std::string &path, int handleId)
 {
     ReleaseGIL guard;
 
@@ -427,7 +429,7 @@ void OnedataFS::releasedir(std::string path, int handleId)
 }
 
 std::vector<std::string> OnedataFS::readdir(
-    std::string path, const size_t maxSize, const off_t off)
+    const std::string &path, const size_t maxSize, const off_t off)
 {
     ReleaseGIL guard;
 
@@ -448,8 +450,9 @@ std::vector<std::string> OnedataFS::readdir(
             return fsLogic->readdir(uuidFromPath(fsLogic, path), maxSize, off);
         })
         .thenError(folly::tag_t<std::exception>{},
-            [this, path](
-                auto &&e) -> folly::fbvector<folly::fbstring> { throw e; })
+            [path](auto &&e) -> folly::fbvector<folly::fbstring> {
+                throw e; // NOLINT
+            })
         .thenValue([](folly::fbvector<folly::fbstring> &&entries) {
             std::vector<std::string> result;
             for (const auto &entry : entries) {
@@ -462,7 +465,8 @@ std::vector<std::string> OnedataFS::readdir(
         .FUTURE_GET();
 }
 
-Stat OnedataFS::create(std::string path, const mode_t mode, const int flags)
+Stat OnedataFS::create(
+    const std::string &path, const mode_t mode, const int flags)
 {
     ReleaseGIL guard;
 
@@ -545,7 +549,7 @@ boost::shared_ptr<OnedataFileHandle> OnedataFS::open(
         .FUTURE_GET();
 }
 
-Stat OnedataFS::mkdir(std::string path, const mode_t mode)
+Stat OnedataFS::mkdir(const std::string &path, const mode_t mode)
 {
     ReleaseGIL guard;
 
@@ -556,7 +560,7 @@ Stat OnedataFS::mkdir(std::string path, const mode_t mode)
     });
 }
 
-Stat OnedataFS::mknod(std::string path, const mode_t mode)
+Stat OnedataFS::mknod(const std::string &path, const mode_t mode)
 {
     ReleaseGIL guard;
 
@@ -567,7 +571,7 @@ Stat OnedataFS::mknod(std::string path, const mode_t mode)
     });
 }
 
-void OnedataFS::unlink(std::string path)
+void OnedataFS::unlink(const std::string &path)
 {
     ReleaseGIL guard;
 
@@ -578,7 +582,7 @@ void OnedataFS::unlink(std::string path)
     });
 }
 
-void OnedataFS::rename(std::string from, std::string to)
+void OnedataFS::rename(const std::string &from, const std::string &to)
 {
     ReleaseGIL guard;
 
@@ -591,7 +595,7 @@ void OnedataFS::rename(std::string from, std::string to)
     });
 }
 
-Stat OnedataFS::setattr(std::string path, Stat attr, const int toSet)
+Stat OnedataFS::setattr(const std::string &path, Stat attr, const int toSet)
 {
     ReleaseGIL guard;
 
@@ -602,7 +606,7 @@ Stat OnedataFS::setattr(std::string path, Stat attr, const int toSet)
         });
 }
 
-void OnedataFS::truncate(std::string path, int size)
+void OnedataFS::truncate(const std::string &path, int size)
 {
     ReleaseGIL guard;
 
@@ -614,8 +618,8 @@ void OnedataFS::truncate(std::string path, int size)
     });
 }
 
-boost::python::object OnedataFS::getxattr(std::string path, std::string name)
-
+boost::python::object OnedataFS::getxattr(
+    const std::string &path, const std::string &name)
 {
     ReleaseGIL guard;
 
@@ -631,8 +635,8 @@ boost::python::object OnedataFS::getxattr(std::string path, std::string name)
     });
 }
 
-void OnedataFS::setxattr(std::string path, std::string name, std::string value,
-    bool create, bool replace)
+void OnedataFS::setxattr(const std::string &path, const std::string &name,
+    const std::string &value, bool create, bool replace)
 {
     ReleaseGIL guard;
 
@@ -643,7 +647,7 @@ void OnedataFS::setxattr(std::string path, std::string name, std::string value,
         });
 }
 
-void OnedataFS::removexattr(std::string path, std::string name)
+void OnedataFS::removexattr(const std::string &path, const std::string &name)
 {
     ReleaseGIL guard;
 
@@ -652,7 +656,7 @@ void OnedataFS::removexattr(std::string path, std::string name)
     });
 }
 
-std::vector<std::string> OnedataFS::listxattr(std::string path)
+std::vector<std::string> OnedataFS::listxattr(const std::string &path)
 {
     ReleaseGIL guard;
 
@@ -665,7 +669,7 @@ std::vector<std::string> OnedataFS::listxattr(std::string path)
     });
 }
 
-boost::python::dict OnedataFS::locationMap(std::string path)
+boost::python::dict OnedataFS::locationMap(const std::string &path)
 {
     ReleaseGIL guard;
 

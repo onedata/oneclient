@@ -157,43 +157,44 @@ public:
 
     static std::string version();
 
-    Stat stat(std::string path);
+    Stat stat(const std::string &path);
 
-    int opendir(std::string path);
+    int opendir(const std::string &path);
 
-    void releasedir(std::string path, int handleId);
+    void releasedir(const std::string &path, int handleId);
 
-    std::vector<std::string> readdir(
-        std::string path, const size_t maxSize = 9999, const off_t off = 0);
+    std::vector<std::string> readdir(const std::string &path,
+        const size_t maxSize = 9999, const off_t off = 0);
 
-    Stat create(std::string path, const mode_t mode = (S_IFREG | 0644),
+    Stat create(const std::string &path, const mode_t mode = (S_IFREG | 0644),
         const int flags = 0);
 
     boost::shared_ptr<OnedataFileHandle> open(
         const std::string &path, const int flags = O_RDWR | O_CREAT);
 
-    Stat mkdir(std::string path, const mode_t mode = 0755);
+    Stat mkdir(const std::string &path, const mode_t mode = 0755);
 
-    Stat mknod(std::string path, const mode_t mode);
+    Stat mknod(const std::string &path, const mode_t mode);
 
-    void unlink(std::string path);
+    void unlink(const std::string &path);
 
-    void rename(std::string from, std::string to);
+    void rename(const std::string &from, const std::string &to);
 
-    Stat setattr(std::string path, Stat attr, const int toSet);
+    Stat setattr(const std::string &path, Stat attr, const int toSet);
 
-    void truncate(std::string path, int size);
+    void truncate(const std::string &path, int size);
 
-    boost::python::object getxattr(std::string path, std::string name);
+    boost::python::object getxattr(
+        const std::string &path, const std::string &name);
 
-    void setxattr(std::string path, std::string name, std::string value,
-        bool create = false, bool replace = false);
+    void setxattr(const std::string &path, const std::string &name,
+        const std::string &value, bool create = false, bool replace = false);
 
-    void removexattr(std::string path, std::string name);
+    void removexattr(const std::string &path, const std::string &name);
 
-    std::vector<std::string> listxattr(std::string path);
+    std::vector<std::string> listxattr(const std::string &path);
 
-    boost::python::dict locationMap(std::string path);
+    boost::python::dict locationMap(const std::string &path);
 
 private:
     std::function<void(folly::Function<void()>)> makeRunInFiber();
@@ -208,9 +209,10 @@ private:
 
     std::optional<std::string> getSpaceIdFromPath(const std::string &pathStr);
 
-    template <typename F> auto viaProviderGet(std::string path, F &&func);
+    template <typename F>
+    auto viaProviderGet(const std::string &path, F &&func);
 
-    template <typename F> auto viaProvider(std::string path, F &&func);
+    template <typename F> auto viaProvider(const std::string &path, F &&func);
 
     std::pair<std::string, std::string> getSpaceAndProviderId(
         const std::string &path);
@@ -230,26 +232,30 @@ private:
     std::atomic_flag m_stopped = ATOMIC_FLAG_INIT;
 };
 
-template <typename F> auto OnedataFS::viaProvider(std::string path, F &&func)
+template <typename F>
+auto OnedataFS::viaProvider(const std::string &path, F &&func)
 {
     const auto &[spaceId, providerId] = getSpaceAndProviderId(path);
 
     return m_fiberManager.addTaskRemoteFuture(
-        [this, spaceId, f = std::forward<F>(func), providerId]() mutable {
+        [this, spaceId = spaceId, f = std::forward<F>(func),
+            providerId = providerId]() mutable {
             createFsLogicForSpace(spaceId);
             return f(m_fsLogicMap.at(providerId));
         });
 }
 
-template <typename F> auto OnedataFS::viaProviderGet(std::string path, F &&func)
+template <typename F>
+auto OnedataFS::viaProviderGet(const std::string &path, F &&func)
 {
     const auto &[spaceId, providerId] = getSpaceAndProviderId(path);
 
     return m_fiberManager
-        .addTaskRemoteFuture([this, spaceId, providerId]() {
-            createFsLogicForSpace(spaceId);
-            return m_fsLogicMap.at(providerId);
-        })
+        .addTaskRemoteFuture(
+            [this, spaceId = spaceId, providerId = providerId]() {
+                createFsLogicForSpace(spaceId);
+                return m_fsLogicMap.at(providerId);
+            })
         .thenValue(std::forward<F>(func))
         .FUTURE_GET();
 }
