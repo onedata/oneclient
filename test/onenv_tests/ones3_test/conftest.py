@@ -127,7 +127,8 @@ def onezone_readonly_token(onezone_ip):
                                 "accessToken": {}
                             },
                             "caveats": [{
-                                "type": "data.readonly"
+                                "type": "data.readonly",
+                                "interface": "oneclient"
                             }, {
                                 "type":
                                     "time",
