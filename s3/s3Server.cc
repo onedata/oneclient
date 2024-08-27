@@ -453,11 +453,9 @@ bool S3Server::ensureSpaceIsSupported(const std::string &bucket,
                 throw one::s3::error::NoSuchBucket(bucket, bucket, requestId);
             }
 
-            if (oneproviderClient.ensureSpaceIsSupported(spaceId, token)) {
-                if (waitUntilSpaceIsVisibleInS3Logic(bucket, spaceId, token)) {
-                    cacheBucketName(bucket, spaceId);
-                    return true;
-                }
+            if (waitUntilSpaceIsVisibleInS3Logic(bucket, spaceId, token)) {
+                cacheBucketName(bucket, spaceId);
+                return true;
             }
 
             throw one::s3::error::NoSuchBucket(bucket, bucket, requestId);
