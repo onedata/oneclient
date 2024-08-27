@@ -217,6 +217,10 @@ public:
     void readinessProbe(
         const HttpRequestPtr &req, HttpResponseCallback &&callback);
 
+    void checkServiceStatus() const;
+
+    void stop();
+
     void setLogicCache(std::shared_ptr<S3LogicCache> logicCache)
     {
         m_logicCache = logicCache;
@@ -323,6 +327,8 @@ private:
                 std::chrono::time_point<
                     std::chrono::steady_clock> /* lastUsed */>>
             m_bucketNameCache;
+
+    mutable std::atomic<bool> m_stopping{false};
 };
 
 } // namespace s3
