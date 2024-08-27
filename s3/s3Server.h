@@ -216,6 +216,10 @@ public:
     void readinessProbe(
         const HttpRequestPtr &req, HttpResponseCallback &&callback);
 
+    void checkServiceStatus() const;
+
+    void stop();
+
     void setLogicCache(std::shared_ptr<S3LogicCache> logicCache)
     {
         m_logicCache = logicCache;
@@ -320,6 +324,8 @@ private:
     mutable folly::ConcurrentHashMap<std::string /* bucketName */,
         std::string /* spaceId */>
         m_bucketNameCache;
+
+    mutable std::atomic<bool> m_stopping{false};
 };
 
 } // namespace s3

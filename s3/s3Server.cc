@@ -108,6 +108,8 @@ void S3Server::cacheBucketName(
 
 std::string S3Server::getRequestId() const
 {
+    checkServiceStatus();
+
     std::lock_guard<std::mutex> lockGuard(m_uuidGeneratorMutex);
     return boost::lexical_cast<std::string>(m_uuidGenerator());
 }
@@ -1770,6 +1772,21 @@ void S3Server::readinessProbe(
         e.fillResponse(response);
         callback(response);
     }
+}
+
+void S3Server::checkServiceStatus() const
+{
+    if (m_stopping)
+        throw one::s3::error::ServiceUnavailable("", "", "");
+}
+
+void S3Server::stop()
+{
+    LOG(INFO) << "Graceful shutdown requested - stopping...";
+
+    m_stopping = true;
+
+    m_logicCache->stop();
 }
 
 std::string S3Server::toMetricName(

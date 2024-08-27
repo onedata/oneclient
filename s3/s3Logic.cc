@@ -9,6 +9,7 @@
 #include "s3Logic.h"
 
 #include "futureUtils.h"
+#include "messages/closeSession.h"
 #include "messages/fuse/createFile.h"
 #include "messages/fuse/createPath.h"
 #include "messages/fuse/fileChildren.h"
@@ -36,6 +37,7 @@ namespace one {
 namespace s3 {
 
 using one::client::fslogic::FuseFileHandle;
+using one::messages::CloseSession;
 using one::messages::fuse::CreateFile;
 using one::messages::fuse::CreatePath;
 using one::messages::fuse::FileAttr;
@@ -137,6 +139,16 @@ folly::Future<std::shared_ptr<S3Logic>> S3Logic::connect()
     m_connected = true;
 
     return folly::makeSemiFuture(shared_from_this()).via(m_executor.get());
+}
+
+folly::Future<folly::Unit> S3Logic::stop()
+{
+    const std::chrono::seconds timeout{10};
+
+    return m_context->communicator()
+        ->send(messages::CloseSession{})
+        .via(m_executor.get())
+        .onTimeout(timeout, [timeout = timeout.count()]() mutable {});
 }
 
 S3RequestContext &S3Logic::getRequestContext(const std::string &requestId)
@@ -469,6 +481,7 @@ Aws::S3::Model::ListBucketsResult S3Logic::toListBucketsResult(
 
     for (const auto &child : msg.childrenAttrs()) {
         Aws::S3::Model::Bucket bucket;
+
         bucket.SetName(child.name().toStdString());
         bucket.SetCreationDate(child.mtime());
         buckets.emplace_back(std::move(bucket));
