@@ -30,6 +30,29 @@ def test_create_delete_bucket(s3_client, uuid_str, s3_server):
     assert (list(map(lambda b: b['Name'] == name, buckets)).count(True) == 0)
 
 
+def test_create_delete_bucket_by_user_without_any_previous_spaces(s3_client_joe,
+                                                                  uuid_str,
+                                                                  s3_server):
+    name = uuid_str
+
+    s3_client_joe.create_bucket(Bucket=name, CreateBucketConfiguration={
+        'LocationConstraint': 'pl-reg-w3'})
+    res = s3_client_joe.list_buckets()
+    buckets = res['Buckets']
+
+    assert (list(map(lambda b: b['Name'] == name, buckets)).count(True) == 1)
+
+    s3_client_joe.put_object(Bucket=name, Key='file.txt', Body=b'TEST')
+    s3_client_joe.delete_object(Bucket=name, Key='file.txt')
+
+    s3_client_joe.delete_bucket(Bucket=name)
+
+    res = s3_client_joe.list_buckets()
+    buckets = res['Buckets']
+
+    assert (list(map(lambda b: b['Name'] == name, buckets)).count(True) == 0)
+
+
 def test_create_delete_nonempty_bucket(s3_client, uuid_str):
     name = uuid_str
 
