@@ -160,6 +160,7 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_FALSE(options.getProviderHost());
     EXPECT_FALSE(options.getAccessToken());
     EXPECT_FALSE(options.isReadWritePerfEnabled());
+    EXPECT_FALSE(options.isIgnoreEnv());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldCreateKeyValueMap)
@@ -376,6 +377,13 @@ TEST_F(OptionsTest, parseCommandLineShouldSetNoBuffer)
     cmdArgs.insert(cmdArgs.end(), {"--no-buffer", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ(false, options.isIOBuffered());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetIgnoreEnv)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--ignore-env", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.isIgnoreEnv());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetNoXattr)
@@ -881,6 +889,13 @@ TEST_F(OptionsTest, parseConfigFileShouldSetLogDir)
     setInConfigFile("log_dir", "somePath");
     options.parse(fileArgs.size(), fileArgs.data());
     EXPECT_EQ("somePath", options.getLogDirPath());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetIgnoreEnv)
+{
+    setInConfigFile("ignore_env", "true");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(true, options.isIgnoreEnv());
 }
 
 TEST_F(OptionsTest, parseConfigFileShouldSetForceProxyIO)
