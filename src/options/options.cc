@@ -66,6 +66,15 @@ Options::Options(messages::handshake::ClientType clientType)
         .withGroup(OptionGroup::GENERAL)
         .withDescription("Specify path to config file.");
 
+    add<bool>()
+        ->asSwitch()
+        .withLongName("ignore-env")
+        .withConfigName("ignore_env")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::GENERAL)
+        .withDescription("Ignore options from environment variables.");
+
     add<std::string>()
         ->withShortName("H")
         .withLongName("host")
@@ -946,7 +955,8 @@ void Options::parse(const int argc, const char *const argv[])
     if (getHelp() || getVersion())
         return;
 
-    parser.parseEnvironment(m_deprecatedEnvs, m_vm);
+    if (!isIgnoreEnv())
+        parser.parseEnvironment(m_deprecatedEnvs, m_vm);
 
     if (m_clientType == messages::handshake::ClientType::ones3 &&
         !exists(getConfigFilePath())) {
@@ -1061,6 +1071,11 @@ bool Options::getVersion() const
 bool Options::getUnmount() const
 {
     return get<bool>({"unmount"}).get_value_or(false);
+}
+
+bool Options::isIgnoreEnv() const
+{
+    return get<bool>({"ignore-env", "ignore_env"}).get_value_or(false);
 }
 
 bool Options::getForeground() const
