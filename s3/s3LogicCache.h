@@ -23,6 +23,8 @@ public:
 
     bool updateClientStatus(Poco::JSON::Array &clients)
     {
+        using one::client::util::md5::md5;
+
         bool isOk{true};
         std::lock_guard<std::mutex> l{m_cacheMutex};
         for (auto &it : m_cache) {
@@ -36,7 +38,7 @@ public:
                 continue;
 
             Poco::JSON::Object client;
-            client.set("id", key.toStdString());
+            client.set("id", md5(key.toStdString()));
 
             client.set("isConnected", s3Logic.value()->isConnected());
             client.set("openFileCount", s3Logic.value()->getOpenFileCount());
