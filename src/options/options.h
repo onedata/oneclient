@@ -146,6 +146,11 @@ public:
     bool getUnmount() const;
 
     /*
+     * @return true if 'ignore-env' option has been provided, otherwise false.
+     */
+    bool isIgnoreEnv() const;
+
+    /*
      * @return true if 'foreground' option has been provided, otherwise false.
      */
     bool getForeground() const;

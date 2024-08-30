@@ -1715,7 +1715,8 @@ void S3Server::readinessProbe(
     auto response = HttpResponse::newHttpResponse();
 
     try {
-        if (m_readinessProbeBasicAuth.has_value()) {
+        if (m_readinessProbeBasicAuth.has_value() &&
+            !m_readinessProbeBasicAuth.value().empty()) {
             if (req->getHeaders().find("authorization") ==
                 req->getHeaders().end())
                 throw one::s3::error::AccessDenied("", "", "");
@@ -1745,7 +1746,11 @@ void S3Server::readinessProbe(
 
         isOk = m_logicCache->updateClientStatus(clients);
 
-        body.set("clients", clients);
+        if (m_readinessProbeBasicAuth.has_value() &&
+            !m_readinessProbeBasicAuth.value().empty()) {
+            body.set("clients", clients);
+        }
+
         body.set("isOk", isOk);
 
         auto bodyStr = rest::toString(body);
