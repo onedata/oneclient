@@ -111,6 +111,9 @@ folly::Future<std::shared_ptr<S3Logic>> S3Logic::connect()
 
     auto communicator = getCommunicator(sessionId, m_authManager, m_context,
         messages::handshake::ClientType::ones3);
+    if (m_context->options()->getCustomCACertificateDir().has_value())
+        communicator->setCustomCADirectory(
+            m_context->options()->getCustomCACertificateDir().value().string());
     m_context->setCommunicator(communicator);
     communicator->connect();
     m_authManager->scheduleRefresh(

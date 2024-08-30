@@ -12,6 +12,9 @@
 #include "s3Server.h"
 #include "version.h"
 
+#include <Poco/DirectoryIterator.h>
+#include <Poco/File.h>
+#include <Poco/Net/RejectCertificateHandler.h>
 #include <Poco/Net/SSLManager.h>
 #include <Poco/SharedPtr.h>
 #include <drogon/drogon.h>
@@ -58,9 +61,69 @@ class InsecureCertificateHandler : public Poco::Net::InvalidCertificateHandler {
     }
 };
 
-int main(int argc, char *argv[])
+void initSSL(const std::shared_ptr<options::Options> &options)
 {
     constexpr auto kVerificationDepth{9};
+    if (options->isInsecure()) {
+        // Initialize insecure access to Onedata REST services
+        Poco::Net::Context::Ptr pContext =
+            new Poco::Net::Context(Poco::Net::Context::CLIENT_USE, "", "", "",
+                Poco::Net::Context::VERIFY_NONE, kVerificationDepth, true,
+                "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
+
+        Poco::Net::SSLManager::instance().initializeClient({},
+            Poco::SharedPtr<InsecureCertificateHandler>(
+                new InsecureCertificateHandler(true)),
+            pContext);
+    }
+    else {
+        auto certDir = options->getCustomCACertificateDir();
+        if (certDir.has_value()) {
+            // If the user provided their custom certificates stored in PEM
+            // format in a `certDir`, load the certificates from that directory
+            // one by one and add to SSLManager context
+            Poco::Net::Context::Ptr pContext =
+                new Poco::Net::Context(Poco::Net::Context::CLIENT_USE, "", "",
+                    "", Poco::Net::Context::VERIFY_RELAXED, kVerificationDepth,
+                    true, "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
+
+            // Load each certificate from the directory
+            Poco::DirectoryIterator it(certDir->string());
+            Poco::DirectoryIterator end;
+            for (; it != end; ++it) {
+                if (it->isFile() &&
+                    it->path().find(".pem") != std::string::npos) {
+                    try {
+                        // Load the certificate
+                        Poco::Net::X509Certificate cert(it->path());
+
+                        // Add the certificate to the SSL context
+                        pContext->addCertificateAuthority(cert);
+
+                        LOG(INFO)
+                            << "Added trusted CA certificate for REST issued by: "
+                            << cert.issuerName();
+                    }
+                    catch (Poco::Exception &ex) {
+                        std::cerr
+                            << "Failed to load certificate: " << it->path()
+                            << " - " << ex.displayText() << std::endl;
+                    }
+                }
+            }
+
+            // Initialize the SSLManager with the custom context and certificate
+            // handler
+            Poco::Net::SSLManager::instance().initializeClient({},
+                Poco::SharedPtr<Poco::Net::InvalidCertificateHandler>(
+                    new Poco::Net::RejectCertificateHandler(false)),
+                pContext);
+        }
+    }
+}
+
+int main(int argc, char *argv[])
+{
     constexpr auto kDefaultHTTPPort{80};
     constexpr auto kOneS3MaxConnectionNum{64000};
 
@@ -68,17 +131,7 @@ int main(int argc, char *argv[])
 
     auto options = getOptions(argc, argv);
 
-    if (options->isInsecure()) {
-        // Initialize insecure access to Onedata REST services
-        Poco::Net::Context::Ptr pContext =
-            new Poco::Net::Context(Poco::Net::Context::CLIENT_USE, "", "", "",
-                Poco::Net::Context::VERIFY_NONE, kVerificationDepth, true,
-                "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
-        Poco::Net::SSLManager::instance().initializeClient({},
-            Poco::SharedPtr<InsecureCertificateHandler>(
-                new InsecureCertificateHandler(true)),
-            pContext);
-    }
+    initSSL(options);
 
     if (options->getHelp()) {
         std::cout << options->formatHelpOneS3(argv[0]);

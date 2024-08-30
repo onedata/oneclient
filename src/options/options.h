@@ -186,6 +186,8 @@ public:
      */
     boost::optional<std::string> getOnezoneHost() const;
 
+    boost::optional<boost::filesystem::path> getCustomCACertificateDir() const;
+
     /*
      * @return OneS3 readiness probe authentication if option has been provided.
      */
