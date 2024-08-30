@@ -6,6 +6,11 @@ CHANGELOG
 
 ### 21.02.6
 
+-   **VFS-12276** Added --ignore-env to oneclient and ones3 to ignore
+    using environment variables for options.
+-   **VFS-12273** Adjusted scope of information presented in ones3
+    readiness probe.
+
 ### 21.02.5
 
 -   **VFS-11999** Improved listing objects on S3 storages during data
