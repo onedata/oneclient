@@ -78,6 +78,8 @@ def put_file(oneprovider_host, token, bucket_name, path, data,
     url = (f'https://{oneprovider_host}/api/v3/oneprovider/'
            f'lookup-file-id/{bucket_name}')
 
+    print(url)
+
     repeats = 5
     space_id = None
     while (repeats > 0) and (space_id is None):

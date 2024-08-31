@@ -37,6 +37,12 @@ def oneprovider_ip():
 
 
 @pytest.fixture(scope=FIXTURE_SCOPE)
+def oneprovider_2_ip():
+    opip = os.getenv('ONEPROVIDER_2_IP')
+    yield opip
+
+
+@pytest.fixture(scope=FIXTURE_SCOPE)
 def ceph_monitor_ip():
     cmip = os.getenv('CEPH_MONITOR_IP')
     yield cmip

@@ -6,11 +6,12 @@ This software is released under the MIT license cited in 'LICENSE.txt'
 import pytest
 import os
 import sys
+import time
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, script_dir)
 
-from .common import random_bytes, random_str, random_int, timer
+from .common import random_bytes, random_str, random_int, timer, put_file
 
 import onedatafs
 
@@ -187,3 +188,71 @@ def test_onedatafs_xattr_handling(odfs_proxy):
 
     odfs_proxy.unlink(file)
     odfs_proxy.close()
+
+
+@pytest.mark.parametrize(
+    "size",
+    [
+        pytest.param(1024), pytest.param(5 * 1024 * 1024)
+    ],
+)
+def test_read_file_remote(odfs_proxy, oneprovider_ip, onezone_admin_token,
+                           size):
+    class FileLocationNotYetReplicated(Exception):
+        "Raised when file location is not yet replicated between providers"
+        pass
+
+    space_name = 'test_get_object_remote'
+    file_name = random_str()
+
+    data = random_bytes(size)
+
+    retries = 5
+    success = False
+    while retries > 0 and not success:
+        try:
+            r = put_file(oneprovider_ip, onezone_admin_token, space_name,
+                         file_name, data)
+
+            if r.status_code != 201:
+                raise FileLocationNotYetReplicated
+
+            success = True
+        except Exception as e:
+            # Wait for the file to show up at oneprovider 1
+            time.sleep(2)
+        finally:
+            retries = retries - 1
+
+    assert success
+
+    retries = 10
+    success = False
+    while retries > 0 and not success:
+        try:
+            # wait for the file to appear in the provider
+            attr = odfs_proxy.stat(f'{space_name}/{file_name}')
+            if attr.size < size:
+                raise FileLocationNotYetReplicated
+            handle = odfs_proxy.open(f'{space_name}/{file_name}')
+            chunk = handle.read(0, size)
+            handle.close()
+            if len(chunk) < size:
+                raise FileLocationNotYetReplicated
+
+            assert (chunk == data)
+
+            success = True
+        except Exception as e:
+            # Wait for the file to show up at oneprovider 1
+            time.sleep(2)
+        finally:
+            retries = retries - 1
+
+    odfs_proxy.unlink(f'{space_name}/{file_name}')
+    odfs_proxy.close()
+
+    assert success
+
+
+
