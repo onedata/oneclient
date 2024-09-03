@@ -163,6 +163,15 @@ Options::Options(messages::handshake::ClientType clientType)
         .withGroup(OptionGroup::GENERAL)
         .withDescription("Specify custom path for Oneclient logs.");
 
+    add<boost::filesystem::path>()
+        ->withEnvName("custom_ca_dir")
+        .withLongName("custom-ca-dir")
+        .withConfigName("custom_ca_dir")
+        .withValueName("<path>")
+        .withGroup(OptionGroup::GENERAL)
+        .withDescription(
+            "Path to directory with custom CA certificates in PEM format.");
+
     add<bool>()
         ->asSwitch()
         .withLongName("io-trace-log")
@@ -1122,6 +1131,12 @@ unsigned int Options::getProviderPort() const
 {
     return get<unsigned int>({"port", "provider_port"})
         .get_value_or(DEFAULT_PROVIDER_PORT);
+}
+
+boost::optional<boost::filesystem::path>
+Options::getCustomCACertificateDir() const
+{
+    return get<boost::filesystem::path>({"custom-ca-dir", "custom_ca_dir"});
 }
 
 bool Options::isInsecure() const

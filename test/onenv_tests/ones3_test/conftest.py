@@ -174,7 +174,11 @@ def s3_server(request, onezone_ip, oneprovider_ip, ceph_monitor_ip,
               onezone_admin_token,
               support_storage_id, s3_port):
     ones3_cli = (
-        f'debug/s3/ones3 -i -v 1 --onezone-host {onezone_ip} -H {oneprovider_ip}'
+        f'debug/s3/ones3'
+        f' --custom-ca-dir test/onenv_tests/certs'
+        f' -v 1'
+        f' --onezone-host dev-onezone.default.svc.cluster.local'
+        f' -H dev-oneprovider-krakow.default.svc.cluster.local'
         f' --ones3-support-storage-id {support_storage_id}'
         f' --ones3-support-storage-credentials onepanel:password'
         f' --override {support_storage_id}:monitorHostname:{ceph_monitor_ip}'

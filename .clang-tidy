@@ -20,6 +20,7 @@ Checks: >-
   -cppcoreguidelines-pro-bounds-pointer-arithmetic,
   -cppcoreguidelines-pro-type-reinterpret-cast,
   -cppcoreguidelines-non-private-member-variables-in-classes,
+  -cppcoreguidelines-owning-memory,
   -misc-non-private-member-variables-in-classes,
   -fuchsia*,
   -google-build-using-namespace,

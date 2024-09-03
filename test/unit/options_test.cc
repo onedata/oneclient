@@ -104,6 +104,7 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(true, options.isFullblockReadEnabled());
     EXPECT_EQ(true, options.isMonitoringLevelBasic());
     EXPECT_EQ(false, options.isClusterPrefetchThresholdRandom());
+    EXPECT_FALSE(options.getCustomCACertificateDir().has_value());
     EXPECT_EQ(0, options.getVerboseLogLevel());
     EXPECT_EQ(options::DEFAULT_PROVIDER_PORT, options.getProviderPort());
     EXPECT_EQ(options::DEFAULT_BUFFER_SCHEDULER_THREAD_COUNT,
@@ -295,6 +296,15 @@ TEST_F(OptionsTest, parseCommandLineShouldSetLogDirPath)
     cmdArgs.insert(cmdArgs.end(), {"--log-dir", "somePath", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ("somePath", options.getLogDirPath());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetLogCustomCADir)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--custom-ca-dir", "/tmp/custom_ca", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(
+        "/tmp/custom_ca", options.getCustomCACertificateDir().value().string());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldEnableIOTraceLog)
@@ -889,6 +899,14 @@ TEST_F(OptionsTest, parseConfigFileShouldSetLogDir)
     setInConfigFile("log_dir", "somePath");
     options.parse(fileArgs.size(), fileArgs.data());
     EXPECT_EQ("somePath", options.getLogDirPath());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetCustomCADir)
+{
+    setInConfigFile("custom_ca_dir", "/tmp/certs");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(
+        "/tmp/certs", options.getCustomCACertificateDir().value().string());
 }
 
 TEST_F(OptionsTest, parseConfigFileShouldSetIgnoreEnv)
