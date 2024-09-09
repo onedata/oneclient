@@ -7,10 +7,15 @@ import random
 import string
 import time
 import requests
-
 import boto3
 
 from botocore.exceptions import ClientError
+
+
+# Custom decorator to mark tests to run first
+def run_first(test_func):
+    setattr(test_func, "_run_first", True)
+    return test_func
 
 
 def random_int(lower_bound=1, upper_bound=100):
