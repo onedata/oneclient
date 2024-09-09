@@ -27,6 +27,17 @@ from functools import wraps
 FIXTURE_SCOPE = "session"
 
 
+def pytest_collection_modifyitems(session, config, items):
+    # Filter out tests marked with the custom `run_first` decorator
+    first_tests = [item for item in items if hasattr(item.function, "_run_first")]
+
+    # Remaining tests
+    remaining_tests = [item for item in items if not hasattr(item.function, "_run_first")]
+
+    # Reorder the items so that first_tests are executed first
+    items[:] = first_tests + remaining_tests
+
+
 @pytest.fixture(scope=FIXTURE_SCOPE)
 def git_version():
     gv = os.getenv('GIT_VERSION')

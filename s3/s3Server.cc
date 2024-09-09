@@ -1765,6 +1765,8 @@ void S3Server::readinessProbe(
         callback(response);
     }
     catch (const one::s3::error::S3Exception &e) {
+        LOG(ERROR) << "Failed to prepare the readiness probe response: "
+                   << e.what();
         e.fillResponse(response);
         callback(response);
     }

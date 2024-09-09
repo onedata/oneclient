@@ -11,7 +11,7 @@ import requests
 import json
 from .common import *
 
-
+@run_first
 def test_readiness_probe(s3_client, bucket, s3_endpoint):
     key = random_path()
 
