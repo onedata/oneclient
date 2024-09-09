@@ -113,7 +113,7 @@ bool S3LogicCache::updateClientStatus(Poco::JSON::Array &clients)
             isOk = false;
         }
 
-        clients.add(std::move(client));
+        clients.add(client);
     }
 
     return isOk;

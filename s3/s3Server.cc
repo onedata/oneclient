@@ -1757,7 +1757,7 @@ void S3Server::readinessProbe(
 
         response->setStatusCode(isOk
                 ? drogon::HttpStatusCode::k200OK
-                : drogon::HttpStatusCode::k503ServiceUnavailable);
+                : drogon::HttpStatusCode::k500InternalServerError);
         response->addHeader("content-length", std::to_string(bodyStr.size()));
         response->setContentTypeString("application/json");
         response->setBody(std::move(bodyStr));
