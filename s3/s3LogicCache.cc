@@ -76,5 +76,54 @@ folly::Future<std::shared_ptr<S3Logic>> S3LogicCache::get(
         });
     }
 }
+
+bool S3LogicCache::updateClientStatus(Poco::JSON::Array &clients)
+{
+    using one::client::util::md5::md5;
+
+    bool isOk{true};
+    std::lock_guard<std::mutex> l{m_cacheMutex};
+    for (auto &it : m_cache) {
+        const auto key = it.first;
+        auto s3Logic = it.second->getFuture();
+
+        // S3Logic is still trying to connect
+        if (!s3Logic.isReady())
+            continue;
+
+        // S3Logic has never connected to the provider
+        if (s3Logic.hasException())
+            continue;
+
+        Poco::JSON::Object client;
+        const auto sessionId = md5(key.toStdString());
+        client.set("id", sessionId);
+
+        client.set("isConnected", s3Logic.value()->isConnected());
+        client.set("openFileCount", s3Logic.value()->getOpenFileCount());
+        client.set("downloadedBytes", s3Logic.value()->getDownloadedBytes());
+        client.set("uploadedBytes", s3Logic.value()->getUploadedBytes());
+        client.set("activeWorkerThreads",
+            s3Logic.value()->getThreadPoolActiveThreads());
+
+        // Check if S3Logic has lost connection to the provider
+        if (!s3Logic.value()->isConnected()) {
+            LOG(WARNING) << "Connection to Oneprovider lost for session: "
+                         << sessionId;
+            isOk = false;
+        }
+
+        clients.add(std::move(client));
+    }
+
+    return isOk;
+}
+
+folly::IOThreadPoolExecutor *S3LogicCache::executor()
+{
+    if (!m_executor)
+        return nullptr;
+    return m_executor.get();
+}
 } // namespace s3
 } // namespace one

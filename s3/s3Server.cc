@@ -1757,7 +1757,7 @@ void S3Server::readinessProbe(
 
         response->setStatusCode(isOk
                 ? drogon::HttpStatusCode::k200OK
-                : drogon::HttpStatusCode::k500InternalServerError);
+                : drogon::HttpStatusCode::k503ServiceUnavailable);
         response->addHeader("content-length", std::to_string(bodyStr.size()));
         response->setContentTypeString("application/json");
         response->setBody(std::move(bodyStr));
@@ -1765,6 +1765,8 @@ void S3Server::readinessProbe(
         callback(response);
     }
     catch (const one::s3::error::S3Exception &e) {
+        LOG(ERROR) << "Failed to prepare the readiness probe response: "
+                   << e.what();
         e.fillResponse(response);
         callback(response);
     }
