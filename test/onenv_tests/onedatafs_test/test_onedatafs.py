@@ -30,7 +30,7 @@ def test_onedatafs_create_destroy_instance(onezone_ip, onezone_admin_token):
     space_name = 'test_onedatafs'
     test_file = random_str(10)
 
-    for i in range(0,10):
+    for i in range(0, 10):
         odfs = onedatafs.OnedataFS(
             onezone_ip,
             onezone_admin_token,
@@ -42,15 +42,14 @@ def test_onedatafs_create_destroy_instance(onezone_ip, onezone_admin_token):
 
 def test_onedatafs_should_raise_exception_on_bad_token(onezone_ip,
                                                        onezone_admin_token):
-
     with pytest.raises(RuntimeError) as excinfo:
-            odfs = onedatafs.OnedataFS(
-                onezone_ip,
-                'BAD_TOKEN',
-                port=443,
-                insecure=True,
-                force_proxy_io=True)
-            odfs.readdir('', 1000, 0)
+        odfs = onedatafs.OnedataFS(
+            onezone_ip,
+            'BAD_TOKEN',
+            port=443,
+            insecure=True,
+            force_proxy_io=True)
+        odfs.readdir('', 1000, 0)
 
     assert "HTTP Exception" in str(excinfo.value)
 
@@ -64,7 +63,7 @@ def test_onedatafs_read_write(odfs_proxy):
     chunk = handle.read(0, 4)
     handle.close()
 
-    assert(chunk == b'TEST')
+    assert (chunk == b'TEST')
 
     odfs_proxy.unlink(f'{space_name}/{test_file}')
     odfs_proxy.close()
@@ -79,7 +78,7 @@ def test_onedatafs_read_write_direct(odfs_direct):
     chunk = handle.read(0, 4)
     handle.close()
 
-    assert(chunk == b'TEST')
+    assert (chunk == b'TEST')
 
     odfs_direct.unlink(f'{space_name}/{test_file}')
     odfs_direct.close()
@@ -93,7 +92,7 @@ def test_onedatafs_stat(odfs_proxy):
     handle.write(b'TEST', 0)
     chunk = handle.read(0, 4)
     handle.close()
-    assert(chunk == b'TEST')
+    assert (chunk == b'TEST')
 
     attrs = odfs_proxy.stat(f'{space_name}/{test_file}')
     assert attrs.size == 4
@@ -129,7 +128,7 @@ def test_onedatafs_readdir(odfs_proxy):
 
     attrs = odfs_proxy.mkdir(dir)
 
-    file_list = [f'f_{i}' for i in range(0,10)]
+    file_list = [f'f_{i}' for i in range(0, 10)]
 
     for f in file_list:
         odfs_proxy.open(f'{dir}/{f}').close()
@@ -152,7 +151,7 @@ def test_onedatafs_rename(odfs_proxy):
     handle.write(b'TEST', 0)
     chunk = handle.read(0, 4)
     handle.close()
-    assert(chunk == b'TEST')
+    assert (chunk == b'TEST')
 
     odfs_proxy.rename(f'{dir}/{test_file}',
                       f'{space_name}/{test_file}')
@@ -178,7 +177,7 @@ def test_onedatafs_xattr_handling(odfs_proxy):
     handle.write(b'TEST', 0)
     chunk = handle.read(0, 4)
     handle.close()
-    assert(chunk == b'TEST')
+    assert (chunk == b'TEST')
 
     odfs_proxy.setxattr(file, 'license', '\"CC-0\"', True, False)
     assert 'license' in odfs_proxy.listxattr(file)
@@ -197,7 +196,7 @@ def test_onedatafs_xattr_handling(odfs_proxy):
     ],
 )
 def test_read_file_remote(odfs_proxy, oneprovider_ip, onezone_admin_token,
-                           size):
+                          size):
     class FileLocationNotYetReplicated(Exception):
         "Raised when file location is not yet replicated between providers"
         pass
@@ -255,4 +254,63 @@ def test_read_file_remote(odfs_proxy, oneprovider_ip, onezone_admin_token,
     assert success
 
 
+def test_onedatafs_read_write_multiprovider(odfs_proxy):
+    space_name = 'test_onedatafs'
+    space_name_2 = 'test_onedatafs_2'
 
+    test_file = random_str(10)
+
+    handle = odfs_proxy.open(f'{space_name}/{test_file}')
+    handle.write(b'TEST', 0)
+    chunk = handle.read(0, 4)
+    handle.close()
+
+    assert (chunk == b'TEST')
+
+    odfs_proxy.unlink(f'{space_name}/{test_file}')
+
+    handle = odfs_proxy.open(f'{space_name_2}/{test_file}')
+    handle.write(b'TEST', 0)
+    chunk = handle.read(0, 4)
+    handle.close()
+
+    assert (chunk == b'TEST')
+
+    odfs_proxy.unlink(f'{space_name_2}/{test_file}')
+    odfs_proxy.close()
+
+
+def test_onedatafs_read_write_multiprovider(odfs_proxy):
+    space_name = 'test_onedatafs'
+    space_name_2 = 'test_onedatafs_2'
+
+    test_file = random_str(10)
+
+    handle = odfs_proxy.open(f'{space_name}/{test_file}')
+    handle.write(b'TEST', 0)
+    chunk = handle.read(0, 4)
+    handle.close()
+
+    assert (chunk == b'TEST')
+
+    odfs_proxy.unlink(f'{space_name}/{test_file}')
+
+    handle = odfs_proxy.open(f'{space_name_2}/{test_file}')
+    handle.write(b'TEST', 0)
+    chunk = handle.read(0, 4)
+    handle.close()
+
+    assert (chunk == b'TEST')
+
+    odfs_proxy.unlink(f'{space_name_2}/{test_file}')
+    odfs_proxy.close()
+
+
+def test_onedatafs_xattr_multiprovider(odfs_proxy):
+    space_name = 'test_onedatafs'
+    space_name_2 = 'test_onedatafs_2'
+
+    provider_id = odfs_proxy.getxattr(space_name, "org.onedata.provider_id")
+    provider_id_2 = odfs_proxy.getxattr(space_name_2, "org.onedata.provider_id")
+
+    assert provider_id != provider_id_2

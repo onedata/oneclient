@@ -624,14 +624,24 @@ boost::python::object OnedataFS::getxattr(
     ReleaseGIL guard;
 
     return viaProviderGet(path, [this, path, name](auto &&fsLogic) mutable {
-        auto res =
-            fsLogic->getxattr(uuidFromPath(fsLogic, path), name).toStdString();
-        if (res.empty())
-            return boost::python::object(
-                boost::python::handle<>(PyBytes_FromStringAndSize(nullptr, 0)));
+        std::string result;
+
+        // Return provider id for ino if request 'org.onedata.provider_id'
+        if (name == "org.onedata.provider_id") {
+            const auto &[spaceId, providerId] = getSpaceAndProviderId(path);
+
+            result = "\"" + providerId + "\"";
+        }
+        else {
+            result = fsLogic->getxattr(uuidFromPath(fsLogic, path), name)
+                         .toStdString();
+            if (result.empty())
+                return boost::python::object(boost::python::handle<>(
+                    PyBytes_FromStringAndSize(nullptr, 0)));
+        }
 
         return boost::python::object(boost::python::handle<>(
-            PyBytes_FromStringAndSize(res.c_str(), res.size())));
+            PyBytes_FromStringAndSize(result.c_str(), result.size())));
     });
 }
 

@@ -8,6 +8,7 @@ import requests
 import time
 from contextlib import contextmanager
 
+
 @contextmanager
 def timer() -> float:
     start = time.perf_counter()
@@ -29,6 +30,7 @@ def random_path(size=random_int(3, 10)):
 
 def random_bytes(size=random_int()):
     return random_str(size).encode('utf-8')
+
 
 def put_file(oneprovider_host, token, bucket_name, path, data,
              content_type='application/octet-stream'):
