@@ -200,7 +200,15 @@ def s3_server(request, onezone_ip, oneprovider_ip, ceph_monitor_ip,
     print(f"-- Starting ones3 server: {ones3_cli}")
     time.sleep(15)
     print("-- Done")
-    request.addfinalizer(proc.kill)
+
+    # Finalizer to send SIGTERM to the process when the fixture is torn down
+    def cleanup():
+        print("-- Stopping ones3 server")
+        proc.terminate()  # Sends SIGTERM signal
+        proc.wait()  # Waits for the process to terminate
+        print("-- ones3 server stopped")
+
+    request.addfinalizer(cleanup)
 
 
 def create_s3client(s3_endpoint, access_token, secret_key):
