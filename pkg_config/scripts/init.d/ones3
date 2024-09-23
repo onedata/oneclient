@@ -1,0 +1,107 @@
+#! /bin/bash
+### BEGIN INIT INFO
+# Provides:          ones3
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: OneS3
+# Description:       Onedata scalable S3 proxy service
+### END INIT INFO
+
+NAME=ones3
+DAEMON=/opt/$NAME/bin/$NAME
+SCRIPTNAME=/etc/init.d/$NAME
+
+CONFIG_PATH=/etc/ones3.conf
+
+test -f $DAEMON || exit 0
+
+# Read configuration variable file if it is present
+[ -r /etc/default/$NAME ] && . /etc/default/$NAME
+
+# Load the VERBOSE setting and other rcS variables
+. /lib/init/vars.sh
+. /lib/lsb/init-functions
+
+
+#
+# Function that starts the daemon/service
+#
+do_start()
+{
+    # Return
+    #   0 if daemon has been started
+    #   1 if daemon was already running
+    #   2 if daemon could not be started
+
+    # Startup with the appropriate user
+    start-stop-daemon --start -b \
+        --name $NAME \
+        --exec $DAEMON -- --ignore-env -c $CONFIG_PATH \
+        || return 2
+}
+
+#
+# Function that stops the daemon/service
+#
+do_stop()
+{
+    # Return
+    #   0 if daemon has been stopped
+    #   1 if daemon was already stopped
+    #   2 if daemon could not be stopped
+    #   other if a failure occurred
+    # Make sure it's down by using a more direct approach
+    start-stop-daemon --stop \
+                      --quiet \
+                      --name $NAME \
+                      --exec $DAEMON \
+                      --retry=TERM/30/KILL/5
+}
+
+running() {
+    pidofproc $DAEMON >/dev/null
+    errcode=$?
+    return $errcode
+}
+
+case "$1" in
+    start)
+        if running ; then
+            log_warning_msg "$NAME is already started"
+            exit 0
+        fi
+        log_daemon_msg "Starting $NAME"
+        do_start && log_success_msg "Started $NAME"
+        ;;
+
+    stop)
+        log_daemon_msg "Stopping $NAME"
+        if do_stop; then
+            log_success_msg "Stopped $NAME"
+        else
+            log_failure_msg "Failed to stop $NAME"
+        fi
+        ;;
+    restart)
+        log_daemon_msg "Restarting $NAME"
+        do_stop
+        log_success_msg "Stopped $NAME"
+        do_start
+        log_success_msg "Started $NAME"
+        ;;
+    status)
+        if running ; then
+            log_success_msg "$NAME is running"
+            exit 0
+        else
+            log_success_msg "$NAME is not running"
+            exit 3
+        fi
+        ;;
+    *)
+        echo "Usage: $SCRIPTNAME {start|stop|restart|status}" >&2
+        exit 3
+        ;;
+esac
