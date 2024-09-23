@@ -1,5 +1,6 @@
 etc/oneclient.conf
 etc/ones3.conf
+etc/init.d/ones3
 var/lib/oneclient/oneclient.bash-completion
 var/lib/oneclient/_oneclient
 usr/bin/oneclient
