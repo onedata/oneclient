@@ -422,6 +422,7 @@ ones3_tar $(ONECLIENT_FPMPACKAGE_TMP)/ones3-bin.tar.gz:
 	# Create directory structure
 	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/bin
 	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/etc
+	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/etc/init.d
 	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/lib
 	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/xlator
 	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/rpc-transport
@@ -436,6 +437,7 @@ ones3_tar $(ONECLIENT_FPMPACKAGE_TMP)/ones3-bin.tar.gz:
 		-t docker.onedata.org/oneclient-base:$(ONECLIENT_BASE_IMAGE) \
 		-c 'cp /usr/bin/ones3 /output/bin && \
 		    cp /etc/ones3.conf /output/etc && \
+		    cp /etc/init.d/ones3 /output/etc/init.d && \
 		    cp -r /lib/x86_64-linux-gnu/* /output/lib/ && \
 	        cp -r /usr/lib/x86_64-linux-gnu/libXrd* /output/lib/ && \
 	        cp -r /usr/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/xlator/* /output/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/xlator/ && \
