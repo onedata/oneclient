@@ -4,6 +4,8 @@
 
 ### 21.02.7
 
+-   **VFS-12332** Added init.d scripts to ones3 service.
+
 ### 21.02.6
 
 -   **VFS-12276** Added --ignore-env to oneclient and ones3 to ignore
