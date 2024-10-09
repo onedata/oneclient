@@ -53,7 +53,49 @@ struct OptionsTest : public ::testing::Test {
     std::vector<const char *> cmdArgs;
     std::vector<const char *> envArgs;
     std::vector<const char *> fileArgs;
-    one::client::options::Options options{};
+    one::client::options::Options options{
+        one::messages::handshake::ClientType::oneclient};
+};
+
+struct OneS3OptionsTest : public ::testing::Test {
+    OneS3OptionsTest()
+        : configFilePath{boost::filesystem::temp_directory_path() /
+              boost::filesystem::unique_path()}
+        , cmdArgs{"oneclient"}
+        , envArgs{"oneclient"}
+        , fileArgs{"oneclient", "-c", configFilePath.c_str()}
+    {
+    }
+
+    ~OneS3OptionsTest()
+    {
+        for (const std::string env :
+            {"CONFIG", "PROVIDER_HOST", "PROVIDER_PORT", "INSECURE",
+                "ACCESS_TOKEN", "AUTHORIZATION_TOKEN", "LOG_DIR",
+                "FUSE_FOREGROUND", "FUSE_DEBUG", "FUSE_SINGLE_THREAD",
+                "FUSE_MOUNT_OPT", "FUSE_MOUNTPOINT"}) {
+            unsetenv(env.c_str());
+            unsetenv(("ONECLIENT_" + env).c_str());
+        }
+
+        boost::system::error_code ec;
+        boost::filesystem::remove_all(configFilePath, ec);
+    }
+
+    void setInConfigFile(const std::string &key, const std::string &value)
+    {
+        std::ofstream configFile;
+        configFile.open(configFilePath.c_str(), std::ios_base::app);
+        configFile << key << " = " << value << std::endl;
+        configFile.close();
+    }
+
+    boost::filesystem::path configFilePath;
+    std::vector<const char *> cmdArgs;
+    std::vector<const char *> envArgs;
+    std::vector<const char *> fileArgs;
+    one::client::options::Options options{
+        one::messages::handshake::ClientType::ones3};
 };
 
 TEST_F(OptionsTest, formatHelpShouldReturnNonemptyString)
@@ -158,10 +200,13 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
         options.getRandomReadPrefetchClusterBlockThreshold());
     EXPECT_EQ(0.0, options.getRandomReadPrefetchClusterWindowGrowFactor());
     EXPECT_EQ(0, options.getEmulateAvailableSpace());
+    EXPECT_EQ(options::DEFAULT_ONES3_BUCKET_SPACEID_CACHE_EXPIRATION_SECONDS,
+        options.getOneS3BucketIdCacheExpirationTime());
     EXPECT_FALSE(options.getProviderHost());
     EXPECT_FALSE(options.getAccessToken());
     EXPECT_FALSE(options.isReadWritePerfEnabled());
     EXPECT_FALSE(options.isIgnoreEnv());
+    EXPECT_FALSE(options.isOneS3BucketIdCacheExpirationAbsolute());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldCreateKeyValueMap)
@@ -1169,4 +1214,39 @@ TEST_F(OptionsTest, parseShouldSetOptionsInOrder)
     options = one::client::options::Options{};
     options.parse(fileArgs.size(), fileArgs.data());
     EXPECT_EQ("someHost3", options.getProviderHost().get());
+}
+
+TEST_F(OneS3OptionsTest, parseCommandLineShouldReturnOneS3SupportStorageId)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"-Z", "localhost", "--ones3-support-storage-id", "ABCD"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_TRUE(options.getOneS3SupportStorageId().value() == "ABCD");
+}
+
+TEST_F(OneS3OptionsTest, parseCommandLineShouldReturnOneS3SupportStorage)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"-Z", "localhost", "--ones3-support-storage-size", "1024"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_TRUE(options.getOneS3SupportStorageSize() == 1024);
+}
+
+TEST_F(OneS3OptionsTest,
+    parseCommandLineShouldReturnOneS3BucketIdCacheExpirationTime)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"-Z", "localhost", "--ones3-bucketid-cache-expiration", "15"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_TRUE(options.getOneS3BucketIdCacheExpirationTime() ==
+        std::chrono::seconds{15});
+}
+
+TEST_F(OneS3OptionsTest,
+    parseCommandLineShouldReturnOneS3BucketIdCacheExpirationAbsolute)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"-Z", "localhost", "--ones3-bucketid-cache-expiration-absolute"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_TRUE(options.isOneS3BucketIdCacheExpirationAbsolute());
 }

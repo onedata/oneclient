@@ -1,0 +1,10 @@
+{
+  "image": "onedata/builder:2102-10",
+
+  "customizations": {
+    "vscode": {
+      "extensions": ["streetsidesoftware.code-spell-checker"]
+    }
+  },
+  "forwardPorts": [3000]
+  }
