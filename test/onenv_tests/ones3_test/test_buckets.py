@@ -9,6 +9,7 @@ import hashlib
 import time
 from concurrent.futures import ThreadPoolExecutor, wait, ALL_COMPLETED
 from .common import *
+from .conftest import s3_client
 
 
 def test_create_delete_bucket(s3_client, uuid_str, s3_server):
@@ -769,3 +770,50 @@ def test_list_objects_v2_skips_hidden_mpu_directory(s3_client, bucket):
             continuation_token = res['NextContinuationToken']
 
     assert (len(contents) == size + 1)
+
+
+def test_bucket_spaceid_cache_invalidates_entries(s3_client_bucket_cache_invalidation,
+                                                    onezone_admin_token,
+                                                    onezone_ip,
+                                                    uuid_str):
+    bucket = uuid_str
+    bucket_new = uuid_str+"_NEW"
+    key = 'file.txt'
+
+    s3_client_bucket_cache_invalidation.create_bucket(Bucket=bucket, CreateBucketConfiguration={
+        'LocationConstraint': 'pl-reg-w3'})
+    res = s3_client_bucket_cache_invalidation.list_buckets()
+    buckets = res['Buckets']
+
+    assert (list(map(lambda b: b['Name'] == bucket, buckets)).count(True) == 1)
+
+    s3_client_bucket_cache_invalidation.put_object(Bucket=bucket, Key=key, Body=b'TEST')
+
+    space_id = get_space_id(onezone_ip, onezone_admin_token, bucket)
+
+    rename_space(onezone_ip, onezone_admin_token, space_id, bucket_new)
+
+    # The bucket should still work here under the old name
+    res = s3_client_bucket_cache_invalidation.get_object(Bucket=bucket, Key=key)
+    assert (res['Body'].read() == b'TEST')
+
+    time.sleep(4)
+
+    # Now the old bucket name should not be visible
+    with pytest.raises(s3_client_bucket_cache_invalidation.exceptions.ClientError) as excinfo:
+        s3_client_bucket_cache_invalidation.get_object(Bucket=bucket, Key=key)
+
+    assert 'NoSuchBucket' in str(excinfo.value)
+
+    # But the bucket should work under new name
+    res = s3_client_bucket_cache_invalidation.get_object(Bucket=bucket_new, Key=key)
+    assert (res['Body'].read() == b'TEST')
+
+    res = s3_client_bucket_cache_invalidation.list_buckets()
+    buckets = res['Buckets']
+
+    assert (list(map(lambda b: b['Name'] == bucket_new, buckets)).count(True) == 1)
+
+    s3_client_bucket_cache_invalidation.delete_object(Bucket=bucket_new, Key=key)
+
+    s3_client_bucket_cache_invalidation.delete_bucket(Bucket=bucket_new)
