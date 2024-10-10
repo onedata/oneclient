@@ -67,6 +67,7 @@ def add_user_to_space(onezone_ip, user_id, space_id, privileges):
                        auth=requests.auth.HTTPBasicAuth('admin', 'password'),
                        headers={'content-type': 'application/json'},
                        verify=False)
+    assert res.ok
 
 
 def remove_user_from_space(onezone_ip, user_id, space_id):
@@ -76,6 +77,20 @@ def remove_user_from_space(onezone_ip, user_id, space_id):
                           auth=requests.auth.HTTPBasicAuth('admin', 'password'),
                           headers={'content-type': 'application/json'},
                           verify=False)
+    assert res.ok
+
+
+def rename_space(onezone_ip, token, space_id, new_name):
+    spaces_endpoint = f'https://{onezone_ip}/api/v3/onezone/' \
+                      f'spaces/{space_id}'
+    res = requests.patch(spaces_endpoint, json={"name": new_name},
+                       #auth=requests.auth.HTTPBasicAuth('admin', 'password'),
+                       headers={'X-Auth-Token': token, 'content-type': 'application/json'},
+                       verify=False)
+    if not res.ok:
+        print(res.content)
+
+    assert res.ok
 
 
 def put_file(oneprovider_host, token, bucket_name, path, data,

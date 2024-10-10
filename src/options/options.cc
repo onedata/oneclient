@@ -25,10 +25,19 @@ namespace options {
 
 Options::Options(messages::handshake::ClientType clientType)
     : m_clientType{clientType}
-    , m_defaultConfigFilePath{boost::filesystem::path(ONECLIENT_CONFIG_DIR) /
-          boost::filesystem::path(CONFIG_FILE_NAME)}
     , m_defaultLogDirPath{"/tmp/oneclient/" + std::to_string(geteuid())}
 {
+    if (clientType == messages::handshake::ClientType::ones3) {
+        m_defaultConfigFilePath =
+            boost::filesystem::path(ONECLIENT_CONFIG_DIR) /
+            boost::filesystem::path(CONFIG_FILE_NAME);
+    }
+    else {
+        m_defaultConfigFilePath =
+            boost::filesystem::path(ONECLIENT_CONFIG_DIR) /
+            boost::filesystem::path(ONES3_CONFIG_FILE_NAME);
+    }
+
     add<bool>()
         ->asSwitch()
         .withShortName("h")
@@ -909,6 +918,30 @@ Options::Options(messages::handshake::ClientType clientType)
             .withGroup(OptionGroup::ONES3)
             .withDescription("Specifies the basic authentication for OneS3 "
                              "readiness probe (default none).");
+
+        add<unsigned int>()
+            ->withEnvName("ones3_bucketid_cache_expiration")
+            .withLongName("ones3-bucketid-cache-expiration")
+            .withConfigName("ones3_bucketid_cache_expiration")
+            .withValueName("<seconds>")
+            .withDefaultValue(
+                DEFAULT_ONES3_BUCKET_SPACEID_CACHE_EXPIRATION_SECONDS.count(),
+                "")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription("Time in seconds after which bucket to space id "
+                             "mapping cache entries are invalidated.");
+
+        add<bool>()
+            ->asSwitch()
+            .withEnvName("ones3_bucketid_cache_expiration_absolute")
+            .withLongName("ones3-bucketid-cache-expiration-absolute")
+            .withConfigName("ones3_bucketid_cache_expiration_absolute")
+            .withImplicitValue(true)
+            .withDefaultValue(false, "false")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription(
+                "Specifies that bucket to space id mapping cache entries are "
+                "expiration time relates to creation time not last use.");
     }
 
     if (m_clientType == messages::handshake::ClientType::oneclient) {
@@ -1550,6 +1583,24 @@ boost::optional<std::string> Options::getOneS3SupportStorageId() const
 {
     return get<std::string>({"ones3-support-storage-id",
         "ones3_support_storage_id", "ones3_support_storage_id"});
+}
+
+std::chrono::seconds Options::getOneS3BucketIdCacheExpirationTime() const
+{
+    return std::chrono::seconds{
+        get<unsigned int>({"ones3-bucketid-cache-expiration",
+                              "ones3_bucketid_cache_expiration",
+                              "ones3_bucketid_cache_expiration"})
+            .get_value_or(
+                DEFAULT_ONES3_BUCKET_SPACEID_CACHE_EXPIRATION_SECONDS.count())};
+}
+
+bool Options::isOneS3BucketIdCacheExpirationAbsolute() const
+{
+    return get<bool>({"ones3-bucketid-cache-expiration-absolute",
+                         "ones3_bucketid_cache_expiration_absolute",
+                         "ones3_bucketid_cache_expiration_absolute"})
+        .get_value_or(false);
 }
 
 bool Options::areOneS3BucketOperationsDisabled() const

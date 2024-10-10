@@ -89,21 +89,38 @@ folly::Optional<size_t> getParameter(
     LOG_DBG(1) << fmt::format(                                                 \
         "ones3 [{}] ERROR: {}: {}", REQUEST_ID_, MESSAGE_, REASON_);
 
-bool S3Server::bucketNameCached(const std::string &name) const
+folly::Optional<std::string> S3Server::getCachedBucketId(
+    const std::string &name) const
 {
-    return m_bucketNameCache.find(name) != m_bucketNameCache.end();
-}
+    std::lock_guard<std::mutex> guard{m_bucketNameCacheMutex};
 
-std::string S3Server::getCachedBucketId(const std::string &name) const
-{
-    return m_bucketNameCache.at(name);
+    if (m_bucketNameCache.find(name) == m_bucketNameCache.end())
+        return {};
+
+    auto &cacheEntry = m_bucketNameCache.at(name);
+
+    if (std::chrono::steady_clock::now() - cacheEntry.second >
+        m_options->getOneS3BucketIdCacheExpirationTime()) {
+        LOG_DBG(3) << "Invalidated SpaceId cache for bucket " << name;
+        m_bucketNameCache.erase(name);
+        return {};
+    }
+
+    if (!m_options->isOneS3BucketIdCacheExpirationAbsolute())
+        cacheEntry.second = std::chrono::steady_clock::now();
+
+    return cacheEntry.first;
 }
 
 void S3Server::cacheBucketName(
     const std::string &name, const std::string &id) const
 {
-    LOG_DBG(3) << "Caching bucket " << name << " --> " << id;
-    m_bucketNameCache.emplace(name, id);
+    LOG_DBG(3) << "Caching bucket " << name << " with SpaceId " << id;
+
+    std::lock_guard<std::mutex> guard{m_bucketNameCacheMutex};
+
+    m_bucketNameCache.emplace(
+        name, std::make_pair(id, std::chrono::steady_clock::now()));
 }
 
 std::string S3Server::getRequestId() const
@@ -307,7 +324,7 @@ void S3Server::putBucket(const HttpRequestPtr &req,
 
         setOnepanelCredentials(bucket, requestId, onepanelClient);
 
-        if (bucketNameCached(bucket))
+        if (getCachedBucketId(bucket).hasValue())
             throw one::s3::error::BucketAlreadyOwnedByYou(
                 bucket, bucket, requestId);
 
@@ -425,7 +442,7 @@ bool S3Server::ensureSpaceIsSupported(const std::string &bucket,
     const HttpResponseCallback &callback, const std::string &requestId,
     const std::string &token, bool emptyBodyOn404) const
 {
-    if (bucketNameCached(bucket))
+    if (getCachedBucketId(bucket))
         return true;
 
     auto response = HttpResponse::newHttpResponse();
@@ -1775,8 +1792,15 @@ void S3Server::readinessProbe(
 std::string S3Server::toMetricName(
     const std::string &op, const std::string &bucket) const
 {
+    assert(getCachedBucketId(bucket).hasValue());
+
+    auto maybeBucketId = getCachedBucketId(bucket);
+
+    if (!maybeBucketId.hasValue())
+        return fmt::format("comp.ones3.mod.s3server.{}.{}", op, bucket);
+
     return fmt::format(
-        "comp.ones3.mod.s3server.{}.{}", op, getCachedBucketId(bucket));
+        "comp.ones3.mod.s3server.{}.{}", op, getCachedBucketId(bucket).value());
 }
 } // namespace s3
 } // namespace one

@@ -34,6 +34,7 @@ namespace options {
 
 namespace {
 static constexpr auto CONFIG_FILE_NAME = "oneclient.conf";
+static constexpr auto ONES3_CONFIG_FILE_NAME = "ones3.conf";
 static constexpr auto ENVIRONMENT_PREFIX = "ONECLIENT_";
 static constexpr auto DEFAULT_PROVIDER_PORT = 443;
 static constexpr auto DEFAULT_BUFFER_SCHEDULER_THREAD_COUNT = 1;
@@ -74,6 +75,8 @@ static constexpr auto DEFAULT_ONES3_IDLE_CONNECTION_TIMEOUT = 180;
 static constexpr auto DEFAULT_ONES3_KEEPALIVE_REQUESTS_MAX = 1024;
 static constexpr auto DEFAULT_ONES3_GET_STREAM_THRESHOLD = 2 * 1024 * 1024ULL;
 static constexpr auto DEFAULT_ONES3_FILE_MODE = "0664";
+static constexpr auto DEFAULT_ONES3_BUCKET_SPACEID_CACHE_EXPIRATION_SECONDS =
+    std::chrono::seconds{30};
 
 #if defined(__APPLE__)
 static constexpr auto DEFAULT_EMULATE_AVAILABLE_SPACE =
@@ -576,6 +579,10 @@ public:
     boost::optional<std::string> getOneS3SupportStorageCredentials() const;
 
     boost::optional<std::string> getOneS3SupportStorageId() const;
+
+    std::chrono::seconds getOneS3BucketIdCacheExpirationTime() const;
+
+    bool isOneS3BucketIdCacheExpirationAbsolute() const;
 
     /**
      * @brief Check, if bucket create and delete operations should be disabled.

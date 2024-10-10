@@ -67,6 +67,12 @@ parser.add_argument(
     help='Run tests as root in container',
     dest='no_shed_privileges')
 
+parser.add_argument(
+    '--cpuset-cpus',
+    action='store',
+    default=None,
+    help='CPUs in which to allow execution (0-3, 0,1)',
+    dest='cpuset_cpus')
 
 [args, pass_args] = parser.parse_known_args()
 dockers_config.ensure_image(args, 'image', 'builder')
@@ -207,6 +213,7 @@ ret = docker.run(tty=True,
                  envs=envs,
                  add_host=add_hosts,
                  run_params=['--privileged'] if args.gdb or args.no_shed_privileges else [],
+                 cpuset_cpus=args.cpuset_cpus,
                  command=['python', '-c', command])
 
 if not args.no_clean:
