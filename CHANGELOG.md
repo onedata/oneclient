@@ -1,8 +1,10 @@
-Release notes for project oneclient
-===================================
+# Release notes for project oneclient
 
-CHANGELOG
----------
+## CHANGELOG
+
+### 21.02.7
+
+-   **VFS-12332** Added init.d scripts to ones3 service.
 
 ### 21.02.6
 
