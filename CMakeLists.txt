@@ -173,7 +173,7 @@ else(FETCH_FOLLY)
         SOURCE_SUBDIR     wangle
         DEPENDS           fizz-install
         INSTALL_DIR       ${CMAKE_BINARY_DIR}/contrib
-        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC';-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/contrib;-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
+        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC';-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/contrib;-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib;-DBUILD_TESTS=OFF;-DBUILD_EXAMPLES=OFF;-DCMAKE_CROSSCOMPILING=ON"
     )
     ExternalProject_Add_StepTargets(wangle install)
     ExternalProject_Add(proxygen
