@@ -229,7 +229,8 @@ public:
 private:
     std::string getRequestId() const;
 
-    folly::Optional<std::string> getCachedBucketId(const std::string &name) const;
+    folly::Optional<std::string> getCachedBucketId(
+        const std::string &name) const;
 
     void cacheBucketName(const std::string &name, const std::string &id) const;
 
@@ -321,12 +322,10 @@ private:
     mutable boost::uuids::basic_random_generator<std::mt19937> m_uuidGenerator;
 
     mutable std::mutex m_bucketNameCacheMutex;
-    mutable /*folly::ConcurrentHashMap*/
-        std::map<std::string /* bucketName */,
-            std::pair<std::string /* spaceId */,
-                std::chrono::time_point<
-                    std::chrono::steady_clock> /* lastUsed */>>
-            m_bucketNameCache;
+    mutable std::map<std::string /* bucketName */,
+        std::pair<std::string /* spaceId */,
+            std::chrono::time_point<std::chrono::steady_clock> /* lastUsed */>>
+        m_bucketNameCache;
 
     mutable std::atomic<bool> m_stopping{false};
 };
