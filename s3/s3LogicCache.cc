@@ -81,7 +81,7 @@ bool S3LogicCache::updateClientStatus(Poco::JSON::Array &clients)
 {
     using one::client::util::md5::md5;
 
-    bool isOk{true};
+    bool isOk{m_cache.empty()};
     std::lock_guard<std::mutex> l{m_cacheMutex};
     for (auto &it : m_cache) {
         const auto key = it.first;
@@ -107,10 +107,10 @@ bool S3LogicCache::updateClientStatus(Poco::JSON::Array &clients)
             s3Logic.value()->getThreadPoolActiveThreads());
 
         // Check if S3Logic has lost connection to the provider
-        if (!s3Logic.value()->isConnected()) {
-            LOG(WARNING) << "Connection to Oneprovider lost for session: "
+        if (s3Logic.value()->isConnected()) {
+            LOG(WARNING) << "Connection to Oneprovider available for session: "
                          << sessionId;
-            isOk = false;
+            isOk = true;
         }
 
         clients.add(client);
