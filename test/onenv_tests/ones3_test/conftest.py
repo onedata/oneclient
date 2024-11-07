@@ -29,10 +29,12 @@ FIXTURE_SCOPE = "session"
 
 def pytest_collection_modifyitems(session, config, items):
     # Filter out tests marked with the custom `run_first` decorator
-    first_tests = [item for item in items if hasattr(item.function, "_run_first")]
+    first_tests = [item for item in items if
+                   hasattr(item.function, "_run_first")]
 
     # Remaining tests
-    remaining_tests = [item for item in items if not hasattr(item.function, "_run_first")]
+    remaining_tests = [item for item in items if
+                       not hasattr(item.function, "_run_first")]
 
     # Reorder the items so that first_tests are executed first
     items[:] = first_tests + remaining_tests
@@ -127,7 +129,36 @@ def onezone_readonly_token(onezone_ip):
                                 "accessToken": {}
                             },
                             "caveats": [{
-                                "type": "data.readonly",
+                                "type": "interface",
+                                "interface": "oneclient"
+                            }, {
+                                "type": "data.readonly"
+                            }, {
+                                "type":
+                                    "time",
+                                "validUntil":
+                                    int(time.time()) + 2592000
+                            }]
+                        },
+                        headers=headers,
+                        auth=requests.auth.HTTPBasicAuth('admin', 'password'),
+                        verify=False)
+    return res.json()["token"]
+
+
+@pytest.fixture(scope=FIXTURE_SCOPE)
+def onezone_oneclient_interface_token(onezone_ip):
+    """Generate new oneclient interface caveat token."""
+    temporary_token_path = 'api/v3/onezone/user/tokens/temporary'
+    tokens_endpoint = f'https://{onezone_ip}/{temporary_token_path}'
+    headers = {'content-type': 'application/json'}
+    res = requests.post(tokens_endpoint,
+                        json={
+                            "type": {
+                                "accessToken": {}
+                            },
+                            "caveats": [{
+                                "type": "interface",
                                 "interface": "oneclient"
                             }, {
                                 "type":
@@ -139,6 +170,7 @@ def onezone_readonly_token(onezone_ip):
                         headers=headers,
                         auth=requests.auth.HTTPBasicAuth('admin', 'password'),
                         verify=False)
+
     return res.json()["token"]
 
 
@@ -175,17 +207,22 @@ def s3_host():
 def s3_port():
     return '8080'
 
+
 @pytest.fixture(scope=FIXTURE_SCOPE)
 def s3_port_bucket_cache_invalidation():
     return '8081'
+
 
 @pytest.fixture(scope=FIXTURE_SCOPE)
 def s3_endpoint(s3_host, s3_port):
     return f'http://{s3_host}:{s3_port}'
 
+
 @pytest.fixture(scope=FIXTURE_SCOPE)
-def s3_endpoint_bucket_cache_invalidation(s3_host, s3_port_bucket_cache_invalidation):
+def s3_endpoint_bucket_cache_invalidation(s3_host,
+                                          s3_port_bucket_cache_invalidation):
     return f'http://{s3_host}:{s3_port_bucket_cache_invalidation}'
+
 
 @pytest.fixture(scope=FIXTURE_SCOPE)
 def s3_server(request, onezone_ip, oneprovider_ip, ceph_monitor_ip,
@@ -218,9 +255,11 @@ def s3_server(request, onezone_ip, oneprovider_ip, ceph_monitor_ip,
 
 
 @pytest.fixture(scope=FIXTURE_SCOPE)
-def s3_server_bucket_cache_invalidation(request, onezone_ip, oneprovider_ip, ceph_monitor_ip,
-              onezone_admin_token,
-              support_storage_id, s3_port_bucket_cache_invalidation):
+def s3_server_bucket_cache_invalidation(request, onezone_ip, oneprovider_ip,
+                                        ceph_monitor_ip,
+                                        onezone_admin_token,
+                                        support_storage_id,
+                                        s3_port_bucket_cache_invalidation):
     ones3_cli = (
         f'debug/s3/ones3'
         f' --custom-ca-dir test/onenv_tests/certs'
@@ -294,6 +333,13 @@ def s3_readonly_client(s3_server, onezone_readonly_token,
                            readonly_secret_access_key)
 
 
+@pytest.fixture
+def s3_oneclient_interface_client(s3_server, onezone_oneclient_interface_token,
+                                  secret_access_key, s3_endpoint):
+    return create_s3client(s3_endpoint, onezone_oneclient_interface_token,
+                           secret_access_key)
+
+
 @pytest.fixture(scope=FIXTURE_SCOPE)
 def s3_client_invalid_key(s3_server, s3_endpoint):
     return create_s3client(s3_endpoint, 'INVALID_KEY_ID', 'INVALID_SECRET')
@@ -305,7 +351,8 @@ def s3_client_joe(onezone_joe_token, s3_server, secret_access_key, s3_endpoint):
 
 
 @pytest.fixture
-def s3_client_noone(onezone_noone_token, s3_server, secret_access_key, s3_endpoint):
+def s3_client_noone(onezone_noone_token, s3_server, secret_access_key,
+                    s3_endpoint):
     return create_s3client(s3_endpoint, onezone_noone_token, secret_access_key)
 
 
@@ -408,7 +455,6 @@ def delete_bucket(s3_client, uuid_str):
 
 @pytest.fixture
 def bucket(s3_client, uuid_str):
-
     create_bucket(s3_client, uuid_str)
 
     yield uuid_str

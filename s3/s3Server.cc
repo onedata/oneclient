@@ -452,9 +452,6 @@ bool S3Server::ensureSpaceIsSupported(const std::string &bucket,
     one::rest::onezone::OnezoneClient onezoneClient{
         m_options->getOnezoneHost().value()};
 
-    one::rest::oneprovider::OneproviderClient oneproviderClient{
-        m_options->getProviderHost().value()};
-
     try {
         try {
             // Get the space id

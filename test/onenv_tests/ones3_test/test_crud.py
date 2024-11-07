@@ -409,6 +409,42 @@ def test_get_object_remote_readonly_token(s3_client, s3_readonly_client,
     assert (retries > 0)
 
 
+@pytest.mark.parametrize(
+    "size",
+    [
+        pytest.param(1024), pytest.param(5 * 1024 * 1024)
+    ],
+)
+def test_get_object_remote_oneclient_interface_token(s3_client, s3_oneclient_interface_client,
+                                          oneprovider_2_ip, onezone_admin_token,
+                                          size):
+    bucket = 'test_get_object_remote'
+    key = random_str()
+
+    data = random_bytes(size)
+
+    r = put_file(oneprovider_2_ip, onezone_admin_token, bucket, key, data)
+
+    assert (r.status_code == 201)
+
+    retries = 10
+    while retries > 0:
+        try:
+            res = s3_oneclient_interface_client.get_object(Bucket=bucket, Key=key)
+
+            assert (res['ContentLength'] == len(data))
+            assert (res['Body'].read() == data)
+
+            break
+        except s3_client.exceptions.ClientError as e:
+            # Wait for the file to show up at oneprovider 1
+            time.sleep(2)
+        finally:
+            retries = retries - 1
+
+    assert (retries > 0)
+
+
 def test_get_object_range_multiple(s3_client, bucket, uuid_str):
     name = uuid_str
     thread_count = 100
@@ -471,6 +507,28 @@ def test_head_object_readonly_token(s3_client, s3_readonly_client, bucket):
 
     s3_client.put_object(Bucket=bucket, Key=key, Body=body)
     res = s3_readonly_client.head_object(Bucket=bucket, Key=key)
+
+    assert (res['ContentLength'] == len(body))
+    assert (res['ETag'] == f'"{etag}"')
+
+
+def test_put_object_oneclient_interface_token(s3_client,
+                                              s3_oneclient_interface_client,
+                                              bucket):
+    key = random_path()
+    key2 = random_path()
+
+    body = random_bytes()
+    etag = hashlib.md5(body).hexdigest()
+
+    s3_oneclient_interface_client.put_object(Bucket=bucket, Key=key, Body=body)
+    res = s3_oneclient_interface_client.get_object(Bucket=bucket, Key=key)
+
+    assert (res['ContentLength'] == len(body))
+    assert (res['ETag'] == f'"{etag}"')
+
+    s3_client.put_object(Bucket=bucket, Key=key2, Body=body)
+    res = s3_oneclient_interface_client.get_object(Bucket=bucket, Key=key2)
 
     assert (res['ContentLength'] == len(body))
     assert (res['ETag'] == f'"{etag}"')
