@@ -43,7 +43,7 @@ public:
 
             futs.emplace_back(
                 s3Logic.via(m_executor.get()).thenValue([](auto &&s3l) {
-                    s3l->stop();
+                    return s3l->stop();
                 }));
         }
 

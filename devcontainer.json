@@ -1,4 +1,0 @@
-{
-  "image": "onedata/builder:2102-10",
-  "runArgs": [ "--add-host=dev-oneprovider-krakow.default.svc.cluster.local:10.244.6.192", "--add-host=dev-onezone.default.svc.cluster.local:10.244.6.191" ]
-}

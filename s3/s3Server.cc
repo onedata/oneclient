@@ -290,7 +290,9 @@ void S3Server::listBuckets(
                 callback(response);
             })
         .thenError(
-            folly::tag_t<std::exception>{}, [callback](auto && /*e*/) mutable {
+            folly::tag_t<std::exception>{}, [callback](auto &&e) mutable {
+                LOG(ERROR) << "List buckets failed due to: " << e.what();
+
                 auto response = HttpResponse::newHttpResponse();
                 response->setStatusCode(drogon::k500InternalServerError);
                 callback(response);
@@ -365,13 +367,19 @@ void S3Server::putBucket(const HttpRequestPtr &req,
                 }
             }
 
-            LOG(ERROR) << "Failed to create bucket " << bucket
-                       << " - bucket not visible through CLProto...";
+            LOG_REQUEST_ERROR(requestId, "Failed to create bucket",
+                fmt::format(
+                    "{} - bucket not visible through CLProto...", bucket));
 
             throw one::s3::error::InternalServerError(
                 bucket, bucket, requestId);
         }
         catch (Poco::Net::HTTPException &e) {
+            LOG_REQUEST_ERROR(requestId,
+                fmt::format("Failed to create bucket due to HTTP exception: {}",
+                    e.code()),
+                e.what());
+
             one::s3::error::S3Exception::raiseFromPocoHTTPException(
                 e, bucket, bucket, requestId);
         }
@@ -382,7 +390,8 @@ void S3Server::putBucket(const HttpRequestPtr &req,
         callback(response);
     }
     catch (std::exception &e) {
-        LOG_REQUEST_ERROR(requestId, "Failed to create bucket", e.what());
+        LOG_REQUEST_ERROR(
+            requestId, "Failed to create bucket due to: ", e.what());
         response->setStatusCode(drogon::k500InternalServerError);
         callback(response);
     }
@@ -475,10 +484,22 @@ bool S3Server::ensureSpaceIsSupported(const std::string &bucket,
             throw one::s3::error::NoSuchBucket(bucket, bucket, requestId);
         }
         catch (Poco::Net::HTTPException &e) {
+            LOG_REQUEST_ERROR(requestId,
+                fmt::format("Failed to ensure space support due to REST HTTP "
+                            "exception: {}",
+                    e.code()),
+                e.what())
+
             one::s3::error::S3Exception::raiseFromPocoHTTPException(
                 e, bucket, bucket, requestId);
         }
         catch (Poco::Net::NetException &e) {
+            LOG_REQUEST_ERROR(requestId,
+                fmt::format("Failed to ensure space support due to REST "
+                            "network exception: {}",
+                    e.code()),
+                e.what())
+
             one::s3::error::S3Exception::raiseFromPocoNetException(
                 e, bucket, bucket, requestId);
         }
@@ -524,13 +545,19 @@ void S3Server::headBucket(const HttpRequestPtr &req,
             callback(response);
         })
         .thenError(folly::tag_t<one::s3::error::S3Exception>{},
-            [callback](auto &&e) mutable {
+            [requestId, callback](auto &&e) mutable {
+                LOG_REQUEST_ERROR(
+                    requestId, "Head object failed due to: ", e.what());
+
                 auto response = HttpResponse::newHttpResponse();
                 e.fillResponse(response);
                 callback(response);
             })
-        .thenError(
-            folly::tag_t<std::exception>{}, [callback](auto && /*e*/) mutable {
+        .thenError(folly::tag_t<std::exception>{},
+            [requestId, callback](auto &&e) mutable {
+                LOG_REQUEST_ERROR(
+                    requestId, "Head object failed due to: ", e.what());
+
                 auto response = HttpResponse::newHttpResponse();
                 response->setStatusCode(drogon::k500InternalServerError);
                 callback(response);
@@ -622,17 +649,32 @@ void S3Server::deleteBucket(const HttpRequestPtr &req,
                     break;
             }
 
-            if (retries <= 0)
+            if (retries <= 0) {
+                LOG(ERROR) << "Failed to delete bucket " << bucket << " after "
+                           << kRetryCount << " attempts.";
+
                 throw one::s3::error::InternalServerError(
                     bucket, bucket, requestId);
+            }
 
             response->setStatusCode(HttpStatusCode::k204NoContent);
         }
         catch (Poco::Net::HTTPException &e) {
+            LOG_REQUEST_ERROR(requestId,
+                fmt::format("Failed to delete bucket due to HTTP exception: {}",
+                    e.code()),
+                e.what())
+
             one::s3::error::S3Exception::raiseFromPocoHTTPException(
                 e, bucket, bucket, requestId);
         }
         catch (std::system_error &e) {
+            LOG_REQUEST_ERROR(requestId,
+                fmt::format(
+                    "Failed to delete bucket due to system exception: {}",
+                    e.code()),
+                e.what())
+
             one::s3::error::S3Exception::raiseFromSystemError(
                 e, bucket, bucket, requestId);
         }
@@ -672,13 +714,19 @@ void S3Server::getLocationConstraint(const HttpRequestPtr &req,
             callback(response);
         })
         .thenError(folly::tag_t<one::s3::error::S3Exception>{},
-            [callback](auto &&e) mutable {
+            [requestId, callback](auto &&e) mutable {
+                LOG_REQUEST_ERROR(
+                    requestId, "Head object failed due to: ", e.what());
+
                 auto response = HttpResponse::newHttpResponse();
                 e.fillResponse(response);
                 callback(response);
             })
-        .thenError(
-            folly::tag_t<std::exception>{}, [callback](auto && /*e*/) mutable {
+        .thenError(folly::tag_t<std::exception>{},
+            [requestId, callback](auto && e) mutable {
+                LOG_REQUEST_ERROR(
+                    requestId, "Head object failed due to: ", e.what());
+
                 auto response = HttpResponse::newHttpResponse();
                 response->setStatusCode(drogon::k500InternalServerError);
                 callback(response);
@@ -1093,8 +1141,6 @@ void S3Server::putCompleteObject(const HttpRequestPtr &req,
                     bodyContentType, std::move(buf))
                 .thenValue([callback, response, bodyMD5, timer](
                                auto &&written) {
-                    LOG_DBG(2) << "File uploaded";
-
                     response->addHeader("etag", fmt::format("\"{}\"", bodyMD5));
                     response->addHeader("content-length", "0");
 
@@ -1105,6 +1151,9 @@ void S3Server::putCompleteObject(const HttpRequestPtr &req,
         })
         .thenError(folly::tag_t<std::system_error>{},
             [response, callback, requestId, bucket, path](auto &&e) {
+                LOG_REQUEST_ERROR(
+                    requestId, "Put object failed due to: ", e.what());
+
                 one::s3::error::S3Exception::raiseFromSystemError(
                     e, bucket, path, requestId);
             })
@@ -1112,6 +1161,7 @@ void S3Server::putCompleteObject(const HttpRequestPtr &req,
             [response, callback, requestId](auto &&e) mutable {
                 LOG_REQUEST_ERROR(
                     requestId, "Put object failed due to: ", e.what());
+
                 e.fillResponse(response);
                 callback(response);
             })
@@ -1119,6 +1169,7 @@ void S3Server::putCompleteObject(const HttpRequestPtr &req,
             [callback, requestId](auto &&e) mutable {
                 LOG_REQUEST_ERROR(
                     requestId, "Put object failed due to: ", e.what());
+
                 auto response = HttpResponse::newHttpResponse();
                 response->setStatusCode(drogon::k500InternalServerError);
                 callback(response);

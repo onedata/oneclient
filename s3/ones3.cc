@@ -193,6 +193,11 @@ int main(int argc, char *argv[])
         drogon::app().quit();
     });
 
+    app().setIntSignalHandler([s3Server]() {
+        s3Server->stop();
+        drogon::app().quit();
+    });
+
     app().registerPostHandlingAdvice(
         [](const HttpRequestPtr &req, const HttpResponsePtr &resp) {
             if (req->method() == HttpMethod::Get ||
