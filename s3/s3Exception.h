@@ -169,6 +169,8 @@ S3_EXCEPTION(SignatureDoesNotMatch, k403Forbidden, "Forbidden")
 S3_EXCEPTION(XAMZContentSHA256Mismatch, k400BadRequest,
     "The provided 'x-amz-content-sha256' header does not match what was "
     "computed.")
+S3_EXCEPTION(ServiceUnavailable, k503ServiceUnavailable,
+    "Server is currently down.")
 
 } // namespace error
 } // namespace s3

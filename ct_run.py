@@ -123,6 +123,8 @@ if args.onenv_config is not None:
 
     print(f'One-env environment ready')
 
+    envs['ONES3_HOST'] = '0.0.0.0'
+
     # Get Onezone IP
     get_onezoneip_cli = "kubectl get pod dev-onezone-0 --template {{.status.podIP}}"
     onezone_ip = subprocess.check_output(get_onezoneip_cli.split(' ')).strip()

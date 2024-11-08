@@ -188,6 +188,16 @@ int main(int argc, char *argv[])
     app().setIdleConnectionTimeout(options->getOneS3IdleConnectionTimeout());
     app().setMaxConnectionNum(kOneS3MaxConnectionNum);
 
+    app().setTermSignalHandler([s3Server]() {
+        s3Server->stop();
+        drogon::app().quit();
+    });
+
+    app().setIntSignalHandler([s3Server]() {
+        s3Server->stop();
+        drogon::app().quit();
+    });
+
     app().registerPostHandlingAdvice(
         [](const HttpRequestPtr &req, const HttpResponsePtr &resp) {
             if (req->method() == HttpMethod::Get ||

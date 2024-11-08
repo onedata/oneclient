@@ -25,6 +25,31 @@ public:
 
     folly::IOThreadPoolExecutor *executor();
 
+    void stop()
+    {
+        std::lock_guard<std::mutex> l{m_cacheMutex};
+
+        std::vector<folly::Future<folly::Unit>> futs;
+
+        for (auto &it : m_cache) {
+            const auto key = it.first;
+            auto s3Logic = it.second->getFuture();
+
+            if (!s3Logic.isReady())
+                continue;
+
+            if (s3Logic.hasException())
+                continue;
+
+            futs.emplace_back(
+                s3Logic.via(m_executor.get()).thenValue([](auto &&s3l) {
+                    return s3l->stop();
+                }));
+        }
+
+        folly::collectAll(futs.begin(), futs.end()).get();
+    }
+
 private:
     std::shared_ptr<one::client::options::Options> m_options;
     bool m_initialized{false};
