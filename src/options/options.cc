@@ -846,7 +846,17 @@ Options::Options(messages::handshake::ClientType clientType)
             .withValueName("<port>")
             .withDefaultValue(std::thread::hardware_concurrency(), "")
             .withGroup(OptionGroup::ONES3)
-            .withDescription("Number of threads of the OneS3 server.");
+            .withDescription(
+                "Number of receiver threads of the OneS3 HTTPS server.");
+
+        add<unsigned int>()
+            ->withEnvName("ones3_logic_thread_num")
+            .withLongName("ones3-logic-thread-num")
+            .withConfigName("ones3_logic_thread_num")
+            .withValueName("<port>")
+            .withDefaultValue(DEFAULT_ONES3_LOGIC_THREAD_NUM, "")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription("Number of threads of the OneS3 logic.");
 
         add<bool>()
             ->asSwitch()
@@ -1647,6 +1657,14 @@ unsigned int Options::getOneS3ThreadNum() const
     return get<unsigned int>(
         {"ones3-thread-num", "ones3_thread_num", "ones3_thread_num"})
         .get_value_or(std::thread::hardware_concurrency());
+}
+
+unsigned int Options::getOneS3LogicThreadNum() const
+{
+    return get<unsigned int>(
+        {"ones3-logic-thread-num", "ones3_logic_thread_num",
+            "ones3_logic_thread_num"})
+        .get_value_or(DEFAULT_ONES3_LOGIC_THREAD_NUM);
 }
 
 unsigned int Options::getOneS3KeepaliveRequests() const

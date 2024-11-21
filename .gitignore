@@ -70,3 +70,4 @@ venv
 .pytest_cache
 /core*
 conda-pkg-list.txt
+/uploads

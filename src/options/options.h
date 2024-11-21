@@ -77,6 +77,7 @@ static constexpr auto DEFAULT_ONES3_GET_STREAM_THRESHOLD = 2 * 1024 * 1024ULL;
 static constexpr auto DEFAULT_ONES3_FILE_MODE = "0664";
 static constexpr auto DEFAULT_ONES3_BUCKET_SPACEID_CACHE_EXPIRATION_SECONDS =
     std::chrono::seconds{30};
+static constexpr auto DEFAULT_ONES3_LOGIC_THREAD_NUM = 4ULL;
 
 #if defined(__APPLE__)
 static constexpr auto DEFAULT_EMULATE_AVAILABLE_SPACE =
@@ -222,6 +223,11 @@ public:
      * @return Number of OneS3 HTTP server threads.
      */
     unsigned int getOneS3ThreadNum() const;
+
+    /**
+     * @return Number of OneS3 S3 logic threads.
+     */
+    unsigned int getOneS3LogicThreadNum() const;
 
     /**
      *
