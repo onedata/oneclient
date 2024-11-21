@@ -22,7 +22,7 @@ def random_int(lower_bound=1, upper_bound=100):
     return random.randint(lower_bound, upper_bound)
 
 
-def random_str(size=random_int(),
+def random_str(size=random_int(10),
                characters=string.ascii_uppercase + string.digits):
     return ''.join(random.choice(characters) for _ in range(size))
 
