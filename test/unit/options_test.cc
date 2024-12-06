@@ -207,6 +207,8 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_FALSE(options.isReadWritePerfEnabled());
     EXPECT_FALSE(options.isIgnoreEnv());
     EXPECT_FALSE(options.isOneS3BucketIdCacheExpirationAbsolute());
+    EXPECT_EQ(options.getOneS3LogicThreadNum(),
+        options::DEFAULT_ONES3_LOGIC_THREAD_NUM);
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldCreateKeyValueMap)
@@ -1230,6 +1232,14 @@ TEST_F(OneS3OptionsTest, parseCommandLineShouldReturnOneS3SupportStorage)
         {"-Z", "localhost", "--ones3-support-storage-size", "1024"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_TRUE(options.getOneS3SupportStorageSize() == 1024);
+}
+
+TEST_F(OneS3OptionsTest, parseCommandLineShouldReturnOneS3LogicThreadNum)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"-Z", "localhost", "--ones3-logic-thread-num", "16"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_TRUE(options.getOneS3LogicThreadNum() == 16);
 }
 
 TEST_F(OneS3OptionsTest,

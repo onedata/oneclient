@@ -16,7 +16,7 @@ S3LogicCache::S3LogicCache(
     : m_options{std::move(options)}
     , m_initialized{true}
     , m_executor{std::make_shared<folly::IOThreadPoolExecutor>(
-          std::thread::hardware_concurrency(),
+          m_options->getOneS3LogicThreadNum(),
           std::make_shared<folly::NamedThreadFactory>("S3LWork"))}
 {
 }

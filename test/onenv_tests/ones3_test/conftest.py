@@ -90,13 +90,25 @@ def user_joe_id(onezone_ip):
     return res.json()["userId"]
 
 
-@pytest.fixture(scope=FIXTURE_SCOPE)
-def onezone_admin_token(onezone_ip):
+def get_user_token(onezone_ip, user, password):
     tokens_endpoint = f'https://{onezone_ip}/api/v3/onezone/user/client_tokens'
     res = requests.post(tokens_endpoint, {},
                         auth=requests.auth.HTTPBasicAuth('admin', 'password'),
                         verify=False)
     return res.json()["token"]
+
+
+@pytest.fixture(scope=FIXTURE_SCOPE)
+def onezone_admin_token(onezone_ip):
+    return get_user_token(onezone_ip, 'admin', 'password')
+
+
+@pytest.fixture(scope=FIXTURE_SCOPE)
+def onezone_admin_tokens(onezone_ip):
+    tokens_num = 25
+    tokens = [get_user_token(onezone_ip, 'admin', 'password') for i in
+              range(0, tokens_num)]
+    return tokens
 
 
 @pytest.fixture(scope=FIXTURE_SCOPE)
@@ -240,7 +252,7 @@ def s3_server(request, onezone_ip, oneprovider_ip, ceph_monitor_ip,
         f' --ones3-support-storage-id {support_storage_id}'
         f' --ones3-support-storage-credentials onepanel:password'
         f' --override {support_storage_id}:monitorHostname:{ceph_monitor_ip}'
-        f' --ones3-thread-num 10 --scheduler-thread-count 1 --storage-helper-thread-count 1'
+        f' --ones3-thread-num 10 --scheduler-thread-count 1 --storage-helper-thread-count 10'
         f' --ones3-http-port {s3_port} --force-direct-io --no-buffer --provider-timeout 180')
     proc = subprocess.Popen(ones3_cli.split(' '))
     print(f"-- Starting ones3 server: {ones3_cli}")
@@ -274,7 +286,7 @@ def s3_server_bucket_cache_invalidation(request, onezone_ip, oneprovider_ip,
         f' --ones3-bucketid-cache-expiration 2'
         f' --ones3-bucketid-cache-expiration-absolute'
         f' --override {support_storage_id}:monitorHostname:{ceph_monitor_ip}'
-        f' --ones3-thread-num 10 --scheduler-thread-count 1 --storage-helper-thread-count 1'
+        f' --ones3-thread-num 10 --scheduler-thread-count 1 --storage-helper-thread-count 10'
         f' --ones3-http-port {s3_port_bucket_cache_invalidation} --force-direct-io --no-buffer --provider-timeout 180')
     proc = subprocess.Popen(ones3_cli.split(' '))
     print(f"-- Starting ones3 server: {ones3_cli}")
@@ -327,6 +339,12 @@ def dummy_bucket(s3_static_client):
 @pytest.fixture
 def s3_client(onezone_admin_token, s3_server, secret_access_key, s3_endpoint):
     return create_s3client(s3_endpoint, onezone_admin_token, secret_access_key)
+
+
+@pytest.fixture
+def s3_clients(onezone_admin_tokens, s3_server, secret_access_key, s3_endpoint):
+    return [create_s3client(s3_endpoint, token, secret_access_key) for token in
+            onezone_admin_tokens]
 
 
 @pytest.fixture

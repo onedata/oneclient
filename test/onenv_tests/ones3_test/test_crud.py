@@ -86,6 +86,11 @@ def test_put_object_2B(s3_client, bucket):
     assert (res['Body'].read() == body)
 
 
+def test_multisession_put_object_2B(s3_clients, bucket):
+    for s3client in s3_clients:
+        test_put_object_2B(s3client, bucket)
+
+
 def test_put_object_1MB(s3_client, bucket):
     key = random_path()
 
@@ -450,11 +455,14 @@ def test_get_object_range_multiple(s3_client, bucket, uuid_str):
     thread_count = 100
     file_count = 500
 
-    def task(args):
-        key = f'dir0/dir1/dir2/dir3/dir4/dir5/dir6/dir7/dir8/dir9/{random_str()}'
-
+    def generate_body():
         body = random_bytes(10)
         etag = hashlib.md5(body).hexdigest()
+
+        return (body, etag)
+
+    def task(name, body, etag):
+        key = f'dir0/dir1/dir2/dir3/dir4/dir5/dir6/dir7/dir8/dir9/{random_str()}'
 
         s3_client.put_object(Bucket=bucket, Key=key, Body=body)
         res = s3_client.get_object(Bucket=bucket, Key=key, Range="bytes=2-4")
@@ -472,7 +480,8 @@ def test_get_object_range_multiple(s3_client, bucket, uuid_str):
     executor = ThreadPoolExecutor(thread_count)
     futs = []
     for i in range(0, file_count):
-        futs.append(executor.submit(task, (name,)))
+        body, etag = generate_body()
+        futs.append(executor.submit(task, name, body, etag))
 
     wait(futs)
 
@@ -484,6 +493,12 @@ def test_get_object_range_multiple(s3_client, bucket, uuid_str):
             failed += 1
 
     assert (failed == 0)
+
+
+def test_multisession_get_object_range_multiple(s3_clients, bucket):
+    for s3client in s3_clients:
+        uuid_str = random_str()
+        test_get_object_range_multiple(s3client, bucket, uuid_str)
 
 
 def test_head_object(s3_client, bucket):
