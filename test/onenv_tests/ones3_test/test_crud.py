@@ -463,9 +463,6 @@ def test_get_object_range_multiple(s3_client, bucket, uuid_str):
 
     def task(name, body, etag):
         key = f'dir0/dir1/dir2/dir3/dir4/dir5/dir6/dir7/dir8/dir9/{random_str()}'
-        #
-        # body = random_bytes(10)
-        # etag = hashlib.md5(body).hexdigest()
 
         s3_client.put_object(Bucket=bucket, Key=key, Body=body)
         res = s3_client.get_object(Bucket=bucket, Key=key, Range="bytes=2-4")
