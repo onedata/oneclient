@@ -43,6 +43,7 @@
 #include <fuse3/fuse_lowlevel.h>
 #include <fuse3/fuse_opt.h>
 #include <macaroons.hpp>
+#include <syslog.h>
 
 #include <sys/mount.h>
 #include <sys/types.h>
@@ -72,6 +73,55 @@ using namespace one::monitoring;      // NOLINT
 namespace {
 std::shared_ptr<options::Options> _options{};
 } // namespace
+
+static void syslogCallback(
+    enum fuse_log_level level, const char *fmt, va_list ap)
+{
+    char localfmt[1024];
+
+    auto current_log_level = FUSE_LOG_DEBUG;
+    bool use_syslog = true;
+
+    if (current_log_level < level) {
+        return;
+    }
+
+    sprintf(localfmt, "[ID: %08ld] %s", syscall(__NR_gettid), fmt);
+
+    if (use_syslog) {
+        int priority = LOG_ERR;
+        switch (level) {
+            case FUSE_LOG_EMERG:
+                priority = LOG_EMERG;
+                break;
+            case FUSE_LOG_ALERT:
+                priority = LOG_ALERT;
+                break;
+            case FUSE_LOG_CRIT:
+                priority = LOG_CRIT;
+                break;
+            case FUSE_LOG_ERR:
+                priority = LOG_ERR;
+                break;
+            case FUSE_LOG_WARNING:
+                priority = LOG_WARNING;
+                break;
+            case FUSE_LOG_NOTICE:
+                priority = LOG_NOTICE;
+                break;
+            case FUSE_LOG_INFO:
+                priority = LOG_INFO;
+                break;
+            case FUSE_LOG_DEBUG:
+                priority = LOG_DEBUG;
+                break;
+        }
+        vsyslog(priority, fmt, ap);
+    }
+    else {
+        vfprintf(stderr, fmt, ap);
+    }
+}
 
 std::shared_ptr<options::Options> getOptions(int argc, char *argv[])
 {
@@ -103,6 +153,7 @@ void sigtermHandler(int signum)
         backward::Printer p;
         p.print(st, crashDumpStream);
     }
+    crashDumpStream.flush();
     crashDumpStream.close();
 #endif
 
@@ -154,6 +205,18 @@ class InsecureCertificateHandler : public Poco::Net::InvalidCertificateHandler {
     }
 };
 
+bool verifyOnezoneConnection(std::shared_ptr<options::Options> options)
+{
+    auto onezoneRestClient =
+        std::make_unique<one::rest::onezone::OnezoneClient>(
+            options->getOnezoneHost().value());
+
+    auto accessScope =
+        onezoneRestClient->inferAccessTokenScope(*options->getAccessToken());
+
+    return accessScope.spaces.size() > 0;
+}
+
 int main(int argc, char *argv[])
 {
     helpers::init();
@@ -162,6 +225,9 @@ int main(int argc, char *argv[])
     auto options = getOptions(argc, argv);
     _options = options;
     context->setOptions(options);
+
+    context->setScheduler(
+        std::make_shared<Scheduler>(_options->getSchedulerThreadCount()));
 
     if (options->getHelp()) {
         std::cout << options->formatHelp(argv[0]);
@@ -209,12 +275,17 @@ int main(int argc, char *argv[])
         int multithreaded{0};
         int foreground{0};
         struct fuse_session *fuse{nullptr};
+        bool use_syslog = false;
 
-        struct fuse_cmdline_opts opts {
-        };
+        struct fuse_cmdline_opts opts { };
         res = fuse_parse_cmdline(&args, &opts);
         if (res == -1)
             return EXIT_FAILURE;
+
+        if (use_syslog) {
+            fuse_set_log_func(syslogCallback);
+            openlog("oneclient", LOG_PID, LOG_DAEMON);
+        }
 
         multithreaded = !opts.singlethread; // NOLINT
         foreground = opts.foreground;
@@ -231,16 +302,19 @@ int main(int argc, char *argv[])
             free(mountpoint); // NOLINT
         }};
 
-        fmt::print(stderr, "Connecting to Onezone at: {}",
+        fmt::print(stderr, "Connecting to Onezone at: {}\n",
             options->getOnezoneHost().value());
 
-        auto onezoneRestClient =
-            std::make_unique<one::rest::onezone::OnezoneClient>(
-                options->getOnezoneHost().value());
+        auto tokenAccessHasSpaces = verifyOnezoneConnection(options);
 
-        std::unique_ptr<fslogic::Composite> fsLogic =
-            std::make_unique<fslogic::Composite>(
-                options, std::move(onezoneRestClient));
+        if (!tokenAccessHasSpaces) {
+            fmt::print(stderr,
+                "Access token does not give access to any data spaces in {}\n",
+                options->getOnezoneHost().value());
+            return EXIT_FAILURE;
+        }
+
+        std::unique_ptr<fslogic::Composite> fsLogic;
 
         fuse = fuse_session_new(&args, &fuse_oper, sizeof(fuse_oper), &fsLogic);
         if (fuse == nullptr)
@@ -267,7 +341,11 @@ int main(int argc, char *argv[])
                   << options->getMountpoint().c_str() << "'." << std::endl;
 
         if (foreground == 0) {
-            context->scheduler()->prepareForDaemonize();
+            assert(context.get() != nullptr);
+            assert(context->scheduler().get() != nullptr);
+
+            context.reset();
+
             folly::SingletonVault::singleton()->destroyInstances();
 
             fuse_remove_signal_handlers(fuse);
@@ -280,18 +358,30 @@ int main(int argc, char *argv[])
                 return EXIT_FAILURE;
 
             folly::SingletonVault::singleton()->reenableInstances();
-            context->scheduler()->restartAfterDaemonize();
+
+            auto onezoneRestClient =
+                std::make_unique<one::rest::onezone::OnezoneClient>(
+                    options->getOnezoneHost().value());
+
+            fsLogic = std::make_unique<fslogic::Composite>(
+                options, std::move(onezoneRestClient));
         }
         else {
             FLAGS_stderrthreshold = options->getDebug() ? 0 : 1;
+
+            auto onezoneRestClient =
+                std::make_unique<one::rest::onezone::OnezoneClient>(
+                    options->getOnezoneHost().value());
+
+            fsLogic = std::make_unique<fslogic::Composite>(
+                options, std::move(onezoneRestClient));
         }
 
         if (startPerformanceMonitoring(options) != EXIT_SUCCESS)
             return EXIT_FAILURE;
 
 #if FUSE_USE_VERSION > 31
-        struct fuse_loop_config config {
-        };
+        struct fuse_loop_config config { };
         config.clone_fd = opts.clone_fd;
         config.max_idle_threads = opts.max_idle_threads;
         res = (multithreaded != 0) ? fuse_session_loop_mt(fuse, &config)
@@ -313,8 +403,8 @@ int main(int argc, char *argv[])
     catch (const macaroons::exception::NotAuthorized &e) {
         fmt::print(stderr,
             "ERROR: Invalid token - please make sure that the access token is "
-            "valid for Oneclient access to Oneprovider: {}\n",
-            *_options->getProviderHost());
+            "valid for Oneclient in Onezone: {}\n",
+            *_options->getOnezoneHost());
         return EXIT_FAILURE;
     }
     catch (const std::system_error &e) {
@@ -329,19 +419,18 @@ int main(int argc, char *argv[])
             e.code() == ErrorCode::macaroon_not_found)
             fmt::print(stderr,
                 "ERROR: Invalid token - the provided token is not valid for "
-                "Oneclient access to Oneprovider: {}\n",
-                *_options->getProviderHost());
+                "Oneclient access");
         else if (e.code() == ErrorCode::incompatible_version)
             fmt::print(stderr,
                 "ERROR: This Oneclient version ({}) is not compatible with "
-                "this Oneprovider, see: "
-                "https://{}/api/v3/oneprovider/configuration\nPlease also "
+                "this Onezone, see: "
+                "https://{}/api/v3/onezone/configuration\nPlease also "
                 "consult the current Onedata compatibility matrix: "
                 "https://onedata.org/#/home/versions\n",
-                ONECLIENT_VERSION, *_options->getProviderHost());
+                ONECLIENT_VERSION, *_options->getOnezoneHost());
         else {
-            fmt::print(stderr, "ERROR: Cannot connect to Oneprovider {} - {}\n",
-                *_options->getProviderHost(), e.what());
+            fmt::print(
+                stderr, "ERROR: Cannot connect to Oneprovider: {}\n", e.what());
         }
 
         return EXIT_FAILURE;
@@ -361,21 +450,24 @@ int main(int argc, char *argv[])
             message = e.what();
         }
 
-        fmt::print(stderr, "ERROR: Cannot connect to Oneprovider {} - {}\n",
-            *_options->getProviderHost(), message);
+        fmt::print(
+            stderr, "ERROR: Cannot connect to Oneprovider - {}\n", message);
 
         return EXIT_FAILURE;
     }
     catch (const Poco::Net::HostNotFoundException &e) {
         fmt::print(stderr, "ERROR: Cannot connect to Onezone {} - {}\n",
             *_options->getOnezoneHost(), e.what());
+        return EXIT_FAILURE;
     }
     catch (const Poco::Net::HTTPException &e) {
         fmt::print(stderr, "ERROR: Onezone {} cannot handle request - {}\n",
             *_options->getOnezoneHost(), e.what());
+        return EXIT_FAILURE;
     }
     catch (const std::exception &e) {
         fmt::print(stderr, "ERROR: Unknown error {}\n", e.what());
+        return EXIT_FAILURE;
     }
 
     return res == -1 ? EXIT_FAILURE : EXIT_SUCCESS;

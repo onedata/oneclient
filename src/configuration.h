@@ -70,7 +70,7 @@ std::shared_ptr<auth::AuthManager<ContextT>> getOptionsAuthManager(
     auto options = context->options();
     return std::make_shared<
         auth::MacaroonAuthManager<auth::OptionsMacaroonHandler, ContextT>>(
-        context, options->getProviderHost().get(), options->getProviderPort(),
+        context, context->provider().host, context->provider().port,
         !options->isInsecure(), options->getProviderTimeout());
 }
 
@@ -81,7 +81,7 @@ std::shared_ptr<auth::AuthManager<ContextT>> getTokenAuthManager(
     auto options = context->options();
     return std::make_shared<
         auth::MacaroonAuthManager<auth::TokenMacaroonHandler, ContextT>>(
-        context, options->getProviderHost().get(), options->getProviderPort(),
+        context, context->provider().host, context->provider().port,
         token, !options->isInsecure(), options->getProviderTimeout());
 }
 
@@ -94,10 +94,9 @@ std::shared_ptr<messages::Configuration> getConfiguration(
 {
     auto options = context->options();
     if (!quiet)
-        std::cout << "Connecting to provider '"
-                  << options->getProviderHost().get() << ":"
-                  << options->getProviderPort() << "' using session ID: '"
-                  << sessionId << "'..." << std::endl;
+        std::cout << "Connecting to provider '" << context->provider().host
+                  << "' using session ID: '" << sessionId << "'..."
+                  << std::endl;
 
     auto communicator = handshake(
         sessionId, std::move(authManager), std::move(context), clientType);

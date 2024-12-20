@@ -18,14 +18,15 @@ namespace cache {
 DataAccessScopeCache::DataAccessScopeCache(
     std::shared_ptr<options::Options> options,
     std::unique_ptr<one::rest::onezone::OnezoneClient> onezoneClient)
-    : m_onezoneRestClient{std::move(onezoneClient)}
-    , m_accessToken{options->getAccessToken().value()}
-    , m_showSpaceIdsNotNames{options->showSpaceIds()}
+    : m_options{std::move(options)}
+    , m_onezoneRestClient{std::move(onezoneClient)}
+    , m_accessToken{m_options->getAccessToken().value()}
+    , m_showSpaceIdsNotNames{m_options->showSpaceIds()}
 {
-    for (const auto &name : options->getSpaceNames()) {
+    for (const auto &name : m_options->getSpaceNames()) {
         m_whitelistedSpaceNames.emplace(name);
     }
-    for (const auto &id : options->getSpaceIds()) {
+    for (const auto &id : m_options->getSpaceIds()) {
         m_whitelistedSpaceIds.emplace(id);
     }
 }

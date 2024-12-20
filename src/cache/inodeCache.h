@@ -21,6 +21,8 @@
 #include <fuse/fuse_lowlevel.h>
 #endif
 
+#include <list>
+
 namespace one {
 namespace client {
 namespace cache {

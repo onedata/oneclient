@@ -62,6 +62,8 @@ public:
         , m_options{std::move(options)}
         , m_runInFiber{std::move(runInFiber)}
     {
+        LOG_FCALL();
+
         // TODO:
         for (auto &kv : m_fsLogicMap) {
             kv.second->onMarkDeleted(std::bind(&cache::InodeCache::markDeleted,
@@ -177,6 +179,8 @@ public:
     fuse_entry_param lookupByUUID(
         const folly::fbstring &name, const folly::fbstring &maybeUUID)
     {
+        LOG_FCALL() << LOG_FARG(name) << LOG_FARG(maybeUUID);
+
         auto spaceId = util::uuid::uuidToSpaceId(maybeUUID);
 
         createFsLogicForSpace(spaceId);
@@ -204,6 +208,8 @@ public:
 
     void createFsLogicForSpace(const folly::fbstring &spaceId)
     {
+        LOG_FCALL() << LOG_FARG(spaceId);
+
         auto maybeProviderForSpace =
             m_dataAccessScopeCache.getProviderForSpace(spaceId);
 
@@ -221,6 +227,7 @@ public:
             context->setOptions(m_options);
             context->setScheduler(std::make_shared<Scheduler>(
                 m_options->getSchedulerThreadCount()));
+            context->setProvider(provider);
 
             // Add new FsLogic for providerId
             // Create test communicator with single connection to test
@@ -271,6 +278,8 @@ public:
 
     void createFsLogic(const fuse_ino_t ino)
     {
+        LOG_FCALL() << LOG_FARG(ino);
+
         auto spaceId = m_spacesToInodes.right.at(ino);
         // Here, we have to decide which provider to choose or create a
         // new one

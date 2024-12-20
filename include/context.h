@@ -11,6 +11,7 @@
 
 #include "auth/authManager.h"
 #include "communication/communicator.h"
+#include "../../s3/onezoneRestClient.h"
 
 #include <list>
 #include <memory>
@@ -64,14 +65,28 @@ public:
         m_communicator = std::move(communicator);
     }
 
+    one::rest::onezone::model::Provider provider() const
+    {
+        std::shared_lock<std::shared_timed_mutex> lock{m_providerMutex};
+        return m_provider;
+    }
+
+    void setProvider(one::rest::onezone::model::Provider provider)
+    {
+        std::lock_guard<std::shared_timed_mutex> guard{m_providerMutex};
+        m_provider = std::move(provider);
+    }
+
 private:
     std::shared_ptr<options::Options> m_options;
     std::shared_ptr<Scheduler> m_scheduler;
     std::shared_ptr<T> m_communicator;
+    one::rest::onezone::model::Provider m_provider;
 
     mutable std::shared_timed_mutex m_optionsMutex;
     mutable std::shared_timed_mutex m_schedulerMutex;
     mutable std::shared_timed_mutex m_communicatorMutex;
+    mutable std::shared_timed_mutex m_providerMutex;
 };
 
 using OneclientContext = Context<communication::Communicator>;

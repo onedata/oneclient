@@ -29,7 +29,7 @@ class DataAccessScopeCache {
 
 public:
     DataAccessScopeCache(std::shared_ptr<options::Options> options,
-        std::unique_ptr<one::rest::onezone::OnezoneClient> onezoneClient);
+        std::unique_ptr<one::rest::onezone::OnezoneClient> onezoneClient = {});
 
     folly::Future<DataAccessScopePtr> getDataAccessScope(
         bool forceUpdate = false);
@@ -62,7 +62,7 @@ private:
         const folly::fbstring &spaceId, const folly::fbstring &providerId);
 
     mutable std::mutex m_cacheMutex;
-
+    std::shared_ptr<options::Options> m_options;
     std::unique_ptr<one::rest::onezone::OnezoneClient> m_onezoneRestClient;
 
     std::string m_accessToken;
