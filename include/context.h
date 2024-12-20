@@ -9,9 +9,9 @@
 #ifndef ONECLIENT_CONTEXT_H
 #define ONECLIENT_CONTEXT_H
 
+#include "../../s3/onezoneRestClient.h"
 #include "auth/authManager.h"
 #include "communication/communicator.h"
-#include "../../s3/onezoneRestClient.h"
 
 #include <list>
 #include <memory>

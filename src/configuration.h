@@ -81,8 +81,8 @@ std::shared_ptr<auth::AuthManager<ContextT>> getTokenAuthManager(
     auto options = context->options();
     return std::make_shared<
         auth::MacaroonAuthManager<auth::TokenMacaroonHandler, ContextT>>(
-        context, context->provider().host, context->provider().port,
-        token, !options->isInsecure(), options->getProviderTimeout());
+        context, context->provider().host, context->provider().port, token,
+        !options->isInsecure(), options->getProviderTimeout());
 }
 
 template <typename ContextT>

@@ -97,10 +97,11 @@ std::ostream &operator<<(std::ostream &os, const struct fuse_file_info *fi)
 template <typename Fun, typename... Args>
 auto callFslogic(Fun &&fun, void *userData, Args &&...args)
 {
-    if(userData == nullptr)
+    if (userData == nullptr)
         LOG(ERROR) << "Fuse userData is null";
 
-    if(static_cast<std::unique_ptr<fslogic::Composite> *>(userData)->get() == nullptr)
+    if (static_cast<std::unique_ptr<fslogic::Composite> *>(userData)->get() ==
+        nullptr)
         LOG(ERROR) << "FsLogic Composite instance not initiliazed";
 
     auto &fsLogic =
