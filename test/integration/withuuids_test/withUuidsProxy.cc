@@ -95,6 +95,8 @@ public:
 
     void stop() { }
 
+    bool stopped() { return false; }
+
     void onMarkDeleted(std::function<void(const folly::fbstring &)> cb) { }
 
     void onRename(std::function<void(const folly::fbstring &,

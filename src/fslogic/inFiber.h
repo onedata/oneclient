@@ -87,6 +87,8 @@ public:
         m_thread.join();
     }
 
+    bool stopped() const { return m_fsLogic.stopped(); }
+
     WRAP(lookup, (const fuse_ino_t)(const folly::fbstring &))
     WRAP(getattr, (const fuse_ino_t))
     WRAP(opendir, (const fuse_ino_t))

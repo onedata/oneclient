@@ -15,6 +15,7 @@
 #include "cache/inodeCache.h"
 #include "configuration.h"
 #include "context.h"
+#include "fuseFileHandle.h"
 #include "helpers/logging.h"
 #include "helpers/storageHelper.h"
 #include "ioTraceLogger.h"
@@ -298,7 +299,7 @@ public:
         LOG_FCALL() << LOG_FARG(ino);
 
         if (ino == FUSE_ROOT_ID) {
-            struct stat attr;
+            struct stat attr = {0};
             attr.st_ino = ino;
             attr.st_uid = getuid();
             attr.st_gid = getgid();
@@ -320,7 +321,7 @@ public:
 
             assert(ino == spaceInode);
 
-            struct stat attr;
+            struct stat attr = {0};
             attr.st_ino = spaceInode;
             attr.st_uid = getuid();
             attr.st_gid = getgid();
@@ -328,6 +329,9 @@ public:
             // Set access and modification times of attr to now
             attr.st_atim = {};
             attr.st_mtim = {};
+            attr.st_ctim = {};
+            attr.st_size = 1024 * 1024 * 1024 * 1024ULL;
+            attr.st_nlink = 1;
 
             return attr;
         }
@@ -341,12 +345,12 @@ public:
         LOG_FCALL() << LOG_FARG(ino);
 
         if (ino == FUSE_ROOT_ID) {
-            return m_nextFuseHandleId--;
+            return FuseFileHandle::newHandleId();
         }
 
         if (m_spacesToInodes.right.count(ino) > 0) {
             createFsLogic(ino);
-            return m_nextFuseHandleId--;
+            return FuseFileHandle::newHandleId();
         }
 
         return wrap(&FsLogicT::opendir, ino);
@@ -433,6 +437,11 @@ public:
     {
         LOG_FCALL() << LOG_FARG(ino) << LOG_FARG(name) << LOG_FARG(mode);
 
+        if (ino == FUSE_ROOT_ID) {
+            LOG_DBG(1) << "Cannot create directory in spaces directory";
+            throw one::helpers::makePosixException(EACCES);
+        }
+
         FileAttrPtr attr = wrap(&FsLogicT::mkdir, ino, name, mode);
 
         auto newInode = m_inodeCache.generateInode(
@@ -450,6 +459,11 @@ public:
         const fuse_ino_t ino, const folly::fbstring &name, const mode_t mode)
     {
         LOG_FCALL() << LOG_FARG(ino) << LOG_FARG(name) << LOG_FARG(mode);
+
+        if (ino == FUSE_ROOT_ID) {
+            LOG_DBG(1) << "Cannot create file in spaces directory";
+            throw one::helpers::makePosixException(EACCES);
+        }
 
         FileAttrPtr attr = wrap(&FsLogicT::mknod, ino, name, mode);
 
@@ -470,6 +484,11 @@ public:
         LOG_FCALL() << LOG_FARG(ino) << LOG_FARG(newParent)
                     << LOG_FARG(newName);
 
+        if (ino == FUSE_ROOT_ID) {
+            LOG_DBG(1) << "Cannot link space directory";
+            throw one::helpers::makePosixException(EACCES);
+        }
+
         FileAttrPtr attr = wrap(
             &FsLogicT::link, ino, m_inodeCache.at(newParent).first, newName);
 
@@ -488,6 +507,11 @@ public:
         const folly::fbstring &link)
     {
         LOG_FCALL() << LOG_FARG(parent) << LOG_FARG(name) << LOG_FARG(link);
+
+        if (parent == FUSE_ROOT_ID) {
+            LOG_DBG(1) << "Cannot create symlink in space directory";
+            throw one::helpers::makePosixException(EACCES);
+        }
 
         FileAttrPtr attr = wrap(&FsLogicT::symlink, parent, name, link);
 
@@ -515,6 +539,11 @@ public:
     {
         LOG_FCALL() << LOG_FARG(ino) << LOG_FARG(name);
 
+        if (ino == FUSE_ROOT_ID) {
+            LOG_DBG(1) << "Cannot delete space directory: " << name;
+            throw one::helpers::makePosixException(EACCES);
+        }
+
         return wrap(&FsLogicT::unlink, ino, name);
     }
 
@@ -524,6 +553,11 @@ public:
         LOG_FCALL() << LOG_FARG(ino) << LOG_FARG(name) << LOG_FARG(targetIno)
                     << LOG_FARG(targetName);
 
+        if (ino == FUSE_ROOT_ID) {
+            LOG_DBG(1) << "Cannot rename space directory: " << name;
+            throw one::helpers::makePosixException(EACCES);
+        }
+
         const auto targetUuid = m_inodeCache.at(targetIno).first;
         return wrap(&FsLogicT::rename, ino, name, targetUuid, targetName);
     }
@@ -532,6 +566,11 @@ public:
     {
         LOG_FCALL() << LOG_FARG(ino) << LOG_FARG(attr.st_ino)
                     << LOG_FARG(toSet);
+
+        if (ino == FUSE_ROOT_ID) {
+            LOG_DBG(1) << "Cannot change space directory attributes";
+            throw one::helpers::makePosixException(EACCES);
+        }
 
         FileAttrPtr ret = wrap(&FsLogicT::setattr, ino, attr, toSet);
         return detail::toStatbuf(std::move(ret), ino);
@@ -543,6 +582,11 @@ public:
     {
         LOG_FCALL() << LOG_FARG(ino) << LOG_FARG(name) << LOG_FARGO(mode)
                     << LOG_FARG(flags);
+
+        if (ino == FUSE_ROOT_ID) {
+            LOG_DBG(1) << "Cannot create file in spaces directory";
+            throw one::helpers::makePosixException(EACCES);
+        }
 
         auto ret = wrap(&FsLogicT::create, ino, name, mode, flags);
         auto attr = ret.first;
@@ -655,9 +699,12 @@ private:
         auto uuid = uuidProviderPair.first;
 
         auto providerId = uuidProviderPair.second;
+        auto *fsLogic = (m_fsLogicMap.at(providerId)).get();
 
-        return ((m_fsLogicMap.at(providerId)).get()->*fun)(
-            uuid, std::forward<Args>(args)...);
+        if (fsLogic == nullptr || fsLogic->stopped())
+            throw one::helpers::makePosixException(ECANCELED);
+
+        return (fsLogic->*fun)(uuid, std::forward<Args>(args)...);
     }
 
     struct fuse_entry_param toEntry(const FileAttrPtr attr)
@@ -687,8 +734,6 @@ private:
 
     // Function pointer to run callbacks in fiber
     std::function<void(folly::Function<void()>)> m_runInFiber;
-
-    std::atomic<std::uint64_t> m_nextFuseHandleId{UINT64_MAX - 1};
 };
 
 } // namespace fslogic

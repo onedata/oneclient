@@ -103,6 +103,8 @@ public:
 
     void stop();
 
+    bool stopped() const { return m_stopped; }
+
     /**
      * Reset FsLogic state, e.g. after a connection loss.
      */
@@ -444,7 +446,6 @@ private:
     std::multimap<folly::fbstring, std::uint64_t> m_openFileHandles;
     std::unordered_map<std::uint64_t, int> m_fuseFileHandleFlags;
     std::unordered_map<std::uint64_t, folly::fbstring> m_fuseDirectoryHandles;
-    std::atomic<std::uint64_t> m_nextFuseHandleId{1};
 
     std::function<void(const folly::fbstring &)> m_onMarkDeleted = [](auto) {};
     std::function<void(const folly::fbstring &, const folly::fbstring &,

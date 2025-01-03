@@ -48,28 +48,54 @@ folly::Future<DataAccessScopePtr> DataAccessScopeCache::getDataAccessScope(
     }
 
     if (!m_dataAccessScopePromise->isFulfilled()) {
-        m_dataAccessScopePromise->setWith([this]() {
-            auto newAccessScope =
-                m_onezoneRestClient->inferAccessTokenScope(m_accessToken);
+        m_dataAccessScopePromise->setWith(
+            [this, preferredProvider = m_options->getProviderHost()]() {
+                auto newAccessScope =
+                    m_onezoneRestClient->inferAccessTokenScope(m_accessToken);
 
-            m_lastUpdate = std::chrono::steady_clock::now();
+                m_lastUpdate = std::chrono::steady_clock::now();
 
-            for (const auto &[id, userSpace] : newAccessScope.spaces) {
-                if (userSpace.providers.begin() != userSpace.providers.end()) {
-                    auto selectedProviderId =
-                        userSpace.providers.begin()->first;
-
-                    if (newAccessScope.providers.count(selectedProviderId) !=
-                        0U) {
-                        setProviderForSpace(id, selectedProviderId);
+                // Find preferred provider Id if one was provided
+                boost::optional<std::string> preferredProviderId;
+                if (preferredProvider) {
+                    for (const auto &[providerId, providerDetails] :
+                        newAccessScope.providers) {
+                        if (providerDetails.host == *preferredProvider) {
+                            preferredProviderId = providerId;
+                            break;
+                        }
                     }
                 }
-            }
 
-            m_initiatedUpdate.store(false);
+                for (const auto &[spaceId, userSpace] : newAccessScope.spaces) {
+                    if (userSpace.providers.begin() !=
+                        userSpace.providers.end()) {
+                        std::string selectedProviderId;
 
-            return std::make_shared<DataAccessScope>(std::move(newAccessScope));
-        });
+                        // Find providerId for spaceId if preferred provider was
+                        // set
+                        if (preferredProviderId &&
+                            userSpace.providers.count(*preferredProviderId) >
+                                0) {
+                            selectedProviderId = *preferredProviderId;
+                        }
+                        else {
+                            selectedProviderId =
+                                userSpace.providers.begin()->first;
+                        }
+
+                        if (newAccessScope.providers.count(
+                                selectedProviderId) != 0U) {
+                            setProviderForSpace(spaceId, selectedProviderId);
+                        }
+                    }
+                }
+
+                m_initiatedUpdate.store(false);
+
+                return std::make_shared<DataAccessScope>(
+                    std::move(newAccessScope));
+            });
     }
 
     return m_dataAccessScopePromise->getFuture();
