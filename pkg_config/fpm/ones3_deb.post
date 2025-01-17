@@ -1,2 +1,3 @@
 rm -f /usr/bin/ones3
+rm -f /etc/init.d/ones3
 rm -rf /opt/ones3

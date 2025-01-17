@@ -8,4 +8,6 @@ if(BUILD_INTEGRATION_TESTS)
 endif()
 
 add_subdirectory(unit)
-add_subdirectory(benchmark)
+if(WITH_ONEBENCH)
+    add_subdirectory(benchmark)
+endif(WITH_ONEBENCH)

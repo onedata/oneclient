@@ -53,7 +53,49 @@ struct OptionsTest : public ::testing::Test {
     std::vector<const char *> cmdArgs;
     std::vector<const char *> envArgs;
     std::vector<const char *> fileArgs;
-    one::client::options::Options options{};
+    one::client::options::Options options{
+        one::messages::handshake::ClientType::oneclient};
+};
+
+struct OneS3OptionsTest : public ::testing::Test {
+    OneS3OptionsTest()
+        : configFilePath{boost::filesystem::temp_directory_path() /
+              boost::filesystem::unique_path()}
+        , cmdArgs{"oneclient"}
+        , envArgs{"oneclient"}
+        , fileArgs{"oneclient", "-c", configFilePath.c_str()}
+    {
+    }
+
+    ~OneS3OptionsTest()
+    {
+        for (const std::string env :
+            {"CONFIG", "PROVIDER_HOST", "PROVIDER_PORT", "INSECURE",
+                "ACCESS_TOKEN", "AUTHORIZATION_TOKEN", "LOG_DIR",
+                "FUSE_FOREGROUND", "FUSE_DEBUG", "FUSE_SINGLE_THREAD",
+                "FUSE_MOUNT_OPT", "FUSE_MOUNTPOINT"}) {
+            unsetenv(env.c_str());
+            unsetenv(("ONECLIENT_" + env).c_str());
+        }
+
+        boost::system::error_code ec;
+        boost::filesystem::remove_all(configFilePath, ec);
+    }
+
+    void setInConfigFile(const std::string &key, const std::string &value)
+    {
+        std::ofstream configFile;
+        configFile.open(configFilePath.c_str(), std::ios_base::app);
+        configFile << key << " = " << value << std::endl;
+        configFile.close();
+    }
+
+    boost::filesystem::path configFilePath;
+    std::vector<const char *> cmdArgs;
+    std::vector<const char *> envArgs;
+    std::vector<const char *> fileArgs;
+    one::client::options::Options options{
+        one::messages::handshake::ClientType::ones3};
 };
 
 TEST_F(OptionsTest, formatHelpShouldReturnNonemptyString)
@@ -104,6 +146,7 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(true, options.isFullblockReadEnabled());
     EXPECT_EQ(true, options.isMonitoringLevelBasic());
     EXPECT_EQ(false, options.isClusterPrefetchThresholdRandom());
+    EXPECT_FALSE(options.getCustomCACertificateDir().has_value());
     EXPECT_EQ(0, options.getVerboseLogLevel());
     EXPECT_EQ(options::DEFAULT_PROVIDER_PORT, options.getProviderPort());
     EXPECT_EQ(options::DEFAULT_BUFFER_SCHEDULER_THREAD_COUNT,
@@ -157,9 +200,15 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
         options.getRandomReadPrefetchClusterBlockThreshold());
     EXPECT_EQ(0.0, options.getRandomReadPrefetchClusterWindowGrowFactor());
     EXPECT_EQ(0, options.getEmulateAvailableSpace());
+    EXPECT_EQ(options::DEFAULT_ONES3_BUCKET_SPACEID_CACHE_EXPIRATION_SECONDS,
+        options.getOneS3BucketIdCacheExpirationTime());
     EXPECT_FALSE(options.getProviderHost());
     EXPECT_FALSE(options.getAccessToken());
     EXPECT_FALSE(options.isReadWritePerfEnabled());
+    EXPECT_FALSE(options.isIgnoreEnv());
+    EXPECT_FALSE(options.isOneS3BucketIdCacheExpirationAbsolute());
+    EXPECT_EQ(options.getOneS3LogicThreadNum(),
+        options::DEFAULT_ONES3_LOGIC_THREAD_NUM);
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldCreateKeyValueMap)
@@ -296,6 +345,15 @@ TEST_F(OptionsTest, parseCommandLineShouldSetLogDirPath)
     EXPECT_EQ("somePath", options.getLogDirPath());
 }
 
+TEST_F(OptionsTest, parseCommandLineShouldSetLogCustomCADir)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--custom-ca-dir", "/tmp/custom_ca", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(
+        "/tmp/custom_ca", options.getCustomCACertificateDir().value().string());
+}
+
 TEST_F(OptionsTest, parseCommandLineShouldEnableIOTraceLog)
 {
     cmdArgs.insert(cmdArgs.end(), {"--io-trace-log", "mountpoint"});
@@ -376,6 +434,13 @@ TEST_F(OptionsTest, parseCommandLineShouldSetNoBuffer)
     cmdArgs.insert(cmdArgs.end(), {"--no-buffer", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ(false, options.isIOBuffered());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetIgnoreEnv)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--ignore-env", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.isIgnoreEnv());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetNoXattr)
@@ -883,6 +948,21 @@ TEST_F(OptionsTest, parseConfigFileShouldSetLogDir)
     EXPECT_EQ("somePath", options.getLogDirPath());
 }
 
+TEST_F(OptionsTest, parseConfigFileShouldSetCustomCADir)
+{
+    setInConfigFile("custom_ca_dir", "/tmp/certs");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(
+        "/tmp/certs", options.getCustomCACertificateDir().value().string());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetIgnoreEnv)
+{
+    setInConfigFile("ignore_env", "true");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(true, options.isIgnoreEnv());
+}
+
 TEST_F(OptionsTest, parseConfigFileShouldSetForceProxyIO)
 {
     setInConfigFile("force_proxy_io", "1");
@@ -1136,4 +1216,47 @@ TEST_F(OptionsTest, parseShouldSetOptionsInOrder)
     options = one::client::options::Options{};
     options.parse(fileArgs.size(), fileArgs.data());
     EXPECT_EQ("someHost3", options.getProviderHost().get());
+}
+
+TEST_F(OneS3OptionsTest, parseCommandLineShouldReturnOneS3SupportStorageId)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"-Z", "localhost", "--ones3-support-storage-id", "ABCD"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_TRUE(options.getOneS3SupportStorageId().value() == "ABCD");
+}
+
+TEST_F(OneS3OptionsTest, parseCommandLineShouldReturnOneS3SupportStorage)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"-Z", "localhost", "--ones3-support-storage-size", "1024"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_TRUE(options.getOneS3SupportStorageSize() == 1024);
+}
+
+TEST_F(OneS3OptionsTest, parseCommandLineShouldReturnOneS3LogicThreadNum)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"-Z", "localhost", "--ones3-logic-thread-num", "16"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_TRUE(options.getOneS3LogicThreadNum() == 16);
+}
+
+TEST_F(OneS3OptionsTest,
+    parseCommandLineShouldReturnOneS3BucketIdCacheExpirationTime)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"-Z", "localhost", "--ones3-bucketid-cache-expiration", "15"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_TRUE(options.getOneS3BucketIdCacheExpirationTime() ==
+        std::chrono::seconds{15});
+}
+
+TEST_F(OneS3OptionsTest,
+    parseCommandLineShouldReturnOneS3BucketIdCacheExpirationAbsolute)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"-Z", "localhost", "--ones3-bucketid-cache-expiration-absolute"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_TRUE(options.isOneS3BucketIdCacheExpirationAbsolute());
 }
