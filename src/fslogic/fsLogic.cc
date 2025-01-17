@@ -354,7 +354,9 @@ void FsLogic::stop()
 {
     LOG_FCALL();
 
-    if (!m_stopped) {
+    if (!m_stopping) {
+        m_stopping = true;
+
         m_runInFiber([this]() { reset(); });
 
         m_stopped = true;
@@ -364,25 +366,44 @@ void FsLogic::stop()
 
         m_directoryCachePruneBaton.post();
 
-        LOG(INFO) << "Stopping FsLogic ...";
+        LOG(INFO) << "Stopping FsLogic for "
+                  << m_context->communicator()->host() << ":"
+                  << m_context->communicator()->port() << " ...";
 
-        folly::makeSemiFuture()
-            .via(folly::getGlobalCPUExecutor().get())
-            .delayed(std::chrono::seconds{2})
-            .thenValue([this](auto && /*unit*/) {
-                LOG(INFO) << "Closing session...";
-                m_context->communicator()->send(messages::CloseSession{});
-            })
-            .delayed(std::chrono::seconds{5})
-            .thenTry([this](auto && /*unit*/) {
-                LOG(INFO) << "Stopping communicator ...";
+        if (m_context->communicator()->isConnected()) {
+            folly::makeSemiFuture()
+                .via(folly::getGlobalCPUExecutor().get())
+                .thenValue([this](auto && /*unit*/) {
+                    LOG(INFO)
+                        << "Sending close session message and stopping...";
+                    m_context->communicator()->send(messages::CloseSession{},
+                        communication::CLOSE_CONNECTION_AFTER_SEND);
+                })
+                .delayed(std::chrono::milliseconds{100})
+                .thenTry([this](auto && /*unit*/) {
+                    LOG(INFO) << "Stopping communicator ...";
 
-                m_context->communicator()->stop();
-                LOG(INFO) << "Communicator stopped ...";
-            })
-            .get();
+                    m_context->communicator()->stop();
+                    LOG(INFO) << "Communicator stopped ...";
+                })
+                .get();
+        }
+        else {
+            folly::makeSemiFuture()
+                .via(folly::getGlobalCPUExecutor().get())
+                .thenTry([this](auto && /*unit*/) {
+                    LOG(INFO) << "Stopping communicator immediately...";
+
+                    m_context->communicator()->stop();
+                    LOG(INFO) << "Communicator stopped ...";
+                })
+                .get();
+        }
 
         LOG(INFO) << "FsLogic communicator stopped...";
+    }
+    else {
+        LOG_DBG(2) << "FsLogic already stopping...";
     }
 }
 
@@ -390,7 +411,7 @@ void FsLogic::reset()
 {
     assertInFiber();
 
-    if (m_stopped) {
+    if (m_stopping) {
         return;
     }
 
@@ -988,8 +1009,8 @@ folly::IOBufQueue FsLogic::readInternal(const folly::fbstring &uuid,
             }
 
             LOG(INFO) << "Cannot synchronize block " << wantedRange << " after "
-                      << m_maxRetryCount << " retries "
-                      << " in file " << uuid << " - returning block of zeros";
+                      << m_maxRetryCount << " retries " << " in file " << uuid
+                      << " - returning block of zeros";
 
             auto iobuf = folly::IOBuf::create(size);
             memset(iobuf->writableTail(), 0, size);
@@ -2313,7 +2334,7 @@ void FsLogic::pruneExpiredDirectories(const std::chrono::seconds delay)
         m_directoryCachePruneBaton.reset();
         m_directoryCachePruneBaton.timed_wait(delay);
 
-        if (m_stopped)
+        if (m_stopping)
             break;
 
         LOG_DBG(2) << "Running scheduled pruning of expired entries from "
