@@ -77,7 +77,7 @@ std::shared_ptr<options::Options> _options{};
 static void syslogCallback(
     enum fuse_log_level level, const char *fmt, va_list ap)
 {
-    char localfmt[1024];
+    char localfmt[1024]; // NOLINT
 
     auto current_log_level = FUSE_LOG_DEBUG;
     bool use_syslog = true;
@@ -214,7 +214,7 @@ bool verifyOnezoneConnection(std::shared_ptr<options::Options> options)
     auto accessScope =
         onezoneRestClient->inferAccessTokenScope(*options->getAccessToken());
 
-    return accessScope.spaces.size() > 0;
+    return !accessScope.spaces.empty();
 }
 
 int main(int argc, char *argv[])
