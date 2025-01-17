@@ -1009,8 +1009,8 @@ folly::IOBufQueue FsLogic::readInternal(const folly::fbstring &uuid,
             }
 
             LOG(INFO) << "Cannot synchronize block " << wantedRange << " after "
-                      << m_maxRetryCount << " retries " << " in file " << uuid
-                      << " - returning block of zeros";
+                      << m_maxRetryCount << " retries "
+                      << " in file " << uuid << " - returning block of zeros";
 
             auto iobuf = folly::IOBuf::create(size);
             memset(iobuf->writableTail(), 0, size);
