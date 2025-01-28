@@ -660,21 +660,10 @@ void S3Server::deleteBucket(const HttpRequestPtr &req,
             response->setStatusCode(HttpStatusCode::k204NoContent);
         }
         catch (Poco::Net::HTTPException &e) {
-            LOG_REQUEST_ERROR(requestId,
-                fmt::format("Failed to delete bucket due to HTTP exception: {}",
-                    e.code()),
-                e.what())
-
             one::s3::error::S3Exception::raiseFromPocoHTTPException(
                 e, bucket, bucket, requestId);
         }
         catch (std::system_error &e) {
-            LOG_REQUEST_ERROR(requestId,
-                fmt::format(
-                    "Failed to delete bucket due to system exception: {}",
-                    e.code()),
-                e.what())
-
             one::s3::error::S3Exception::raiseFromSystemError(
                 e, bucket, bucket, requestId);
         }
