@@ -138,7 +138,7 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_FALSE(options.showOnlyFullReplicas());
     EXPECT_FALSE(options.showHardLinkCount());
     EXPECT_EQ(false, options.isArchivematicaModeEnabled());
-    EXPECT_EQ(false, options.isOpenSharesModeEnabled());
+    EXPECT_EQ(false, options.isPublicDataModeEnabled());
     EXPECT_EQ(false, options.showSpaceIds());
     EXPECT_EQ(false, options.isMonitoringEnabled());
     EXPECT_EQ(false, options.isMonitoringLevelFull());
@@ -1117,20 +1117,20 @@ TEST_F(OptionsTest, parseCommandLineShouldEnableArchivematicaMode)
     EXPECT_EQ(true, options.isArchivematicaModeEnabled());
 }
 
-TEST_F(OptionsTest, parseCommandLineShouldEnableOpenSharesMode)
+TEST_F(OptionsTest, parseCommandLineShouldEnablePublicDataMode)
 {
-    cmdArgs.insert(cmdArgs.end(), {"--open-shares-mode", "mountpoint"});
+    cmdArgs.insert(cmdArgs.end(), {"--public-data-mode", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
-    EXPECT_EQ(true, options.isOpenSharesModeEnabled());
+    EXPECT_EQ(true, options.isPublicDataModeEnabled());
 }
 
-TEST_F(OptionsTest, parseCommandLineShouldSetDropDirCacheInOpenSharesMode)
+TEST_F(OptionsTest, parseCommandLineShouldSetDropDirCacheInPublicDataMode)
 {
-    cmdArgs.insert(cmdArgs.end(), {"--open-shares-mode", "mountpoint"});
+    cmdArgs.insert(cmdArgs.end(), {"--public-data-mode", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
 
     using namespace one::client::options;
-    EXPECT_EQ(DEFAULT_DIR_CACHE_DROP_AFTER_IN_OPEN_SHARE_MODE,
+    EXPECT_EQ(DEFAULT_DIR_CACHE_DROP_AFTER_IN_PUBLIC_DATA_MODE,
         options.getDirectoryCacheDropAfter().count());
 }
 
