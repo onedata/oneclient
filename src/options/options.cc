@@ -681,12 +681,14 @@ Options::Options(messages::handshake::ClientType clientType)
 
     add<bool>()
         ->asSwitch()
-        .withLongName("open-shares-mode")
+        .withLongName("public-data-mode")
         .withImplicitValue(true)
         .withDefaultValue(false, "false")
         .withGroup(OptionGroup::ADVANCED)
-        .withDescription("Enable open share mode, in which space directories "
-                         "list open data shares.");
+        .withDescription("Enable Public Data mode, in which space "
+                         "directories list Public Data collections "
+                         "(shares with assigned PID/DOI identifiers) "
+                         "instead of regular files.");
 
     add<bool>()
         ->asSwitch()
@@ -1441,9 +1443,9 @@ std::chrono::seconds Options::getDirectoryCacheDropAfter() const
     auto defaultDirCacheDropAfter = DEFAULT_DIR_CACHE_DROP_AFTER;
     if (get<unsigned int>({"dir-cache-drop-after", "dir_cache_drop_after"}) ==
             boost::none &&
-        isOpenSharesModeEnabled()) {
+        isPublicDataModeEnabled()) {
         defaultDirCacheDropAfter =
-            DEFAULT_DIR_CACHE_DROP_AFTER_IN_OPEN_SHARE_MODE;
+            DEFAULT_DIR_CACHE_DROP_AFTER_IN_PUBLIC_DATA_MODE;
     }
 
     return std::chrono::seconds{
@@ -1514,9 +1516,9 @@ bool Options::isArchivematicaModeEnabled() const
         .get_value_or(false);
 }
 
-bool Options::isOpenSharesModeEnabled() const
+bool Options::isPublicDataModeEnabled() const
 {
-    return get<bool>({"open-shares-mode", "open-share-mode"})
+    return get<bool>({"public-data-mode", "public-data-mode"})
         .get_value_or(false);
 }
 
