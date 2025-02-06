@@ -1,8 +1,25 @@
-Release notes for project oneclient
-===================================
+# Release notes for project oneclient
 
-CHANGELOG
----------
+## CHANGELOG
+
+### 21.02.8
+
+-   **VFS-12418** Improved error handling for S3 storages.
+-   **VFS-12372** Added command line option to ones3 allowing
+    customization of bucket to space mapping invalidation time.
+-   **VFS-12268** Enabled support for read-only and interface caveat
+    tokens in OneS3.
+
+### 21.02.7
+
+-   **VFS-12332** Added init.d scripts to ones3 service.
+
+### 21.02.6
+
+-   **VFS-12276** Added --ignore-env to oneclient and ones3 to ignore
+    using environment variables for options.
+-   **VFS-12273** Adjusted scope of information presented in ones3
+    readiness probe.
 
 ### 21.02.5
 

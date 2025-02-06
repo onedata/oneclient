@@ -18,10 +18,10 @@ requirements:
   build:
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
-    - conda-forge::aws-c-common
-    - conda-forge::aws-c-event-stream
-    - conda-forge::aws-checksums
-    - conda-forge::aws-sdk-cpp
+    - conda-forge::aws-c-common =0.7.2
+    - conda-forge::aws-c-event-stream =0.2.7
+    - conda-forge::aws-checksums =0.1.12
+    - conda-forge::aws-sdk-cpp =1.9.283
     - conda-forge::backports.lzma
     - conda-forge::binutils_linux-64
     - conda-forge::boost =1.78.0
@@ -46,9 +46,9 @@ requirements:
     - conda-forge::pcre
     - conda-forge::pkg-config
     - conda-forge::poco =1.11.1
-    - conda-forge::protobuf =3.17.*
+    - conda-forge::protobuf =3.17.0
     - conda-forge::pthread-stubs
-    - conda-forge::python
+    - conda-forge::python =3.9.*
     - conda-forge::spdlog =1.8.*
     - conda-forge::tbb =2018.0.5
     - conda-forge::tbb-devel =2018.0.5
@@ -59,10 +59,10 @@ requirements:
     - onedata::libiberty
     - onedata::swift-sdk-cpp
   run:
-    - conda-forge::aws-c-common
-    - conda-forge::aws-c-event-stream
-    - conda-forge::aws-checksums
-    - conda-forge::aws-sdk-cpp
+    - conda-forge::aws-c-common =0.7.2
+    - conda-forge::aws-c-event-stream =0.2.7
+    - conda-forge::aws-checksums =0.1.12
+    - conda-forge::aws-sdk-cpp =1.9.283
     - conda-forge::boost =1.78.0
     - conda-forge::double-conversion
     - conda-forge::gflags
@@ -78,7 +78,8 @@ requirements:
     - conda-forge::openssl =1.1.1o
     - conda-forge::pcre
     - conda-forge::poco =1.11.1
-    - conda-forge::protobuf =3.17.*
+    - conda-forge::python =3.9.*
+    - conda-forge::protobuf =3.17.0
     - conda-forge::tbb =2018.0.5
     - conda-forge::spdlog =1.8.*
     - conda-forge::zlib

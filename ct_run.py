@@ -67,6 +67,12 @@ parser.add_argument(
     help='Run tests as root in container',
     dest='no_shed_privileges')
 
+parser.add_argument(
+    '--cpuset-cpus',
+    action='store',
+    default=None,
+    help='CPUs in which to allow execution (0-3, 0,1)',
+    dest='cpuset_cpus')
 
 [args, pass_args] = parser.parse_known_args()
 dockers_config.ensure_image(args, 'image', 'builder')
@@ -116,6 +122,8 @@ if args.onenv_config is not None:
         sys.exit(1)
 
     print(f'One-env environment ready')
+
+    envs['ONES3_HOST'] = '0.0.0.0'
 
     # Get Onezone IP
     get_onezoneip_cli = "kubectl get pod dev-onezone-0 --template {{.status.podIP}}"
@@ -191,6 +199,12 @@ command = command.format(
     script_dir=script_dir,
     release=args.release)
 
+add_hosts = {}
+if args.onenv_config is not None:
+    add_hosts = {'dev-onezone.default.svc.cluster.local': onezone_ip.decode('utf-8'),
+                 'dev-oneprovider-krakow.default.svc.cluster.local': oneprovider_ip.decode('utf-8'),
+                 'dev-oneprovider-paris.default.svc.cluster.local': oneprovider_2_ip.decode('utf-8')}
+
 ret = docker.run(tty=True,
                  rm=True,
                  interactive=True,
@@ -199,7 +213,9 @@ ret = docker.run(tty=True,
                           ('/var/run/docker.sock', 'rw')],
                  image=args.image,
                  envs=envs,
+                 add_host=add_hosts,
                  run_params=['--privileged'] if args.gdb or args.no_shed_privileges else [],
+                 cpuset_cpus=args.cpuset_cpus,
                  command=['python', '-c', command])
 
 if not args.no_clean:

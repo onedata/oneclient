@@ -43,8 +43,12 @@ std::shared_ptr<typename ContextT::CommunicatorT> handshake(
         std::get<std::shared_ptr<typename ContextT::CommunicatorT>>(
             testCommunicatorTuple);
 
-    //    testCommunicator->setScheduler(context->scheduler());
+    if (context->options()->getCustomCACertificateDir().has_value())
+        testCommunicator->setCustomCADirectory(
+            context->options()->getCustomCACertificateDir().value().string());
+
     testCommunicator->connect();
+
     communication::wait(
         std::move(std::get<folly::Future<folly::Unit>>(testCommunicatorTuple)),
         context->options()->getProviderTimeout());
@@ -132,6 +136,10 @@ std::shared_ptr<typename ContextT::CommunicatorT> getCommunicator(
     auto communicator =
         std::get<std::shared_ptr<typename ContextT::CommunicatorT>>(
             communicatorTuple);
+
+    if (context->options()->getCustomCACertificateDir().has_value())
+        communicator->setCustomCADirectory(
+            context->options()->getCustomCACertificateDir().value().string());
 
     return communicator;
 }

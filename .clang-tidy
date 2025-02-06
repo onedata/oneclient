@@ -26,6 +26,7 @@ Checks: >-
   -cppcoreguidelines-narrowing-conversions,
   -cppcoreguidelines-avoid-non-const-global-variables,
   -cppcoreguidelines-pro-type-vararg,
+  -cppcoreguidelines-owning-memory,
   -misc-non-private-member-variables-in-classes,
   -misc-no-recursion,
   -modernize-concat-nested-namespaces,

@@ -195,7 +195,7 @@ public:
                 "handshake_message_trace_logger", messageLogPath.string());
         }
 
-        if (context->options()->isOpenSharesModeEnabled())
+        if (context->options()->isPublicDataModeEnabled())
             sessionMode = SessionMode::open_handle;
 
         auto future = communicator->setHandshake(

@@ -130,6 +130,8 @@ General options:
   -u [ --unmount ]                      Unmount Oneclient and exit.
   -c [ --config ] <path> (=/etc/oneclient.conf)
                                         Specify path to config file.
+  --ignore-env                          Ignore options from environment
+                                        variables.
   -H [ --host ] <host>                  Specify the hostname of the Oneprovider
                                         instance to which the Oneclient should
                                         connect.
@@ -154,10 +156,13 @@ General options:
                                         mounted.
   -l [ --log-dir ] <path> (=/tmp/oneclient/0)
                                         Specify custom path for Oneclient logs.
+  --custom-ca-dir <path>                Path to directory with custom CA
+                                        certificates in PEM format.
   -v [ --verbose-log-level ] <level> (=0)
                                         Specify the verbosity level (0-3) for
                                         verbose logs (only available in debug
                                         builds).
+  --disable-log-buffering               Disable log buffering.
 
 Advanced options:
   --io-trace-log                        Enable detailed IO trace log
@@ -170,12 +175,9 @@ Advanced options:
   --buffer-scheduler-thread-count <threads> (=1)
                                         Specify number of parallel buffer
                                         scheduler threads.
-  --communicator-pool-size <connections> (=10)
+  --communicator-pool-size <connections> (=25)
                                         Specify number of connections in
                                         communicator pool.
-  --communicator-thread-count <threads> (=4)
-                                        Specify number of parallel communicator
-                                        threads.
   --scheduler-thread-count <threads> (=1)
                                         Specify number of parallel scheduler
                                         threads.
@@ -184,6 +186,7 @@ Advanced options:
                                         helper threads.
   --no-buffer                           Disable in-memory cache for
                                         input/output data blocks.
+  --no-xattr                            Disable extended attributes support.
   --provider-timeout <duration> (=120)  Specify Oneprovider connection timeout
                                         in seconds.
   --storage-timeout <duration> (=120)   Specify I/O storage timeout in seconds.
@@ -296,8 +299,11 @@ Advanced options:
                                         call to specified number of bytes.
   --hard-link-count                     Show hard link count properly in stat.
   --enable-archivematica                Enable Archivematica mode.
-  --open-shares-mode                    Enable open share mode, in which space
-                                        directories list open data shares.
+  --public-data-mode                    Enable Public Data mode, in which space
+                                        directories list Public Data
+                                        collections (shares with assigned
+                                        PID/DOI identifiers) instead of regular
+                                        files.
   --show-space-ids                      Show space Id's instead of space names
                                         in the filesystem tree.
 
@@ -314,7 +320,7 @@ Monitoring options:
                                       - default.
   --monitoring-level-full             Sets monitoring reporting level to full.
   --monitoring-period <seconds> (=30) Performance metrics reporting period.
-  --graphite-url <url>                Graphite url - required when
+  --graphite-url <url>                Graphite url - required when 
                                       monitoring-type is 'graphite', the scheme
                                       can be either tcp or udp and default port
                                       is 2003
