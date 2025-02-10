@@ -21,10 +21,16 @@ public:
 
     folly::Future<std::shared_ptr<S3Logic>> get(const folly::fbstring &token);
 
-    bool updateClientStatus(Poco::JSON::Array &clients)
+    bool updateClientStatus(Poco::JSON::Array &clients);
+
+    folly::IOThreadPoolExecutor *executor();
+
+    void stop()
     {
-        bool isOk{true};
         std::lock_guard<std::mutex> l{m_cacheMutex};
+
+        std::vector<folly::Future<folly::Unit>> futs;
+
         for (auto &it : m_cache) {
             const auto key = it.first;
             auto s3Logic = it.second->getFuture();
@@ -35,31 +41,13 @@ public:
             if (s3Logic.hasException())
                 continue;
 
-            Poco::JSON::Object client;
-            client.set("id", key.toStdString());
-
-            client.set("isConnected", s3Logic.value()->isConnected());
-            client.set("openFileCount", s3Logic.value()->getOpenFileCount());
-            client.set(
-                "downloadedBytes", s3Logic.value()->getDownloadedBytes());
-            client.set("uploadedBytes", s3Logic.value()->getUploadedBytes());
-            client.set("activeWorkerThreads",
-                s3Logic.value()->getThreadPoolActiveThreads());
-
-            if (!s3Logic.value()->isConnected())
-                isOk = false;
-
-            clients.add(std::move(client));
+            futs.emplace_back(
+                s3Logic.via(m_executor.get()).thenValue([](auto &&s3l) {
+                    return s3l->stop();
+                }));
         }
 
-        return isOk;
-    }
-
-    folly::IOThreadPoolExecutor *executor()
-    {
-        if (!m_executor)
-            return nullptr;
-        return m_executor.get();
+        folly::collectAll(futs.begin(), futs.end()).get();
     }
 
 private:

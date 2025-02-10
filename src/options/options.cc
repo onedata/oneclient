@@ -25,10 +25,19 @@ namespace options {
 
 Options::Options(messages::handshake::ClientType clientType)
     : m_clientType{clientType}
-    , m_defaultConfigFilePath{boost::filesystem::path(ONECLIENT_CONFIG_DIR) /
-          boost::filesystem::path(CONFIG_FILE_NAME)}
     , m_defaultLogDirPath{"/tmp/oneclient/" + std::to_string(geteuid())}
 {
+    if (clientType == messages::handshake::ClientType::ones3) {
+        m_defaultConfigFilePath =
+            boost::filesystem::path(ONECLIENT_CONFIG_DIR) /
+            boost::filesystem::path(CONFIG_FILE_NAME);
+    }
+    else {
+        m_defaultConfigFilePath =
+            boost::filesystem::path(ONECLIENT_CONFIG_DIR) /
+            boost::filesystem::path(ONES3_CONFIG_FILE_NAME);
+    }
+
     add<bool>()
         ->asSwitch()
         .withShortName("h")
@@ -65,6 +74,15 @@ Options::Options(messages::handshake::ClientType clientType)
             m_defaultConfigFilePath, m_defaultConfigFilePath.c_str())
         .withGroup(OptionGroup::GENERAL)
         .withDescription("Specify path to config file.");
+
+    add<bool>()
+        ->asSwitch()
+        .withLongName("ignore-env")
+        .withConfigName("ignore_env")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::GENERAL)
+        .withDescription("Ignore options from environment variables.");
 
     add<std::string>()
         ->withShortName("H")
@@ -153,6 +171,15 @@ Options::Options(messages::handshake::ClientType clientType)
         .withDefaultValue(m_defaultLogDirPath, m_defaultLogDirPath.c_str())
         .withGroup(OptionGroup::GENERAL)
         .withDescription("Specify custom path for Oneclient logs.");
+
+    add<boost::filesystem::path>()
+        ->withEnvName("custom_ca_dir")
+        .withLongName("custom-ca-dir")
+        .withConfigName("custom_ca_dir")
+        .withValueName("<path>")
+        .withGroup(OptionGroup::GENERAL)
+        .withDescription(
+            "Path to directory with custom CA certificates in PEM format.");
 
     add<bool>()
         ->asSwitch()
@@ -654,12 +681,14 @@ Options::Options(messages::handshake::ClientType clientType)
 
     add<bool>()
         ->asSwitch()
-        .withLongName("open-shares-mode")
+        .withLongName("public-data-mode")
         .withImplicitValue(true)
         .withDefaultValue(false, "false")
         .withGroup(OptionGroup::ADVANCED)
-        .withDescription("Enable open share mode, in which space directories "
-                         "list open data shares.");
+        .withDescription("Enable Public Data mode, in which space "
+                         "directories list Public Data collections "
+                         "(shares with assigned PID/DOI identifiers) "
+                         "instead of regular files.");
 
     add<bool>()
         ->asSwitch()
@@ -819,7 +848,17 @@ Options::Options(messages::handshake::ClientType clientType)
             .withValueName("<port>")
             .withDefaultValue(std::thread::hardware_concurrency(), "")
             .withGroup(OptionGroup::ONES3)
-            .withDescription("Number of threads of the OneS3 server.");
+            .withDescription(
+                "Number of receiver threads of the OneS3 HTTPS server.");
+
+        add<unsigned int>()
+            ->withEnvName("ones3_logic_thread_num")
+            .withLongName("ones3-logic-thread-num")
+            .withConfigName("ones3_logic_thread_num")
+            .withValueName("<port>")
+            .withDefaultValue(DEFAULT_ONES3_LOGIC_THREAD_NUM, "")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription("Number of threads of the OneS3 logic.");
 
         add<bool>()
             ->asSwitch()
@@ -891,6 +930,30 @@ Options::Options(messages::handshake::ClientType clientType)
             .withGroup(OptionGroup::ONES3)
             .withDescription("Specifies the basic authentication for OneS3 "
                              "readiness probe (default none).");
+
+        add<unsigned int>()
+            ->withEnvName("ones3_bucketid_cache_expiration")
+            .withLongName("ones3-bucketid-cache-expiration")
+            .withConfigName("ones3_bucketid_cache_expiration")
+            .withValueName("<seconds>")
+            .withDefaultValue(
+                DEFAULT_ONES3_BUCKET_SPACEID_CACHE_EXPIRATION_SECONDS.count(),
+                "")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription("Time in seconds after which bucket to space id "
+                             "mapping cache entries are invalidated.");
+
+        add<bool>()
+            ->asSwitch()
+            .withEnvName("ones3_bucketid_cache_expiration_absolute")
+            .withLongName("ones3-bucketid-cache-expiration-absolute")
+            .withConfigName("ones3_bucketid_cache_expiration_absolute")
+            .withImplicitValue(true)
+            .withDefaultValue(false, "false")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription(
+                "Specifies that bucket to space id mapping cache entries are "
+                "expiration time relates to creation time not last use.");
     }
 
     if (m_clientType == messages::handshake::ClientType::oneclient) {
@@ -946,7 +1009,8 @@ void Options::parse(const int argc, const char *const argv[])
     if (getHelp() || getVersion())
         return;
 
-    parser.parseEnvironment(m_deprecatedEnvs, m_vm);
+    if (!isIgnoreEnv())
+        parser.parseEnvironment(m_deprecatedEnvs, m_vm);
 
     if (m_clientType == messages::handshake::ClientType::ones3 &&
         !exists(getConfigFilePath())) {
@@ -1063,6 +1127,11 @@ bool Options::getUnmount() const
     return get<bool>({"unmount"}).get_value_or(false);
 }
 
+bool Options::isIgnoreEnv() const
+{
+    return get<bool>({"ignore-env", "ignore_env"}).get_value_or(false);
+}
+
 bool Options::getForeground() const
 {
     return get<bool>({"foreground", "fuse_foreground"}).get_value_or(false);
@@ -1107,6 +1176,12 @@ unsigned int Options::getProviderPort() const
 {
     return get<unsigned int>({"port", "provider_port"})
         .get_value_or(DEFAULT_PROVIDER_PORT);
+}
+
+boost::optional<boost::filesystem::path>
+Options::getCustomCACertificateDir() const
+{
+    return get<boost::filesystem::path>({"custom-ca-dir", "custom_ca_dir"});
 }
 
 bool Options::isInsecure() const
@@ -1368,9 +1443,9 @@ std::chrono::seconds Options::getDirectoryCacheDropAfter() const
     auto defaultDirCacheDropAfter = DEFAULT_DIR_CACHE_DROP_AFTER;
     if (get<unsigned int>({"dir-cache-drop-after", "dir_cache_drop_after"}) ==
             boost::none &&
-        isOpenSharesModeEnabled()) {
+        isPublicDataModeEnabled()) {
         defaultDirCacheDropAfter =
-            DEFAULT_DIR_CACHE_DROP_AFTER_IN_OPEN_SHARE_MODE;
+            DEFAULT_DIR_CACHE_DROP_AFTER_IN_PUBLIC_DATA_MODE;
     }
 
     return std::chrono::seconds{
@@ -1441,9 +1516,9 @@ bool Options::isArchivematicaModeEnabled() const
         .get_value_or(false);
 }
 
-bool Options::isOpenSharesModeEnabled() const
+bool Options::isPublicDataModeEnabled() const
 {
-    return get<bool>({"open-shares-mode", "open-share-mode"})
+    return get<bool>({"public-data-mode", "public-data-mode"})
         .get_value_or(false);
 }
 
@@ -1522,6 +1597,24 @@ boost::optional<std::string> Options::getOneS3SupportStorageId() const
         "ones3_support_storage_id", "ones3_support_storage_id"});
 }
 
+std::chrono::seconds Options::getOneS3BucketIdCacheExpirationTime() const
+{
+    return std::chrono::seconds{
+        get<unsigned int>({"ones3-bucketid-cache-expiration",
+                              "ones3_bucketid_cache_expiration",
+                              "ones3_bucketid_cache_expiration"})
+            .get_value_or(
+                DEFAULT_ONES3_BUCKET_SPACEID_CACHE_EXPIRATION_SECONDS.count())};
+}
+
+bool Options::isOneS3BucketIdCacheExpirationAbsolute() const
+{
+    return get<bool>({"ones3-bucketid-cache-expiration-absolute",
+                         "ones3_bucketid_cache_expiration_absolute",
+                         "ones3_bucketid_cache_expiration_absolute"})
+        .get_value_or(false);
+}
+
 bool Options::areOneS3BucketOperationsDisabled() const
 {
     return get<bool>(
@@ -1566,6 +1659,14 @@ unsigned int Options::getOneS3ThreadNum() const
     return get<unsigned int>(
         {"ones3-thread-num", "ones3_thread_num", "ones3_thread_num"})
         .get_value_or(std::thread::hardware_concurrency());
+}
+
+unsigned int Options::getOneS3LogicThreadNum() const
+{
+    return get<unsigned int>(
+        {"ones3-logic-thread-num", "ones3_logic_thread_num",
+            "ones3_logic_thread_num"})
+        .get_value_or(DEFAULT_ONES3_LOGIC_THREAD_NUM);
 }
 
 unsigned int Options::getOneS3KeepaliveRequests() const

@@ -104,7 +104,9 @@ def oneclient(request, oneprovider_ip, ceph_monitor_ip, onezone_admin_token,
               ceph_support_storage_id, s3_support_storage_id, s3_server_ip,
               mountpoint):
     oneclient_cli = (
-        f'debug/oneclient -i -v 1 -f -H {oneprovider_ip}'
+        f'debug/oneclient -v 1 -f'
+        f' -H dev-oneprovider-krakow.default.svc.cluster.local'
+        f' --custom-ca-dir test/onenv_tests/certs'
         f' -t {onezone_admin_token}'
         f' -Z dev-onezone.default.svc.cluster.local'
         f' --override {ceph_support_storage_id}:monitorHostname:{ceph_monitor_ip}'
@@ -134,7 +136,9 @@ def oneclient_proxy(request, oneprovider_ip, ceph_monitor_ip, onezone_admin_toke
               ceph_support_storage_id, s3_support_storage_id, s3_server_ip,
               mountpoint):
     oneclient_cli = (
-        f'debug/oneclient -i -v 1 -f -H {oneprovider_ip}'
+        f'debug/oneclient -v 1 -f'
+        f' -H dev-oneprovider-krakow.default.svc.cluster.local'
+        f' --custom-ca-dir test/onenv_tests/certs'
         f' -t {onezone_admin_token}'
         f' -Z dev-onezone.default.svc.cluster.local'
         f' --scheduler-thread-count 1'

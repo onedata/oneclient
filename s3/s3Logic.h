@@ -115,6 +115,8 @@ public:
 
     folly::Future<std::shared_ptr<S3Logic>> connect();
 
+    folly::Future<folly::Unit> stop();
+
     folly::Future<Aws::S3::Model::ListBucketsResult> listBuckets();
 
     folly::Future<Aws::S3::Model::CreateMultipartUploadResult>

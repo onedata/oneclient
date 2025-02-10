@@ -8,6 +8,7 @@ if(BUILD_INTEGRATION_TESTS)
 endif()
 
 add_subdirectory(unit)
+
 if(WITH_BENCHMARKS)
 add_subdirectory(benchmark)
 endif(WITH_BENCHMARKS)
