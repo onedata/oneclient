@@ -29,7 +29,7 @@ struct Provider {
     std::string version;
     std::string name;
     std::string host;
-    int port{443};
+    unsigned int port{443};
 };
 
 struct UserSpaceDetails {

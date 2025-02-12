@@ -83,6 +83,10 @@ std::shared_ptr<auth::AuthManager<ContextT>> getTokenAuthManager(
     std::shared_ptr<ContextT> context, const folly::fbstring &token)
 {
     auto options = context->options();
+
+    LOG_DBG(3) << "Creating token auth manager for Oneprovider at: "
+               << context->provider().host << ":" << context->provider().port;
+
     return std::make_shared<
         auth::MacaroonAuthManager<auth::TokenMacaroonHandler, ContextT>>(
         context, context->provider().host, context->provider().port, token,

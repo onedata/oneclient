@@ -203,12 +203,6 @@ command = command.format(
     script_dir=script_dir,
     release=args.release)
 
-add_hosts = {}
-if args.onenv_config is not None:
-    add_hosts = {'dev-onezone.default.svc.cluster.local': onezone_ip.decode('utf-8'),
-                 'dev-oneprovider-krakow.default.svc.cluster.local': oneprovider_ip.decode('utf-8'),
-                 'dev-oneprovider-paris.default.svc.cluster.local': oneprovider_2_ip.decode('utf-8')}
-
 ret = docker.run(tty=True,
                  rm=True,
                  interactive=True,
@@ -218,12 +212,11 @@ ret = docker.run(tty=True,
                           ('/var/run/docker.sock', 'rw')],
                  image=args.image,
                  envs=envs,
-                 add_host=add_hosts,
                  run_params=['--privileged'] if args.gdb or args.no_shed_privileges else [],
                  cpuset_cpus=args.cpuset_cpus,
                  command=['python', '-c', command])
 
-if not args.no_clean:
+if args.onenv_config and not args.no_clean:
     try:
         up_output = subprocess.check_output(['./one-env/onenv', 'clean'])
     except subprocess.CalledProcessError as e:

@@ -95,6 +95,12 @@ S3Logic::S3Logic(std::shared_ptr<one::client::options::Options> options,
     m_context->setScheduler(
         std::make_shared<Scheduler>(m_options->getSchedulerThreadCount()));
     m_context->setOptions(m_options);
+
+    one::rest::onezone::model::Provider provider;
+    provider.host = m_options->getProviderHost().value();
+    provider.port = m_options->getProviderPort();
+
+    m_context->setProvider(std::move(provider));
 }
 
 folly::Future<std::shared_ptr<S3Logic>> S3Logic::connect()
