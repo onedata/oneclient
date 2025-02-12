@@ -20,9 +20,11 @@ def test_onedatafs_should_connect_to_provider(odfs_proxy):
     space_name = 'test_onedatafs'
     test_file = random_str(10)
 
-    handle = odfs_proxy.open(f'{space_name}/{test_file}')
-    handle.close()
+    with odfs_proxy.open(f'{space_name}/{test_file}') as handle:
+        pass #handle.close()
+
     odfs_proxy.unlink(f'{space_name}/{test_file}')
+
     odfs_proxy.close()
 
 
@@ -233,22 +235,27 @@ def test_read_file_remote(odfs_proxy, oneprovider_ip, onezone_admin_token,
             attr = odfs_proxy.stat(f'{space_name}/{file_name}')
             if attr.size < size:
                 raise FileLocationNotYetReplicated
+
             handle = odfs_proxy.open(f'{space_name}/{file_name}')
+
             chunk = handle.read(0, size)
+
             handle.close()
+
             if len(chunk) < size:
                 raise FileLocationNotYetReplicated
 
             assert (chunk == data)
 
             success = True
-        except Exception as e:
+        except RuntimeError as e:
             # Wait for the file to show up at oneprovider 1
             time.sleep(2)
         finally:
             retries = retries - 1
 
     odfs_proxy.unlink(f'{space_name}/{file_name}')
+
     odfs_proxy.close()
 
     assert success

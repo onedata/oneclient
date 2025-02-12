@@ -76,6 +76,10 @@ public:
         const bool showOnlyFullReplicas, const bool showHardLinkCount,
         const bool showSpaceIdsNotNames = false);
 
+    void setRunInFiber(std::function<void(folly::Function<void()>)> f);
+
+    void runInFiber(folly::Function<void()> &&f);
+
     /**
      * Sets a pointer to an instance of @c ReaddirCache.
      * @param readdirCache Shared pointer to an instance of @c ReaddirCache.
@@ -439,6 +443,7 @@ private:
     std::list<folly::fbstring> m_lruDirectoryList;
     std::unordered_map<folly::fbstring, OpenFileData> m_lruDirectoryData;
 
+    std::function<void(folly::Function<void()>)> m_runInFiber = {};
     std::function<void(const folly::fbstring &)> m_onSyncDirectory =
         [](auto &) {};
     std::function<void(const folly::fbstring &)> m_onOpen = [](auto &) {};

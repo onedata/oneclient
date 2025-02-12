@@ -191,7 +191,7 @@ std::string OnedataFileHandle::read(const off_t offset, const std::size_t size)
                        buf.appendToString(data);
                        return data;
                    })
-                   .get();
+                   .FUTURE_GET();
 
 #if PY_MAJOR_VERSION >= 3
     if (res.empty())
@@ -264,7 +264,9 @@ void OnedataFileHandle::close()
             return m_fsLogic->fsync(m_uuid, m_fileHandleId, false);
         })
         .thenValue([this](auto && /*unit*/) mutable {
-            return m_fsLogic->release(m_uuid, m_fileHandleId);
+            return m_fiberManager.addTaskRemoteFuture([this]() mutable {
+                return m_fsLogic->release(m_uuid, m_fileHandleId);
+            });
         })
         .get();
 
@@ -405,27 +407,27 @@ Stat OnedataFS::stat(const std::string &path)
 {
     ReleaseGIL guard;
 
-    return viaProviderGet(path, [this, path](auto &&fsLogic) mutable {
+    return viaProvider(path, [this, path](auto &&fsLogic) mutable -> Stat {
         return attrToStat(fsLogic->getattr(uuidFromPath(fsLogic, path)));
-    });
+    }).FUTURE_GET();
 }
 
 int OnedataFS::opendir(const std::string &path)
 {
     ReleaseGIL guard;
 
-    return viaProviderGet(path, [this, path](auto &&fsLogic) mutable {
+    return viaProvider(path, [this, path](auto &&fsLogic) mutable -> int {
         return fsLogic->opendir(uuidFromPath(fsLogic, path));
-    });
+    }).FUTURE_GET();
 }
 
 void OnedataFS::releasedir(const std::string &path, int handleId)
 {
     ReleaseGIL guard;
 
-    viaProviderGet(path, [this, path, handleId](auto &&fsLogic) mutable {
+    viaProvider(path, [this, path, handleId](auto &&fsLogic) mutable {
         return fsLogic->releasedir(uuidFromPath(fsLogic, path), handleId);
-    });
+    }).FUTURE_GET();
 }
 
 std::vector<std::string> OnedataFS::readdir(
@@ -470,15 +472,21 @@ Stat OnedataFS::create(
 {
     ReleaseGIL guard;
 
-    return viaProviderGet(
-        path, [this, path, mode, flags](auto &&fsLogic) mutable {
+    return viaProvider(path,
+        [this, path, mode, flags](auto &&fsLogic) mutable -> Stat {
             auto parentPair = splitToParentName(fsLogic, path);
             auto res = fsLogic->create(uuidFromPath(fsLogic, parentPair.first),
                 parentPair.second, mode, flags);
 
             return attrToStat(res.first);
-        });
+        })
+        .thenError(folly::tag_t<std::exception>{},
+            [path](auto &&e) -> Stat {
+                throw e; // NOLINT
+            })
+        .FUTURE_GET();
 }
+
 std::pair<std::string, std::string> OnedataFS::getSpaceAndProviderId(
     const std::string &path)
 {
@@ -553,69 +561,116 @@ Stat OnedataFS::mkdir(const std::string &path, const mode_t mode)
 {
     ReleaseGIL guard;
 
-    return viaProviderGet(path, [this, path, mode](auto &&fsLogic) mutable {
-        auto parentPair = splitToParentName(fsLogic, path);
-        return attrToStat(fsLogic->mkdir(
-            uuidFromPath(fsLogic, parentPair.first), parentPair.second, mode));
-    });
+    return viaProvider(path,
+        [this, path, mode](auto &&fsLogic) mutable -> Stat {
+            auto parentPair = splitToParentName(fsLogic, path);
+            return attrToStat(
+                fsLogic->mkdir(uuidFromPath(fsLogic, parentPair.first),
+                    parentPair.second, mode));
+        })
+        .thenError(folly::tag_t<std::exception>{},
+            [path](auto &&e) -> Stat {
+                throw e; // NOLINT
+            })
+        .FUTURE_GET();
 }
 
 Stat OnedataFS::mknod(const std::string &path, const mode_t mode)
 {
     ReleaseGIL guard;
 
-    return viaProviderGet(path, [this, path, mode](auto &&fsLogic) mutable {
-        auto parentPair = splitToParentName(fsLogic, path);
-        return attrToStat(fsLogic->mknod(
-            uuidFromPath(fsLogic, parentPair.first), parentPair.second, mode));
-    });
+    return viaProvider(path,
+        [this, path, mode](auto &&fsLogic) mutable -> Stat {
+            auto parentPair = splitToParentName(fsLogic, path);
+            return attrToStat(
+                fsLogic->mknod(uuidFromPath(fsLogic, parentPair.first),
+                    parentPair.second, mode));
+        })
+        .thenError(folly::tag_t<std::exception>{},
+            [path](auto &&e) -> Stat {
+                throw e; // NOLINT
+            })
+        .FUTURE_GET();
 }
 
 void OnedataFS::unlink(const std::string &path)
 {
     ReleaseGIL guard;
 
-    viaProviderGet(path, [this, path](auto &&fsLogic) mutable {
-        auto parentPair = splitToParentName(fsLogic, path);
-        fsLogic->unlink(
-            uuidFromPath(fsLogic, parentPair.first), parentPair.second);
-    });
+    viaProvider(path,
+        [this, path](auto &&fsLogic) mutable {
+            auto parentPair = splitToParentName(fsLogic, path);
+            fsLogic->unlink(
+                uuidFromPath(fsLogic, parentPair.first), parentPair.second);
+        })
+        .thenError(folly::tag_t<std::exception>{},
+            [path](auto &&e) -> void {
+                throw e; // NOLINT
+            })
+        .FUTURE_GET();
 }
 
 void OnedataFS::rename(const std::string &from, const std::string &to)
 {
     ReleaseGIL guard;
 
-    viaProviderGet(from, [this, from, to](auto &&fsLogic) mutable {
-        auto fromPair = splitToParentName(fsLogic, from);
-        auto toPair = splitToParentName(fsLogic, to);
+    viaProvider(from,
+        [this, from, to](auto &&fsLogic) mutable {
+            auto fromPair = splitToParentName(fsLogic, from);
+            auto toPair = splitToParentName(fsLogic, to);
 
-        fsLogic->rename(uuidFromPath(fsLogic, fromPair.first), fromPair.second,
-            uuidFromPath(fsLogic, toPair.first), toPair.second);
-    });
+            return fsLogic->rename(uuidFromPath(fsLogic, fromPair.first),
+                fromPair.second, uuidFromPath(fsLogic, toPair.first),
+                toPair.second);
+        })
+        .thenTry([](auto &&maybe) {
+            if (maybe.hasException()) {
+                maybe.throwUnlessValue();
+            }
+        })
+        //        .thenError(folly::tag_t<std::system_error>{},
+        //            [](auto &&e) -> void {
+        //                throw e; // NOLINT
+        //            })
+        //        .thenError(folly::tag_t<std::exception>{},
+        //            [](auto &&e) -> void {
+        //                throw e; // NOLINT
+        //            })
+        .FUTURE_GET();
 }
 
 Stat OnedataFS::setattr(const std::string &path, Stat attr, const int toSet)
 {
     ReleaseGIL guard;
 
-    return viaProviderGet(
-        path, [this, path, attr, toSet](auto &&fsLogic) mutable {
+    return viaProvider(path,
+        [this, path, attr, toSet](auto &&fsLogic) mutable -> Stat {
             return attrToStat(fsLogic->setattr(
                 uuidFromPath(fsLogic, path), toStatBuf(attr), toSet));
-        });
+        })
+        .thenError(folly::tag_t<std::exception>{},
+            [](auto &&e) -> Stat {
+                throw e; // NOLINT
+            })
+        .FUTURE_GET();
 }
 
 void OnedataFS::truncate(const std::string &path, int size)
 {
     ReleaseGIL guard;
 
-    viaProviderGet(path, [this, path, size](auto &&fsLogic) mutable {
-        struct stat statbuf = {};
-        statbuf.st_size = size;
-        return fsLogic->setattr(
-            uuidFromPath(fsLogic, path), statbuf, FUSE_SET_ATTR_SIZE);
-    });
+    viaProvider(path,
+        [this, path, size](auto &&fsLogic) mutable {
+            struct stat statbuf = {};
+            statbuf.st_size = size;
+            return fsLogic->setattr(
+                uuidFromPath(fsLogic, path), statbuf, FUSE_SET_ATTR_SIZE);
+        })
+        .thenError(folly::tag_t<std::exception>{},
+            [](auto &&e) -> FileAttrPtr {
+                throw e; // NOLINT
+            })
+        .FUTURE_GET();
 }
 
 boost::python::object OnedataFS::getxattr(
@@ -623,26 +678,32 @@ boost::python::object OnedataFS::getxattr(
 {
     ReleaseGIL guard;
 
-    return viaProviderGet(path, [this, path, name](auto &&fsLogic) mutable {
-        std::string result;
+    return viaProvider(path,
+        [this, path, name](auto &&fsLogic) mutable -> boost::python::object {
+            std::string result;
 
-        // Return provider id for ino if request 'org.onedata.provider_id'
-        if (name == "org.onedata.provider_id") {
-            const auto &[spaceId, providerId] = getSpaceAndProviderId(path);
+            // Return provider id for ino if request 'org.onedata.provider_id'
+            if (name == "org.onedata.provider_id") {
+                const auto &[spaceId, providerId] = getSpaceAndProviderId(path);
 
-            result = "\"" + providerId + "\"";
-        }
-        else {
-            result = fsLogic->getxattr(uuidFromPath(fsLogic, path), name)
-                         .toStdString();
-            if (result.empty())
-                return boost::python::object(boost::python::handle<>(
-                    PyBytes_FromStringAndSize(nullptr, 0)));
-        }
+                result = "\"" + providerId + "\"";
+            }
+            else {
+                result = fsLogic->getxattr(uuidFromPath(fsLogic, path), name)
+                             .toStdString();
+                if (result.empty())
+                    return boost::python::object(boost::python::handle<>(
+                        PyBytes_FromStringAndSize(nullptr, 0)));
+            }
 
-        return boost::python::object(boost::python::handle<>(
-            PyBytes_FromStringAndSize(result.c_str(), result.size())));
-    });
+            return boost::python::object(boost::python::handle<>(
+                PyBytes_FromStringAndSize(result.c_str(), result.size())));
+        })
+        .thenError(folly::tag_t<std::exception>{},
+            [path](auto &&e) -> boost::python::object {
+                throw e; // NOLINT
+            })
+        .FUTURE_GET();
 }
 
 void OnedataFS::setxattr(const std::string &path, const std::string &name,
@@ -650,43 +711,58 @@ void OnedataFS::setxattr(const std::string &path, const std::string &name,
 {
     ReleaseGIL guard;
 
-    viaProviderGet(path,
+    viaProvider(path,
         [this, path, name, value, create, replace](auto &&fsLogic) mutable {
             return fsLogic->setxattr(
                 uuidFromPath(fsLogic, path), name, value, create, replace);
-        });
+        })
+        .thenError(folly::tag_t<std::exception>{},
+            [](auto &&e) -> void {
+                throw e; // NOLINT
+            })
+        .FUTURE_GET();
 }
 
 void OnedataFS::removexattr(const std::string &path, const std::string &name)
 {
     ReleaseGIL guard;
 
-    viaProviderGet(path, [this, path, name](auto &&fsLogic) mutable {
-        return fsLogic->removexattr(uuidFromPath(fsLogic, path), name);
-    });
+    viaProvider(path,
+        [this, path, name](auto &&fsLogic) mutable {
+            return fsLogic->removexattr(uuidFromPath(fsLogic, path), name);
+        })
+        .thenError(folly::tag_t<std::exception>{},
+            [](auto &&e) -> void {
+                throw e; // NOLINT
+            })
+        .FUTURE_GET();
 }
 
 std::vector<std::string> OnedataFS::listxattr(const std::string &path)
 {
     ReleaseGIL guard;
 
-    return viaProviderGet(path, [this, path](auto &&fsLogic) mutable {
-        auto xattrs = fsLogic->listxattr(uuidFromPath(fsLogic, path));
-        std::vector<std::string> result;
-        for (const auto &xattr : xattrs)
-            result.emplace_back(xattr.toStdString());
-        return result;
-    });
+    return viaProvider(path,
+        [this, path](auto &&fsLogic) mutable -> std::vector<std::string> {
+            auto xattrs = fsLogic->listxattr(uuidFromPath(fsLogic, path));
+            std::vector<std::string> result;
+            for (const auto &xattr : xattrs)
+                result.emplace_back(xattr.toStdString());
+            return result;
+        })
+        .FUTURE_GET();
 }
 
 boost::python::dict OnedataFS::locationMap(const std::string &path)
 {
     ReleaseGIL guard;
 
-    return viaProviderGet(path, [this, path](auto &&fsLogic) mutable {
-        return toPythonDict(
-            fsLogic->getFileLocalBlocks(uuidFromPath(fsLogic, path)));
-    });
+    return viaProvider(path,
+        [this, path](auto &&fsLogic) mutable -> boost::python::dict {
+            return toPythonDict(
+                fsLogic->getFileLocalBlocks(uuidFromPath(fsLogic, path)));
+        })
+        .FUTURE_GET();
 }
 
 std::function<void(folly::Function<void()>)> OnedataFS::makeRunInFiber()
@@ -848,10 +924,15 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(
 
 int regularMode() { return S_IFREG; }
 
-void translate(const std::errc &err)
+void translateErrc(const std::errc &err)
 {
     PyErr_SetString(
         PyExc_RuntimeError, std::make_error_code(err).message().c_str());
+}
+
+void translateSystemError(const std::system_error &err)
+{
+    PyErr_SetString(PyExc_RuntimeError, err.what());
 }
 
 template <typename Container> PyIterableAdapter &PyIterableAdapter::fromPython()

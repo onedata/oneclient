@@ -20,11 +20,13 @@ OpenFileMetadataCache::OpenFileToken::OpenFileToken(
 
 OpenFileMetadataCache::OpenFileToken::~OpenFileToken()
 {
-    try {
-        m_cache.releaseFile(m_attr->uuid());
-    }
-    catch (...) {
-    }
+    m_cache.runInFiber([this]() {
+        try {
+            m_cache.releaseFile(m_attr->uuid());
+        }
+        catch (...) {
+        }
+    });
 }
 
 OpenFileMetadataCache::OpenFileMetadataCache(
@@ -47,6 +49,18 @@ OpenFileMetadataCache::OpenFileMetadataCache(
     MetadataCache::onMarkDeleted(
         std::bind(&OpenFileMetadataCache::handleMarkDeleted, this,
             std::placeholders::_1));
+}
+
+void OpenFileMetadataCache::setRunInFiber(
+    std::function<void(folly::Function<void()>)> f)
+{
+    m_runInFiber = std::move(f);
+}
+
+void OpenFileMetadataCache::runInFiber(folly::Function<void()> &&f)
+{
+    if (m_runInFiber)
+        m_runInFiber(std::move(f));
 }
 
 void OpenFileMetadataCache::setReaddirCache(

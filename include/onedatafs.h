@@ -245,21 +245,6 @@ auto OnedataFS::viaProvider(const std::string &path, F &&func)
         });
 }
 
-template <typename F>
-auto OnedataFS::viaProviderGet(const std::string &path, F &&func)
-{
-    const auto &[spaceId, providerId] = getSpaceAndProviderId(path);
-
-    return m_fiberManager
-        .addTaskRemoteFuture(
-            [this, spaceId = spaceId, providerId = providerId]() {
-                createFsLogicForSpace(spaceId);
-                return m_fsLogicMap.at(providerId);
-            })
-        .thenValue(std::forward<F>(func))
-        .FUTURE_GET();
-}
-
 namespace {
 boost::shared_ptr<OnedataFS> makeOnedataFS(
     // clang-format off
@@ -281,7 +266,8 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(
 
 int regularMode();
 
-void translate(const std::errc &err);
+void translateErrc(const std::errc &err);
+void translateSystemError(const std::system_error &err);
 
 struct PyIterableAdapter {
     template <typename Container> PyIterableAdapter &fromPython();
@@ -306,7 +292,8 @@ BOOST_PYTHON_MODULE(onedatafs)
 
     Py_Initialize();
     PyEval_InitThreads();
-    register_exception_translator<std::errc>(&translate);
+    register_exception_translator<std::system_error>(&translateSystemError);
+    register_exception_translator<std::errc>(&translateErrc);
 
     class_<Stat>("Stat")
         .def_readwrite("atime", &Stat::atime)

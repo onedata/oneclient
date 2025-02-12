@@ -221,6 +221,8 @@ FsLogic::FsLogic(std::shared_ptr<OneclientContext> context,
     //
     // Registration of medatacache events callbacks
     //
+    m_metadataCache.setRunInFiber(m_runInFiber);
+
     // Called when file attributes are added to the metadata cache
     m_metadataCache.onAdd([this](const folly::fbstring &uuid) {
         m_fsSubscriptions.subscribeFileAttrChanged(uuid);
