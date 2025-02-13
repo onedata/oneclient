@@ -20,9 +20,9 @@ OpenFileMetadataCache::OpenFileToken::OpenFileToken(
 
 OpenFileMetadataCache::OpenFileToken::~OpenFileToken()
 {
-    m_cache.runInFiber([this]() {
+    m_cache.runInFiber([&cache = m_cache, uuid = m_attr->uuid()]() {
         try {
-            m_cache.releaseFile(m_attr->uuid());
+            cache.releaseFile(uuid);
         }
         catch (...) {
         }
@@ -247,6 +247,9 @@ void OpenFileMetadataCache::releaseFile(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
+    if (m_stopped)
+        return;
+
     assertInFiber();
 
     auto it = m_lruFileData.find(uuid);
@@ -423,6 +426,13 @@ void OpenFileMetadataCache::clear()
     m_lruDirectoryData.clear();
 
     MetadataCache::clear();
+}
+
+void OpenFileMetadataCache::stop()
+{
+    LOG_FCALL();
+
+    m_stopped = true;
 }
 
 bool OpenFileMetadataCache::rename(const folly::fbstring &uuid,

@@ -282,6 +282,8 @@ public:
      */
     void clear();
 
+    void stop();
+
     /**
      * Returns true if the directory uuid has been at least once synced from the
      * server through readdir.
@@ -442,6 +444,8 @@ private:
     std::unordered_map<folly::fbstring, OpenFileData> m_lruFileData;
     std::list<folly::fbstring> m_lruDirectoryList;
     std::unordered_map<folly::fbstring, OpenFileData> m_lruDirectoryData;
+
+    bool m_stopped{false};
 
     std::function<void(folly::Function<void()>)> m_runInFiber = {};
     std::function<void(const folly::fbstring &)> m_onSyncDirectory =

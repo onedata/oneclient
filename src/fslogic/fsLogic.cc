@@ -359,6 +359,8 @@ void FsLogic::stop()
     if (!m_stopping) {
         m_stopping = true;
 
+        m_metadataCache.stop();
+
         m_runInFiber([this]() { reset(); });
 
         m_stopped = true;
