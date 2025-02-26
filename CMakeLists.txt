@@ -283,16 +283,17 @@ endif(WITH_S3)
 
 # Swift SDK library
 if(WITH_SWIFT)
-    find_library(SWIFT_SDK_LIBRARY Swift)
     find_library(POCO_UTIL PocoUtil)
     find_library(POCO_NET PocoNet)
     find_library(POCO_XML PocoXML)
+    find_library(POCO_JSON PocoJSON)
     find_library(POCO_FOUNDATION PocoFoundation)
     set(SWIFT_SDK_LIBRARIES
         ${SWIFT_SDK_LIBRARY}
         ${POCO_UTIL}
         ${POCO_NET}
         ${POCO_XML}
+        ${POCO_JSON}
         ${POCO_FOUNDATION})
 endif(WITH_SWIFT)
 
