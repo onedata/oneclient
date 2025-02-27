@@ -8,6 +8,10 @@ endif()
 
 project(oneclient C CXX)
 
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
 option(CODE_COVERAGE "Enable code coverage (gcc only)." OFF)
 option(STATIC_BOOST "Link Boost statically" OFF)
 option(STATIC_LIBSTDCPP "Link libstdc++ statically" OFF)
@@ -162,7 +166,7 @@ else(FETCH_FOLLY)
         GIT_REPOSITORY    https://github.com/facebook/folly.git
         GIT_TAG           v2024.06.24.00
         INSTALL_DIR       ${CMAKE_BINARY_DIR}/contrib
-        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC';-DBUILD_TESTS=OFF;-DCMAKE_C_FLAGS='-Wl,-lrt';-DCMAKE_EXE_LINKER_FLAGS='-lrt';-DCMAKE_EXE_LINKER_FLAGS='-lrt';-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
+        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC -Wno-address';-DBUILD_TESTS=OFF;-DCMAKE_C_FLAGS='-Wl,-lrt';-DCMAKE_EXE_LINKER_FLAGS='-lrt';-DCMAKE_EXE_LINKER_FLAGS='-lrt';-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
     )
     ExternalProject_Add_StepTargets(folly install)
     ExternalProject_Add(fizz
@@ -171,7 +175,7 @@ else(FETCH_FOLLY)
         SOURCE_SUBDIR     fizz
         DEPENDS           folly-install
         INSTALL_DIR       ${CMAKE_BINARY_DIR}/contrib
-        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC';-DBUILD_TESTS=OFF;-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/contrib;-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
+        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC -Wno-address';-DBUILD_TESTS=OFF;-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/contrib;-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
     )
     ExternalProject_Add_StepTargets(fizz install)
     ExternalProject_Add(wangle
@@ -180,7 +184,7 @@ else(FETCH_FOLLY)
         SOURCE_SUBDIR     wangle
         DEPENDS           fizz-install
         INSTALL_DIR       ${CMAKE_BINARY_DIR}/contrib
-        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC';-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/contrib;-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib;-DBUILD_TESTS=OFF;-DBUILD_EXAMPLES=OFF;-DCMAKE_CROSSCOMPILING=ON"
+        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC -Wno-address';-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/contrib;-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib;-DBUILD_TESTS=OFF;-DBUILD_EXAMPLES=OFF;-DCMAKE_CROSSCOMPILING=ON"
     )
     ExternalProject_Add_StepTargets(wangle install)
     ExternalProject_Add(mvfst
@@ -188,7 +192,7 @@ else(FETCH_FOLLY)
         GIT_TAG           v2024.06.24.00
         DEPENDS           wangle-install
         INSTALL_DIR       ${CMAKE_BINARY_DIR}/contrib
-        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC';-DBUILD_TESTS=OFF;-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/contrib;-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
+        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC -Wno-address';-DBUILD_TESTS=OFF;-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/contrib;-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
     )
     ExternalProject_Add_StepTargets(mvfst install)
     ExternalProject_Add(proxygen
@@ -196,17 +200,59 @@ else(FETCH_FOLLY)
         GIT_TAG           v2024.06.24.00
         DEPENDS           mvfst-install
         INSTALL_DIR       ${CMAKE_BINARY_DIR}/contrib
-        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC';-DBUILD_TESTS=OFF;-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/contrib;-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
+        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC -Wno-address';-DBUILD_TESTS=OFF;-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/contrib;-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
     )
     ExternalProject_Add_StepTargets(proxygen install)
     set(FOLLY_INCLUDE_DIR ${CMAKE_BINARY_DIR}/contrib/include)
     set(FOLLY_LIBRARIES
+        ${CMAKE_BINARY_DIR}/contrib/lib/libwangle.a
         ${CMAKE_BINARY_DIR}/contrib/lib/libfolly.a
         ${CMAKE_BINARY_DIR}/contrib/lib/libfollybenchmark.a
         ${CMAKE_BINARY_DIR}/contrib/lib/libwangle.a
         ${LIBEVENT_LIBRARY}
         ${IBERTY_LIBRARY}
         ${CMAKE_BINARY_DIR}/contrib/lib/libfizz.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_async_udp_socket.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_batch_writer.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_buf_accessor.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_bufutil.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_cc_algo.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_client.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_codec.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_codec_decode.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_codec_packet_number_cipher.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_codec_pktbuilder.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_codec_pktrebuilder.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_codec_types.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_constants.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_dsr_frontend.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_dsr_types.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_events.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_exception.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_fizz_client.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_fizz_handshake.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_flowcontrol.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_handshake.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_happyeyeballs.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_looper.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_loss.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_observer.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_qlogger.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_server.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_server_async_tran.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_server_state.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_state_ack_handler.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_state_datagram_handler.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_state_functions.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_state_machine.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_state_pacing_functions.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_state_simple_frame_functions.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_state_stream.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_state_stream_functions.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_transport.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_transport_knobs.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_transport_settings_functions.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_xsk.a
         ${CMAKE_BINARY_DIR}/contrib/lib/libproxygen.a
         ${DOUBLE_CONVERSION_LIBRARY}
         gflags
