@@ -4,7 +4,7 @@ mkdir build
 
 cd build
 
-export CXXFLAGS="-Wno-shadow -Wno-unused-local-typedefs -Wno-sign-compare -fvisibility-inlines-hidden -std=c++14 -fmessage-length=0 -march=nocona -mtune=haswell -ftree-vectorize -fPIC -fstack-protector-strong -fno-plt -O2 -ffunction-sections -pipe -I$BUILD_PREFIX/include -I$PREFIX/include -fdebug-prefix-map=$SRC_DIR=/usr/local/src/conda/oneclient-$ONECLIENT_VERSION -fdebug-prefix-map=$PREFIX=/usr/local/src/conda-prefix"
+export CXXFLAGS="-Wno-class-memaccess -Wno-deprecated-declarations -Wno-cast-user-defined -Wno-address -Wno-shadow -Wno-unused-local-typedefs -Wno-sign-compare -fvisibility-inlines-hidden -std=c++17 -fmessage-length=0 -march=nocona -mtune=haswell -ftree-vectorize -fPIC -fstack-protector-strong -fno-plt -O2 -ffunction-sections -pipe -I$BUILD_PREFIX/include -I$PREFIX/include -fdebug-prefix-map=$SRC_DIR=/usr/local/src/conda/oneclient-$ONECLIENT_VERSION -fdebug-prefix-map=$PREFIX=/usr/local/src/conda-prefix"
 
 export PKG_CONFIG_PATH="$BUILD_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH"
 
