@@ -46,7 +46,6 @@ Build-Depends:
     python3-dev,
     subversion,
     libunwind-dev,
-    swift-sdk-cpp (>= 1.0.0),
     uuid-dev,
     wangle-dev,
     proxygen-dev,
