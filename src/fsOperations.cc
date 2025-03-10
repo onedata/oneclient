@@ -100,6 +100,7 @@ auto callFslogic(Fun &&fun, void *userData, Args &&...args)
     if (userData == nullptr)
         LOG(ERROR) << "Fuse userData is null";
 
+    // NOLINTNEXTLINE
     if (static_cast<std::unique_ptr<fslogic::Composite> *>(userData)->get() ==
         nullptr)
         LOG(ERROR) << "FsLogic Composite instance not initiliazed";

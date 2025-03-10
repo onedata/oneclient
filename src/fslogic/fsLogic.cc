@@ -356,6 +356,8 @@ void FsLogic::stop()
 {
     LOG_FCALL();
 
+    const auto kSessionCloseMessageWaitTimeout{100U};
+
     if (!m_stopping) {
         m_stopping = true;
 
@@ -383,7 +385,8 @@ void FsLogic::stop()
                     m_context->communicator()->send(messages::CloseSession{},
                         communication::CLOSE_CONNECTION_AFTER_SEND);
                 })
-                .delayed(std::chrono::milliseconds{100})
+                .delayed(
+                    std::chrono::milliseconds{kSessionCloseMessageWaitTimeout})
                 .thenTry([this](auto && /*unit*/) {
                     LOG(INFO) << "Stopping communicator ...";
 
