@@ -815,7 +815,6 @@ std::string OnedataFS::uuidFromPath(
 namespace {
 boost::shared_ptr<OnedataFS> makeOnedataFS(
     // clang-format off
-    const std::string& host,
     const std::string& token,
     const std::vector<std::string>& space,
     const std::vector<std::string>& space_id,
@@ -823,7 +822,6 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(
     bool force_proxy_io,
     bool force_direct_io,
     bool no_buffer,
-    int port,
     int provider_timeout,
     int metadata_cache_size,
     int drop_dir_cache_after,
@@ -832,15 +830,10 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(
 // clang-format on
 {
     helpers::init();
+    boost::optional<std::string> onezoneHost;
 
     std::vector<const char *> cmdArgs;
     cmdArgs.push_back("onedatafs");
-    cmdArgs.push_back("-Z");
-    cmdArgs.push_back(host.c_str());
-    cmdArgs.push_back("-H");
-    cmdArgs.push_back(host.c_str());
-    cmdArgs.push_back("--port");
-    cmdArgs.push_back(strdup(std::to_string(port).c_str()));
     cmdArgs.push_back("-t");
     cmdArgs.push_back(strdup(token.c_str()));
 
@@ -915,9 +908,32 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(
             pContext);
     }
 
+    if (!options->getOnezoneHost() && options->getAccessToken()) {
+        try {
+            auto deserialized =
+                one::client::auth::deserialize(*options->getAccessToken());
+            onezoneHost = deserialized.location();
+        }
+        catch (const std::exception &e) {
+            fmt::print(stderr,
+                "ERROR: Failed to extract Onezone host name from access "
+                "token.\n");
+            throw std::system_error{one::helpers::makePosixError(EINVAL),
+                "Failed to extract Onezone host name from access token."};
+        }
+    }
+    else {
+        onezoneHost = options->getOnezoneHost();
+    }
+
+    if (!onezoneHost) {
+        throw std::system_error{one::helpers::makePosixError(EINVAL),
+            "Failed to extract Onezone host name from access token."};
+    }
+
     auto onedatafs = boost::make_shared<OnedataFS>(options,
         std::make_unique<one::rest::onezone::OnezoneClient>(
-            options->getOnezoneHost().value()));
+            onezoneHost.value()));
 
     return onedatafs;
 }

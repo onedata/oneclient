@@ -248,7 +248,6 @@ auto OnedataFS::viaProvider(const std::string &path, F &&func)
 namespace {
 boost::shared_ptr<OnedataFS> makeOnedataFS(
     // clang-format off
-    const std::string& host,
     const std::string& token,
     const std::vector<std::string>& space = {},
     const std::vector<std::string>& space_id = {},
@@ -256,7 +255,6 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(
     bool force_proxy_io = false,
     bool force_direct_io = false,
     bool no_buffer = false,
-    int port = 443,
     int provider_timeout = 2 * 60,
     int metadata_cache_size = 5 * 1'000'000,
     int drop_dir_cache_after = 0,
@@ -332,15 +330,13 @@ BOOST_PYTHON_MODULE(onedatafs)
         .def("__init__",
             make_constructor(makeOnedataFS, bp::default_call_policies(),
                 // clang-format off
-                (bp::arg("host"),
-                 bp::arg("token"),
+                (bp::arg("token"),
                  bp::arg("space") = std::vector<std::string>{},
                  bp::arg("space_id") = std::vector<std::string>{},
                  bp::arg("insecure") = false,
                  bp::arg("force_proxy_io") = false,
                  bp::arg("force_direct_io") = false,
                  bp::arg("no_buffer") = false,
-                 bp::arg("port") = 443,
                  bp::arg("provider_timeout") = 2 * 60,
                  bp::arg("metadata_cache_size") = 5 * 1'000'000,
                  bp::arg("drop_dir_cache_after") = 5 * 60,

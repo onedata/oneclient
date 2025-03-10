@@ -34,9 +34,7 @@ def test_onedatafs_create_destroy_instance(onezone_ip, onezone_admin_token):
 
     for i in range(0, 10):
         odfs = onedatafs.OnedataFS(
-            onezone_ip,
             onezone_admin_token,
-            port=443,
             insecure=True,
             force_proxy_io=True)
         odfs.close()
@@ -46,14 +44,12 @@ def test_onedatafs_should_raise_exception_on_bad_token(onezone_ip,
                                                        onezone_admin_token):
     with pytest.raises(RuntimeError) as excinfo:
         odfs = onedatafs.OnedataFS(
-            onezone_ip,
             'BAD_TOKEN',
-            port=443,
             insecure=True,
             force_proxy_io=True)
         odfs.readdir('', 1000, 0)
 
-    assert "HTTP Exception" in str(excinfo.value)
+    assert "Failed to extract Onezone host name from access token." in str(excinfo.value)
 
 
 def test_onedatafs_read_write(odfs_proxy):

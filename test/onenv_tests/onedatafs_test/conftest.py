@@ -93,7 +93,7 @@ def s3_support_storage_id(request, oneprovider_ip, onezone_admin_token):
 
 @pytest.fixture()
 def odfs_proxy(onezone_ip, oneprovider_ip, onezone_admin_token):
-    return onedatafs.OnedataFS(onezone_ip, onezone_admin_token,
+    return onedatafs.OnedataFS(onezone_admin_token,
                                insecure=True, force_proxy_io=True)
 
 
@@ -103,7 +103,7 @@ def odfs_direct(onezone_ip, oneprovider_ip, onezone_admin_token, ceph_monitor_ip
 
     override_param = f'--override {ceph_support_storage_id}:monitorHostname:{ceph_monitor_ip}'
 
-    return onedatafs.OnedataFS(onezone_ip, onezone_admin_token,
+    return onedatafs.OnedataFS(onezone_admin_token,
                                insecure=True, force_direct_io=True,
                                provider_timeout=10,
                                cli_args=override_param)

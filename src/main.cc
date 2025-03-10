@@ -205,11 +205,11 @@ class InsecureCertificateHandler : public Poco::Net::InvalidCertificateHandler {
     }
 };
 
-bool verifyOnezoneConnection(std::shared_ptr<options::Options> options)
+bool verifyOnezoneConnection(
+    const std::string &onezoneHost, std::shared_ptr<options::Options> options)
 {
     auto onezoneRestClient =
-        std::make_unique<one::rest::onezone::OnezoneClient>(
-            options->getOnezoneHost().value());
+        std::make_unique<one::rest::onezone::OnezoneClient>(onezoneHost);
 
     auto accessScope =
         onezoneRestClient->inferAccessTokenScope(*options->getAccessToken());
@@ -224,6 +224,7 @@ int main(int argc, char *argv[])
     auto context = std::make_shared<OneclientContext>();
     auto options = getOptions(argc, argv);
     _options = options;
+    boost::optional<std::string> onezoneHost;
     context->setOptions(options);
 
     context->setScheduler(
@@ -241,13 +242,32 @@ int main(int argc, char *argv[])
     if (options->getUnmount()) {
         unmountFuse(options);
     }
-    if (!options->getOnezoneHost()) {
+    if (!options->getOnezoneHost() && options->getAccessToken()) {
+        try {
+            auto deserialized =
+                one::client::auth::deserialize(*options->getAccessToken());
+            onezoneHost = deserialized.location();
+        }
+        catch (const std::exception &e) {
+            fmt::print(stderr,
+                "ERROR: Failed to extract Onezone host name from access "
+                "token.\n");
+            return EXIT_FAILURE;
+        }
+    }
+    else {
+        onezoneHost = options->getOnezoneHost();
+    }
+
+    if (!onezoneHost) {
         fmt::print(stderr,
-            "The option 'onezone-host' is required but missing\nSee '{} "
+            "ERROR: Cannot determine Onezone host name.\nSee "
+            "'{} "
             "--help'.\n",
             argv[0]);
         return EXIT_FAILURE;
     }
+
     if (options->hasDeprecated()) {
         std::cout << options->formatDeprecated();
     }
@@ -303,15 +323,16 @@ int main(int argc, char *argv[])
             free(mountpoint); // NOLINT
         }};
 
-        fmt::print(stderr, "Connecting to Onezone at: {}\n",
-            options->getOnezoneHost().value());
+        fmt::print(
+            stderr, "Connecting to Onezone at: {}\n", onezoneHost.value());
 
-        auto tokenAccessHasSpaces = verifyOnezoneConnection(options);
+        auto tokenAccessHasSpaces =
+            verifyOnezoneConnection(onezoneHost.value(), options);
 
         if (!tokenAccessHasSpaces) {
             fmt::print(stderr,
                 "Access token does not give access to any data spaces in {}\n",
-                options->getOnezoneHost().value());
+                onezoneHost.value());
             return EXIT_FAILURE;
         }
 
@@ -362,7 +383,7 @@ int main(int argc, char *argv[])
 
             auto onezoneRestClient =
                 std::make_unique<one::rest::onezone::OnezoneClient>(
-                    options->getOnezoneHost().value());
+                    onezoneHost.value());
 
             fsLogic = std::make_unique<fslogic::Composite>(
                 options, std::move(onezoneRestClient));
@@ -372,7 +393,7 @@ int main(int argc, char *argv[])
 
             auto onezoneRestClient =
                 std::make_unique<one::rest::onezone::OnezoneClient>(
-                    options->getOnezoneHost().value());
+                    onezoneHost.value());
 
             fsLogic = std::make_unique<fslogic::Composite>(
                 options, std::move(onezoneRestClient));
@@ -406,7 +427,7 @@ int main(int argc, char *argv[])
         fmt::print(stderr,
             "ERROR: Invalid token - please make sure that the access token is "
             "valid for Oneclient in Onezone: {}\n",
-            *_options->getOnezoneHost());
+            *onezoneHost);
         return EXIT_FAILURE;
     }
     catch (const std::system_error &e) {
@@ -429,7 +450,7 @@ int main(int argc, char *argv[])
                 "https://{}/api/v3/onezone/configuration\nPlease also "
                 "consult the current Onedata compatibility matrix: "
                 "https://onedata.org/#/home/versions\n",
-                ONECLIENT_VERSION, *_options->getOnezoneHost());
+                ONECLIENT_VERSION, *onezoneHost);
         else {
             fmt::print(
                 stderr, "ERROR: Cannot connect to Oneprovider: {}\n", e.what());
@@ -459,12 +480,12 @@ int main(int argc, char *argv[])
     }
     catch (const Poco::Net::HostNotFoundException &e) {
         fmt::print(stderr, "ERROR: Cannot connect to Onezone {} - {}\n",
-            *_options->getOnezoneHost(), e.what());
+            *onezoneHost, e.what());
         return EXIT_FAILURE;
     }
     catch (const Poco::Net::HTTPException &e) {
         fmt::print(stderr, "ERROR: Onezone {} cannot handle request - {}\n",
-            *_options->getOnezoneHost(), e.what());
+            *onezoneHost, e.what());
         return EXIT_FAILURE;
     }
     catch (const std::exception &e) {
