@@ -159,7 +159,7 @@ void wrap(Fun &&fun, Cb &&callback, fuse_req_t req, Args &&...args)
             })
         .thenError(folly::tag_t<std::exception>{},
             [req](auto &&e) {
-                LOG_DBG(1) << "Unknown exception caught while handling Fuse "
+                LOG(ERROR) << "Unknown exception caught while handling Fuse "
                               "operation: "
                            << e.what();
                 fuse_reply_err(req, EIO);

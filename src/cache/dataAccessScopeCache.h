@@ -43,6 +43,9 @@ public:
     std::optional<one::rest::onezone::model::Provider> getProviderForSpace(
         const folly::fbstring &spaceId);
 
+    std::optional<one::rest::onezone::model::Provider> getProvider(
+        const folly::fbstring &providerId);
+
     folly::fbvector<folly::fbstring> readdir(
         const size_t maxSize, const off_t off);
 

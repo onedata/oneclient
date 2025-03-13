@@ -147,21 +147,24 @@ DataAccessScopeCache::getProviderForSpace(const folly::fbstring &spaceId)
     }
 
     if (providerId) {
-        return getDataAccessScope()
-            .thenValue(
-                [providerId](auto &&accessScope)
-                    -> std::optional<one::rest::onezone::model::Provider> {
-                    if (accessScope->providers.count(
-                            providerId.value().toStdString()) > 0) {
-                        return accessScope->providers.at(
-                            providerId.value().toStdString());
-                    }
-                    return {};
-                })
-            .get();
+        return getProvider(*providerId);
     }
 
     return {};
+}
+
+std::optional<one::rest::onezone::model::Provider>
+DataAccessScopeCache::getProvider(const folly::fbstring &providerId)
+{
+    return getDataAccessScope()
+        .thenValue([providerId](auto &&accessScope)
+                       -> std::optional<one::rest::onezone::model::Provider> {
+            if (accessScope->providers.count(providerId.toStdString()) > 0) {
+                return accessScope->providers.at(providerId.toStdString());
+            }
+            return {};
+        })
+        .get();
 }
 
 folly::fbvector<folly::fbstring> DataAccessScopeCache::readdir(

@@ -81,6 +81,8 @@ public:
         LOG_FCALL() << LOG_FARG(ino) << LOG_FARG(name);
 
         if (ino == FUSE_ROOT_ID) {
+            LOG_DBG(2) << "Resolving inode for space " << name;
+
             // Handle
             std::optional<folly::fbstring> spaceId;
 
@@ -113,7 +115,7 @@ public:
                     m_dataAccessScopeCache.getProviderIdForSpace(*spaceId)
                         .value());
 
-                LOG_DBG(3) << "Assigned inode " << spaceInode << " to space "
+                LOG_DBG(2) << "Assigned inode " << spaceInode << " to space "
                            << *spaceId;
 
                 m_spacesToInodes.insert({*spaceId, spaceInode});
@@ -149,7 +151,7 @@ public:
 
         // If the parent inode refers to a space, check if an FsLogic
         // instance exists for the space. If not, create a new one.
-        if (m_spacesToInodes.right.count(ino)) {
+        if (m_spacesToInodes.right.count(ino) > 0) {
             createFsLogic(ino);
             auto res = m_inodeCache.at(ino);
             uuid = res.first;
@@ -224,6 +226,18 @@ public:
             one::rest::onezone::model::Provider provider =
                 *maybeProviderForSpace;
 
+            // Check if the provide address is valid before creating fslogic
+            // instance
+            try {
+                folly::SocketAddress address;
+                address.setFromHostPort(provider.host, provider.port);
+            }
+            catch (std::system_error &e) {
+                LOG(ERROR) << "Cannot resolve Oneprovider host address: "
+                           << provider.host;
+                throw helpers::makePosixException(EADDRNOTAVAIL);
+            }
+
             auto context = std::make_shared<OneclientContext>();
             context->setOptions(m_options);
             context->setScheduler(std::make_shared<Scheduler>(
@@ -292,6 +306,10 @@ public:
         LOG_FCALL() << LOG_FARG(ino) << LOG_FARG(count);
 
         m_inodeCache.forget(ino, count);
+
+        if (m_spacesToInodes.right.count(ino)) {
+            m_spacesToInodes.right.erase(ino);
+        }
     }
 
     auto getattr(const fuse_ino_t ino)
@@ -605,6 +623,10 @@ public:
     {
         LOG_FCALL();
 
+        if (m_spacesToInodes.right.count(ino) > 0) {
+            createFsLogic(ino);
+        }
+
         auto statinfo = wrap(&FsLogicT::statfs, ino);
         statinfo.f_fsid = m_generation;
         return statinfo;
@@ -629,22 +651,41 @@ public:
     {
         LOG_FCALL() << LOG_FARG(ino);
 
+        if (m_spacesToInodes.right.count(ino) > 0) {
+            createFsLogic(ino);
+        }
+
         auto result = wrap(&FsLogicT::listxattr, ino);
 
         // Add 'org.onedata.provider_id' to result
         result.push_back("org.onedata.provider_id");
+        result.push_back("org.onedata.provider_host");
 
         return result;
     }
 
-    auto getxattr(const fuse_ino_t ino, const folly::fbstring &name)
+    auto getxattr(
+        const fuse_ino_t ino, const folly::fbstring &name) -> folly::fbstring
     {
         LOG_FCALL() << LOG_FARG(ino) << LOG_FARG(name);
+
+        if (m_spacesToInodes.right.count(ino) > 0) {
+            createFsLogic(ino);
+        }
 
         // Return provider id for ino if request 'org.onedata.provider_id'
         if (name.toStdString() == "org.onedata.provider_id") {
             auto providerId = m_inodeCache.at(ino).second;
             return "\"" + providerId + "\"";
+        }
+
+        if (name.toStdString() == "org.onedata.provider_host") {
+            auto providerId = m_inodeCache.at(ino).second;
+            auto provider = m_dataAccessScopeCache.getProvider(providerId);
+            if (!provider)
+                return "\"\"";
+
+            return "\"" + provider.value().host + "\"";
         }
 
         return wrap(&FsLogicT::getxattr, ino, name);
@@ -656,12 +697,20 @@ public:
         LOG_FCALL() << LOG_FARG(ino) << LOG_FARG(name) << LOG_FARG(value)
                     << LOG_FARG(create) << LOG_FARG(replace);
 
+        if (m_spacesToInodes.right.count(ino) > 0) {
+            createFsLogic(ino);
+        }
+
         return wrap(&FsLogicT::setxattr, ino, name, value, create, replace);
     }
 
     auto removexattr(const fuse_ino_t ino, const folly::fbstring &name)
     {
         LOG_FCALL() << LOG_FARG(ino) << LOG_FARG(name);
+
+        if (m_spacesToInodes.right.count(ino) > 0) {
+            createFsLogic(ino);
+        }
 
         return wrap(&FsLogicT::removexattr, ino, name);
     }
