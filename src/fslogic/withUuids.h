@@ -664,8 +664,8 @@ public:
         return result;
     }
 
-    auto getxattr(
-        const fuse_ino_t ino, const folly::fbstring &name) -> folly::fbstring
+    auto getxattr(const fuse_ino_t ino, const folly::fbstring &name)
+        -> folly::fbstring
     {
         LOG_FCALL() << LOG_FARG(ino) << LOG_FARG(name);
 
