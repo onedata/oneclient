@@ -74,6 +74,13 @@ parser.add_argument(
     help='CPUs in which to allow execution (0-3, 0,1)',
     dest='cpuset_cpus')
 
+parser.add_argument(
+    '--command',
+    action='store',
+    default=None,
+    help='Execute specific command instead of running tests',
+    dest='command')
+
 [args, pass_args] = parser.parse_known_args()
 dockers_config.ensure_image(args, 'image', 'builder')
 
@@ -180,7 +187,11 @@ if {shed_privileges}:
     os.setregid({gid}, {gid})
     os.setreuid({uid}, {uid})
 
-if {gdb}:
+if '{custom_command}' != 'None':
+    command = '{custom_command}'.split(' ')
+    ret = subprocess.call(command)
+    sys.exit(ret)
+elif {gdb}:
     command = ['gdb', 'python3', '-silent', '-statistics', '-ex', """run -c "
 import pytest
 pytest.main({args} + ['{test_dirs}'])" """]
@@ -201,6 +212,7 @@ command = command.format(
     shed_privileges=(platform.system() == 'Linux') and not args.no_shed_privileges,
     gdb=args.gdb,
     script_dir=script_dir,
+    custom_command=args.command,
     release=args.release)
 
 ret = docker.run(tty=True,
