@@ -58,7 +58,6 @@ requirements:
     - onedata::libacl
     - onedata::libattr
     - onedata::libiberty
-    - onedata::swift-sdk-cpp
   run:
     - conda-forge::aws-c-common =0.7.2
     - conda-forge::aws-c-event-stream =0.2.7
