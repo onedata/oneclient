@@ -104,6 +104,11 @@ void ReaddirCache::fetch(const folly::fbstring &uuid,
                             !attr->fullyReplicated())
                             continue;
 
+                        if (!attr->parentUuid().hasValue() ||
+                            attr->parentUuid().value().empty()) {
+                            attr->setParentUuid(uuid);
+                        }
+
                         m_metadataCache.updateAttr(
                             std::move(attr), false, true, true);
                     }

@@ -12,11 +12,14 @@ build:
   number: 0
   string: py{{ py }}
   binary_relocation: true
+  script_env:
+    - PKG_VERSION
 
 requirements:
   build:
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
+    - conda-forge::kernel-headers_linux-64 =5.14.0
     - conda-forge::aws-c-common =0.7.2
     - conda-forge::aws-c-event-stream =0.2.7
     - conda-forge::aws-checksums =0.1.12
@@ -26,7 +29,7 @@ requirements:
     - conda-forge::boost =1.78.0
     - conda-forge::cmake
     - conda-forge::double-conversion
-    - conda-forge::fmt =7.1.*
+    - conda-forge::fmt =10.2.*
     - conda-forge::gflags
     - conda-forge::git
     - conda-forge::glog =0.4.0
@@ -49,7 +52,7 @@ requirements:
     - conda-forge::protobuf =3.17.0
     - conda-forge::pthread-stubs
     - conda-forge::python =3.9.*
-    - conda-forge::spdlog =1.8.*
+    - conda-forge::spdlog =1.14.*
     - conda-forge::tbb =2018.0.5
     - conda-forge::tbb-devel =2018.0.5
     - conda-forge::zlib
@@ -57,7 +60,6 @@ requirements:
     - onedata::libacl
     - onedata::libattr
     - onedata::libiberty
-    - onedata::swift-sdk-cpp
   run:
     - conda-forge::aws-c-common =0.7.2
     - conda-forge::aws-c-event-stream =0.2.7
@@ -65,6 +67,7 @@ requirements:
     - conda-forge::aws-sdk-cpp =1.9.283
     - conda-forge::boost =1.78.0
     - conda-forge::double-conversion
+    - conda-forge::fmt =10.2.*
     - conda-forge::gflags
     - conda-forge::glog =0.4.0
     - conda-forge::jemalloc
@@ -81,7 +84,7 @@ requirements:
     - conda-forge::poco =1.11.1
     - conda-forge::protobuf =3.17.0
     - conda-forge::python =3.9.*
-    - conda-forge::spdlog =1.8.*
+    - conda-forge::spdlog =1.14.*
     - conda-forge::tbb =2018.0.5
     - conda-forge::zlib
     - onedata::ceph-client =14.2.2.5
