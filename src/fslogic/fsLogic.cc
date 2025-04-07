@@ -379,18 +379,18 @@ void FsLogic::stop()
         if (m_context->communicator()->isConnected()) {
             folly::makeSemiFuture()
                 .via(folly::getGlobalCPUExecutor().get())
-                .thenValue([this](auto && /*unit*/) {
+                .thenValue([context = m_context](auto && /*unit*/) {
                     LOG(INFO)
                         << "Sending close session message and stopping...";
-                    m_context->communicator()->send(messages::CloseSession{},
+                    context->communicator()->send(messages::CloseSession{},
                         communication::CLOSE_CONNECTION_AFTER_SEND);
                 })
                 .delayed(
                     std::chrono::milliseconds{kSessionCloseMessageWaitTimeout})
-                .thenTry([this](auto && /*unit*/) {
+                .thenTry([context = m_context](auto && /*unit*/) {
                     LOG(INFO) << "Stopping communicator ...";
 
-                    m_context->communicator()->stop();
+                    context->communicator()->stop();
                     LOG(INFO) << "Communicator stopped ...";
                 })
                 .get();
@@ -398,10 +398,10 @@ void FsLogic::stop()
         else {
             folly::makeSemiFuture()
                 .via(folly::getGlobalCPUExecutor().get())
-                .thenTry([this](auto && /*unit*/) {
+                .thenTry([context = m_context](auto && /*unit*/) {
                     LOG(INFO) << "Stopping communicator immediately...";
 
-                    m_context->communicator()->stop();
+                    context->communicator()->stop();
                     LOG(INFO) << "Communicator stopped ...";
                 })
                 .get();
