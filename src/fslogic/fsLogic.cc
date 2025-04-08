@@ -361,14 +361,14 @@ void FsLogic::stop()
     if (!m_stopping) {
         m_stopping = true;
 
+        m_fsSubscriptions.unsubscribeAll();
+        m_fsSubscriptions.stop();
+
         m_metadataCache.stop();
 
         m_runInFiber([this]() { reset(); });
 
         m_stopped = true;
-
-        m_fsSubscriptions.unsubscribeAll();
-        m_fsSubscriptions.stop();
 
         m_directoryCachePruneBaton.post();
 
