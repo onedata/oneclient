@@ -71,3 +71,5 @@ venv
 /core*
 conda-pkg-list.txt
 /uploads
+
+devcontainer.json
