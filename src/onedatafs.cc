@@ -628,14 +628,6 @@ void OnedataFS::rename(const std::string &from, const std::string &to)
                 maybe.throwUnlessValue();
             }
         })
-        //        .thenError(folly::tag_t<std::system_error>{},
-        //            [](auto &&e) -> void {
-        //                throw e; // NOLINT
-        //            })
-        //        .thenError(folly::tag_t<std::exception>{},
-        //            [](auto &&e) -> void {
-        //                throw e; // NOLINT
-        //            })
         .FUTURE_GET();
 }
 
