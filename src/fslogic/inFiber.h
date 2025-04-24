@@ -8,6 +8,8 @@
 
 #pragma once
 
+#include "../../s3/onezoneRestClient.h"
+
 #include <boost/preprocessor.hpp>
 #include <folly/FBString.h>
 #include <folly/Function.h>
@@ -58,9 +60,9 @@ public:
      * Constructor.
      * Starts the fiber worker thread.
      */
-    template <typename... Args>
-    InFiber(Args &&...args)
-        : m_fsLogic{std::forward<Args>(args)..., makeRunInFiber()}
+    InFiber(std::shared_ptr<options::Options> options,
+        std::unique_ptr<one::rest::onezone::OnezoneClient> onezoneRestClient)
+        : m_fsLogic{options, std::move(onezoneRestClient), makeRunInFiber()}
     {
         m_thread = std::thread{[this] {
             folly::setThreadName("InFiber");
@@ -84,6 +86,8 @@ public:
         m_eventBase.terminateLoopSoon();
         m_thread.join();
     }
+
+    bool stopped() const { return m_fsLogic.stopped(); }
 
     WRAP(lookup, (const fuse_ino_t)(const folly::fbstring &))
     WRAP(getattr, (const fuse_ino_t))
@@ -132,6 +136,24 @@ public:
     }
 
     FsLogicT &fsLogic() { return m_fsLogic; }
+
+    void setProviderForSpace(
+        const folly::fbstring &spaceName, const folly::fbstring &providerId)
+    {
+        // Add new mapping or override existing one
+        m_fsLogic.setProviderForSpace(spaceName, providerId);
+    }
+
+    void setProviderDetails(const one::rest::onezone::model::Provider &provider)
+    {
+        // Add new mapping or override existing one
+        m_fsLogic.setProviderDetails(provider);
+    }
+
+    void addSpace(const one::rest::onezone::model::UserSpaceDetails &space)
+    {
+        m_fsLogic.addSpace(space);
+    }
 
 private:
     std::function<void(folly::Function<void()>)> makeRunInFiber()

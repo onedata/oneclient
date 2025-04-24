@@ -147,7 +147,8 @@ public:
                 ->get(fileUuid, spaceId, storageId, forceProxyIO, proxyFallback)
                 .get();
 
-        assert(helper->executionContext() == ExecutionContext::ONECLIENT);
+        if (helper)
+            assert(helper->executionContext() == ExecutionContext::ONECLIENT);
 
         return !!helper;
     }
@@ -193,7 +194,7 @@ namespace {
 boost::shared_ptr<HelpersCacheProxy> create(
     std::string ip, int port, std::string options)
 {
-    FLAGS_minloglevel = 1;
+    FLAGS_v = 0;
 
     std::vector<std::string> argvStrings;
     std::vector<const char *> argv;
@@ -203,12 +204,12 @@ boost::shared_ptr<HelpersCacheProxy> create(
     for (auto opt : argvStrings)
         argv.emplace_back(strdup(opt.c_str()));
 
-    auto communicator = std::make_shared<Communicator>(/*connections*/ 10,
+    auto communicator = std::make_shared<Communicator>(/*connections*/ 1,
         /*threads*/ 4, ip, port, /*verifyServerCertificate*/ false,
         /*upgrade to clproto*/ true, /*perform handshake*/ false);
 
     auto context = std::make_shared<Context<communication::Communicator>>();
-    context->setScheduler(std::make_shared<Scheduler>(4));
+    context->setScheduler(std::make_shared<Scheduler>(1));
     context->setCommunicator(communicator);
     const auto globalConfigPath = boost::filesystem::unique_path();
     context->setOptions(std::make_shared<options::Options>());

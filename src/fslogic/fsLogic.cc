@@ -156,7 +156,6 @@ FsLogic::FsLogic(std::shared_ptr<OneclientContext> context,
     , m_forceFullblockRead{forceFullblockRead}
     , m_fsSubscriptions{m_eventManager, m_metadataCache, m_forceProxyIOCache,
           *m_helpersCache, runInFiber}
-    , m_nextFuseHandleId{0}
     , m_storageTimeout{m_context->options()->getStorageTimeout()}
     , m_runInFiber{std::move(runInFiber)} /* clang-format off */
     , m_prefetchModeAsync{m_context->options()->getPrefetchMode() == "async"}
@@ -186,8 +185,6 @@ FsLogic::FsLogic(std::shared_ptr<OneclientContext> context,
     , m_rootUuid{configuration->rootUuid()}
 /* clang-format on */
 {
-    m_nextFuseHandleId = 0;
-
     m_runInFiber([this]() {
         auto tid = std::this_thread::get_id();
         setFiberThreadId(tid);
@@ -224,6 +221,8 @@ FsLogic::FsLogic(std::shared_ptr<OneclientContext> context,
     //
     // Registration of medatacache events callbacks
     //
+    m_metadataCache.setRunInFiber(m_runInFiber);
+
     // Called when file attributes are added to the metadata cache
     m_metadataCache.onAdd([this](const folly::fbstring &uuid) {
         m_fsSubscriptions.subscribeFileAttrChanged(uuid);
@@ -331,10 +330,17 @@ FsLogic::FsLogic(std::shared_ptr<OneclientContext> context,
         start();
 }
 
-FsLogic::~FsLogic() { stop(); }
+FsLogic::~FsLogic()
+{
+    LOG_FCALL();
+
+    stop();
+}
 
 void FsLogic::start()
 {
+    LOG_FCALL();
+
     // Quota initial configuration
     m_eventManager.subscribe(
         events::QuotaExceededSubscription{[=](auto events) {
@@ -348,38 +354,75 @@ void FsLogic::start()
 
 void FsLogic::stop()
 {
-    if (!m_stopped) {
-        m_stopped = true;
+    LOG_FCALL();
 
-        m_runInFiber([this]() { reset(); });
+    const auto kSessionCloseMessageWaitTimeout{100U};
+
+    if (!m_stopping) {
+        m_stopping = true;
 
         m_fsSubscriptions.unsubscribeAll();
         m_fsSubscriptions.stop();
 
+        m_metadataCache.stop();
+
+        m_runInFiber([this]() { reset(); });
+
+        m_stopped = true;
+
         m_directoryCachePruneBaton.post();
 
-        LOG(INFO) << "Stopping FsLogic communicator...";
+        LOG(INFO) << "Stopping FsLogic for "
+                  << m_context->communicator()->host() << ":"
+                  << m_context->communicator()->port() << " ...";
 
-        folly::makeSemiFuture()
-            .via(folly::getGlobalCPUExecutor().get())
-            .delayed(std::chrono::seconds{2})
-            .thenValue([this](auto && /*unit*/) {
-                m_context->communicator()->send(messages::CloseSession{});
-            })
-            .delayed(std::chrono::seconds{5})
-            .thenTry(
-                [this](auto && /*unit*/) { m_context->communicator()->stop(); })
-            .get();
+        if (m_context->communicator()->isConnected()) {
+            folly::makeSemiFuture()
+                .via(folly::getGlobalCPUExecutor().get())
+                .thenValue([context = m_context](auto && /*unit*/) {
+                    LOG(INFO)
+                        << "Sending close session message and stopping...";
+                    context->communicator()->send(messages::CloseSession{},
+                        communication::CLOSE_CONNECTION_AFTER_SEND);
+                })
+                .delayed(
+                    std::chrono::milliseconds{kSessionCloseMessageWaitTimeout})
+                .thenTry([context = m_context](auto && /*unit*/) {
+                    LOG(INFO) << "Stopping communicator ...";
+
+                    context->communicator()->stop();
+                    LOG(INFO) << "Communicator stopped ...";
+                })
+                .get();
+        }
+        else {
+            folly::makeSemiFuture()
+                .via(folly::getGlobalCPUExecutor().get())
+                .thenTry([context = m_context](auto && /*unit*/) {
+                    LOG(INFO) << "Stopping communicator immediately...";
+
+                    context->communicator()->stop();
+                    LOG(INFO) << "Communicator stopped ...";
+                })
+                .get();
+        }
 
         LOG(INFO) << "FsLogic communicator stopped...";
+    }
+    else {
+        LOG_DBG(2) << "FsLogic already stopping...";
     }
 }
 
 void FsLogic::reset()
 {
-    LOG_DBG(1) << "Resetting internal caches after connection lost...";
-
     assertInFiber();
+
+    if (m_stopping) {
+        return;
+    }
+
+    LOG_DBG(1) << "Resetting internal caches after connection lost...";
 
     // Close all files
     for (auto &fh : m_fuseFileHandles) {
@@ -483,7 +526,9 @@ FileAttrPtr FsLogic::lookup(
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(name);
 
-    IOTRACE_START()
+    assert(!uuid.empty());
+
+    IOTRACE_START();
 
     assertInFiber();
 
@@ -538,6 +583,8 @@ FileAttrPtr FsLogic::getattr(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
+    assert(!uuid.empty());
+
     IOTRACE_GUARD(IOTraceGetAttr, IOTraceLogger::OpType::GETATTR, uuid, 0)
 
     assertInFiber();
@@ -568,7 +615,7 @@ std::uint64_t FsLogic::opendir(const folly::fbstring &uuid)
         throw std::system_error(
             std::make_error_code(std::errc::no_such_file_or_directory));
 
-    const auto fuseFileHandleId = m_nextFuseHandleId++;
+    const auto fuseFileHandleId = FuseFileHandle::newHandleId();
 
     m_metadataCache.opendir(uuid);
 
@@ -647,7 +694,7 @@ std::uint64_t FsLogic::open(const folly::fbstring &uuid, const int flags,
 
     auto fuseFileHandleId = reuseFuseFileHandleId;
     if (fuseFileHandleId == 0U)
-        fuseFileHandleId = m_nextFuseHandleId++;
+        fuseFileHandleId = FuseFileHandle::newHandleId();
 
     if (attr->isVirtual()) {
         // Create a virtual file handle id
@@ -1749,7 +1796,7 @@ std::pair<FileAttrPtr, std::uint64_t> FsLogic::create(
     auto openFileToken =
         m_metadataCache.open(uuid, sharedAttr, std::move(location));
 
-    const auto fuseFileHandleId = m_nextFuseHandleId++;
+    const auto fuseFileHandleId = FuseFileHandle::newHandleId();
 
     auto fuseFileHandle = std::make_shared<FuseFileHandle>(flags,
         created.handleId(), openFileToken, *m_helpersCache, m_forceProxyIOCache,
@@ -2294,7 +2341,7 @@ void FsLogic::pruneExpiredDirectories(const std::chrono::seconds delay)
         m_directoryCachePruneBaton.reset();
         m_directoryCachePruneBaton.timed_wait(delay);
 
-        if (m_stopped)
+        if (m_stopping)
             break;
 
         LOG_DBG(2) << "Running scheduled pruning of expired entries from "

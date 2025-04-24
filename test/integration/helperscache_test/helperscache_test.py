@@ -38,7 +38,7 @@ def endpoint(appmock_client):
 def hc(endpoint):
     cache = helperscache.HelpersCacheProxy(
             endpoint.ip, endpoint.port,
-            '--no-buffer --provider-timeout=2 mountpoint')
+            '--no-buffer --provider-timeout=15 mountpoint')
     yield cache
 
 
@@ -46,7 +46,7 @@ def hc(endpoint):
 def hc_directio(endpoint):
     cache = helperscache.HelpersCacheProxy(
             endpoint.ip, endpoint.port,
-            '--no-buffer --provider-timeout=2 --force-direct-io mountpoint')
+            '--no-buffer --provider-timeout=15 --force-direct-io mountpoint')
     yield cache
 
 
@@ -54,7 +54,7 @@ def hc_directio(endpoint):
 def hc_proxyio(endpoint):
     cache = helperscache.HelpersCacheProxy(
             endpoint.ip, endpoint.port,
-            '--no-buffer --provider-timeout=2 --force-proxy-io mountpoint')
+            '--no-buffer --provider-timeout=15 --force-proxy-io mountpoint')
     yield cache
 
 

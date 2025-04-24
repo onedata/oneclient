@@ -74,8 +74,11 @@ void startLogging(
     LOG(INFO) << "Oneclient commit: " << ONECLIENT_GIT_COMMIT;
     LOG(INFO) << "Helpers commit: " << HELPERS_GIT_COMMIT;
     LOG(INFO) << "Verbose logging level: " << options->getVerboseLogLevel();
+    if (options->getOnezoneHost())
+        LOG(INFO) << "Connecting to Onezone: "
+                  << options->getOnezoneHost().get();
     if (options->getProviderHost())
-        LOG(INFO) << "Connecting to Oneprovider: "
+        LOG(INFO) << "Preferred Oneprovider: "
                   << options->getProviderHost().get();
     LOG(INFO) << "Forced direct IO: " << options->isDirectIOForced();
     LOG(INFO) << "Forced proxy IO: " << options->isProxyIOForced();

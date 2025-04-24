@@ -49,6 +49,8 @@
 
 #include <memory>
 
+#define FUTURE_GET() get()
+
 using namespace one;
 using namespace one::client;
 using namespace one::communication;
@@ -77,7 +79,6 @@ struct Xattr {
     std::string value;
 };
 
-#if PY_MAJOR_VERSION >= 3
 class ReleaseGIL {
 public:
     ReleaseGIL() { m_gilState = PyGILState_Ensure(); }
@@ -87,21 +88,6 @@ public:
 private:
     PyGILState_STATE m_gilState;
 };
-#else
-class ReleaseGIL {
-public:
-    ReleaseGIL()
-        : m_threadState{PyEval_SaveThread(), PyEval_RestoreThread}
-    {
-    }
-
-    ~ReleaseGIL() = default;
-
-private:
-    std::unique_ptr<PyThreadState, decltype(&PyEval_RestoreThread)>
-        m_threadState;
-};
-#endif
 
 using FiberFsLogic = fslogic::FsLogic;
 
@@ -162,16 +148,8 @@ private:
 
 class OnedataFS {
 public:
-    OnedataFS(std::string sessionId, std::string rootUuid,
-        std::shared_ptr<Context<communication::Communicator>> context,
-        std::shared_ptr<auth::AuthManager<Context<communication::Communicator>>>
-            authManager,
-        std::shared_ptr<messages::Configuration> configuration,
-        std::unique_ptr<cache::HelpersCache<communication::Communicator>>
-            helpersCache,
-        unsigned int metadataCacheSize, bool readEventsDisabled,
-        bool forceFullblockRead, const std::chrono::seconds providerTimeout,
-        const std::chrono::seconds dropDirectoryCacheAfter);
+    OnedataFS(std::shared_ptr<options::Options> options,
+        std::unique_ptr<one::rest::onezone::OnezoneClient> onezoneRestClient);
 
     ~OnedataFS();
 
@@ -179,79 +157,97 @@ public:
 
     static std::string version();
 
-    std::string rootUuid() const;
+    Stat stat(const std::string &path);
 
-    std::string sessionId() const;
+    int opendir(const std::string &path);
 
-    Stat stat(std::string path);
+    void releasedir(const std::string &path, int handleId);
 
-    int opendir(std::string path);
+    std::vector<std::string> readdir(const std::string &path,
+        const size_t maxSize = 9999, const off_t off = 0);
 
-    void releasedir(std::string path, int handleId);
-
-    std::vector<std::string> readdir(
-        std::string path, const size_t maxSize = 9999, const off_t off = 0);
-
-    Stat create(std::string path, const mode_t mode = (S_IFREG | 0644),
+    Stat create(const std::string &path, const mode_t mode = (S_IFREG | 0644),
         const int flags = 0);
 
     boost::shared_ptr<OnedataFileHandle> open(
         const std::string &path, const int flags = O_RDWR | O_CREAT);
 
-    Stat mkdir(std::string path, const mode_t mode = 0755);
+    Stat mkdir(const std::string &path, const mode_t mode = 0755);
 
-    Stat mknod(std::string path, const mode_t mode);
+    Stat mknod(const std::string &path, const mode_t mode);
 
-    void unlink(std::string path);
+    void unlink(const std::string &path);
 
-    void rename(std::string from, std::string to);
+    void rename(const std::string &from, const std::string &to);
 
-    Stat setattr(std::string path, Stat attr, const int toSet);
+    Stat setattr(const std::string &path, Stat attr, const int toSet);
 
-    void truncate(std::string path, int size);
+    void truncate(const std::string &path, int size);
 
-#if PY_MAJOR_VERSION >= 3
-    boost::python::object getxattr(std::string path, std::string name);
-#else
-    std::string getxattr(std::string path, std::string name);
-#endif
+    boost::python::object getxattr(
+        const std::string &path, const std::string &name);
 
-    void setxattr(std::string path, std::string name, std::string value,
-        bool create = false, bool replace = false);
+    void setxattr(const std::string &path, const std::string &name,
+        const std::string &value, bool create = false, bool replace = false);
 
-    void removexattr(std::string path, std::string name);
+    void removexattr(const std::string &path, const std::string &name);
 
-    std::vector<std::string> listxattr(std::string path);
+    std::vector<std::string> listxattr(const std::string &path);
 
-    boost::python::dict locationMap(std::string path);
+    boost::python::dict locationMap(const std::string &path);
 
 private:
     std::function<void(folly::Function<void()>)> makeRunInFiber();
 
     std::pair<std::string, std::string> splitToParentName(
+        std::shared_ptr<FiberFsLogic> fsLogic, const std::string &path);
+
+    std::string uuidFromPath(
+        std::shared_ptr<FiberFsLogic> fsLogic, const std::string &path);
+
+    void createFsLogicForSpace(const std::string &spaceId);
+
+    std::optional<std::string> getSpaceIdFromPath(const std::string &pathStr);
+
+    template <typename F>
+    auto viaProviderGet(const std::string &path, F &&func);
+
+    template <typename F> auto viaProvider(const std::string &path, F &&func);
+
+    std::pair<std::string, std::string> getSpaceAndProviderId(
         const std::string &path);
 
-    std::string uuidFromPath(const std::string &path);
-
-    std::string m_rootUuid;
-    std::string m_sessionId;
-    std::shared_ptr<Context<communication::Communicator>> m_context;
-    std::shared_ptr<auth::AuthManager<Context<communication::Communicator>>>
-        m_authManager;
     folly::EventBaseThread m_eventBaseThread{true, nullptr, "OneFS"};
 
     folly::fibers::FiberManager &m_fiberManager{folly::fibers::getFiberManager(
         *m_eventBaseThread.getEventBase(), makeFiberManagerOpts())};
 
-    std::shared_ptr<FiberFsLogic> m_fsLogic;
+    std::shared_ptr<options::Options> m_options;
+
+    std::map</* providerId */ folly::fbstring, std::shared_ptr<FiberFsLogic>>
+        m_fsLogicMap;
+
+    cache::DataAccessScopeCache m_dataAccessScopeCache;
 
     std::atomic_flag m_stopped = ATOMIC_FLAG_INIT;
 };
 
+template <typename F>
+auto OnedataFS::viaProvider(const std::string &path, F &&func)
+{
+    const auto &[spaceId, providerId] = getSpaceAndProviderId(path);
+
+    return m_fiberManager.addTaskRemoteFuture(
+        [this, spaceId = spaceId, f = std::forward<F>(func),
+            providerId = providerId]() mutable {
+            createFsLogicForSpace(spaceId);
+            return f(m_fsLogicMap.at(providerId));
+        });
+}
+
 namespace {
 boost::shared_ptr<OnedataFS> makeOnedataFS(
     // clang-format off
-    const std::string& host,
     const std::string& token,
     const std::vector<std::string>& space = {},
     const std::vector<std::string>& space_id = {},
@@ -259,7 +255,6 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(
     bool force_proxy_io = false,
     bool force_direct_io = false,
     bool no_buffer = false,
-    int port = 443,
     int provider_timeout = 2 * 60,
     int metadata_cache_size = 5 * 1'000'000,
     int drop_dir_cache_after = 0,
@@ -269,7 +264,8 @@ boost::shared_ptr<OnedataFS> makeOnedataFS(
 
 int regularMode();
 
-void translate(const std::errc &err);
+void translateErrc(const std::errc &err);
+void translateSystemError(const std::system_error &err);
 
 struct PyIterableAdapter {
     template <typename Container> PyIterableAdapter &fromPython();
@@ -294,7 +290,8 @@ BOOST_PYTHON_MODULE(onedatafs)
 
     Py_Initialize();
     PyEval_InitThreads();
-    register_exception_translator<std::errc>(&translate);
+    register_exception_translator<std::system_error>(&translateSystemError);
+    register_exception_translator<std::errc>(&translateErrc);
 
     class_<Stat>("Stat")
         .def_readwrite("atime", &Stat::atime)
@@ -333,15 +330,13 @@ BOOST_PYTHON_MODULE(onedatafs)
         .def("__init__",
             make_constructor(makeOnedataFS, bp::default_call_policies(),
                 // clang-format off
-                (bp::arg("host"),
-                 bp::arg("token"),
+                (bp::arg("token"),
                  bp::arg("space") = std::vector<std::string>{},
                  bp::arg("space_id") = std::vector<std::string>{},
                  bp::arg("insecure") = false,
                  bp::arg("force_proxy_io") = false,
                  bp::arg("force_direct_io") = false,
                  bp::arg("no_buffer") = false,
-                 bp::arg("port") = 443,
                  bp::arg("provider_timeout") = 2 * 60,
                  bp::arg("metadata_cache_size") = 5 * 1'000'000,
                  bp::arg("drop_dir_cache_after") = 5 * 60,
@@ -349,7 +344,6 @@ BOOST_PYTHON_MODULE(onedatafs)
                  bp::arg("cli_args") = std::string{})))
         // clang-format on
         .def("version", &OnedataFS::version)
-        .def("session_id", &OnedataFS::sessionId)
         .def("stat", &OnedataFS::stat)
         .def("setattr", &OnedataFS::setattr)
         .def("unlink", &OnedataFS::unlink)
@@ -377,7 +371,6 @@ BOOST_PYTHON_MODULE(onedatafs)
                     bp::arg("create") = false, bp::arg("replace") = false)))
         .def("removexattr", &OnedataFS::removexattr)
         .def("location_map", &OnedataFS::locationMap)
-        .def("root_uuid", &OnedataFS::rootUuid)
         .def("close", &OnedataFS::close);
 
     def("regularMode", &regularMode);

@@ -14,12 +14,12 @@ sources: false
 # be based off onedata/worker image (it contains all the machinery to run the
 # application from sources - images based off onedata-worker are images with
 # -dev suffix).
-onezoneImage: "docker.onedata.org/onezone-dev:develop"
+onezoneImage: "docker.onedata.org/onezone-dev:22.02.0"
 
 # Oneprovider image to use. Note that if 'sources' option is enabled, it must
 # be based off onedata/worker image (images based off onedata-worker are
 # images with -dev suffix).
-oneproviderImage: "docker.onedata.org/oneprovider-dev:develop"
+oneproviderImage: "docker.onedata.org/oneprovider-dev:22.02.0"
 
 
 
@@ -33,7 +33,7 @@ onedataCli: false
 oneclients: false
 
 # Oneclient image to use.
-oneclientImage: "docker.onedata.org/oneclient-dev:develop"
+oneclientImage: "docker.onedata.org/oneclient-dev:22.02.0"
 
 # Onedata rest client image to use.
 onedataCliImage: "docker.onedata.org/rest-cli:ID-f310819457"
@@ -77,6 +77,11 @@ spaces:
     supports:
       - provider: oneprovider-1
         storage_name: 'ceph'
+        size: '1000000000' # in bytes
+  - name: test_onedatafs_2
+    supports:
+      - provider: oneprovider-2
+        storage_name: 's3'
         size: '1000000000' # in bytes
 
 storages:

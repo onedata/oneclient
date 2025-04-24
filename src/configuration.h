@@ -5,6 +5,7 @@
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
+#pragma once
 
 #include "auth/authManager.h"
 #include "communication/communicator.h"
@@ -58,13 +59,12 @@ std::shared_ptr<typename ContextT::CommunicatorT> handshake(
 
 template <typename ContextT>
 std::shared_ptr<auth::AuthManager<ContextT>> getCLIAuthManager(
-    std::shared_ptr<ContextT> context)
+    std::shared_ptr<ContextT> context, const std::string &host, uint16_t port)
 {
     auto options = context->options();
     return std::make_shared<
         auth::MacaroonAuthManager<auth::CLIMacaroonHandler, ContextT>>(context,
-        options->getProviderHost().get(), options->getProviderPort(),
-        !options->isInsecure(), options->getProviderTimeout());
+        host, port, !options->isInsecure(), options->getProviderTimeout());
 }
 
 template <typename ContextT>
@@ -74,7 +74,7 @@ std::shared_ptr<auth::AuthManager<ContextT>> getOptionsAuthManager(
     auto options = context->options();
     return std::make_shared<
         auth::MacaroonAuthManager<auth::OptionsMacaroonHandler, ContextT>>(
-        context, options->getProviderHost().get(), options->getProviderPort(),
+        context, context->provider().host, context->provider().port,
         !options->isInsecure(), options->getProviderTimeout());
 }
 
@@ -83,10 +83,14 @@ std::shared_ptr<auth::AuthManager<ContextT>> getTokenAuthManager(
     std::shared_ptr<ContextT> context, const folly::fbstring &token)
 {
     auto options = context->options();
+
+    LOG_DBG(3) << "Creating token auth manager for Oneprovider at: "
+               << context->provider().host << ":" << context->provider().port;
+
     return std::make_shared<
         auth::MacaroonAuthManager<auth::TokenMacaroonHandler, ContextT>>(
-        context, options->getProviderHost().get(), options->getProviderPort(),
-        token, !options->isInsecure(), options->getProviderTimeout());
+        context, context->provider().host, context->provider().port, token,
+        !options->isInsecure(), options->getProviderTimeout());
 }
 
 template <typename ContextT>
@@ -98,10 +102,9 @@ std::shared_ptr<messages::Configuration> getConfiguration(
 {
     auto options = context->options();
     if (!quiet)
-        std::cout << "Connecting to provider '"
-                  << options->getProviderHost().get() << ":"
-                  << options->getProviderPort() << "' using session ID: '"
-                  << sessionId << "'..." << std::endl;
+        std::cout << "Connecting to provider '" << context->provider().host
+                  << "' using session ID: '" << sessionId << "'..."
+                  << std::endl;
 
     auto communicator = handshake(
         sessionId, std::move(authManager), std::move(context), clientType);
@@ -133,6 +136,7 @@ std::shared_ptr<typename ContextT::CommunicatorT> getCommunicator(
         context->options()->getCommunicatorThreadCount(), sessionId,
         ONECLIENT_VERSION, ONECLIENT_COMPATIBLE_ONEPROVIDER_VERSIONS,
         clientType, handshakeHandler);
+
     auto communicator =
         std::get<std::shared_ptr<typename ContextT::CommunicatorT>>(
             communicatorTuple);

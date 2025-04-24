@@ -100,6 +100,13 @@ bool Manager::unsubscribe(std::int64_t subscriptionId)
     return false;
 }
 
+void Manager::unsubscribeAll()
+{
+    LOG_FCALL() << LOG_FARG(m_handles.size());
+
+    m_handles.clear();
+}
+
 bool Manager::existsSubscription(std::int64_t subscriptionId)
 {
     HandleConstAcc handleAcc;
@@ -132,6 +139,17 @@ void Manager::reset()
 {
     LOG_DBG(3) << "Resetting sequence manager stream counters";
     m_sequencerManager.reset();
+}
+
+void Manager::stop()
+{
+    // NOLINTNEXTLINE
+    for (auto it = m_handles.begin(); it != m_handles.end(); ++it) {
+        auto &handle = it->second;
+        if (handle) {
+            handle->stop();
+        }
+    }
 }
 
 } // namespace events

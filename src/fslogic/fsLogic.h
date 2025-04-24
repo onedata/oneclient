@@ -103,10 +103,18 @@ public:
 
     void stop();
 
+    bool stopped() const { return m_stopped; }
+
     /**
      * Reset FsLogic state, e.g. after a connection loss.
      */
     void reset();
+
+    void setAuthManager(
+        std::shared_ptr<auth::AuthManager<OneclientContext>> authManager)
+    {
+        m_authManager = std::move(authManager);
+    }
 
     /**
      * FUSE @c lookup callback.
@@ -438,7 +446,6 @@ private:
     std::multimap<folly::fbstring, std::uint64_t> m_openFileHandles;
     std::unordered_map<std::uint64_t, int> m_fuseFileHandleFlags;
     std::unordered_map<std::uint64_t, folly::fbstring> m_fuseDirectoryHandles;
-    std::atomic<std::uint64_t> m_nextFuseHandleId{1};
 
     std::function<void(const folly::fbstring &)> m_onMarkDeleted = [](auto) {};
     std::function<void(const folly::fbstring &, const folly::fbstring &,
@@ -474,7 +481,11 @@ private:
 
     folly::fibers::Baton m_directoryCachePruneBaton;
     std::atomic_bool m_stopped = ATOMIC_VAR_INIT(false);
+    std::atomic_bool m_stopping = ATOMIC_VAR_INIT(false);
+
     int m_maxRetryCount{FsLogic::MAX_RETRY_COUNT};
+
+    std::shared_ptr<auth::AuthManager<OneclientContext>> m_authManager;
 };
 } // namespace fslogic
 } // namespace client

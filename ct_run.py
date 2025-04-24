@@ -74,6 +74,13 @@ parser.add_argument(
     help='CPUs in which to allow execution (0-3, 0,1)',
     dest='cpuset_cpus')
 
+parser.add_argument(
+    '--command',
+    action='store',
+    default=None,
+    help='Execute specific command instead of running tests',
+    dest='command')
+
 [args, pass_args] = parser.parse_known_args()
 dockers_config.ensure_image(args, 'image', 'builder')
 
@@ -94,6 +101,7 @@ envs={'BASE_TEST_DIR': base_test_dir,
       'PYTHONWARNINGS': 'ignore:Unverified HTTPS request',
       'BACKWARD_CXX_SOURCE_PREFIXES': os.path.join(script_dir, args.release)}
 
+add_host = {}
 # Setup oneenv environment
 if args.onenv_config is not None:
     if not os.path.exists(args.onenv_config):
@@ -164,6 +172,9 @@ if args.onenv_config is not None:
 
     print(f'Environment passed to pytest container: {str(envs)}')
 
+    add_host = {'dev-onezone.default.svc.cluster.local': onezone_ip.decode('utf-8'),
+                'dev-oneprovider-krakow.default.svc.cluster.local': oneprovider_ip.decode('utf-8'),
+                'dev-oneprovider-paris.default.svc.cluster.local': oneprovider_2_ip.decode('utf-8')}
 
 command = '''
 import os, subprocess, sys, stat, shutil
@@ -176,7 +187,11 @@ if {shed_privileges}:
     os.setregid({gid}, {gid})
     os.setreuid({uid}, {uid})
 
-if {gdb}:
+if '{custom_command}' != 'None':
+    command = '{custom_command}'.split(' ')
+    ret = subprocess.call(command)
+    sys.exit(ret)
+elif {gdb}:
     command = ['gdb', 'python3', '-silent', '-statistics', '-ex', """run -c "
 import pytest
 pytest.main({args} + ['{test_dirs}'])" """]
@@ -197,28 +212,23 @@ command = command.format(
     shed_privileges=(platform.system() == 'Linux') and not args.no_shed_privileges,
     gdb=args.gdb,
     script_dir=script_dir,
+    custom_command=args.command,
     release=args.release)
-
-add_hosts = {}
-if args.onenv_config is not None:
-    add_hosts = {'dev-onezone.default.svc.cluster.local': onezone_ip.decode('utf-8'),
-                 'dev-oneprovider-krakow.default.svc.cluster.local': oneprovider_ip.decode('utf-8'),
-                 'dev-oneprovider-paris.default.svc.cluster.local': oneprovider_2_ip.decode('utf-8')}
 
 ret = docker.run(tty=True,
                  rm=True,
                  interactive=True,
+                 add_host=add_host,
                  workdir=script_dir,
                  reflect=[(script_dir, 'rw'),
                           ('/var/run/docker.sock', 'rw')],
                  image=args.image,
                  envs=envs,
-                 add_host=add_hosts,
                  run_params=['--privileged'] if args.gdb or args.no_shed_privileges else [],
                  cpuset_cpus=args.cpuset_cpus,
                  command=['python', '-c', command])
 
-if not args.no_clean:
+if args.onenv_config and not args.no_clean:
     try:
         up_output = subprocess.check_output(['./one-env/onenv', 'clean'])
     except subprocess.CalledProcessError as e:

@@ -170,6 +170,9 @@ public:
         std::function<std::error_code(messages::HandshakeResponse)>
             onHandshakeResponse) override
     {
+        LOG_FCALL() << LOG_FARG(poolSize) << LOG_FARG(workerCount)
+                    << LOG_FARG(sessionId) << LOG_FARG(version);
+
         using one::messages::handshake::SessionMode;
 
         m_cancelRefresh();

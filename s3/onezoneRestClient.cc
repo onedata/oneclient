@@ -14,13 +14,20 @@ namespace one {
 namespace rest {
 namespace onezone {
 
-OnezoneClient::OnezoneClient(const std::string &hostname)
+OnezoneClient::OnezoneClient(const std::string &hostname,
+    const uint16_t port, const bool useTLS)
 {
-    session_.setHost(hostname);
-    session_.setKeepAlive(true);
+    if (useTLS)
+        session_ = std::make_unique<Poco::Net::HTTPSClientSession>();
+    else
+        session_ = std::make_unique<Poco::Net::HTTPClientSession>();
+
+    session_->setHost(hostname);
+    session_->setPort(port);
+    session_->setKeepAlive(true);
 }
 
-OnezoneClient::~OnezoneClient() { session_.reset(); }
+OnezoneClient::~OnezoneClient() { session_->reset(); }
 
 std::string OnezoneClient::createSpaceSupportToken(
     const std::string &token, const std::string &spaceId)
@@ -59,11 +66,13 @@ std::string OnezoneClient::createSpaceSupportToken(
 
     logRequest("Onezone", request);
 
-    auto &requestStream = session_.sendRequest(request);
+    auto& session = *session_;
+
+    auto &requestStream = session.sendRequest(request);
     requestStream << bodyStr;
 
     Poco::Net::HTTPResponse response;
-    auto responseStr = toString(session_.receiveResponse(response));
+    auto responseStr = toString(session.receiveResponse(response));
 
     logResponse("Onezone", responseStr);
 
@@ -95,12 +104,14 @@ std::vector<model::Space> OnezoneClient::listUserSpaces(
 
     logRequest("Onezone", request, body);
 
-    auto &requestStream = session_.sendRequest(request);
+    auto& session = *session_;
+
+    auto &requestStream = session.sendRequest(request);
     requestStream << bodyStr;
 
     Poco::Net::HTTPResponse response;
 
-    auto responseStr = toString(session_.receiveResponse(response));
+    auto responseStr = toString(session.receiveResponse(response));
 
     logResponse("Onezone", responseStr);
 
@@ -129,9 +140,149 @@ std::vector<model::Space> OnezoneClient::listUserSpaces(
     return result;
 }
 
+model::DataAccessScope OnezoneClient::inferAccessTokenScope(
+    const std::string &token)
+{
+    constexpr size_t kSpaceSizePlaceholderValue = 1024;
+
+    model::DataAccessScope result;
+
+    Poco::JSON::Object body;
+    body.set("token", token);
+    auto bodyStr = toString(body);
+
+    Poco::Net::HTTPRequest request{Poco::Net::HTTPRequest::HTTP_POST,
+        "/api/v3/onezone/tokens/infer_access_token_scope"};
+    request.setContentType("application/json");
+    request.setContentLength(bodyStr.size());
+
+    logRequest("Onezone", request, body);
+
+    auto& session = *session_;
+
+    auto &requestStream = session.sendRequest(request);
+    requestStream << bodyStr;
+
+    Poco::Net::HTTPResponse response;
+
+    auto responseStr = toString(session.receiveResponse(response));
+
+    logResponse("Onezone", responseStr);
+
+    auto statusCode = response.getStatus();
+
+    if (statusCode != Poco::Net::HTTPResponse::HTTP_OK) {
+        throwHTTPExceptionFromRESTErrorResponse(responseStr);
+    }
+
+    Poco::JSON::Parser p;
+    auto value = p.parse(responseStr);
+
+    Poco::JSON::Object::Ptr object = value.extract<Poco::JSON::Object::Ptr>();
+
+    auto dataAccessScope = object->getObject("dataAccessScope");
+
+    result.readonly = dataAccessScope->getValue<bool>("readonly");
+
+    for (const auto &space : *dataAccessScope->getObject("spaces")) {
+        model::UserSpaceDetails s;
+        s.spaceId = space.first;
+        const auto &spaceDetails =
+            space.second.extract<Poco::JSON::Object::Ptr>();
+
+        s.name = spaceDetails->get("name").toString();
+        s.creationTime = 0;
+        if (spaceDetails->has("supports")) {
+            for (const auto &kv : *spaceDetails->getObject("supports")) {
+                s.providers.emplace(kv.first, kSpaceSizePlaceholderValue);
+            }
+        }
+
+        result.spaces.emplace(space.first, std::move(s));
+    }
+
+    for (const auto &provider : *dataAccessScope->getObject("providers")) {
+        model::Provider p;
+        p.providerId = provider.first;
+        const auto providerDetails =
+            provider.second.extract<Poco::JSON::Object::Ptr>();
+
+        p.name = providerDetails->get("name").toString();
+        p.host = providerDetails->get("domain").toString();
+        p.version = providerDetails->get("version").toString();
+
+        result.providers.emplace(provider.first, std::move(p));
+    }
+
+    return result;
+}
+
+std::vector<model::UserSpaceDetails> OnezoneClient::listUserSpacesDetails(
+    const std::string &token)
+{
+    constexpr size_t kSpaceSizePlaceholderValue = 1024;
+
+    std::vector<model::UserSpaceDetails> result;
+
+    Poco::JSON::Object body;
+    body.set("token", token);
+    auto bodyStr = toString(body);
+
+    Poco::Net::HTTPRequest request{Poco::Net::HTTPRequest::HTTP_POST,
+        "/api/v3/onezone/tokens/infer_access_token_scope"};
+    request.setContentType("application/json");
+    request.setContentLength(bodyStr.size());
+
+    logRequest("Onezone", request, body);
+
+    auto& session = *session_;
+
+    auto &requestStream = session.sendRequest(request);
+    requestStream << bodyStr;
+
+    Poco::Net::HTTPResponse response;
+
+    auto responseStr = toString(session.receiveResponse(response));
+
+    logResponse("Onezone", responseStr);
+
+    auto statusCode = response.getStatus();
+
+    if (statusCode != Poco::Net::HTTPResponse::HTTP_OK) {
+        throwHTTPExceptionFromRESTErrorResponse(responseStr);
+    }
+
+    Poco::JSON::Parser p;
+    auto value = p.parse(responseStr);
+
+    Poco::JSON::Object::Ptr object = value.extract<Poco::JSON::Object::Ptr>();
+
+    for (const auto &space :
+        *object->getObject("dataAccessScope")->getObject("spaces")) {
+        model::UserSpaceDetails s;
+        s.spaceId = space.first;
+        const auto &spaceDetails =
+            space.second.extract<Poco::JSON::Object::Ptr>();
+
+        s.name = spaceDetails->get("name").toString();
+        s.creationTime = 0;
+        if (spaceDetails->has("supports")) {
+            for (const auto &kv : *spaceDetails->getObject("supports")) {
+                s.providers.emplace(kv.first, kSpaceSizePlaceholderValue);
+            }
+        }
+
+        result.emplace_back(std::move(s));
+    }
+
+    return result;
+}
+
 model::UserSpaceDetails OnezoneClient::getUserSpace(
     const std::string &token, const std::string &spaceId)
 {
+    constexpr size_t kSpaceSizePlaceholderValue = 1024;
+
     Poco::Net::HTTPRequest request{Poco::Net::HTTPRequest::HTTP_GET,
         "/api/v3/onezone/user/spaces/" + spaceId};
     request.setContentType("application/json");
@@ -140,10 +291,12 @@ model::UserSpaceDetails OnezoneClient::getUserSpace(
 
     logRequest("Onezone", request);
 
-    session_.sendRequest(request);
+    auto& session = *session_;
+
+    session.sendRequest(request);
 
     Poco::Net::HTTPResponse response;
-    auto responseStr = toString(session_.receiveResponse(response));
+    auto responseStr = toString(session.receiveResponse(response));
 
     logResponse("Onezone", responseStr);
 
@@ -160,6 +313,66 @@ model::UserSpaceDetails OnezoneClient::getUserSpace(
     result.spaceId = object->getValue<std::string>("spaceId");
     result.name = object->getValue<std::string>("name");
     result.creationTime = object->getValue<uint64_t>("creationTime");
+    if (object->has("supports")) {
+        for (const auto &kv : *object->getObject("supports")) {
+            result.providers.emplace(kv.first, kSpaceSizePlaceholderValue);
+        }
+    }
+
+    return result;
+}
+
+std::map<std::string, model::Provider> OnezoneClient::getUserProviders(
+    const std::string &token)
+{
+    std::map<std::string, model::Provider> result;
+
+    Poco::JSON::Object body;
+    body.set("token", token);
+    auto bodyStr = toString(body);
+
+    Poco::Net::HTTPRequest request{Poco::Net::HTTPRequest::HTTP_POST,
+        "/api/v3/onezone/tokens/infer_access_token_scope"};
+    request.setContentType("application/json");
+    request.setContentLength(bodyStr.size());
+
+    logRequest("Onezone", request, body);
+
+    auto& session = *session_;
+
+    auto &requestStream = session.sendRequest(request);
+    requestStream << bodyStr;
+
+    Poco::Net::HTTPResponse response;
+
+    auto responseStr = toString(session.receiveResponse(response));
+
+    logResponse("Onezone", responseStr);
+
+    auto statusCode = response.getStatus();
+
+    if (statusCode != Poco::Net::HTTPResponse::HTTP_OK) {
+        throwHTTPExceptionFromRESTErrorResponse(responseStr);
+    }
+
+    Poco::JSON::Parser p;
+    auto value = p.parse(responseStr);
+
+    Poco::JSON::Object::Ptr object = value.extract<Poco::JSON::Object::Ptr>();
+
+    for (const auto &space :
+        *object->getObject("dataAccessScope")->getObject("providers")) {
+        model::Provider p;
+        p.providerId = space.first;
+        const auto providerDetails =
+            space.second.extract<Poco::JSON::Object::Ptr>();
+
+        p.name = providerDetails->get("name").toString();
+        p.host = providerDetails->get("domain").toString();
+        p.version = providerDetails->get("version").toString();
+
+        result.emplace(space.first, std::move(p));
+    }
 
     return result;
 }
@@ -180,11 +393,13 @@ std::string OnezoneClient::createSpace(
 
     logRequest("Onezone", request);
 
-    auto &requestStream = session_.sendRequest(request);
+    auto& session = *session_;
+
+    auto &requestStream = session.sendRequest(request);
     requestStream << bodyStr;
 
     Poco::Net::HTTPResponse response;
-    auto responseStr = toString(session_.receiveResponse(response));
+    auto responseStr = toString(session.receiveResponse(response));
 
     logResponse("Onezone", responseStr);
 
@@ -216,10 +431,12 @@ void OnezoneClient::deleteSpace(
 
     logRequest("Onezone", request);
 
-    session_.sendRequest(request);
+    auto& session = *session_;
+
+    session.sendRequest(request);
 
     Poco::Net::HTTPResponse response;
-    auto responseStr = toString(session_.receiveResponse(response));
+    auto responseStr = toString(session.receiveResponse(response));
 
     logResponse("Onezone", responseStr);
 

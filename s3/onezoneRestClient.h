@@ -23,11 +23,26 @@ namespace rest {
 namespace onezone {
 
 namespace model {
+
+struct Provider {
+    std::string providerId;
+    std::string version;
+    std::string name;
+    std::string host;
+    unsigned int port{443};
+};
+
 struct UserSpaceDetails {
     std::string spaceId;
     std::string name;
-    std::map<std::string, size_t> providers;
+    std::map</* providerId */ std::string, size_t> providers;
     unsigned long long creationTime;
+};
+
+struct DataAccessScope {
+    bool readonly;
+    std::map<std::string, UserSpaceDetails> spaces;
+    std::map<std::string, Provider> providers;
 };
 
 struct Space {
@@ -38,7 +53,7 @@ struct Space {
 
 class OnezoneClient {
 public:
-    OnezoneClient(const std::string &hostname);
+    OnezoneClient(const std::string &hostname, const uint16_t port = 443, const bool useTLS = true);
 
     ~OnezoneClient();
 
@@ -46,6 +61,14 @@ public:
         const std::string &token, const std::string &spaceId);
 
     std::vector<model::Space> listUserSpaces(const std::string &token);
+
+    std::vector<model::UserSpaceDetails> listUserSpacesDetails(
+        const std::string &token);
+
+    model::DataAccessScope inferAccessTokenScope(const std::string &token);
+
+    std::map<std::string, model::Provider> getUserProviders(
+        const std::string &token);
 
     model::UserSpaceDetails getUserSpace(
         const std::string &token, const std::string &spaceId);
@@ -55,7 +78,7 @@ public:
     void deleteSpace(const std::string &token, const std::string &spaceId);
 
 private:
-    Poco::Net::HTTPSClientSession session_;
+    std::unique_ptr<Poco::Net::HTTPClientSession> session_;
 };
 } // namespace onezone
 } // namespace rest

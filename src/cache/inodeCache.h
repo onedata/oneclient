@@ -21,6 +21,8 @@
 #include <fuse/fuse_lowlevel.h>
 #endif
 
+#include <list>
+
 namespace one {
 namespace client {
 namespace cache {
@@ -40,6 +42,11 @@ public:
     InodeCache(const folly::fbstring &rootUuid,
         const std::size_t targetCacheSize = 100000);
 
+    folly::fbstring providerId(const fuse_ino_t inode) const;
+
+    fuse_ino_t generateInode(
+        const folly::fbstring &uuid, const folly::fbstring &providerId);
+
     /**
      * Looks up an number by its uuid and increments lookup count for the
      * entry.
@@ -55,7 +62,7 @@ public:
      * @param ino Inode to look up by.
      * @returns Uuid associated with the inode.
      */
-    folly::fbstring at(const fuse_ino_t ino) const;
+    std::pair<folly::fbstring, folly::fbstring> at(const fuse_ino_t ino) const;
 
     /**
      * Decrements lookup cound of a cached inode.
@@ -89,10 +96,11 @@ private:
     };
 
     struct Entry {
-        Entry(fuse_ino_t, folly::fbstring);
+        Entry(fuse_ino_t, folly::fbstring, folly::fbstring);
 
         fuse_ino_t inode;
         folly::fbstring uuid;
+        folly::fbstring providerId;
         std::size_t lookupCount{1};
         folly::Optional<std::list<fuse_ino_t>::iterator> lruIt;
         bool deleted{false};
