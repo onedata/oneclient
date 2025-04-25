@@ -16,7 +16,7 @@ namespace client {
 namespace events {
 
 /**
- * @c Router is reponsible for handling, deserialization and forwarding
+ * @c Router is responsible for handling, deserialization and forwarding
  * event-specific messages to the event manager.
  */
 class Router {

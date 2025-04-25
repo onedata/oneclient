@@ -95,6 +95,8 @@ S3Logic::S3Logic(std::shared_ptr<one::client::options::Options> options,
     m_context->setScheduler(
         std::make_shared<Scheduler>(m_options->getSchedulerThreadCount()));
     m_context->setOptions(m_options);
+
+
 }
 
 folly::Future<std::shared_ptr<S3Logic>> S3Logic::connect()
@@ -133,6 +135,16 @@ folly::Future<std::shared_ptr<S3Logic>> S3Logic::connect()
 
     m_helpersCache.setCache(std::make_unique<HelpersCache<OneS3Communicator>>(
         *communicator, m_context->scheduler(), *m_context->options()));
+
+    m_eventManager = std::make_unique<one::client::events::Manager>(
+        *m_context->scheduler(), m_context->communicator(), m_providerTimeout);
+
+    m_s3Subscriptions = std::make_unique<S3Subscriptions>(
+        *m_eventManager, m_helpersCache, m_executor);
+
+    m_helpersCache.onHelperCreated([this](const folly::fbstring &storageId) {
+        m_s3Subscriptions->subscribeHelperParamsChanged(storageId);
+    });
 
     m_rootUuid = m_configuration->rootUuid();
 

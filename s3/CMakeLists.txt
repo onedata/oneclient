@@ -67,6 +67,7 @@ add_executable(ones3
         s3LogicObject.cc
         s3LogicCache.cc
         s3Server.cc
+        s3Subscriptions.cc
         s3Exception.cc
         restCommon.cc
         onepanelRestClient.cc

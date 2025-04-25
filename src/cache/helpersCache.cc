@@ -68,6 +68,14 @@ HelpersCacheThreadSafeAdapter::refreshHelperParameters(
     return m_cache->refreshHelperParameters(storageId);
 }
 
+void HelpersCacheThreadSafeAdapter::onHelperCreated(
+    std::function<void(folly::fbstring)> callback)
+{
+    assert(m_cache);
+
+    std::lock_guard<std::mutex> l{m_cacheMutex};
+    m_cache->onHelperCreated(std::move(callback));
+}
 } // namespace cache
 } // namespace client
 } // namespace one

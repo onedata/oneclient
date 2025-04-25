@@ -7,6 +7,7 @@ import random
 import string
 import time
 import requests
+import json
 import boto3
 
 from botocore.exceptions import ClientError
@@ -84,7 +85,6 @@ def rename_space(onezone_ip, token, space_id, new_name):
     spaces_endpoint = f'https://{onezone_ip}/api/v3/onezone/' \
                       f'spaces/{space_id}'
     res = requests.patch(spaces_endpoint, json={"name": new_name},
-                       #auth=requests.auth.HTTPBasicAuth('admin', 'password'),
                        headers={'X-Auth-Token': token, 'content-type': 'application/json'},
                        verify=False)
     if not res.ok:
@@ -123,6 +123,36 @@ def put_file(oneprovider_host, token, bucket_name, path, data,
                         headers={'X-Auth-Token': token,
                                  'Content-type': content_type},
                         verify=False)
+
+
+def modify_ceph_storage_param(oneprovider_host, token, support_storage_id,
+                              param_name, param_value):
+    url = (f'https://{oneprovider_host}/api/v3/onepanel/provider/'
+           f'storages/{support_storage_id}')
+
+    r = requests.get(url,
+                      headers={'X-Auth-Token': token,
+                               'Content-type': 'application/json'},
+                      verify=False)
+
+    storage_params = r.json()
+
+    old_param_value = storage_params[param_name]
+
+    new_storage_params = {storage_params['name']: {}}
+
+    new_storage_params[storage_params['name']][param_name] = param_value
+    new_storage_params[storage_params['name']]['type'] = storage_params['type']
+
+    r = requests.patch(url,
+                      headers={'X-Auth-Token': token,
+                               'Content-type': 'application/json'},
+                      json=new_storage_params,
+                      verify=False)
+
+    assert r.status_code == 200
+
+    return old_param_value
 
 
 def create_presigned_url(s3_client, bucket, key, s3_method, http_method=None,

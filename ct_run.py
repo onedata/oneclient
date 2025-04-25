@@ -142,9 +142,11 @@ if args.onenv_config is not None:
     # Get Ceph storage IP
     get_endpoints_cli = f'kubectl get endpoints -lcomponent=volume-ceph -o json'
     endpoints = subprocess.check_output(get_endpoints_cli.split(' ')).strip()
+    ceph_monitor_ip = None
     for item in json.loads(endpoints)['items']:
         if item['metadata']['name'] == 'dev-volume-ceph-krakow':
-            envs['CEPH_MONITOR_IP'] = item['subsets'][0]['addresses'][0]['ip']
+            ceph_monitor_ip = item['subsets'][0]['addresses'][0]['ip']
+            envs['CEPH_MONITOR_IP'] = ceph_monitor_ip
             break
 
     if 'CEPH_MONITOR_IP' not in envs:
@@ -203,7 +205,8 @@ add_hosts = {}
 if args.onenv_config is not None:
     add_hosts = {'dev-onezone.default.svc.cluster.local': onezone_ip.decode('utf-8'),
                  'dev-oneprovider-krakow.default.svc.cluster.local': oneprovider_ip.decode('utf-8'),
-                 'dev-oneprovider-paris.default.svc.cluster.local': oneprovider_2_ip.decode('utf-8')}
+                 'dev-oneprovider-paris.default.svc.cluster.local': oneprovider_2_ip.decode('utf-8'),
+                 'dev-volume-ceph-krakow.default': ceph_monitor_ip}
 
 ret = docker.run(tty=True,
                  rm=True,
