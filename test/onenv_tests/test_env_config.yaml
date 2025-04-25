@@ -82,3 +82,9 @@ spaces:
 storages:
   - ceph
   - s3
+
+oneprovider-1:
+  workerOverlayConfig: |-
+      [{op_worker, [
+          {skip_storage_detection, true}
+      ]}].
