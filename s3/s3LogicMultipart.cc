@@ -322,6 +322,8 @@ S3Logic::completeMultipartUpload(const std::string requestId,
         .thenValue([this, uploadId, path, bucket](auto &&args) {
             POP_FUTURES_2(args, bucketAttr, parts);
 
+            LOG_FCALL() << LOG_FARG(bucketAttr.value().uuid());
+
             if (parts.value().GetParts().empty())
                 throw one::s3::error::MalformedXML{bucket.toStdString(),
                     path.toStdString(), uploadId.toStdString()};
@@ -380,6 +382,9 @@ S3Logic::completeMultipartUpload(const std::string requestId,
             POP_FUTURES_7(args, bucketAttr, firstPartAttr, lastPartAttr,
                 lastPartNumber, lastPartSize, firstPartSize, multipartETagMd5);
 
+            LOG_FCALL() << LOG_FARG(bucketAttr.value().uuid())
+                        << LOG_FARG(lastPartNumber.value());
+
             const bool isLastPartSizeEqualFirst =
                 firstPartAttr.value().uuid() == lastPartAttr.value().uuid();
 
@@ -408,6 +413,9 @@ S3Logic::completeMultipartUpload(const std::string requestId,
                 lastPartNumber, lastPartSize, firstPartSize,
                 tmpLastPartFileHandle, multipartETagMd5);
 
+            LOG_FCALL() << LOG_FARG(bucketAttr.value().uuid())
+                        << LOG_FARG(lastPartNumber.value());
+
             const auto spaceId = bucketAttr.value().uuid();
             const bool isLastPartSizeEqualFirst =
                 firstPartAttr.value().uuid() == lastPartAttr.value().uuid();
@@ -418,18 +426,16 @@ S3Logic::completeMultipartUpload(const std::string requestId,
             const auto lastPartOffset =
                 lastPartSize.value() * (lastPartNumber.value() - 1);
             auto bufQueue = isLastPartSizeEqualFirst
-                ? folly::makeFuture(folly::IOBufQueue{})
+                ? folly::makeFuture(folly::IOBufQueue{folly::IOBufQueue::cacheChainLength()})
                 : read(tmpLastPartFileHandle.value(),
-                      fmt::format("{}-{}", requestId, lastPartNumber.value()),
+                      spaceId,
                       lastPartAttr.value(), lastPartOffset,
                       lastPartSize.value());
             auto tmpTargetFileHandle = isLastPartSizeEqualFirst
                 ? folly::makeFuture(
                       std::shared_ptr<one::client::fslogic::FuseFileHandle>{})
-                : open(fmt::format("{}-{}", requestId, 1), tmpDirId,
+                : open(fmt::format("{}-{}", requestId, 1), spaceId,
                       firstPartAttr.value(), 0UL, O_RDWR | O_APPEND);
-            auto arg7 = folly::makeFuture(tmpLastPartFileHandle);
-            auto arg8 = folly::makeFuture(multipartETagMd5);
 
             PUSH_FUTURES_9(bucketAttr, firstPartAttr, lastPartAttr,
                 lastPartNumber, firstPartSize, bufQueue, tmpTargetFileHandle,
@@ -443,19 +449,17 @@ S3Logic::completeMultipartUpload(const std::string requestId,
                 lastPartNumber, firstPartSize, bufQueue, tmpTargetFileHandle,
                 tmpLastPartFileHandle, multipartETagMd5);
 
+            LOG_FCALL();
+
             const bool isLastPartSizeEqualFirst =
                 firstPartAttr.value().uuid() == lastPartAttr.value().uuid();
-
-            const auto firstPartPath = fmt::format("{}-{}",
-                getMultipartUploadTemporaryFileName(path, uploadId)
-                    .toStdString(),
-                firstPartSize.value());
 
             const auto tmpDirId = one::client::util::uuid::uuidToTmpDirId(
                 bucketAttr.value().uuid());
 
             const auto appendOffset =
                 firstPartSize.value() * (lastPartNumber.value() - 1);
+
             auto written = isLastPartSizeEqualFirst
                 ? folly::makeFuture<size_t>(0)
                 : write(tmpTargetFileHandle.value(),
@@ -464,10 +468,12 @@ S3Logic::completeMultipartUpload(const std::string requestId,
                       std::make_shared<folly::IOBuf>(
                           bufQueue.value().moveAsValue()),
                       appendOffset);
+
             auto temporaryDirAttr = getFileAttrByPath(
                 tmpDirId, getMultipartUploadTemporaryDir(uploadId));
             auto targetParentAttr =
                 getFileParentAttrByPath(bucketAttr.value(), path);
+
             auto closeStatus = isLastPartSizeEqualFirst
                 ? folly::makeFuture()
                 : close(lastPartAttr.value().uuid(),
@@ -485,6 +491,8 @@ S3Logic::completeMultipartUpload(const std::string requestId,
             POP_FUTURES_9(args, bucketAttr, firstPartAttr, lastPartAttr,
                 written, temporaryDirAttr, targetParentAttr, closeStatus,
                 tmpTargetFileHandle, multipartETagMd5);
+
+            LOG_FCALL();
 
             const auto &firstPartUuid =
                 firstPartAttr.value().uuid().toStdString();
@@ -520,6 +528,8 @@ S3Logic::completeMultipartUpload(const std::string requestId,
                 temporaryDirAttr, fileRenamedStatus, setXattrStatus,
                 multipartETagMd5, closeFirstPartStatus);
 
+            LOG_FCALL();
+
             constexpr auto kMaxTemporaryUploadFileChildren = 10000;
 
             auto attrs = communicate<FileChildrenAttrs>(
@@ -538,6 +548,8 @@ S3Logic::completeMultipartUpload(const std::string requestId,
         .thenValue([this, uploadId](auto &&args) {
             POP_FUTURES_7(args, bucketAttr, firstPartAttr, lastPartAttr,
                 temporaryDirAttr, attrs, contentType, multipartETagMd5);
+
+            LOG_FCALL();
 
             std::vector<folly::Future<FuseResponse>> futs;
 
@@ -562,6 +574,8 @@ S3Logic::completeMultipartUpload(const std::string requestId,
             POP_FUTURES_4(args, futsStatus, temporaryDirAttr, multipartETagMd5,
                 contentType);
 
+            LOG_FCALL();
+
             auto deleteStatus = communicate(
                 DeleteFile{temporaryDirAttr.value().uuid().toStdString()});
 
@@ -573,6 +587,8 @@ S3Logic::completeMultipartUpload(const std::string requestId,
         .thenValue([this, uploadId](auto &&args) {
             POP_FUTURES_3(args, multipartETagMd5, contentType, deleteStatus);
 
+            LOG_FCALL();
+
             auto completeStatus =
                 communicate(CompleteMultipartUpload{uploadId.toStdString()});
 
@@ -583,6 +599,8 @@ S3Logic::completeMultipartUpload(const std::string requestId,
         //
         .thenValue([path, bucket](auto &&args) {
             POP_FUTURES_3(args, multipartETagMd5, contentType, deleteStatus);
+
+            LOG_FCALL();
 
             Aws::S3::Model::CompleteMultipartUploadResult result;
             result.SetKey(path.toStdString());

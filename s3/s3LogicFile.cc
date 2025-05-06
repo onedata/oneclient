@@ -63,12 +63,12 @@ folly::Future<folly::Unit> S3Logic::close(
 
     return folly::collectAll(releaseFutures)
         .via(m_executor.get())
-        .thenTry([this,
-                     fileHandleId =
-                         fileHandle->providerHandleId()->toStdString(),
-                     uuid, requestId](auto && /*unit*/) {
-            return communicate(FSync{uuid.toStdString(), false, fileHandleId});
-        })
+        .thenTry(
+            [this, fileHandleId = fileHandle->providerHandleId()->toStdString(),
+                uuid, requestId](auto && /*unit*/) {
+                return communicate(
+                    FSync{uuid.toStdString(), false, fileHandleId});
+            })
         .thenTry(
             [this, fileHandleId = fileHandle->providerHandleId()->toStdString(),
                 uuid, requestId](auto && /*unit*/) {
@@ -90,6 +90,9 @@ folly::Future<std::size_t> S3Logic::write(
     const std::string &requestId, std::shared_ptr<folly::IOBuf> buf,
     const size_t baseOffset)
 {
+    LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(requestId) << LOG_FARG(baseOffset)
+                << LOG_FARG(buf->empty());
+
     if (buf->empty()) {
         LOG_DBG(2) << "Write called with empty buffer - skipping";
         return 0;
@@ -143,6 +146,9 @@ folly::Future<folly::IOBufQueue> S3Logic::read(
     std::shared_ptr<FuseFileHandle> fileHandle, const folly::fbstring &spaceId,
     const FileAttr &attr, const std::size_t offset, const std::size_t size)
 {
+    LOG_FCALL() << LOG_FARG(spaceId) << LOG_FARG(attr.uuid())
+                << LOG_FARG(offset) << LOG_FARG(size);
+
     return communicate<FileLocation>(GetFileLocation{attr.uuid().toStdString()})
         .thenTry([this, attr, offset, size, spaceId, fileHandle](
                      folly::Try<FileLocation> &&maybeLocation)
@@ -199,6 +205,7 @@ folly::Future<folly::IOBufQueue> S3Logic::read(
             const auto neededAvailableRange = availableRange & neededRange;
 
             if (boost::icl::size(neededAvailableRange) <= 0) {
+                LOG_DBG(2) << "Invalid range when reading file " << uuid;
                 throw one::helpers::makePosixException(ERANGE);
             }
 

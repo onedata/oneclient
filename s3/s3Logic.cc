@@ -95,8 +95,6 @@ S3Logic::S3Logic(std::shared_ptr<one::client::options::Options> options,
     m_context->setScheduler(
         std::make_shared<Scheduler>(m_options->getSchedulerThreadCount()));
     m_context->setOptions(m_options);
-
-
 }
 
 folly::Future<std::shared_ptr<S3Logic>> S3Logic::connect()
@@ -142,9 +140,10 @@ folly::Future<std::shared_ptr<S3Logic>> S3Logic::connect()
     m_s3Subscriptions = std::make_unique<S3Subscriptions>(
         *m_eventManager, m_helpersCache, m_executor);
 
-    m_helpersCache.onHelperCreated([this](const folly::fbstring &storageId) {
-        m_s3Subscriptions->subscribeHelperParamsChanged(storageId);
-    });
+        m_helpersCache.onHelperCreated([this](const folly::fbstring
+        &storageId) {
+            m_s3Subscriptions->subscribeHelperParamsChanged(storageId);
+        });
 
     m_rootUuid = m_configuration->rootUuid();
 
@@ -160,11 +159,13 @@ folly::Future<folly::Unit> S3Logic::stop()
     return m_context->communicator()
         ->send(messages::CloseSession{})
         .via(m_executor.get())
-        .onTimeout(timeout, [timeout = timeout.count()]() mutable {});
+        .onTimeout(timeout, [timeout = timeout.count()]() mutable { });
 }
 
 S3RequestContext &S3Logic::getRequestContext(const std::string &requestId)
 {
+    LOG_FCALL() << LOG_FARG(requestId);
+
     std::lock_guard<std::mutex> lockGuard{m_handleMutex};
     return m_requestContext.at(requestId);
 }
@@ -307,10 +308,13 @@ folly::Future<std::shared_ptr<FuseFileHandle>> S3Logic::open(
     std::string requestId, const folly::fbstring &spaceId, const FileAttr &attr,
     const size_t requestedOffset, const int flags, const size_t requestedSize)
 {
-    LOG_FCALL() << LOG_FARG(spaceId) << LOG_FARGH(flags);
+    LOG_FCALL() << LOG_FARG(requestId) << LOG_FARG(spaceId) << LOG_FARGH(flags);
 
     {
         std::lock_guard<std::mutex> lockGuard{m_handleMutex};
+
+        LOG_DBG(3) << "Found existing request handle for requestId: "
+                   << requestId;
 
         if (m_requestHandles.find(requestId) != m_requestHandles.end())
             return m_requestHandles.at(requestId);
@@ -367,7 +371,12 @@ folly::Future<std::shared_ptr<FuseFileHandle>> S3Logic::open(
             std::lock_guard<std::mutex> lockGuard{m_handleMutex};
             m_requestContext.emplace(requestId, std::move(context));
 
-            return m_requestHandles.at(requestId);
+            auto requestHandle = m_requestHandles.at(requestId);
+
+            LOG_DBG(3) << "Created new fuse file handle for requestId: "
+                       << requestId;
+
+            return requestHandle;
         });
 }
 
@@ -422,8 +431,10 @@ folly::Future<FileAttr> S3Logic::create(std::string requestId,
         .thenValue([this, path, flags, parentUuid, requestId](auto &&created) {
             const auto &uuid = created.attr().uuid();
 
+            using namespace one::client::util::uuid;
+
             S3RequestContext context{};
-            context.spaceId = parentUuid;
+            context.spaceId = spaceIdToSpaceUUID(uuidToSpaceId(uuid));
             context.location = created.location();
             context.attr = created.attr();
             context.offset = 0;

@@ -54,6 +54,14 @@ folly::fbstring spaceIdToSpaceUUID(const folly::fbstring &spaceId);
  */
 folly::fbstring guidToUUID(
     const folly::fbstring &spaceId, const folly::fbstring &guid);
+
+/**
+ * Checks whether a UUID is a space id
+ * @param uuid
+ * @return True, if UUID represents a space id
+ */
+bool isSpaceUUID(const folly::fbstring &uuid);
+
 } // namespace uuid
 } // namespace util
 } // namespace client
