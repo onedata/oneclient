@@ -581,7 +581,7 @@ folly::Future<folly::Unit> S3Logic::deleteObject(const std::string &requestId,
     const folly::fbstring &bucket, const folly::fbstring &path)
 {
     LOG_FCALL() << LOG_FARG(requestId) << LOG_FARG(bucket) << LOG_FARG(path);
-    
+
     return getBucketAttr(bucket, requestId)
         .thenValue([this, path](auto &&attr) {
             return getFileAttrByPath(attr.uuid(), path);

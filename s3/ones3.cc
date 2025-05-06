@@ -100,9 +100,9 @@ void initSSL(const std::shared_ptr<options::Options> &options)
                         // Add the certificate to the SSL context
                         pContext->addCertificateAuthority(cert);
 
-                        LOG(INFO)
-                            << "Added trusted CA certificate for REST issued by: "
-                            << cert.issuerName();
+                        LOG(INFO) << "Added trusted CA certificate for REST "
+                                     "issued by: "
+                                  << cert.issuerName();
                     }
                     catch (Poco::Exception &ex) {
                         std::cerr

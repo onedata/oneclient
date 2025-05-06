@@ -63,12 +63,12 @@ folly::Future<folly::Unit> S3Logic::close(
 
     return folly::collectAll(releaseFutures)
         .via(m_executor.get())
-        .thenTry(
-            [this, fileHandleId = fileHandle->providerHandleId()->toStdString(),
-                uuid, requestId](auto && /*unit*/) {
-                return communicate(
-                    FSync{uuid.toStdString(), false, fileHandleId});
-            })
+        .thenTry([this,
+                     fileHandleId =
+                         fileHandle->providerHandleId()->toStdString(),
+                     uuid, requestId](auto && /*unit*/) {
+            return communicate(FSync{uuid.toStdString(), false, fileHandleId});
+        })
         .thenTry(
             [this, fileHandleId = fileHandle->providerHandleId()->toStdString(),
                 uuid, requestId](auto && /*unit*/) {

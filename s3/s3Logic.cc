@@ -140,10 +140,9 @@ folly::Future<std::shared_ptr<S3Logic>> S3Logic::connect()
     m_s3Subscriptions = std::make_unique<S3Subscriptions>(
         *m_eventManager, m_helpersCache, m_executor);
 
-        m_helpersCache.onHelperCreated([this](const folly::fbstring
-        &storageId) {
-            m_s3Subscriptions->subscribeHelperParamsChanged(storageId);
-        });
+    m_helpersCache.onHelperCreated([this](const folly::fbstring &storageId) {
+        m_s3Subscriptions->subscribeHelperParamsChanged(storageId);
+    });
 
     m_rootUuid = m_configuration->rootUuid();
 
@@ -159,7 +158,7 @@ folly::Future<folly::Unit> S3Logic::stop()
     return m_context->communicator()
         ->send(messages::CloseSession{})
         .via(m_executor.get())
-        .onTimeout(timeout, [timeout = timeout.count()]() mutable { });
+        .onTimeout(timeout, [timeout = timeout.count()]() mutable {});
 }
 
 S3RequestContext &S3Logic::getRequestContext(const std::string &requestId)

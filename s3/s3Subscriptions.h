@@ -90,8 +90,7 @@ private:
 
     one::client::events::Manager &m_eventManager;
 
-    one::client::cache::HelpersCacheThreadSafeAdapter
-        &m_helpersCache;
+    one::client::cache::HelpersCacheThreadSafeAdapter &m_helpersCache;
 
     std::shared_ptr<folly::IOThreadPoolExecutor> m_executor;
 

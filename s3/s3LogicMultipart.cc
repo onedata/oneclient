@@ -426,9 +426,9 @@ S3Logic::completeMultipartUpload(const std::string requestId,
             const auto lastPartOffset =
                 lastPartSize.value() * (lastPartNumber.value() - 1);
             auto bufQueue = isLastPartSizeEqualFirst
-                ? folly::makeFuture(folly::IOBufQueue{folly::IOBufQueue::cacheChainLength()})
-                : read(tmpLastPartFileHandle.value(),
-                      spaceId,
+                ? folly::makeFuture(
+                      folly::IOBufQueue{folly::IOBufQueue::cacheChainLength()})
+                : read(tmpLastPartFileHandle.value(), spaceId,
                       lastPartAttr.value(), lastPartOffset,
                       lastPartSize.value());
             auto tmpTargetFileHandle = isLastPartSizeEqualFirst
