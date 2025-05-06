@@ -74,8 +74,6 @@ def test_multipart_upload(s3_client, bucket, parts, order):
     for p in res['Parts']:
         assert (p['ETag'] == '"' + parts_etags[p["PartNumber"] - 1] + '"')
 
-
-
     res = s3_client.complete_multipart_upload(
         Bucket=bucket, Key=key, UploadId=upload_id,
         MultipartUpload={'Parts': [{'ETag': p['ETag'],

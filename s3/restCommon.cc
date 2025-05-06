@@ -127,7 +127,8 @@ void logRequest(const std::string &service,
         request.write(ss);
 
         LOG_DBG(ONES3_REST_LOG_LEVEL) << service << " REST request:\n"
-                                      << ss.str() << '\n' << toString(body);
+                                      << ss.str() << '\n'
+                                      << toString(body);
     }
 }
 

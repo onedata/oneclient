@@ -723,7 +723,7 @@ void S3Server::getLocationConstraint(const HttpRequestPtr &req,
                 callback(response);
             })
         .thenError(folly::tag_t<std::exception>{},
-            [requestId, callback](auto && e) mutable {
+            [requestId, callback](auto &&e) mutable {
                 LOG_REQUEST_ERROR(
                     requestId, "Head object failed due to: ", e.what());
 

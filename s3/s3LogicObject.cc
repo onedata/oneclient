@@ -44,6 +44,8 @@ folly::Future<Aws::S3::Model::HeadObjectResult> S3Logic::headObject(
     const folly::fbstring &bucket, const folly::fbstring &path,
     const std::string &requestId)
 {
+    LOG_FCALL() << LOG_FARG(bucket) << LOG_FARG(path) << LOG_FARG(requestId);
+
     if (path.empty()) {
         return headBucket(bucket, requestId);
     }
@@ -119,6 +121,8 @@ S3Logic::getObject(const folly::fbstring &bucket, const folly::fbstring &path,
     std::function<void(size_t)> completionCallback,
     std::function<void(const error::S3Exception &)> errorCallback)
 {
+    LOG_FCALL() << LOG_FARG(bucket) << LOG_FARG(path) << LOG_FARG(requestId);
+
     return getBucketAttr(bucket, requestId)
         .via(m_executor.get())
         //
@@ -393,6 +397,10 @@ folly::Future<std::string> S3Logic::getRange(const folly::fbstring &bucket,
     const folly::fbstring &spaceId, const size_t requestOffset,
     const size_t requestSize, const FileAttr &attr)
 {
+    LOG_FCALL() << LOG_FARG(bucket) << LOG_FARG(path) << LOG_FARG(requestId)
+                << LOG_FARG(spaceId) << LOG_FARG(requestOffset)
+                << LOG_FARG(requestSize);
+
     return open(requestId, spaceId, attr, requestOffset, O_RDONLY, requestSize)
         .via(m_executor.get())
         .thenError(folly::tag_t<std::system_error>{},
@@ -448,6 +456,9 @@ folly::Future<size_t> S3Logic::uploadObject(const std::string &requestId,
     const folly::fbstring &md5, const folly::fbstring &contentType,
     std::shared_ptr<folly::IOBuf> buf)
 {
+    LOG_FCALL() << LOG_FARG(requestId) << LOG_FARG(bucket) << LOG_FARG(path)
+                << LOG_FARG(md5) << LOG_FARG(contentType);
+
     return getBucketAttr(bucket, requestId)
         .via(m_executor.get())
         //
@@ -569,6 +580,8 @@ folly::Future<size_t> S3Logic::uploadObject(const std::string &requestId,
 folly::Future<folly::Unit> S3Logic::deleteObject(const std::string &requestId,
     const folly::fbstring &bucket, const folly::fbstring &path)
 {
+    LOG_FCALL() << LOG_FARG(requestId) << LOG_FARG(bucket) << LOG_FARG(path);
+
     return getBucketAttr(bucket, requestId)
         .thenValue([this, path](auto &&attr) {
             return getFileAttrByPath(attr.uuid(), path);

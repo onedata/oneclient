@@ -15,6 +15,7 @@
 #include "messages/fuse/helperParams.h"
 #include "messages/fuse/storageTestFile.h"
 #include "messages/fuse/verifyStorageTestFile.h"
+#include "util/uuid.h"
 
 #include <folly/system/ThreadName.h>
 
@@ -42,9 +43,16 @@ folly::Future<HelpersCacheBase::HelperPtr> HelpersCacheThreadSafeAdapter::get(
     const folly::fbstring &fileUuid, const folly::fbstring &spaceId,
     const folly::fbstring &storageId, bool forceProxyIO, bool proxyFallback)
 {
+    LOG_FCALL() << LOG_FARG(fileUuid) << LOG_FARG(spaceId)
+                << LOG_FARG(storageId) << LOG_FARG(forceProxyIO)
+                << LOG_FARG(proxyFallback);
+
     assert(m_cache);
 
+    assert(one::client::util::uuid::isSpaceUUID(spaceId));
+
     std::lock_guard<std::mutex> l{m_cacheMutex};
+
     return m_cache->get(
         fileUuid, spaceId, storageId, forceProxyIO, proxyFallback);
 }
@@ -68,6 +76,14 @@ HelpersCacheThreadSafeAdapter::refreshHelperParameters(
     return m_cache->refreshHelperParameters(storageId);
 }
 
+void HelpersCacheThreadSafeAdapter::onHelperCreated(
+    std::function<void(folly::fbstring)> callback)
+{
+    assert(m_cache);
+
+    std::lock_guard<std::mutex> l{m_cacheMutex};
+    m_cache->onHelperCreated(std::move(callback));
+}
 } // namespace cache
 } // namespace client
 } // namespace one

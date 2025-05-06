@@ -36,7 +36,8 @@ public:
     void deleteBucket(const HttpRequestPtr &req,
         HttpResponseCallback &&callback, const std::string &bucket) const;
 
-    void setLogicCache(std::shared_ptr<S3LogicCache> logicCache) {
+    void setLogicCache(std::shared_ptr<S3LogicCache> logicCache)
+    {
         m_logicCache = logicCache;
     }
 

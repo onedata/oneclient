@@ -14,6 +14,7 @@
 #include "cache/openFileMetadataCache.h"
 #include "configuration.h"
 #include "context.h"
+#include "events/events.h"
 #include "events/types/fileWritten.h"
 #include "fslogic/fuseFileHandle.h"
 #include "messages/fuse/fileAttr.h"
@@ -25,6 +26,7 @@
 #include "onepanelRestClient.h"
 #include "options/options.h"
 #include "s3Exception.h"
+#include "s3Subscriptions.h"
 #include "util/md5.h"
 #include "util/mime.h"
 #include "util/uuid.h"
@@ -59,9 +61,7 @@ constexpr auto SYNCHRONIZE_BLOCK_PRIORITY_IMMEDIATE = 32;
 
 using namespace one::communication;
 
-using OneS3Communicator = layers::Translator<layers::Replier<
-    layers::Inbox<layers::AsyncResponder<layers::BinaryTranslator<
-        layers::Logger<layers::Retrier<ConnectionPool>>>>>>>;
+using OneS3Communicator = Communicator;
 
 using OneS3Context = client::Context<OneS3Communicator>;
 
@@ -323,13 +323,15 @@ private:
         one::messages::fuse::MultipartUpload &&msg,
         const folly::fbstring &bucket, const folly::fbstring &path);
 
+    const std::chrono::seconds m_providerTimeout;
+
     std::shared_ptr<client::auth::AuthManager<OneS3Context>> m_authManager;
     std::shared_ptr<OneS3Context> m_context;
 
     std::shared_ptr<one::messages::Configuration> m_configuration;
-    client::cache::HelpersCacheThreadSafeAdapter m_helpersCache;
-
-    const std::chrono::seconds m_providerTimeout;
+    one::client::cache::HelpersCacheThreadSafeAdapter m_helpersCache;
+    std::unique_ptr<one::client::events::Manager> m_eventManager;
+    std::unique_ptr<S3Subscriptions> m_s3Subscriptions;
 
     std::shared_ptr<one::client::options::Options> m_options;
 

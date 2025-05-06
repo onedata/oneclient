@@ -25,6 +25,7 @@ Manager::Manager(Scheduler &scheduler,
     , m_sequencerStream{m_sequencerManager.create()}
     , m_router{*this, *communicator}
 {
+    LOG_FCALL();
 }
 
 void Manager::emit(EventPtr<> event)

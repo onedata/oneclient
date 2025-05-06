@@ -659,3 +659,43 @@ def test_put_object_presigned(s3_client, bucket, file_size):
     assert (res['ContentLength'] == len(body))
     assert (res['ETag'] == f'"{etag}"')
     assert (res['Body'].read() == body)
+
+
+def test_put_object_update_helper_params(s3_client, oneprovider_ip,
+                                         onezone_admin_token, bucket,
+                                         support_storage_id):
+    key = random_path()
+
+    body = random_bytes()
+    etag = hashlib.md5(body).hexdigest()
+
+    s3_client.put_object(Bucket=bucket, Key=key, Body=body)
+    res = s3_client.get_object(Bucket=bucket, Key=key)
+
+    assert (res['ContentLength'] == len(body))
+    assert (res['ETag'] == f'"{etag}"')
+    assert (res['Body'].read() == body)
+
+    old_pool_name = modify_ceph_storage_param(oneprovider_ip,
+                                             onezone_admin_token,
+                                             support_storage_id, 'poolName',
+                                             'no_such_pool')
+    time.sleep(10)
+
+    with pytest.raises(s3_client.exceptions.ClientError) as excinfo:
+        s3_client.get_object(Bucket=bucket, Key=key)
+
+    assert 'Internal Server Error' in str(excinfo.value)
+
+    modify_ceph_storage_param(oneprovider_ip, onezone_admin_token,
+                              support_storage_id, 'poolName', old_pool_name)
+
+    time.sleep(10)
+
+    res = s3_client.get_object(Bucket=bucket, Key=key)
+
+    assert (res['ContentLength'] == len(body))
+    assert (res['ETag'] == f'"{etag}"')
+    assert (res['Body'].read() == body)
+
+

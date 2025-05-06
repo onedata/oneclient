@@ -80,6 +80,9 @@ public:
 
     virtual folly::Future<folly::Unit> refreshHelperParameters(
         const folly::fbstring &storageId) = 0;
+
+    virtual void onHelperCreated(
+        std::function<void(folly::fbstring)> callback) = 0;
 };
 
 // TODO: Refactor to promises
@@ -101,6 +104,9 @@ public:
 
     folly::Future<folly::Unit> refreshHelperParameters(
         const folly::fbstring &storageId) override;
+
+    void onHelperCreated(
+        std::function<void(folly::fbstring)> callback) override;
 
 private:
     mutable std::mutex m_cacheMutex;
@@ -179,7 +185,7 @@ public:
      */
     virtual ~HelpersCache() = default;
 
-    void onHelperCreated(std::function<void(folly::fbstring)> callback)
+    void onHelperCreated(std::function<void(folly::fbstring)> callback) override
     {
         m_onHelperCreated = std::move(callback);
     };
