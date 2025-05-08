@@ -320,11 +320,13 @@ void S3Server::putBucket(const HttpRequestPtr &req,
 
         one::rest::onezone::OnezoneClient onezoneClient{onezoneHost};
 
+        const auto providerEndpoint = m_options->getPreferredProviders().front();
+
         one::rest::oneprovider::OneproviderClient oneproviderClient{
-            m_options->getProviderHost().value()};
+            providerEndpoint.host, providerEndpoint.port};
 
         one::rest::onepanel::OnepanelClient onepanelClient{
-            m_options->getProviderHost().value()};
+            providerEndpoint.host, providerEndpoint.port};
 
         setOnepanelCredentials(bucket, requestId, onepanelClient);
 
@@ -712,7 +714,7 @@ void S3Server::getLocationConstraint(const HttpRequestPtr &req,
                 callback(response);
             })
         .thenError(folly::tag_t<std::exception>{},
-            [requestId, callback](auto && e) mutable {
+            [requestId, callback](auto &&e) mutable {
                 LOG_REQUEST_ERROR(
                     requestId, "Head object failed due to: ", e.what());
 

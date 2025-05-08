@@ -97,8 +97,8 @@ S3Logic::S3Logic(std::shared_ptr<one::client::options::Options> options,
     m_context->setOptions(m_options);
 
     one::rest::onezone::model::Provider provider;
-    provider.host = m_options->getProviderHost().value();
-    provider.port = m_options->getProviderPort();
+    provider.host = m_options->getPreferredProviders().at(0).host;
+    provider.port = m_options->getPreferredProviders().at(0).port;
 
     m_context->setProvider(std::move(provider));
 }

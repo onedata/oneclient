@@ -148,7 +148,6 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(false, options.isClusterPrefetchThresholdRandom());
     EXPECT_FALSE(options.getCustomCACertificateDir().has_value());
     EXPECT_EQ(0, options.getVerboseLogLevel());
-    EXPECT_EQ(options::DEFAULT_PROVIDER_PORT, options.getProviderPort());
     EXPECT_EQ(options::DEFAULT_BUFFER_SCHEDULER_THREAD_COUNT,
         options.getBufferSchedulerThreadCount());
     EXPECT_EQ(options::DEFAULT_COMMUNICATOR_POOL_SIZE,
@@ -202,7 +201,7 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(0, options.getEmulateAvailableSpace());
     EXPECT_EQ(options::DEFAULT_ONES3_BUCKET_SPACEID_CACHE_EXPIRATION_SECONDS,
         options.getOneS3BucketIdCacheExpirationTime());
-    EXPECT_FALSE(options.getProviderHost());
+    EXPECT_EQ(0, options.getPreferredProviders().size());
     EXPECT_FALSE(options.getAccessToken());
     EXPECT_FALSE(options.isReadWritePerfEnabled());
     EXPECT_FALSE(options.isIgnoreEnv());
@@ -278,11 +277,13 @@ TEST_F(OptionsTest, parseCommandLineShouldSetUnmount)
     EXPECT_EQ(true, options.getUnmount());
 }
 
-TEST_F(OptionsTest, parseCommandLineShouldSetProviderHost)
+TEST_F(OptionsTest, parseCommandLineShouldSetPreferredProviderHost)
 {
     cmdArgs.insert(cmdArgs.end(), {"--host", "someHost", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
-    EXPECT_EQ("someHost", options.getProviderHost().get());
+    EXPECT_EQ("someHost", options.getPreferredProviders().at(0).host);
+    EXPECT_EQ(
+        "someHost:443", options.getPreferredProviders().at(0).to_string());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetSpaceNames)
@@ -301,13 +302,6 @@ TEST_F(OptionsTest, parseCommandLineShouldSetSpaceIds)
     options.parse(cmdArgs.size(), cmdArgs.data());
     std::vector<std::string> opts{"12345", "ABCDE"};
     EXPECT_EQ(opts, options.getSpaceIds());
-}
-
-TEST_F(OptionsTest, parseCommandLineShouldSetProviderPort)
-{
-    cmdArgs.insert(cmdArgs.end(), {"--port", "1234", "mountpoint"});
-    options.parse(cmdArgs.size(), cmdArgs.data());
-    EXPECT_EQ(1234, options.getProviderPort());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetAccessToken)
@@ -779,15 +773,14 @@ TEST_F(OptionsTest, parseCommandLineShouldWarnOnDeprecatedOptions)
 TEST_F(OptionsTest, shortCommandLineOptionsShouldBeInterchangeableWithLong)
 {
     std::vector<const char *> shortArgs{"oneclient", "-u", "-f", "-d", "-s",
-        "-H", "someHost", "-P", "1234", "-t", "someToken", "-i", "-c",
-        "someFileConfigPath", "-l", "someLogDirPath", "--opt", "someOpt",
-        "mountpoint"};
+        "-H", "someHost", "-t", "someToken", "-i", "-c", "someFileConfigPath",
+        "-l", "someLogDirPath", "--opt", "someOpt", "mountpoint"};
     one::client::options::Options shortOpts{};
     shortOpts.parse(shortArgs.size(), shortArgs.data());
 
     std::vector<const char *> longArgs{"oneclient", "--unmount", "--foreground",
-        "--debug", "--single-thread", "--host", "someHost", "--port", "1234",
-        "--token", "someToken", "--insecure", "--config", "someFileConfigPath",
+        "--debug", "--single-thread", "--host", "someHost", "--token",
+        "someToken", "--insecure", "--config", "someFileConfigPath",
         "--log-dir", "someLogDirPath", "-o", "someOpt", "mountpoint"};
     one::client::options::Options longOpts{};
     longOpts.parse(longArgs.size(), longArgs.data());
@@ -796,8 +789,8 @@ TEST_F(OptionsTest, shortCommandLineOptionsShouldBeInterchangeableWithLong)
     EXPECT_EQ(shortOpts.getForeground(), longOpts.getForeground());
     EXPECT_EQ(shortOpts.getDebug(), longOpts.getDebug());
     EXPECT_EQ(shortOpts.getSingleThread(), longOpts.getSingleThread());
-    EXPECT_EQ(shortOpts.getProviderHost(), longOpts.getProviderHost());
-    EXPECT_EQ(shortOpts.getProviderPort(), longOpts.getProviderPort());
+    EXPECT_EQ(
+        shortOpts.getPreferredProviders(), longOpts.getPreferredProviders());
     EXPECT_EQ(shortOpts.getAccessToken(), longOpts.getAccessToken());
     EXPECT_EQ(shortOpts.isInsecure(), longOpts.isInsecure());
     EXPECT_EQ(shortOpts.getConfigFilePath(), longOpts.getConfigFilePath());
@@ -817,21 +810,7 @@ TEST_F(OptionsTest, parseEnvironmentShouldSetProviderHost)
 {
     setenv("ONECLIENT_PROVIDER_HOST", "someHost", true);
     options.parse(envArgs.size(), envArgs.data());
-    EXPECT_EQ("someHost", options.getProviderHost().get());
-}
-
-TEST_F(OptionsTest, parseEnvironmentShouldSetProviderHostDeprecated)
-{
-    setenv("PROVIDER_HOSTNAME", "someHost", true);
-    options.parse(envArgs.size(), envArgs.data());
-    EXPECT_EQ("someHost", options.getProviderHost().get());
-}
-
-TEST_F(OptionsTest, parseEnvironmentShouldSetProviderPort)
-{
-    setenv("ONECLIENT_PROVIDER_PORT", "1234", true);
-    options.parse(envArgs.size(), envArgs.data());
-    EXPECT_EQ(1234, options.getProviderPort());
+    EXPECT_EQ("someHost", options.getPreferredProviders().front().host);
 }
 
 TEST_F(OptionsTest, parseEnvironmentShouldSetInsecure)
@@ -904,27 +883,6 @@ TEST_F(OptionsTest, parseEnvironmentShouldWarnOnEnvsWithoutPrefix)
     options.parse(envArgs.size(), envArgs.data());
     EXPECT_TRUE(options.hasDeprecated());
     EXPECT_FALSE(options.formatDeprecated().empty());
-}
-
-TEST_F(OptionsTest, parseConfigFileShouldSetProviderHost)
-{
-    setInConfigFile("provider_host", "someHost");
-    options.parse(fileArgs.size(), fileArgs.data());
-    EXPECT_EQ("someHost", options.getProviderHost().get());
-}
-
-TEST_F(OptionsTest, parseConfigFileShouldSetProviderHostDeprecated)
-{
-    setInConfigFile("provider_hostname", "someHost");
-    options.parse(fileArgs.size(), fileArgs.data());
-    EXPECT_EQ("someHost", options.getProviderHost().get());
-}
-
-TEST_F(OptionsTest, parseConfigFileShouldSetProviderPort)
-{
-    setInConfigFile("provider_port", "1234");
-    options.parse(fileArgs.size(), fileArgs.data());
-    EXPECT_EQ(1234, options.getProviderPort());
 }
 
 TEST_F(OptionsTest, parseConfigFileShouldSetInsecure)
@@ -1200,22 +1158,22 @@ TEST_F(OptionsTest, parseConfigFileShouldSetMountpoint)
 TEST_F(OptionsTest, parseShouldSetOptionsInOrder)
 {
     cmdArgs.insert(cmdArgs.end(),
-        {"--host", "someHost1", "--config", configFilePath.c_str(),
-            "mountpoint"});
+        {"--host", "someHost1", "--host", "someHost2", "--config",
+            configFilePath.c_str(), "mountpoint"});
     setenv("ONECLIENT_PROVIDER_HOST", "someHost2", true);
     setInConfigFile("provider_host", "someHost3");
 
     options.parse(cmdArgs.size(), cmdArgs.data());
-    EXPECT_EQ("someHost1", options.getProviderHost().get());
+    EXPECT_EQ("someHost1", options.getPreferredProviders().at(0).host);
 
     options = one::client::options::Options{};
     options.parse(fileArgs.size(), fileArgs.data());
-    EXPECT_EQ("someHost2", options.getProviderHost().get());
+    EXPECT_EQ("someHost2", options.getPreferredProviders().at(0).host);
 
     unsetenv("ONECLIENT_PROVIDER_HOST");
     options = one::client::options::Options{};
     options.parse(fileArgs.size(), fileArgs.data());
-    EXPECT_EQ("someHost3", options.getProviderHost().get());
+    EXPECT_EQ("someHost3", options.getPreferredProviders().at(0).host);
 }
 
 TEST_F(OneS3OptionsTest, parseCommandLineShouldReturnOneS3SupportStorageId)

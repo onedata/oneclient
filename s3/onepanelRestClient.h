@@ -53,7 +53,7 @@ using OnepanelCredentials =
 
 class OnepanelClient {
 public:
-    OnepanelClient(const std::string &hostname);
+    OnepanelClient(const std::string &hostname, int port);
 
     ~OnepanelClient();
 

@@ -49,7 +49,7 @@ folly::Future<DataAccessScopePtr> DataAccessScopeCache::getDataAccessScope(
 
     if (!m_dataAccessScopePromise->isFulfilled()) {
         m_dataAccessScopePromise->setWith(
-            [this, preferredProvider = m_options->getProviderHost()]() {
+            [this, preferredProviders = m_options->getPreferredProviders()]() {
                 auto newAccessScope =
                     m_onezoneRestClient->inferAccessTokenScope(m_accessToken);
 
@@ -57,10 +57,10 @@ folly::Future<DataAccessScopePtr> DataAccessScopeCache::getDataAccessScope(
 
                 // Find preferred provider Id if one was provided
                 boost::optional<std::string> preferredProviderId;
-                if (preferredProvider) {
+                for (const auto &preferredProvider : preferredProviders) {
                     for (const auto &[providerId, providerDetails] :
                         newAccessScope.providers) {
-                        if (providerDetails.host == *preferredProvider) {
+                        if (preferredProvider.host == providerDetails.host) {
                             preferredProviderId = providerId;
                             break;
                         }

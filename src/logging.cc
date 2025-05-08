@@ -77,9 +77,6 @@ void startLogging(
     if (options->getOnezoneHost())
         LOG(INFO) << "Connecting to Onezone: "
                   << options->getOnezoneHost().get();
-    if (options->getProviderHost())
-        LOG(INFO) << "Preferred Oneprovider: "
-                  << options->getProviderHost().get();
     LOG(INFO) << "Forced direct IO: " << options->isDirectIOForced();
     LOG(INFO) << "Forced proxy IO: " << options->isProxyIOForced();
     LOG(INFO) << "Verify server certificate: " << !options->isInsecure();
@@ -139,8 +136,6 @@ void startLoggingOneS3(
     LOG(INFO) << "Verbose logging level: " << options->getVerboseLogLevel();
     LOG(INFO) << "Log directory: " << options->getLogDirPath().string();
     LOG(INFO) << "Connecting to Onezone: " << options->getOnezoneHost().get();
-    LOG(INFO) << "Connecting to Oneprovider: "
-              << options->getProviderHost().get();
     LOG(INFO) << "Forced direct IO: " << options->isDirectIOForced();
     LOG(INFO) << "Forced proxy IO: " << options->isProxyIOForced();
     LOG(INFO) << "Verify server certificate: " << !options->isInsecure();
