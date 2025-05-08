@@ -28,7 +28,8 @@ namespace one {
 namespace rest {
 namespace onepanel {
 
-struct OnepanelNoAuth { };
+struct OnepanelNoAuth {
+};
 
 struct OnepanelTokenAuth {
     OnepanelTokenAuth(std::string t)

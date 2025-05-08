@@ -53,7 +53,8 @@ struct Space {
 
 class OnezoneClient {
 public:
-    OnezoneClient(const std::string &hostname, const uint16_t port = 443, const bool useTLS = true);
+    OnezoneClient(const std::string &hostname, const uint16_t port = 443,
+        const bool useTLS = true);
 
     ~OnezoneClient();
 

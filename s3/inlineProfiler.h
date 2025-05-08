@@ -1,15 +1,15 @@
 /**
-* @file inlineProfiler.cc
-* @author Bartek Kryza
-* @copyright (C) 2022 Onedata.org
-* @copyright This software is released under the MIT license cited in
-* 'LICENSE.txt'
-*/
+ * @file inlineProfiler.cc
+ * @author Bartek Kryza
+ * @copyright (C) 2022 Onedata.org
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
 
 #include "helpers/logging.h"
 
-#include <string>
 #include <chrono>
+#include <string>
 
 namespace one {
 namespace s3 {

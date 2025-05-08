@@ -1,11 +1,10 @@
 /**
-* @file types.h
-* @author Bartek Kryza
-* @copyright (C) 2022-present Onedata.org
-* @copyright This software is released under the MIT license cited in
-* 'LICENSE.txt'
-*/
-
+ * @file types.h
+ * @author Bartek Kryza
+ * @copyright (C) 2022-present Onedata.org
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
 
 #pragma once
 

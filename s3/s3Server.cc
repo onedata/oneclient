@@ -320,7 +320,8 @@ void S3Server::putBucket(const HttpRequestPtr &req,
 
         one::rest::onezone::OnezoneClient onezoneClient{onezoneHost};
 
-        const auto providerEndpoint = m_options->getPreferredProviders().front();
+        const auto providerEndpoint =
+            m_options->getPreferredProviders().front();
 
         one::rest::oneprovider::OneproviderClient oneproviderClient{
             providerEndpoint.host, providerEndpoint.port};
