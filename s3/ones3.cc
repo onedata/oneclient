@@ -100,9 +100,9 @@ void initSSL(const std::shared_ptr<options::Options> &options)
                         // Add the certificate to the SSL context
                         pContext->addCertificateAuthority(cert);
 
-                        LOG(INFO)
-                            << "Added trusted CA certificate for REST issued by: "
-                            << cert.issuerName();
+                        LOG(INFO) << "Added trusted CA certificate for REST "
+                                     "issued by: "
+                                  << cert.issuerName();
                     }
                     catch (Poco::Exception &ex) {
                         std::cerr
@@ -130,6 +130,12 @@ int main(int argc, char *argv[])
     one::helpers::init();
 
     auto options = getOptions(argc, argv);
+
+    if (options->getPreferredProviders().size() != 1) {
+        fmt::print("ERROR: ones3 requires exactly one Oneprovider hostname "
+                   "specified using -H (--host) option.");
+        return EXIT_FAILURE;
+    }
 
     initSSL(options);
 

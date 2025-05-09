@@ -14,8 +14,8 @@ namespace one {
 namespace rest {
 namespace onezone {
 
-OnezoneClient::OnezoneClient(const std::string &hostname,
-    const uint16_t port, const bool useTLS)
+OnezoneClient::OnezoneClient(
+    const std::string &hostname, const uint16_t port, const bool useTLS)
 {
     if (useTLS)
         session_ = std::make_unique<Poco::Net::HTTPSClientSession>();
@@ -66,7 +66,7 @@ std::string OnezoneClient::createSpaceSupportToken(
 
     logRequest("Onezone", request);
 
-    auto& session = *session_;
+    auto &session = *session_;
 
     auto &requestStream = session.sendRequest(request);
     requestStream << bodyStr;
@@ -104,7 +104,7 @@ std::vector<model::Space> OnezoneClient::listUserSpaces(
 
     logRequest("Onezone", request, body);
 
-    auto& session = *session_;
+    auto &session = *session_;
 
     auto &requestStream = session.sendRequest(request);
     requestStream << bodyStr;
@@ -158,7 +158,7 @@ model::DataAccessScope OnezoneClient::inferAccessTokenScope(
 
     logRequest("Onezone", request, body);
 
-    auto& session = *session_;
+    auto &session = *session_;
 
     auto &requestStream = session.sendRequest(request);
     requestStream << bodyStr;
@@ -235,7 +235,7 @@ std::vector<model::UserSpaceDetails> OnezoneClient::listUserSpacesDetails(
 
     logRequest("Onezone", request, body);
 
-    auto& session = *session_;
+    auto &session = *session_;
 
     auto &requestStream = session.sendRequest(request);
     requestStream << bodyStr;
@@ -291,7 +291,7 @@ model::UserSpaceDetails OnezoneClient::getUserSpace(
 
     logRequest("Onezone", request);
 
-    auto& session = *session_;
+    auto &session = *session_;
 
     session.sendRequest(request);
 
@@ -338,7 +338,7 @@ std::map<std::string, model::Provider> OnezoneClient::getUserProviders(
 
     logRequest("Onezone", request, body);
 
-    auto& session = *session_;
+    auto &session = *session_;
 
     auto &requestStream = session.sendRequest(request);
     requestStream << bodyStr;
@@ -393,7 +393,7 @@ std::string OnezoneClient::createSpace(
 
     logRequest("Onezone", request);
 
-    auto& session = *session_;
+    auto &session = *session_;
 
     auto &requestStream = session.sendRequest(request);
     requestStream << bodyStr;
@@ -431,7 +431,7 @@ void OnezoneClient::deleteSpace(
 
     logRequest("Onezone", request);
 
-    auto& session = *session_;
+    auto &session = *session_;
 
     session.sendRequest(request);
 

@@ -28,7 +28,8 @@ namespace one {
 namespace rest {
 namespace onepanel {
 
-struct OnepanelNoAuth { };
+struct OnepanelNoAuth {
+};
 
 struct OnepanelTokenAuth {
     OnepanelTokenAuth(std::string t)
@@ -53,7 +54,7 @@ using OnepanelCredentials =
 
 class OnepanelClient {
 public:
-    OnepanelClient(const std::string &hostname);
+    OnepanelClient(const std::string &hostname, int port);
 
     ~OnepanelClient();
 

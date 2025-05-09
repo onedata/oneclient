@@ -79,8 +79,8 @@ void serialize(const XMLPtr<XMLElement> &parent,
     const Aws::Vector<Aws::S3::Model::Part> &parts);
 
 template <>
-void serialize(const XMLPtr<XMLElement> &parent,
-    const Aws::S3::Model::Owner &owner);
+void serialize(
+    const XMLPtr<XMLElement> &parent, const Aws::S3::Model::Owner &owner);
 
 } // namespace s3
 } // namespace one

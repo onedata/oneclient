@@ -58,8 +58,11 @@ curl -sS  http://get.onedata.org/oneclient.sh | bash
 `oneclient` can be called directly from command line to mount Onedata virtual filesystem on the machine. For most cases basic usage should be sufficient:
 
 ```
-oneclient -t <ACCESS_TOKEN> -H <PROVIDER_IP> <MOUNT_PATH>
+oneclient -t <ACCESS_TOKEN> <MOUNT_PATH>
 ```
+
+By default, `oneclient` will extract the Onezone hostname from the access token, and for each data space, it will automatically select a Oneprovider to connect to.
+If a specific preference for some Oneprovider is needed, a list of preferred Oneproviders can be specified using option `-H` followed by a hostname and optional port (e.g. `example.com:443`).
 
 When connecting to a Oneprovider instance without a valid trusted SSL certificate, `-i` option must be added.
 
@@ -132,11 +135,11 @@ General options:
                                         Specify path to config file.
   --ignore-env                          Ignore options from environment
                                         variables.
-  -H [ --host ] <host>                  Specify the hostname of the Oneprovider
-                                        instance to which the Oneclient should
+  -H [ --host ] <host>                  Specify the hostnames of preferred
+                                        Oneproviders.
+  -Z [ --onezone-host ] <onezone_host>  Specify the hostname of the Onezone
+                                        instance to which the OneS3 should
                                         connect.
-  -P [ --port ] <port> (=443)           Specify the port to which the Oneclient
-                                        should connect on the Oneprovider.
   -i [ --insecure ]                     Disable verification of server
                                         certificate, allows to connect to
                                         servers without valid certificate.
@@ -320,7 +323,7 @@ Monitoring options:
                                       - default.
   --monitoring-level-full             Sets monitoring reporting level to full.
   --monitoring-period <seconds> (=30) Performance metrics reporting period.
-  --graphite-url <url>                Graphite url - required when 
+  --graphite-url <url>                Graphite url - required when
                                       monitoring-type is 'graphite', the scheme
                                       can be either tcp or udp and default port
                                       is 2003
