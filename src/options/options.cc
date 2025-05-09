@@ -100,8 +100,8 @@ Options::Options(messages::handshake::ClientType clientType)
         .withConfigName("onezone_host")
         .withValueName("<onezone_host>")
         .withGroup(OptionGroup::GENERAL)
-        .withDescription("Specify the hostname of the Onezone instance to "
-                         "which the OneS3 should connect.");
+        .withDescription(
+            "Specify the hostname of the Onezone instance to connect to.");
 
     add<bool>()
         ->asSwitch()
