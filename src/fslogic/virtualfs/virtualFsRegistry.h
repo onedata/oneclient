@@ -192,6 +192,9 @@ public:
         return m_helpers.at(name);
     }
 
+    void onHelperCreated(
+        std::function<void(folly::fbstring)> /*unused*/) override{};
+
 private:
     FsLogic &m_fsLogic;
     std::map<folly::fbstring, std::shared_ptr<VirtualFsAdapter>> m_helpers;

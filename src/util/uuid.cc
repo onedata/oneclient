@@ -88,6 +88,25 @@ folly::fbstring guidToUUID(
         result);
     return result;
 }
+
+bool isSpaceUUID(const folly::fbstring &uuid)
+{
+    folly::fbstring result;
+    folly::fbstring decodedUuid;
+    auto status = util::base64::base64_url_decode(uuid, decodedUuid);
+
+    if (status) {
+        std::vector<folly::StringPiece> v;
+        folly::split("#", decodedUuid, v);
+
+        if ((v.size() < 3) || (v[0] != "guid" && v[0] != "shareGuid"))
+            throw std::invalid_argument("Invalid Onedata uuid format.");
+
+        return v[1] == fmt::format("space_{}", v[2].toString());
+    }
+
+    return false;
+}
 } // namespace uuid
 } // namespace util
 } // namespace client
