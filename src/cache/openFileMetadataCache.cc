@@ -20,11 +20,13 @@ OpenFileMetadataCache::OpenFileToken::OpenFileToken(
 
 OpenFileMetadataCache::OpenFileToken::~OpenFileToken()
 {
-    try {
-        m_cache.releaseFile(m_attr->uuid());
-    }
-    catch (...) {
-    }
+    m_cache.runInFiber([&cache = m_cache, uuid = m_attr->uuid()]() {
+        try {
+            cache.releaseFile(uuid);
+        }
+        catch (...) {
+        }
+    });
 }
 
 OpenFileMetadataCache::OpenFileMetadataCache(
@@ -47,6 +49,18 @@ OpenFileMetadataCache::OpenFileMetadataCache(
     MetadataCache::onMarkDeleted(
         std::bind(&OpenFileMetadataCache::handleMarkDeleted, this,
             std::placeholders::_1));
+}
+
+void OpenFileMetadataCache::setRunInFiber(
+    std::function<void(folly::Function<void()>)> f)
+{
+    m_runInFiber = std::move(f);
+}
+
+void OpenFileMetadataCache::runInFiber(folly::Function<void()> &&f)
+{
+    if (m_runInFiber)
+        m_runInFiber(std::move(f));
 }
 
 void OpenFileMetadataCache::setReaddirCache(
@@ -233,6 +247,9 @@ void OpenFileMetadataCache::releaseFile(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
+    if (m_stopped)
+        return;
+
     assertInFiber();
 
     auto it = m_lruFileData.find(uuid);
@@ -409,6 +426,13 @@ void OpenFileMetadataCache::clear()
     m_lruDirectoryData.clear();
 
     MetadataCache::clear();
+}
+
+void OpenFileMetadataCache::stop()
+{
+    LOG_FCALL();
+
+    m_stopped = true;
 }
 
 bool OpenFileMetadataCache::rename(const folly::fbstring &uuid,

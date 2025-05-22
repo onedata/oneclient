@@ -78,6 +78,11 @@ spaces:
       - provider: oneprovider-1
         storage_name: 'ceph'
         size: '1000000000' # in bytes
+  - name: test_fsonedatafs
+    supports:
+      - provider: oneprovider-1
+        storage_name: 'ceph'
+        size: '1000000000' # in bytes
 
 storages:
   - ceph

@@ -103,6 +103,8 @@ public:
 
     void stop();
 
+    bool stopped() const { return m_stopped; }
+
     /**
      * Reset FsLogic state, e.g. after a connection loss.
      */
@@ -474,6 +476,8 @@ private:
 
     folly::fibers::Baton m_directoryCachePruneBaton;
     std::atomic_bool m_stopped = ATOMIC_VAR_INIT(false);
+    std::atomic_bool m_stopping = ATOMIC_VAR_INIT(false);
+
     int m_maxRetryCount{FsLogic::MAX_RETRY_COUNT};
 };
 } // namespace fslogic

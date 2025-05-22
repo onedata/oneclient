@@ -224,6 +224,8 @@ FsLogic::FsLogic(std::shared_ptr<OneclientContext> context,
     //
     // Registration of medatacache events callbacks
     //
+    m_metadataCache.setRunInFiber(m_runInFiber);
+
     // Called when file attributes are added to the metadata cache
     m_metadataCache.onAdd([this](const folly::fbstring &uuid) {
         m_fsSubscriptions.subscribeFileAttrChanged(uuid);
@@ -331,10 +333,17 @@ FsLogic::FsLogic(std::shared_ptr<OneclientContext> context,
         start();
 }
 
-FsLogic::~FsLogic() { stop(); }
+FsLogic::~FsLogic()
+{
+    LOG_FCALL();
+
+    stop();
+}
 
 void FsLogic::start()
 {
+    LOG_FCALL();
+
     // Quota initial configuration
     m_eventManager.subscribe(
         events::QuotaExceededSubscription{[=](auto events) {
@@ -348,13 +357,19 @@ void FsLogic::start()
 
 void FsLogic::stop()
 {
-    if (!m_stopped) {
-        m_stopped = true;
+    LOG_FCALL();
 
-        m_runInFiber([this]() { reset(); });
+    if (!m_stopping) {
+        m_stopping = true;
 
         m_fsSubscriptions.unsubscribeAll();
         m_fsSubscriptions.stop();
+
+        m_metadataCache.stop();
+
+        m_runInFiber([this]() { reset(); });
+
+        m_stopped = true;
 
         m_directoryCachePruneBaton.post();
 
@@ -377,6 +392,12 @@ void FsLogic::stop()
 
 void FsLogic::reset()
 {
+    assertInFiber();
+
+    if (m_stopping) {
+        return;
+    }
+
     LOG_DBG(1) << "Resetting internal caches after connection lost...";
 
     assertInFiber();
