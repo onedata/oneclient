@@ -359,8 +359,6 @@ void FsLogic::stop()
 {
     LOG_FCALL();
 
-    const auto kSessionCloseMessageWaitTimeout{100U};
-
     if (!m_stopping) {
         m_stopping = true;
 
