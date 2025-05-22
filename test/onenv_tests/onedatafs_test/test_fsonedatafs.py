@@ -23,13 +23,14 @@ from fs.onedatafs._onedatafs import OnedataFS
 
 
 @pytest.fixture(scope="class")
-def onedatafs_instance(request, oneprovider_ip, onezone_admin_token):
-    odfs = OnedataFS(oneprovider_ip, onezone_admin_token,
-                         insecure=True,
+def onedatafs_instance(request, onezone_admin_token):
+    odfs = OnedataFS(onezone_admin_token,
+                         insecure=True, log_level=3,
                          force_proxy_io=True, no_buffer=False,
                          provider_timeout=120).opendir('/test_fsonedatafs')
 
     request.cls.odfs = odfs
+
     yield odfs
     try:
         odfs.close()

@@ -364,6 +364,8 @@ void OnedataFS::createFsLogicForSpace(const std::string &spaceId)
 std::optional<std::string> OnedataFS::getSpaceIdFromPath(
     const std::string &pathStr)
 {
+    LOG_FCALL() << LOG_FARG(pathStr);
+
     std::optional<std::string> spaceId;
 
     if (pathStr.empty())
@@ -372,10 +374,13 @@ std::optional<std::string> OnedataFS::getSpaceIdFromPath(
     auto maybeUUID = getFileIdFromFilename(pathStr);
 
     if (maybeUUID.has_value()) {
-        // return lookupByUUID(pathStr, *maybeUUID);
+        throw one::helpers::makePosixException(ENOTSUP);
     }
 
     boost::filesystem::path path{pathStr};
+
+    if (path.is_absolute())
+        path = path.relative_path();
 
     if (pathSize(path) == 0)
         throw one::helpers::makePosixException(ENOENT);
@@ -387,6 +392,8 @@ std::optional<std::string> OnedataFS::getSpaceIdFromPath(
     }
 
     if (!spaceId.has_value()) {
+        LOG_DBG(2) << "Cannot find space id for " << spaceName;
+
         throw one::helpers::makePosixException(ENOENT);
     }
 
@@ -490,14 +497,21 @@ Stat OnedataFS::create(
 std::pair<std::string, std::string> OnedataFS::getSpaceAndProviderId(
     const std::string &path)
 {
+    LOG_FCALL() << LOG_FARG(path);
+
     auto spaceId = getSpaceIdFromPath(path);
+
     if (!spaceId)
         throw one::helpers::makePosixException(ENOENT);
+
+    LOG_DBG(2) << "Got space id " << *spaceId << " for path " << path;
 
     auto providerId = m_dataAccessScopeCache.getProviderIdForSpace(*spaceId);
 
     if (!providerId)
         throw one::helpers::makePosixException(ENOENT);
+
+    LOG_DBG(2) << "Got provider id " << *providerId << " for path " << path;
 
     return {*spaceId, providerId->toStdString()};
 }
@@ -505,6 +519,8 @@ std::pair<std::string, std::string> OnedataFS::getSpaceAndProviderId(
 boost::shared_ptr<OnedataFileHandle> OnedataFS::open(
     const std::string &path, const int flags)
 {
+    LOG_FCALL() << LOG_FARG(path);
+
     ReleaseGIL guard;
 
     return viaProvider(path,
@@ -586,7 +602,7 @@ Stat OnedataFS::mknod(const std::string &path, const mode_t mode)
                 fsLogic->mknod(uuidFromPath(fsLogic, parentPair.first),
                     parentPair.second, mode));
         })
-        .thenError(folly::tag_t<std::exception>{},
+        .thenError(folly::tag_t<std::system_error>{},
             [path](auto &&e) -> Stat {
                 throw e; // NOLINT
             })
@@ -603,8 +619,10 @@ void OnedataFS::unlink(const std::string &path)
             fsLogic->unlink(
                 uuidFromPath(fsLogic, parentPair.first), parentPair.second);
         })
-        .thenError(folly::tag_t<std::exception>{},
+        .thenError(folly::tag_t<std::system_error>{},
             [path](auto &&e) -> void {
+                LOG_DBG(2) << "Unlink " << path << " failed due to "
+                           << e.what();
                 throw e; // NOLINT
             })
         .FUTURE_GET();
