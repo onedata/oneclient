@@ -49,7 +49,8 @@ folly::Future<DataAccessScopePtr> DataAccessScopeCache::getDataAccessScope(
 
     if (!m_dataAccessScopePromise->isFulfilled()) {
         m_dataAccessScopePromise->setWith(
-            [this, preferredProviders = m_options->getPreferredProviders()]() {
+            [this, preferredProviders = m_options->getPreferredProviders(),
+                allowedProviders = m_options->getAllowedProviders()]() {
                 auto newAccessScope =
                     m_onezoneRestClient->inferAccessTokenScope(m_accessToken);
 
