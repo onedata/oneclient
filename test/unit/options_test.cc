@@ -292,8 +292,7 @@ TEST_F(OptionsTest, parseCommandLineShouldSetAllowedProviderHost)
     cmdArgs.insert(cmdArgs.end(), {"--allowed-host", "someHost", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ("someHost", options.getAllowedProviders().at(0).host);
-    EXPECT_EQ(
-        "someHost:443", options.getAllowedProviders().at(0).to_string());
+    EXPECT_EQ("someHost:443", options.getAllowedProviders().at(0).to_string());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetSpaceNames)
@@ -801,8 +800,7 @@ TEST_F(OptionsTest, shortCommandLineOptionsShouldBeInterchangeableWithLong)
     EXPECT_EQ(shortOpts.getSingleThread(), longOpts.getSingleThread());
     EXPECT_EQ(
         shortOpts.getPreferredProviders(), longOpts.getPreferredProviders());
-    EXPECT_EQ(
-        shortOpts.getAllowedProviders(), longOpts.getAllowedProviders());
+    EXPECT_EQ(shortOpts.getAllowedProviders(), longOpts.getAllowedProviders());
     EXPECT_EQ(shortOpts.getAccessToken(), longOpts.getAccessToken());
     EXPECT_EQ(shortOpts.isInsecure(), longOpts.isInsecure());
     EXPECT_EQ(shortOpts.getConfigFilePath(), longOpts.getConfigFilePath());
