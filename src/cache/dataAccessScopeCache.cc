@@ -15,6 +15,47 @@ namespace one {
 namespace client {
 namespace cache {
 
+namespace detail {
+
+std::set<std::string> filterAllowedProviderIds(
+    const one::rest::onezone::model::DataAccessScope &newAccessScope,
+    const std::vector<one::client::options::Endpoint> &allowedProviders)
+{
+    std::set<std::string> allowedProviderIds;
+
+    for (const auto &allowedProvider : allowedProviders) {
+        for (const auto &[providerId, providerDetails] :
+            newAccessScope.providers) {
+            if (allowedProvider.host == providerDetails.host) {
+                allowedProviderIds.emplace(providerId);
+                break;
+            }
+        }
+    }
+
+    return allowedProviderIds;
+}
+
+boost::optional<std::string> getPreferredProviderId(
+    const one::rest::onezone::model::DataAccessScope &newAccessScope,
+    const std::vector<one::client::options::Endpoint> &preferredProviders)
+{
+    boost::optional<std::string> result;
+
+    for (const auto &preferredProvider : preferredProviders) {
+        for (const auto &[providerId, providerDetails] :
+            newAccessScope.providers) {
+            if (preferredProvider.host == providerDetails.host) {
+                result = providerId;
+                break;
+            }
+        }
+    }
+
+    return result;
+}
+} // namespace detail
+
 DataAccessScopeCache::DataAccessScopeCache(
     std::shared_ptr<options::Options> options,
     std::unique_ptr<one::rest::onezone::OnezoneClient> onezoneClient)
@@ -49,45 +90,77 @@ folly::Future<DataAccessScopePtr> DataAccessScopeCache::getDataAccessScope(
 
     if (!m_dataAccessScopePromise->isFulfilled()) {
         m_dataAccessScopePromise->setWith(
-            [this, preferredProviders = m_options->getPreferredProviders()]() {
+            [this, preferredProviders = m_options->getPreferredProviders(),
+                allowedProviders = m_options->getAllowedProviders()]() {
                 auto newAccessScope =
                     m_onezoneRestClient->inferAccessTokenScope(m_accessToken);
 
                 m_lastUpdate = std::chrono::steady_clock::now();
 
+                std::set<std::string> allowedProviderIds =
+                    detail::filterAllowedProviderIds(
+                        newAccessScope, allowedProviders);
+
                 // Find preferred provider Id if one was provided
-                boost::optional<std::string> preferredProviderId;
-                for (const auto &preferredProvider : preferredProviders) {
-                    for (const auto &[providerId, providerDetails] :
-                        newAccessScope.providers) {
-                        if (preferredProvider.host == providerDetails.host) {
-                            preferredProviderId = providerId;
-                            break;
-                        }
-                    }
-                }
+                boost::optional<std::string> preferredProviderId =
+                    detail::getPreferredProviderId(
+                        newAccessScope, preferredProviders);
+
+                std::unordered_set<std::string> skippedSpaceIds;
 
                 for (const auto &[spaceId, userSpace] : newAccessScope.spaces) {
-                    if (userSpace.providers.begin() !=
-                        userSpace.providers.end()) {
+                    auto spaceAllowedProviders = userSpace.providers;
+
+                    for (auto it = spaceAllowedProviders.begin();
+                         it != spaceAllowedProviders.end();) {
+                        if (!allowedProviders.empty() &&
+                            allowedProviderIds.find(it->first) ==
+                                allowedProviderIds.end()) {
+                            it = spaceAllowedProviders.erase(it);
+                        }
+                        else {
+                            ++it;
+                        }
+                    }
+
+                    if (spaceAllowedProviders.begin() !=
+                        spaceAllowedProviders.end()) {
                         std::string selectedProviderId;
 
                         // Find providerId for spaceId if preferred provider was
                         // set
                         if (preferredProviderId &&
-                            userSpace.providers.count(*preferredProviderId) >
+                            spaceAllowedProviders.count(*preferredProviderId) >
                                 0) {
                             selectedProviderId = *preferredProviderId;
                         }
                         else {
                             selectedProviderId =
-                                userSpace.providers.begin()->first;
+                                spaceAllowedProviders.begin()->first;
                         }
 
                         if (newAccessScope.providers.count(
                                 selectedProviderId) != 0U) {
                             setProviderForSpace(spaceId, selectedProviderId);
                         }
+                        else {
+                            skippedSpaceIds.emplace(spaceId);
+                        }
+                    }
+                    else {
+                        skippedSpaceIds.emplace(spaceId);
+                    }
+                }
+
+                // Filter skipped spaces
+                for (auto it = newAccessScope.spaces.begin();
+                     it != newAccessScope.spaces.end();) {
+                    if (skippedSpaceIds.find(it->first) !=
+                        skippedSpaceIds.end()) {
+                        it = newAccessScope.spaces.erase(it);
+                    }
+                    else {
+                        ++it;
                     }
                 }
 

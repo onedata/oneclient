@@ -91,7 +91,17 @@ Options::Options(messages::handshake::ClientType clientType)
         .withConfigName("provider_host")
         .withValueName("<host>")
         .withGroup(OptionGroup::GENERAL)
-        .withDescription("Specify the hostnames of preferred Oneproviders.");
+        .withDescription(
+            "Specify the hostnames of preferred Oneprovider hosts.");
+
+    add<std::vector<std::string>>()
+        ->withShortName("A")
+        .withLongName("allowed-host")
+        .withEnvName("allowed_provider_host")
+        .withConfigName("allowed_provider_host")
+        .withValueName("<host>")
+        .withGroup(OptionGroup::GENERAL)
+        .withDescription("Specify the hostnames of allowed Oneprovider hosts.");
 
     add<std::string>()
         ->withShortName("Z")
@@ -1143,6 +1153,34 @@ std::vector<Endpoint> Options::getPreferredProviders() const
 
     auto hosts = get<std::vector<std::string>>(
         {"host", "provider_host", "provider_hostname"})
+                     .get_value_or({});
+
+    for (const auto &h : hosts) {
+        std::vector<std::string> endpointToks;
+        boost::algorithm::split(endpointToks, h, boost::is_any_of(":"));
+
+        Endpoint endpoint;
+        if (endpointToks.size() == 1) {
+            endpoint.host = endpointToks.at(0);
+            endpoint.port = DEFAULT_PROVIDER_PORT;
+        }
+        if (endpointToks.size() == 2) {
+            endpoint.host = endpointToks.at(0);
+            endpoint.port = std::stoi(endpointToks.at(1));
+        }
+
+        result.emplace_back(std::move(endpoint));
+    }
+
+    return result;
+}
+
+std::vector<Endpoint> Options::getAllowedProviders() const
+{
+    std::vector<Endpoint> result;
+
+    auto hosts = get<std::vector<std::string>>(
+        {"allowed-host", "allowed_provider_host", "allowed_provider_hostname"})
                      .get_value_or({});
 
     for (const auto &h : hosts) {

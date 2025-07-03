@@ -136,10 +136,11 @@ General options:
   --ignore-env                          Ignore options from environment
                                         variables.
   -H [ --host ] <host>                  Specify the hostnames of preferred
-                                        Oneproviders.
+                                        Oneprovider hosts.
+  -A [ --allowed-host ] <host>          Specify the hostnames of allowed
+                                        Oneprovider hosts.
   -Z [ --onezone-host ] <onezone_host>  Specify the hostname of the Onezone
-                                        instance to which the OneS3 should
-                                        connect.
+                                        instance to connect to.
   -i [ --insecure ]                     Disable verification of server
                                         certificate, allows to connect to
                                         servers without valid certificate.

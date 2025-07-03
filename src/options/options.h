@@ -194,9 +194,14 @@ public:
     bool getSingleThread() const;
 
     /*
-     * @return Provider hostname if option has been provided.
+     * @return Preferred provider hostname if option has been provided.
      */
     std::vector<Endpoint> getPreferredProviders() const;
+
+    /*
+     * @return Allowed provider hostname if option has been provided.
+     */
+    std::vector<Endpoint> getAllowedProviders() const;
 
     /*
      * @return Onezone hostname if option has been provided.
