@@ -60,6 +60,8 @@ public:
     bool isSpaceWhitelisted(
         const rest::onezone::model::UserSpaceDetails &space);
 
+    void disambiguateSpaceNames(DataAccessScope &accessScope);
+
 private:
     void setProviderForSpace(
         const folly::fbstring &spaceId, const folly::fbstring &providerId);

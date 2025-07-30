@@ -164,6 +164,8 @@ folly::Future<DataAccessScopePtr> DataAccessScopeCache::getDataAccessScope(
                     }
                 }
 
+                disambiguateSpaceNames(newAccessScope);
+
                 m_initiatedUpdate.store(false);
 
                 return std::make_shared<DataAccessScope>(
@@ -336,6 +338,29 @@ bool DataAccessScopeCache::isSpaceWhitelisted(
                << spaceIsWhitelistedByName << ":" << spaceIsWhitelistedById;
 
     return spaceIsWhitelistedByName || spaceIsWhitelistedById;
+}
+
+void DataAccessScopeCache::disambiguateSpaceNames(DataAccessScope &accessScope)
+{
+    LOG_FCALL();
+
+    std::unordered_map<std::string, std::vector<std::string>> nameToSpaceIds;
+
+    // Group spaces by name to find duplicates
+    for (const auto &[spaceId, spaceDetails] : accessScope.spaces) {
+        nameToSpaceIds[spaceDetails.name].push_back(spaceId);
+    }
+
+    // Disambiguate spaces with duplicate names
+    for (const auto &[spaceName, spaceIds] : nameToSpaceIds) {
+        if (spaceIds.size() > 1) {
+            // Multiple spaces have the same name, disambiguate them
+            for (const auto &spaceId : spaceIds) {
+                auto &spaceDetails = accessScope.spaces.at(spaceId);
+                spaceDetails.name = fmt::format("{}@{}", spaceName, spaceId);
+            }
+        }
+    }
 }
 
 void DataAccessScopeCache::setProviderForSpace(
