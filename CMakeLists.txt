@@ -152,8 +152,8 @@ if(NOT FETCH_FOLLY)
 else(FETCH_FOLLY)
     include(ExternalProject)
     ExternalProject_Add(folly
-        GIT_REPOSITORY    https://github.com/facebook/folly.git
-        GIT_TAG           v2021.01.04.00
+        GIT_REPOSITORY    https://github.com/bkryza/folly.git
+        GIT_TAG           v2021.01.04.01
         INSTALL_DIR       ${CMAKE_BINARY_DIR}/contrib
         CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC';-DCMAKE_C_FLAGS='-Wl,-lrt';-DCMAKE_EXE_LINKER_FLAGS='-lrt';-DCMAKE_EXE_LINKER_FLAGS='-lrt';-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
     )
