@@ -246,7 +246,7 @@ def s3_server(request, onezone_ip, oneprovider_ip, ceph_monitor_ip,
     ones3_cli = (
         f'debug/s3/ones3'
         f' --custom-ca-dir test/onenv_tests/certs'
-        f' -v 1'
+        f' -v 3'
         f' --onezone-host dev-onezone.default.svc.cluster.local'
         f' -H dev-oneprovider-krakow.default.svc.cluster.local'
         f' --ones3-support-storage-id {support_storage_id}'
@@ -279,7 +279,7 @@ def s3_server_bucket_cache_invalidation(request, onezone_ip, oneprovider_ip,
     ones3_cli = (
         f'debug/s3/ones3'
         f' --custom-ca-dir test/onenv_tests/certs'
-        f' -v 1'
+        f' -v 4'
         f' --onezone-host dev-onezone.default.svc.cluster.local'
         f' -H dev-oneprovider-krakow.default.svc.cluster.local'
         f' --ones3-support-storage-id {support_storage_id}'

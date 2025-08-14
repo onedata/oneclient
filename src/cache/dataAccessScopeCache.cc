@@ -11,6 +11,8 @@
 #include "helpers/logging.h"
 #include "helpers/storageHelper.h"
 
+#include <regex>
+
 namespace one {
 namespace client {
 namespace cache {
@@ -91,7 +93,8 @@ folly::Future<DataAccessScopePtr> DataAccessScopeCache::getDataAccessScope(
     if (!m_dataAccessScopePromise->isFulfilled()) {
         m_dataAccessScopePromise->setWith(
             [this, preferredProviders = m_options->getPreferredProviders(),
-                allowedProviders = m_options->getAllowedProviders()]() {
+                allowedProviders = m_options->getAllowedProviders(),
+                clientType = m_options->clientType()]() {
                 auto newAccessScope =
                     m_onezoneRestClient->inferAccessTokenScope(m_accessToken);
 
@@ -242,6 +245,30 @@ DataAccessScopeCache::getProvider(const folly::fbstring &providerId)
         .get();
 }
 
+std::vector<rest::onezone::model::UserSpaceDetails>
+DataAccessScopeCache::listSpacesForProvider(const std::string &providerId)
+{
+    LOG_FCALL() << LOG_FARG(providerId);
+
+    using namespace std::chrono_literals;
+
+    std::vector<rest::onezone::model::UserSpaceDetails> result;
+
+    bool forceAccessScopeUpdate =
+        std::chrono::steady_clock::now() - m_lastUpdate.load() > 10s;
+
+    auto accessScope = getDataAccessScope(forceAccessScopeUpdate).get();
+
+    for (const auto &[spaceId, spaceDetails] : accessScope->spaces) {
+        if (isSpaceWhitelisted(spaceDetails) &&
+            spaceDetails.providers.count(providerId) > 0) {
+            result.emplace_back(spaceDetails);
+        }
+    }
+
+    return result;
+}
+
 folly::fbvector<folly::fbstring> DataAccessScopeCache::readdir(
     const size_t maxSize, const off_t off)
 {
@@ -360,6 +387,30 @@ void DataAccessScopeCache::disambiguateSpaceNames(DataAccessScope &accessScope)
                 spaceDetails.name = fmt::format("{}@{}", spaceName, spaceId);
             }
         }
+    }
+}
+
+void DataAccessScopeCache::normalizeBucketNames(DataAccessScope &accessScope)
+{
+    LOG_FCALL();
+
+    std::regex validBucketNamePattern("^[a-zA-Z0-9._-]+$");
+
+    for (auto &[spaceId, spaceDetails] : accessScope.spaces) {
+        LOG(ERROR) << "--- " << spaceDetails.name;
+        bool isInvalidBucketName{false};
+        if (spaceDetails.name.size() < 3) {
+            isInvalidBucketName = true;
+        }
+        else if (spaceDetails.name.size() > 255) {
+            isInvalidBucketName = true;
+        }
+        else if (!std::regex_match(spaceDetails.name, validBucketNamePattern)) {
+            isInvalidBucketName = true;
+        }
+
+        if (isInvalidBucketName)
+            spaceDetails.name = fmt::format("spaceid-{}", spaceId);
     }
 }
 

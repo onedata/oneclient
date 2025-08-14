@@ -49,6 +49,9 @@ public:
     folly::fbvector<folly::fbstring> readdir(
         const size_t maxSize, const off_t off);
 
+    std::vector<rest::onezone::model::UserSpaceDetails> listSpacesForProvider(
+        const std::string &providerId);
+
     std::optional<rest::onezone::model::UserSpaceDetails> getSpaceById(
         const folly::fbstring &spaceId);
 
@@ -61,6 +64,8 @@ public:
         const rest::onezone::model::UserSpaceDetails &space);
 
     void disambiguateSpaceNames(DataAccessScope &accessScope);
+
+    void normalizeBucketNames(DataAccessScope &accessScope);
 
 private:
     void setProviderForSpace(

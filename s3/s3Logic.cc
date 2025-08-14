@@ -19,6 +19,7 @@
 #include "messages/fuse/fileLocationChanged.h"
 #include "messages/fuse/fileOpened.h"
 #include "messages/fuse/getChildAttr.h"
+#include "messages/fuse/getFileAttr.h"
 #include "messages/fuse/getFileAttrByPath.h"
 #include "messages/fuse/getFileLocation.h"
 #include "messages/fuse/multipartUpload.h"
@@ -30,6 +31,7 @@
 
 #include <spdlog/spdlog.h>
 
+#include <regex>
 #include <tuple>
 #include <utility>
 
@@ -48,6 +50,7 @@ using one::messages::fuse::FileLocationChanged;
 using one::messages::fuse::FileOpened;
 using one::messages::fuse::FuseResponse;
 using one::messages::fuse::GetChildAttr;
+using one::messages::fuse::GetFileAttr;
 using one::messages::fuse::GetFileAttrByPath;
 using one::messages::fuse::GetFileLocation;
 using one::messages::fuse::MultipartUpload;
@@ -81,13 +84,17 @@ folly::fbstring getMultipartUploadTemporaryDir(const folly::fbstring &uploadId)
     return fmt::format("{}/{}", ONEDATA_S3_MULTIPART_PREFIX, uploadId);
 }
 
-S3Logic::S3Logic(std::shared_ptr<one::client::options::Options> options,
+S3Logic::S3Logic(std::string oneproviderId,
+    std::shared_ptr<one::client::options::Options> options,
     folly::fbstring token,
+    std::unique_ptr<one::rest::onezone::OnezoneClient> onezoneRestClient,
     std::shared_ptr<folly::IOThreadPoolExecutor> executor)
     : m_providerTimeout{options->getProviderTimeout()}
-    , m_options{std::move(options)}
+    , m_oneproviderId{std::move(oneproviderId)}
+    , m_options{options}
     , m_connected{false}
     , m_token{std::move(token)}
+    , m_dataAccessScopeCache{options, std::move(onezoneRestClient)}
     , m_minPrefetchBlockSize{m_options->getMinimumBlockPrefetchSize()}
     , m_executor{std::move(executor)}
 {
@@ -258,6 +265,24 @@ folly::Future<FileAttr> S3Logic::getBucketAttr(
 {
     if (m_bucketIdCache.find(bucket) != m_bucketIdCache.end())
         return folly::makeFuture(m_bucketIdCache.at(bucket));
+
+    if (bucket.find("spaceid-") == 0) {
+        auto spaceId = bucket.substr(8);
+        auto spaceUuid = one::client::util::uuid::spaceIdToSpaceUUID(spaceId);
+
+        return communicate<FileAttr>(GetFileAttr{spaceUuid, false, false})
+            .via(m_executor.get())
+            .thenTry(
+                [this, requestId, bucket](folly::Try<FileAttr> &&bucketAttr) {
+                    if (bucketAttr.hasException()) {
+                        throw one::s3::error::NoSuchBucket(bucket.toStdString(),
+                            bucket.toStdString(), requestId);
+                    }
+
+                    m_bucketIdCache.emplace(bucket, bucketAttr.value());
+                    return std::move(bucketAttr);
+                });
+    }
 
     return communicate<FileAttr>(GetChildAttr{m_rootUuid, bucket})
         .via(m_executor.get())
@@ -503,15 +528,35 @@ folly::Future<FileAttr> S3Logic::getFileParentAttrByPath(
 }
 
 Aws::S3::Model::ListBucketsResult S3Logic::toListBucketsResult(
-    FileChildrenAttrs &&msg)
+    std::vector<rest::onezone::model::UserSpaceDetails> &&spaces)
 {
     Aws::Vector<Aws::S3::Model::Bucket> buckets;
 
-    for (const auto &child : msg.childrenAttrs()) {
+    std::regex validBucketNamePattern("^[a-zA-Z0-9._-]+$");
+
+    for (const auto &space : spaces) {
         Aws::S3::Model::Bucket bucket;
 
-        bucket.SetName(child.name().toStdString());
-        bucket.SetCreationDate(child.mtime());
+        auto bucketName = space.name;
+
+        bool isInvalidBucketName{false};
+        if (bucketName.size() < 3) {
+            isInvalidBucketName = true;
+        }
+        else if (bucketName.size() > 255) {
+            isInvalidBucketName = true;
+        }
+        else if (!std::regex_match(bucketName, validBucketNamePattern)) {
+            isInvalidBucketName = true;
+        }
+
+        if (isInvalidBucketName)
+            bucket.SetName(fmt::format("spaceid-{}", space.spaceId));
+        else
+            bucket.SetName(bucketName);
+
+        bucket.SetCreationDate(
+            Aws::Utils::DateTime{static_cast<double>(space.creationTime)});
         buckets.emplace_back(std::move(bucket));
     }
 

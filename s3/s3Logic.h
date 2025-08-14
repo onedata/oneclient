@@ -9,6 +9,7 @@
 #pragma once
 
 #include "auth/macaroonHandler.h"
+#include "cache/dataAccessScopeCache.h"
 #include "cache/forceProxyIOCache.h"
 #include "cache/helpersCache.h"
 #include "cache/openFileMetadataCache.h"
@@ -109,8 +110,10 @@ folly::fbstring getMultipartUploadTemporaryDir(const folly::fbstring &uploadId);
 
 class S3Logic : public std::enable_shared_from_this<S3Logic> {
 public:
-    S3Logic(std::shared_ptr<one::client::options::Options> options,
+    S3Logic(std::string oneproviderId,
+        std::shared_ptr<one::client::options::Options> options,
         folly::fbstring token,
+        std::unique_ptr<one::rest::onezone::OnezoneClient> onezoneRestClient,
         std::shared_ptr<folly::IOThreadPoolExecutor> executor);
 
     folly::Future<std::shared_ptr<S3Logic>> connect();
@@ -317,7 +320,7 @@ private:
         const std::size_t size);
 
     Aws::S3::Model::ListBucketsResult toListBucketsResult(
-        one::messages::fuse::FileChildrenAttrs &&msg);
+        std::vector<rest::onezone::model::UserSpaceDetails> &&spaces);
 
     Aws::S3::Model::CreateMultipartUploadResult toCreateMultipartUploadResult(
         one::messages::fuse::MultipartUpload &&msg,
@@ -333,6 +336,8 @@ private:
     std::unique_ptr<one::client::events::Manager> m_eventManager;
     std::unique_ptr<S3Subscriptions> m_s3Subscriptions;
 
+    const std::string m_oneproviderId;
+
     std::shared_ptr<one::client::options::Options> m_options;
 
     folly::fbstring m_rootUuid;
@@ -340,6 +345,8 @@ private:
     bool m_connected;
 
     folly::fbstring m_token;
+
+    one::client::cache::DataAccessScopeCache m_dataAccessScopeCache;
 
     const unsigned int m_minPrefetchBlockSize;
 

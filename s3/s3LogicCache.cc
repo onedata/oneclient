@@ -11,9 +11,10 @@
 namespace one {
 namespace s3 {
 
-S3LogicCache::S3LogicCache(
+S3LogicCache::S3LogicCache(std::string oneproviderId,
     std::shared_ptr<one::client::options::Options> options)
-    : m_options{std::move(options)}
+    : m_oneproviderId{std::move(oneproviderId)}
+    , m_options{std::move(options)}
     , m_initialized{true}
     , m_executor{std::make_shared<folly::IOThreadPoolExecutor>(
           m_options->getOneS3LogicThreadNum(),
@@ -49,8 +50,13 @@ folly::Future<std::shared_ptr<S3Logic>> S3LogicCache::get(
                 p->setException(one::s3::error::AccessDenied("", "", ""));
             }
             else {
-                auto s3LogicPtr = std::make_shared<S3Logic>(
-                    m_options, effectiveToken, m_executor);
+                auto onezoneRestClient =
+                    std::make_unique<one::rest::onezone::OnezoneClient>(
+                        m_options->getOnezoneHost().value());
+
+                auto s3LogicPtr = std::make_shared<S3Logic>(m_oneproviderId,
+                    m_options, effectiveToken, std::move(onezoneRestClient),
+                    m_executor);
 
                 s3LogicPtr->connect().thenTry(
                     [this, effectiveToken, s3LogicPtr, p = std::move(p)](

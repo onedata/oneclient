@@ -17,7 +17,8 @@ class S3LogicCache {
 public:
     S3LogicCache() = default;
 
-    S3LogicCache(std::shared_ptr<one::client::options::Options> options);
+    S3LogicCache(std::string oneproviderId,
+        std::shared_ptr<one::client::options::Options> options);
 
     folly::Future<std::shared_ptr<S3Logic>> get(const folly::fbstring &token);
 
@@ -51,11 +52,14 @@ public:
     }
 
 private:
+    const std::string m_oneproviderId;
     std::shared_ptr<one::client::options::Options> m_options;
     bool m_initialized{false};
 
     mutable std::mutex m_cacheMutex;
-    std::unordered_map<folly::fbstring,
+
+    using TokenStr = folly::fbstring;
+    std::unordered_map<TokenStr,
         std::shared_ptr<folly::SharedPromise<std::shared_ptr<S3Logic>>>>
         m_cache;
 

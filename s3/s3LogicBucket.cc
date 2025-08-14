@@ -43,14 +43,9 @@ Aws::String encodeURLPath(const std::string &path)
 
 folly::Future<Aws::S3::Model::ListBucketsResult> S3Logic::listBuckets()
 {
-    folly::Optional<folly::fbstring> indexToken;
-    constexpr auto kMaxFetchSize{10000};
+    auto spaces = m_dataAccessScopeCache.listSpacesForProvider(m_oneproviderId);
 
-    GetFileChildrenAttrs getFileChildrenAttrs{
-        m_rootUuid, 0, kMaxFetchSize, indexToken, false, false};
-
-    return communicate<FileChildrenAttrs>(std::move(getFileChildrenAttrs))
-        .then(&S3Logic::toListBucketsResult, this);
+    return toListBucketsResult(std::move(spaces));
 }
 
 folly::Future<Aws::S3::Model::HeadObjectResult> S3Logic::headBucket(
