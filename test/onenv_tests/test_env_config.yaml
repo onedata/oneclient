@@ -73,6 +73,16 @@ spaces:
       - provider: oneprovider-1
         storage_name: 's3'
         size: '1000000000' # in bytes
+  - name: test_oneclient_ceph
+    supports:
+      - provider: oneprovider-1
+        storage_name: 'ceph'
+        size: '1000000000' # in bytes
+  - name: test_oneclient_s3
+    supports:
+      - provider: oneprovider-1
+        storage_name: 's3'
+        size: '1000000000' # in bytes
   - name: test_onedatafs
     supports:
       - provider: oneprovider-1
