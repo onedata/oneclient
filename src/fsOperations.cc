@@ -717,9 +717,11 @@ void wrap_getxattr(fuse_req_t req, fuse_ino_t ino, const char *attr, size_t size
         return;
     }
 
+    std::string attrName{attr};
+
     LOG_DBG(4) << "Fuse getxattr() called with the following arguments: \n"
                << fuse_req_ctx(req) << "\t ino = " << ino << "\n"
-               << "\t attr = " << (attr != nullptr ? attr : "null") << "\n"
+               << "\t attr = " << attrName << "\n"
                << "\t size = " << size << "\n";
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.getxattr");
@@ -749,7 +751,7 @@ void wrap_getxattr(fuse_req_t req, fuse_ino_t ino, const char *attr, size_t size
 
     wrap(
         &fslogic::Composite::getxattr,
-        [req, size, attr, timer = std::move(timer)](
+        [req, size, attrName = std::move(attrName), timer = std::move(timer)](
             const folly::fbstring &value) {
             // If the value is a JSON string, strip the enclosing
             // double qoutes
@@ -780,20 +782,22 @@ void wrap_getxattr(fuse_req_t req, fuse_ino_t ino, const char *attr, size_t size
                 // Handle special case when the attribute has empty
                 // value
                 const char *buf = stringValue.data();
-                LOG_DBG(2) << "Returning extended attribute " << attr
+
+                LOG_DBG(2) << "Returning extended attribute " << attrName
                            << " with empty value";
+
                 fuse_reply_buf(req, buf, 0);
             }
             else if (buflen <= size) {
                 // return the value
-                const char *buf = stringValue.data();
-                LOG_DBG(2) << "Returning extended attribute " << attr
-                           << " with value " << buf;
-                fuse_reply_buf(req, buf, buflen);
+                LOG_DBG(2) << "Returning extended attribute " << attrName;
+
+                fuse_reply_buf(req, stringValue.data(), buflen);
             }
             else {
                 // return error
-                LOG_DBG(2) << "Extended attribute " << attr << " doesn't exist";
+                LOG_DBG(2) << "Extended attribute " << attrName
+                           << " doesn't exist";
                 fuse_reply_err(req, ERANGE);
             }
         },
@@ -934,22 +938,25 @@ void wrap_listxattr(fuse_req_t req, fuse_ino_t ino, size_t size)
             LOG_DBG(3) << "Received extended attributes for inode " << ino
                        << ": " << LOG_VEC(names);
 
+            const size_t kXattrListMinimumBufferSize{1024};
+
             // Calculate the length of all xattr names in the list
             // including the end of string characters needed to separate
             // the xattr names in the buffer
             size_t buflen = std::accumulate(names.cbegin(), names.cend(), 0,
                 [](int sum, const folly::fbstring &elem) {
-                    return sum + elem.size() + 1;
+                    return sum + elem.length() + 1;
                 });
 
             if (size == 0) {
                 // return the size of the buffer needed to allocate the
                 // xattr names list
-                fuse_reply_xattr(req, buflen);
+                fuse_reply_xattr(req, buflen + kXattrListMinimumBufferSize);
             }
             else if (buflen <= size) {
                 // return the list of extended attribute names
-                auto buf = std::unique_ptr<char[]>(new char[buflen]);
+                auto buf = std::unique_ptr<char[]>(new char[size]);
+
                 auto offset = 0UL;
 
                 for (const auto &name : names) {
