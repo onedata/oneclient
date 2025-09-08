@@ -92,6 +92,10 @@ folly::Optional<size_t> getParameter(
 folly::Optional<std::string> S3Server::getCachedBucketId(
     const std::string &name) const
 {
+    if (name.find("spaceid-") == 0) {
+        return name.substr(8);
+    }
+
     std::lock_guard<std::mutex> guard{m_bucketNameCacheMutex};
 
     if (m_bucketNameCache.find(name) == m_bucketNameCache.end())
@@ -406,6 +410,7 @@ bool S3Server::waitUntilSpaceIsVisibleInS3Logic(const std::string &bucket,
     const int kEnsureSpaceSupportRetryCount = 100;
     const int kEnsureSpaceSupportDelayMS = 100;
     auto retries = kEnsureSpaceSupportRetryCount;
+
     while (retries-- > 0) {
         auto buckets =
             m_logicCache->get(token)
@@ -592,11 +597,16 @@ void S3Server::deleteBucket(const HttpRequestPtr &req,
                 throw one::s3::error::AccessDenied(bucket, bucket, requestId);
 
             // Check if space exists
-            for (const auto &space :
-                onezoneClient.listUserSpaces(auth->getToken())) {
-                if (space.name == bucket) {
-                    spaceIdToDelete = space.id;
-                    break;
+            if (bucket.find("spaceid-") == 0) {
+                spaceIdToDelete = bucket.substr(8);
+            }
+            else {
+                for (const auto &space :
+                    onezoneClient.listUserSpaces(auth->getToken())) {
+                    if (space.name == bucket) {
+                        spaceIdToDelete = space.id;
+                        break;
+                    }
                 }
             }
 

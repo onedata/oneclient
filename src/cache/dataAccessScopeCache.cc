@@ -59,11 +59,11 @@ boost::optional<std::string> getPreferredProviderId(
 } // namespace detail
 
 DataAccessScopeCache::DataAccessScopeCache(
-    std::shared_ptr<options::Options> options,
+    std::shared_ptr<options::Options> options, std::string accessToken,
     std::unique_ptr<one::rest::onezone::OnezoneClient> onezoneClient)
     : m_options{std::move(options)}
     , m_onezoneRestClient{std::move(onezoneClient)}
-    , m_accessToken{m_options->getAccessToken().value()}
+    , m_accessToken{std::move(accessToken)}
     , m_showSpaceIdsNotNames{m_options->showSpaceIds()}
 {
     for (const auto &name : m_options->getSpaceNames()) {

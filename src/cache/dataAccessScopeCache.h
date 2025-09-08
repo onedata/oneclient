@@ -29,6 +29,7 @@ class DataAccessScopeCache {
 
 public:
     DataAccessScopeCache(std::shared_ptr<options::Options> options,
+        std::string accessToken,
         std::unique_ptr<one::rest::onezone::OnezoneClient> onezoneClient = {});
 
     folly::Future<DataAccessScopePtr> getDataAccessScope(

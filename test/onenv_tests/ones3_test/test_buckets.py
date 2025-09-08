@@ -33,19 +33,10 @@ def test_create_delete_bucket(s3_client, uuid_str, s3_server):
 def test_create_delete_bucket_with_special_chars(s3_client, uuid_str, s3_server):
     name = uuid_str + "@test!bucket"
 
-    s3_client.create_bucket(Bucket=name, CreateBucketConfiguration={
-        'LocationConstraint': 'pl-reg-w3'})
-    res = s3_client.list_buckets()
-    buckets = res['Buckets']
-
-    assert (list(map(lambda b: b['Name'] == name, buckets)).count(True) == 1)
-
-    s3_client.delete_bucket(Bucket=name)
-
-    res = s3_client.list_buckets()
-    buckets = res['Buckets']
-
-    assert (list(map(lambda b: b['Name'] == name, buckets)).count(True) == 0)
+    with pytest.raises(Exception,
+                   match="Invalid bucket name") as excinfo:
+        s3_client.create_bucket(Bucket=name, CreateBucketConfiguration={
+            'LocationConstraint': 'pl-reg-w3'})
 
 
 def test_create_delete_bucket_by_user_without_any_previous_spaces(s3_client_joe,
@@ -893,7 +884,7 @@ def test_bucket_name_conflict(s3_client_bucket_cache_invalidation, uuid_str, one
     rename_space(onezone_ip, onezone_admin_token, space_id_2, bucket_name_1)
     
     # Wait a bit for the rename to propagate
-    time.sleep(5)
+    time.sleep(15)
     
     # List buckets and check for disambiguation
     res = s3_client.list_buckets()

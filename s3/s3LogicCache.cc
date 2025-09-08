@@ -64,8 +64,14 @@ folly::Future<std::shared_ptr<S3Logic>> S3LogicCache::get(
                         if (s3Logic.hasException()) {
                             std::lock_guard<std::mutex> lock{m_cacheMutex};
                             m_cache.erase(effectiveToken);
+
+                            LOG(ERROR) << "S3Logic connection failed due to: "
+                                       << s3Logic.exception().what();
+
                             throw one::s3::error::AccessDenied("", "", "");
                         }
+
+                        LOG_DBG(3) << "S3Logic successfully connected";
 
                         p->setValue(std::move(s3Logic.value()));
                     });

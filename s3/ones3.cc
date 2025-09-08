@@ -8,10 +8,10 @@
 
 #include "helpers/init.h"
 #include "logging.h"
+#include "oneproviderRestClient.h"
 #include "options/options.h"
 #include "s3Server.h"
 #include "version.h"
-#include "oneproviderRestClient.h"
 
 #include <Poco/DirectoryIterator.h>
 #include <Poco/File.h>

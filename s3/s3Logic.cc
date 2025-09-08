@@ -94,8 +94,9 @@ S3Logic::S3Logic(std::string oneproviderId,
     , m_options{options}
     , m_connected{false}
     , m_token{std::move(token)}
-    , m_dataAccessScopeCache{options, std::move(onezoneRestClient)}
-    , m_minPrefetchBlockSize{m_options->getMinimumBlockPrefetchSize()}
+    , m_dataAccessScopeCache{options, m_token.toStdString(),
+          std::move(onezoneRestClient)}
+    , m_minPrefetchBlockSize{options->getMinimumBlockPrefetchSize()}
     , m_executor{std::move(executor)}
 {
     m_context = std::make_shared<OneS3Context>();
@@ -263,9 +264,6 @@ folly::Future<FileAttr> S3Logic::getFileAttr(
 folly::Future<FileAttr> S3Logic::getBucketAttr(
     const folly::fbstring &bucket, const std::string &requestId)
 {
-    if (m_bucketIdCache.find(bucket) != m_bucketIdCache.end())
-        return folly::makeFuture(m_bucketIdCache.at(bucket));
-
     if (bucket.find("spaceid-") == 0) {
         auto spaceId = bucket.substr(8);
         auto spaceUuid = one::client::util::uuid::spaceIdToSpaceUUID(spaceId);
@@ -283,6 +281,9 @@ folly::Future<FileAttr> S3Logic::getBucketAttr(
                     return std::move(bucketAttr);
                 });
     }
+
+    if (m_bucketIdCache.find(bucket) != m_bucketIdCache.end())
+        return folly::makeFuture(m_bucketIdCache.at(bucket));
 
     return communicate<FileAttr>(GetChildAttr{m_rootUuid, bucket})
         .via(m_executor.get())

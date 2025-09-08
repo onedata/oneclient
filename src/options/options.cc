@@ -1875,7 +1875,8 @@ std::vector<std::pair<std::string, std::string>> Options::toKeyValueList() const
     return result;
 }
 
-messages::handshake::ClientType Options::clientType() const {
+messages::handshake::ClientType Options::clientType() const
+{
     return m_clientType;
 }
 
