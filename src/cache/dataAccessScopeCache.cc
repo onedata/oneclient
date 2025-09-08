@@ -397,12 +397,15 @@ void DataAccessScopeCache::normalizeBucketNames(DataAccessScope &accessScope)
     std::regex validBucketNamePattern("^[a-zA-Z0-9._-]+$");
 
     for (auto &[spaceId, spaceDetails] : accessScope.spaces) {
-        LOG(ERROR) << "--- " << spaceDetails.name;
         bool isInvalidBucketName{false};
-        if (spaceDetails.name.size() < 3) {
+
+        constexpr auto kMinBucketLength{3};
+        constexpr auto kMaxBucketLength{255};
+
+        if (spaceDetails.name.size() < kMinBucketLength) {
             isInvalidBucketName = true;
         }
-        else if (spaceDetails.name.size() > 255) {
+        else if (spaceDetails.name.size() > kMaxBucketLength) {
             isInvalidBucketName = true;
         }
         else if (!std::regex_match(spaceDetails.name, validBucketNamePattern)) {

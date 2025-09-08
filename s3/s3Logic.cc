@@ -43,7 +43,6 @@ using one::messages::CloseSession;
 using one::messages::fuse::CreateFile;
 using one::messages::fuse::CreatePath;
 using one::messages::fuse::FileAttr;
-using one::messages::fuse::FileChildrenAttrs;
 using one::messages::fuse::FileCreated;
 using one::messages::fuse::FileLocation;
 using one::messages::fuse::FileLocationChanged;
@@ -538,13 +537,16 @@ Aws::S3::Model::ListBucketsResult S3Logic::toListBucketsResult(
     for (const auto &space : spaces) {
         Aws::S3::Model::Bucket bucket;
 
+        constexpr auto kMinBucketLength{3};
+        constexpr auto kMaxBucketLength{255};
+
         auto bucketName = space.name;
 
         bool isInvalidBucketName{false};
-        if (bucketName.size() < 3) {
+        if (bucketName.size() < kMinBucketLength) {
             isInvalidBucketName = true;
         }
-        else if (bucketName.size() > 255) {
+        else if (bucketName.size() > kMaxBucketLength) {
             isInvalidBucketName = true;
         }
         else if (!std::regex_match(bucketName, validBucketNamePattern)) {
