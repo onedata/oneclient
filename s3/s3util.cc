@@ -15,7 +15,11 @@ namespace s3 {
 namespace util {
 
 namespace {
-const std::regex validBucketNamePattern("^[a-zA-Z0-9._-]+$");
+const std::regex &getValidBucketNamePattern()
+{
+    static std::regex validBucketNamePattern("^[a-zA-Z0-9._-]+$");
+    return validBucketNamePattern;
+}
 } // namespace
 
 bool isBucketNameValid(const std::string &name)
@@ -31,7 +35,7 @@ bool isBucketNameValid(const std::string &name)
     else if (name.size() > kMaxBucketLength) {
         result = false;
     }
-    else if (!std::regex_match(name, validBucketNamePattern)) {
+    else if (!std::regex_match(name, getValidBucketNamePattern())) {
         result = false;
     }
 
