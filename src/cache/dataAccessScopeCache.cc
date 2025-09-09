@@ -390,33 +390,6 @@ void DataAccessScopeCache::disambiguateSpaceNames(DataAccessScope &accessScope)
     }
 }
 
-void DataAccessScopeCache::normalizeBucketNames(DataAccessScope &accessScope)
-{
-    LOG_FCALL();
-
-    std::regex validBucketNamePattern("^[a-zA-Z0-9._-]+$");
-
-    for (auto &[spaceId, spaceDetails] : accessScope.spaces) {
-        bool isInvalidBucketName{false};
-
-        constexpr auto kMinBucketLength{3};
-        constexpr auto kMaxBucketLength{255};
-
-        if (spaceDetails.name.size() < kMinBucketLength) {
-            isInvalidBucketName = true;
-        }
-        else if (spaceDetails.name.size() > kMaxBucketLength) {
-            isInvalidBucketName = true;
-        }
-        else if (!std::regex_match(spaceDetails.name, validBucketNamePattern)) {
-            isInvalidBucketName = true;
-        }
-
-        if (isInvalidBucketName)
-            spaceDetails.name = fmt::format("spaceid-{}", spaceId);
-    }
-}
-
 void DataAccessScopeCache::setProviderForSpace(
     const folly::fbstring &spaceId, const folly::fbstring &providerId)
 {

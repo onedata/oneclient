@@ -28,6 +28,7 @@
 #include "messages/fuse/resolveGuid.h"
 #include "messages/fuse/synchronizeBlock.h"
 #include "monitoring/monitoring.h"
+#include "s3util.h"
 
 #include <spdlog/spdlog.h>
 
@@ -532,31 +533,13 @@ Aws::S3::Model::ListBucketsResult S3Logic::toListBucketsResult(
 {
     Aws::Vector<Aws::S3::Model::Bucket> buckets;
 
-    std::regex validBucketNamePattern("^[a-zA-Z0-9._-]+$");
-
     for (const auto &space : spaces) {
         Aws::S3::Model::Bucket bucket;
 
-        constexpr auto kMinBucketLength{3};
-        constexpr auto kMaxBucketLength{255};
-
-        auto bucketName = space.name;
-
-        bool isInvalidBucketName{false};
-        if (bucketName.size() < kMinBucketLength) {
-            isInvalidBucketName = true;
-        }
-        else if (bucketName.size() > kMaxBucketLength) {
-            isInvalidBucketName = true;
-        }
-        else if (!std::regex_match(bucketName, validBucketNamePattern)) {
-            isInvalidBucketName = true;
-        }
-
-        if (isInvalidBucketName)
+        if (!one::s3::util::isBucketNameValid(space.name))
             bucket.SetName(fmt::format("spaceid-{}", space.spaceId));
         else
-            bucket.SetName(bucketName);
+            bucket.SetName(space.name);
 
         bucket.SetCreationDate(
             Aws::Utils::DateTime{static_cast<double>(space.creationTime)});

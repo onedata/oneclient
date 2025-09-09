@@ -872,8 +872,6 @@ def test_bucket_name_conflict(s3_client_bucket_cache_invalidation, uuid_str, one
     buckets = res['Buckets']
     bucket_names = [b['Name'] for b in buckets]
 
-    print(f'!!BEFORE!! {bucket_names}')
-
     # Get the space IDs for both created buckets
     space_id_1 = get_space_id(onezone_ip, onezone_admin_token, bucket_name_1)
     space_id_2 = get_space_id(onezone_ip, onezone_admin_token, bucket_name_2)
@@ -891,8 +889,6 @@ def test_bucket_name_conflict(s3_client_bucket_cache_invalidation, uuid_str, one
     buckets = res['Buckets']
     bucket_names = [b['Name'] for b in buckets]
 
-    print(f'!!AFTER!! {bucket_names}')
-    
     time.sleep(5)
 
     # Find all buckets that should be related to our uuid_str spaces
@@ -918,7 +914,13 @@ def test_bucket_name_conflict(s3_client_bucket_cache_invalidation, uuid_str, one
         
         # Check that we can write to the bucket
         s3_client.put_object(Bucket=bucket_name, Key='file.txt', Body=b'TEST')
-        
+
+        # Check that we can access object metadata
+        s3_client.head_object(Bucket=bucket_name, Key='file.txt')
+
+        # Check that we can get the object
+        s3_client.get_object(Bucket=bucket_name, Key='file.txt')
+
         # Clean up the test file
         s3_client.delete_object(Bucket=bucket_name, Key='file.txt')
     
