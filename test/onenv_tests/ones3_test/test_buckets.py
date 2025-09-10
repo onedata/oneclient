@@ -252,7 +252,7 @@ def test_list_small_bucket_by_another_user(s3_client, s3_client_joe, bucket,
                       ['space_view', 'space_read_data'])
 
     # Wait until infer token scope can see that the user was added to the space
-    time.sleep(10)
+    time.sleep(15)
 
     res = s3_client_joe.list_objects(Bucket=bucket, Delimiter='/',
                                      EncodingType='path', MaxKeys=1000,

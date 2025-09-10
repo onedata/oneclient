@@ -591,6 +591,7 @@ if(WITH_ONEDATAFS)
       $<TARGET_OBJECTS:client>
       ${CMAKE_CURRENT_SOURCE_DIR}/s3/onezoneRestClient.cc
       ${CMAKE_CURRENT_SOURCE_DIR}/s3/restCommon.cc
+      ${CMAKE_CURRENT_SOURCE_DIR}/s3/s3util.cc
       ${PROJECT_SOURCES})
 
   if(PYTHON2_FOUND)
