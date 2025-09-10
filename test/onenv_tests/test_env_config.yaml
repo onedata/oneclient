@@ -78,6 +78,16 @@ spaces:
       - provider: oneprovider-1
         storage_name: 'ceph'
         size: '1000000000' # in bytes
+  - name: test_oneclient_conflict_ceph
+    supports:
+      - provider: oneprovider-1
+        storage_name: 'ceph'
+        size: '1000000000' # in bytes
+  - name: test_oneclient_conflict_ceph_2
+    supports:
+      - provider: oneprovider-1
+        storage_name: 'ceph'
+        size: '1000000000' # in bytes
   - name: test_oneclient_s3
     supports:
       - provider: oneprovider-1
