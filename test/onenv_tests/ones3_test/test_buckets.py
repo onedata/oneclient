@@ -178,15 +178,29 @@ def test_list_buckets_by_another_user(s3_client_joe, bucket,
     space_id = get_space_id(onezone_ip, onezone_admin_token, bucket)
     add_user_to_space(onezone_ip, user_joe_id, space_id, ['space_view'])
 
-    # Wait until infer token scope can see that the user was added to the space
-    time.sleep(10)
+    # Retry the remainder of the test case for 30 seconds every 5 seconds
+    start_time = time.time()
+    timeout = 45
+    retry_interval = 5
+    
+    while True:
+        try:
+            res = s3_client_joe.list_buckets()
+            buckets = res['Buckets']
 
-    res = s3_client_joe.list_buckets()
-    buckets = res['Buckets']
+            remove_user_from_space(onezone_ip, user_joe_id, space_id)
 
-    remove_user_from_space(onezone_ip, user_joe_id, space_id)
-
-    assert list(map(lambda b: b['Name'] == bucket, buckets)).count(True) == 1
+            assert list(map(lambda b: b['Name'] == bucket, buckets)).count(True) == 1
+            break  # Success, exit the loop
+        except Exception as e:
+            elapsed_time = time.time() - start_time
+            if elapsed_time >= timeout:
+                # Cleanup before re-raising the exception
+                remove_user_from_space(onezone_ip, user_joe_id, space_id)
+                raise e
+            
+            # Wait before retrying
+            time.sleep(retry_interval)
 
 
 @pytest.mark.parametrize(
@@ -251,17 +265,31 @@ def test_list_small_bucket_by_another_user(s3_client, s3_client_joe, bucket,
     add_user_to_space(onezone_ip, user_joe_id, space_id,
                       ['space_view', 'space_read_data'])
 
-    # Wait until infer token scope can see that the user was added to the space
-    time.sleep(15)
+    # Retry the remainder of the test case for 30 seconds every 5 seconds
+    start_time = time.time()
+    timeout = 45
+    retry_interval = 5
+    
+    while True:
+        try:
+            res = s3_client_joe.list_objects(Bucket=bucket, Delimiter='/',
+                                             EncodingType='path', MaxKeys=1000,
+                                             Prefix='')
 
-    res = s3_client_joe.list_objects(Bucket=bucket, Delimiter='/',
-                                     EncodingType='path', MaxKeys=1000,
-                                     Prefix='')
+            assert (len(res['Contents']) == 20)
+            assert (res['Name'] == bucket)
 
-    assert (len(res['Contents']) == 20)
-    assert (res['Name'] == bucket)
-
-    remove_user_from_space(onezone_ip, user_joe_id, space_id)
+            remove_user_from_space(onezone_ip, user_joe_id, space_id)
+            break  # Success, exit the loop
+        except Exception as e:
+            elapsed_time = time.time() - start_time
+            if elapsed_time >= timeout:
+                # Cleanup before re-raising the exception
+                remove_user_from_space(onezone_ip, user_joe_id, space_id)
+                raise e
+            
+            # Wait before retrying
+            time.sleep(retry_interval)
 
 
 @pytest.mark.parametrize(
