@@ -1,5 +1,5 @@
 /**
- * @file dataAccessScopeCache.h
+ * @file dataAccessScopeCache.cc
  * @author Bartek Kryza
  * @copyright (C) 2024 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
@@ -88,9 +88,7 @@ folly::Future<DataAccessScopePtr> DataAccessScopeCache::getDataAccessScope(
         m_initiatedUpdate.store(true);
         m_dataAccessScopePromise =
             std::make_unique<folly::SharedPromise<DataAccessScopePtr>>();
-    }
 
-    if (!m_dataAccessScopePromise->isFulfilled()) {
         m_dataAccessScopePromise->setWith(
             [this, preferredProviders = m_options->getPreferredProviders(),
                 allowedProviders = m_options->getAllowedProviders(),
@@ -246,7 +244,8 @@ DataAccessScopeCache::getProvider(const folly::fbstring &providerId)
 }
 
 std::vector<rest::onezone::model::UserSpaceDetails>
-DataAccessScopeCache::listSpacesForProvider(const std::string &providerId)
+DataAccessScopeCache::listSpacesForProvider(
+    const std::string &providerId, bool forceUpdate)
 {
     LOG_FCALL() << LOG_FARG(providerId);
 
@@ -254,8 +253,8 @@ DataAccessScopeCache::listSpacesForProvider(const std::string &providerId)
 
     std::vector<rest::onezone::model::UserSpaceDetails> result;
 
-    bool forceAccessScopeUpdate =
-        std::chrono::steady_clock::now() - m_lastUpdate.load() > 10s;
+    bool forceAccessScopeUpdate = forceUpdate ||
+        (std::chrono::steady_clock::now() - m_lastUpdate.load() > 10s);
 
     auto accessScope = getDataAccessScope(forceAccessScopeUpdate).get();
 

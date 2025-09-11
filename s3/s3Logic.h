@@ -120,7 +120,10 @@ public:
 
     folly::Future<folly::Unit> stop();
 
-    folly::Future<Aws::S3::Model::ListBucketsResult> listBuckets();
+    folly::Future<Aws::S3::Model::ListBucketsResult> listBuckets(
+        bool forceUpdate = false);
+
+    folly::Future<folly::fbvector<one::messages::fuse::FileAttr>> listSpaces();
 
     folly::Future<Aws::S3::Model::CreateMultipartUploadResult>
     createMultipartUpload(const folly::fbstring &bucket,

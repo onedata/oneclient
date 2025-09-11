@@ -51,7 +51,7 @@ public:
         const size_t maxSize, const off_t off);
 
     std::vector<rest::onezone::model::UserSpaceDetails> listSpacesForProvider(
-        const std::string &providerId);
+        const std::string &providerId, bool forceUpdate = false);
 
     std::optional<rest::onezone::model::UserSpaceDetails> getSpaceById(
         const folly::fbstring &spaceId);
