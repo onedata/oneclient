@@ -1,5 +1,5 @@
 /**
- * @file dataAccessScopeCache.h
+ * @file dataAccessScopeCache.cc
  * @author Bartek Kryza
  * @copyright (C) 2024 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
@@ -10,6 +10,8 @@
 
 #include "helpers/logging.h"
 #include "helpers/storageHelper.h"
+
+#include <regex>
 
 namespace one {
 namespace client {
@@ -57,11 +59,11 @@ boost::optional<std::string> getPreferredProviderId(
 } // namespace detail
 
 DataAccessScopeCache::DataAccessScopeCache(
-    std::shared_ptr<options::Options> options,
+    std::shared_ptr<options::Options> options, std::string accessToken,
     std::unique_ptr<one::rest::onezone::OnezoneClient> onezoneClient)
     : m_options{std::move(options)}
     , m_onezoneRestClient{std::move(onezoneClient)}
-    , m_accessToken{m_options->getAccessToken().value()}
+    , m_accessToken{std::move(accessToken)}
     , m_showSpaceIdsNotNames{m_options->showSpaceIds()}
 {
     for (const auto &name : m_options->getSpaceNames()) {
@@ -86,12 +88,11 @@ folly::Future<DataAccessScopePtr> DataAccessScopeCache::getDataAccessScope(
         m_initiatedUpdate.store(true);
         m_dataAccessScopePromise =
             std::make_unique<folly::SharedPromise<DataAccessScopePtr>>();
-    }
 
-    if (!m_dataAccessScopePromise->isFulfilled()) {
         m_dataAccessScopePromise->setWith(
             [this, preferredProviders = m_options->getPreferredProviders(),
-                allowedProviders = m_options->getAllowedProviders()]() {
+                allowedProviders = m_options->getAllowedProviders(),
+                clientType = m_options->clientType()]() {
                 auto newAccessScope =
                     m_onezoneRestClient->inferAccessTokenScope(m_accessToken);
 
@@ -163,6 +164,8 @@ folly::Future<DataAccessScopePtr> DataAccessScopeCache::getDataAccessScope(
                         ++it;
                     }
                 }
+
+                disambiguateSpaceNames(newAccessScope);
 
                 m_initiatedUpdate.store(false);
 
@@ -238,6 +241,31 @@ DataAccessScopeCache::getProvider(const folly::fbstring &providerId)
             return {};
         })
         .get();
+}
+
+std::vector<rest::onezone::model::UserSpaceDetails>
+DataAccessScopeCache::listSpacesForProvider(
+    const std::string &providerId, bool forceUpdate)
+{
+    LOG_FCALL() << LOG_FARG(providerId);
+
+    using namespace std::chrono_literals;
+
+    std::vector<rest::onezone::model::UserSpaceDetails> result;
+
+    bool forceAccessScopeUpdate = forceUpdate ||
+        (std::chrono::steady_clock::now() - m_lastUpdate.load() > 10s);
+
+    auto accessScope = getDataAccessScope(forceAccessScopeUpdate).get();
+
+    for (const auto &[spaceId, spaceDetails] : accessScope->spaces) {
+        if (isSpaceWhitelisted(spaceDetails) &&
+            spaceDetails.providers.count(providerId) > 0) {
+            result.emplace_back(spaceDetails);
+        }
+    }
+
+    return result;
 }
 
 folly::fbvector<folly::fbstring> DataAccessScopeCache::readdir(
@@ -336,6 +364,29 @@ bool DataAccessScopeCache::isSpaceWhitelisted(
                << spaceIsWhitelistedByName << ":" << spaceIsWhitelistedById;
 
     return spaceIsWhitelistedByName || spaceIsWhitelistedById;
+}
+
+void DataAccessScopeCache::disambiguateSpaceNames(DataAccessScope &accessScope)
+{
+    LOG_FCALL();
+
+    std::unordered_map<std::string, std::vector<std::string>> nameToSpaceIds;
+
+    // Group spaces by name to find duplicates
+    for (const auto &[spaceId, spaceDetails] : accessScope.spaces) {
+        nameToSpaceIds[spaceDetails.name].push_back(spaceId);
+    }
+
+    // Disambiguate spaces with duplicate names
+    for (const auto &[spaceName, spaceIds] : nameToSpaceIds) {
+        if (spaceIds.size() > 1) {
+            // Multiple spaces have the same name, disambiguate them
+            for (const auto &spaceId : spaceIds) {
+                auto &spaceDetails = accessScope.spaces.at(spaceId);
+                spaceDetails.name = fmt::format("{}@{}", spaceName, spaceId);
+            }
+        }
+    }
 }
 
 void DataAccessScopeCache::setProviderForSpace(

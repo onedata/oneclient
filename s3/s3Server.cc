@@ -92,6 +92,10 @@ folly::Optional<size_t> getParameter(
 folly::Optional<std::string> S3Server::getCachedBucketId(
     const std::string &name) const
 {
+    if (name.find("spaceid-") == 0) {
+        return name.substr(8);
+    }
+
     std::lock_guard<std::mutex> guard{m_bucketNameCacheMutex};
 
     if (m_bucketNameCache.find(name) == m_bucketNameCache.end())
@@ -331,9 +335,10 @@ void S3Server::putBucket(const HttpRequestPtr &req,
 
         setOnepanelCredentials(bucket, requestId, onepanelClient);
 
-        if (getCachedBucketId(bucket).hasValue())
+        if (getCachedBucketId(bucket).hasValue()) {
             throw one::s3::error::BucketAlreadyOwnedByYou(
                 bucket, bucket, requestId);
+        }
 
         try {
             // List spaces to check if that space already exists (regardless of
@@ -406,21 +411,44 @@ bool S3Server::waitUntilSpaceIsVisibleInS3Logic(const std::string &bucket,
     const int kEnsureSpaceSupportRetryCount = 100;
     const int kEnsureSpaceSupportDelayMS = 100;
     auto retries = kEnsureSpaceSupportRetryCount;
+
+    bool visibleInDataAccessScope{false};
+    bool visibleInCLProto{false};
+
     while (retries-- > 0) {
         auto buckets =
             m_logicCache->get(token)
                 .delayed(std::chrono::milliseconds(kEnsureSpaceSupportDelayMS))
-                .thenTry([](auto &&s3) { return s3.value()->listBuckets(); })
+                .thenTry(
+                    [](auto &&s3) { return s3.value()->listBuckets(true); })
                 .get();
 
-        for (const auto &listedBucket : buckets.GetBuckets()) {
-            if (listedBucket.GetName() == bucket) {
-                return true;
-            }
-        }
+        visibleInDataAccessScope = std::any_of(buckets.GetBuckets().begin(),
+            buckets.GetBuckets().end(),
+            [&bucket](const auto &b) { return b.GetName() == bucket; });
+
+        if (visibleInDataAccessScope)
+            break;
     }
 
-    return false;
+    if (!visibleInDataAccessScope)
+        return false;
+
+    while (retries-- > 0) {
+        auto spaces =
+            m_logicCache->get(token)
+                .delayed(std::chrono::milliseconds(kEnsureSpaceSupportDelayMS))
+                .thenTry([](auto &&s3) { return s3.value()->listSpaces(); })
+                .get();
+
+        visibleInCLProto = std::any_of(spaces.begin(), spaces.end(),
+            [&bucket](const auto &space) { return space.name() == bucket; });
+
+        if (visibleInCLProto)
+            break;
+    }
+
+    return visibleInCLProto;
 }
 
 void S3Server::checkIfSpaceExistsInOnezone(const std::string &bucket,
@@ -592,11 +620,16 @@ void S3Server::deleteBucket(const HttpRequestPtr &req,
                 throw one::s3::error::AccessDenied(bucket, bucket, requestId);
 
             // Check if space exists
-            for (const auto &space :
-                onezoneClient.listUserSpaces(auth->getToken())) {
-                if (space.name == bucket) {
-                    spaceIdToDelete = space.id;
-                    break;
+            if (bucket.find("spaceid-") == 0) {
+                spaceIdToDelete = bucket.substr(8);
+            }
+            else {
+                for (const auto &space :
+                    onezoneClient.listUserSpaces(auth->getToken())) {
+                    if (space.name == bucket) {
+                        spaceIdToDelete = space.id;
+                        break;
+                    }
                 }
             }
 
@@ -634,7 +667,7 @@ void S3Server::deleteBucket(const HttpRequestPtr &req,
                     m_logicCache->get(auth->getToken())
                         .delayed(std::chrono::milliseconds(kRetryDelayMs))
                         .thenValue([](std::shared_ptr<S3Logic> &&s3) {
-                            return s3->listBuckets();
+                            return s3->listBuckets(true);
                         })
                         .thenError(folly::tag_t<std::exception>{},
                             [callback](auto && /*e*/) mutable {

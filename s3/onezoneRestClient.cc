@@ -9,10 +9,23 @@
 #include "onezoneRestClient.h"
 
 #include "logging.h"
+#include "s3util.h"
 
 namespace one {
 namespace rest {
 namespace onezone {
+namespace model {
+void DataAccessScope::normalizeBucketNames(DataAccessScope &accessScope)
+{
+    LOG_FCALL();
+
+    for (auto &[spaceId, spaceDetails] : spaces) {
+        if (!one::s3::util::isBucketNameValid(spaceDetails.name))
+            spaceDetails.name = fmt::format("spaceid-{}", spaceId);
+    }
+}
+
+} // namespace model
 
 OnezoneClient::OnezoneClient(
     const std::string &hostname, const uint16_t port, const bool useTLS)

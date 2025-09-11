@@ -30,6 +30,15 @@ def test_create_delete_bucket(s3_client, uuid_str, s3_server):
     assert (list(map(lambda b: b['Name'] == name, buckets)).count(True) == 0)
 
 
+def test_create_delete_bucket_with_special_chars(s3_client, uuid_str, s3_server):
+    name = uuid_str + "@test!bucket"
+
+    with pytest.raises(Exception,
+                   match="Invalid bucket name") as excinfo:
+        s3_client.create_bucket(Bucket=name, CreateBucketConfiguration={
+            'LocationConstraint': 'pl-reg-w3'})
+
+
 def test_create_delete_bucket_by_user_without_any_previous_spaces(s3_client_joe,
                                                                   uuid_str,
                                                                   s3_server):
@@ -169,15 +178,35 @@ def test_list_buckets_by_another_user(s3_client_joe, bucket,
     space_id = get_space_id(onezone_ip, onezone_admin_token, bucket)
     add_user_to_space(onezone_ip, user_joe_id, space_id, ['space_view'])
 
-    # Wait until infer token scope can see that the user was added to the space
-    time.sleep(10)
+    # Retry the remainder of the test case for 30 seconds every 5 seconds
+    start_time = time.time()
+    timeout = 45
+    retry_interval = 5
+    
+    while True:
+        try:
+            res = s3_client_joe.list_buckets()
+            buckets = res['Buckets']
 
-    res = s3_client_joe.list_buckets()
-    buckets = res['Buckets']
+            assert list(map(lambda b: b['Name'] == bucket, buckets)).count(True) == 1
 
-    remove_user_from_space(onezone_ip, user_joe_id, space_id)
+            remove_user_from_space(onezone_ip, user_joe_id, space_id)
 
-    assert list(map(lambda b: b['Name'] == bucket, buckets)).count(True) == 1
+            break  # Success, exit the loop
+        except Exception as e:
+            elapsed_time = time.time() - start_time
+            if elapsed_time >= timeout:
+                print(f'test_list_buckets_by_another_user failed due to: {str(e)}')
+                try:
+                    # Cleanup before re-raising the exception
+                    remove_user_from_space(onezone_ip, user_joe_id, space_id)
+                except Exception as ee:
+                    print(f'test_list_buckets_by_another_user cleanup failed due to: {str(ee)}')
+                    pass
+                raise e
+            
+            # Wait before retrying
+            time.sleep(retry_interval)
 
 
 @pytest.mark.parametrize(
@@ -242,17 +271,37 @@ def test_list_small_bucket_by_another_user(s3_client, s3_client_joe, bucket,
     add_user_to_space(onezone_ip, user_joe_id, space_id,
                       ['space_view', 'space_read_data'])
 
-    # Wait until infer token scope can see that the user was added to the space
-    time.sleep(10)
+    # Retry the remainder of the test case for 30 seconds every 5 seconds
+    start_time = time.time()
+    timeout = 45
+    retry_interval = 5
+    
+    while True:
+        try:
+            res = s3_client_joe.list_objects(Bucket=bucket, Delimiter='/',
+                                             EncodingType='path', MaxKeys=1000,
+                                             Prefix='')
 
-    res = s3_client_joe.list_objects(Bucket=bucket, Delimiter='/',
-                                     EncodingType='path', MaxKeys=1000,
-                                     Prefix='')
+            assert (len(res['Contents']) == 20)
+            assert (res['Name'] == bucket)
 
-    assert (len(res['Contents']) == 20)
-    assert (res['Name'] == bucket)
+            remove_user_from_space(onezone_ip, user_joe_id, space_id)
 
-    remove_user_from_space(onezone_ip, user_joe_id, space_id)
+            break  # Success, exit the loop
+        except Exception as e:
+            elapsed_time = time.time() - start_time
+            if elapsed_time >= timeout:
+                print(f'test_list_small_bucket_by_another_user failed due to: {str(e)}')
+                try:
+                    # Cleanup before re-raising the exception
+                    remove_user_from_space(onezone_ip, user_joe_id, space_id)
+                except Exception as ee:
+                    print(f'test_list_small_bucket_by_another_user cleanup failed due to: {str(ee)}')
+                    pass
+                raise e
+            
+            # Wait before retrying
+            time.sleep(retry_interval)
 
 
 @pytest.mark.parametrize(
@@ -840,3 +889,86 @@ def test_bucket_spaceid_cache_invalidates_entries(s3_client_bucket_cache_invalid
     s3_client_bucket_cache_invalidation.delete_object(Bucket=bucket_new, Key=key)
 
     s3_client_bucket_cache_invalidation.delete_bucket(Bucket=bucket_new)
+
+
+def test_bucket_name_conflict(s3_client_bucket_cache_invalidation, uuid_str, onezone_admin_token, onezone_ip):
+    """Test bucket name disambiguation when creating buckets with conflicting names."""
+
+    s3_client = s3_client_bucket_cache_invalidation
+
+    bucket_name_1 = uuid_str
+    
+    # First create a bucket with the name uuid_str
+    s3_client.create_bucket(Bucket=uuid_str, CreateBucketConfiguration={
+        'LocationConstraint': 'pl-reg-w3'})
+    
+    # Create initial bucket with uuid_str+"-2" name
+    bucket_name_2 = uuid_str + "-2"
+
+    s3_client.create_bucket(Bucket=bucket_name_2, CreateBucketConfiguration={
+        'LocationConstraint': 'pl-reg-w3'})
+    
+    res = s3_client.list_buckets()
+    buckets = res['Buckets']
+    bucket_names = [b['Name'] for b in buckets]
+
+    # Get the space IDs for both created buckets
+    space_id_1 = get_space_id(onezone_ip, onezone_admin_token, bucket_name_1)
+    space_id_2 = get_space_id(onezone_ip, onezone_admin_token, bucket_name_2)
+    assert space_id_1 is not None, "Space ID should be found for the first bucket"
+    assert space_id_2 is not None, "Space ID should be found for the second bucket"
+    
+    # Rename the second bucket to uuid_str using rename_space function
+    rename_space(onezone_ip, onezone_admin_token, space_id_2, bucket_name_1)
+    
+    # Wait a bit for the rename to propagate
+    time.sleep(15)
+    
+    # List buckets and check for disambiguation
+    res = s3_client.list_buckets()
+    buckets = res['Buckets']
+    bucket_names = [b['Name'] for b in buckets]
+
+    time.sleep(5)
+
+    # Find all buckets that should be related to our uuid_str spaces
+    conflicting_buckets = []
+    for bucket in buckets:
+        bucket_name = bucket['Name']
+        # Check if bucket is normalized to spaceid-<SPACE_ID> format for our spaces
+        if (bucket_name == f"spaceid-{space_id_1}" or 
+            bucket_name == f"spaceid-{space_id_2}"):
+            conflicting_buckets.append(bucket)
+    
+    # We should have exactly 2 such buckets
+    assert len(conflicting_buckets) == 2, f"Expected 2 related buckets, found {len(conflicting_buckets)}: {[b['Name'] for b in conflicting_buckets]}"
+    
+    # Check that bucket names are as follows: spaceid-<SPACEID>
+    for bucket in conflicting_buckets:
+        bucket_name = bucket['Name']
+        
+        is_normalized = bucket_name.startswith("spaceid-")
+        
+        assert is_normalized, \
+            f"Bucket {bucket_name} should be normalized to spaceid-<SPACEID>"
+        
+        # Check that we can write to the bucket
+        s3_client.put_object(Bucket=bucket_name, Key='file.txt', Body=b'TEST')
+
+        # Check that we can access object metadata
+        s3_client.head_object(Bucket=bucket_name, Key='file.txt')
+
+        # Check that we can get the object
+        s3_client.get_object(Bucket=bucket_name, Key='file.txt')
+
+        # Clean up the test file
+        s3_client.delete_object(Bucket=bucket_name, Key='file.txt')
+    
+    # Clean up - delete both buckets
+    for bucket in conflicting_buckets:
+        try:
+            s3_client.delete_bucket(Bucket=bucket['Name'])
+        except Exception as e:
+            # If deletion fails, it might be because the bucket doesn't exist under this name anymore
+            print(f"Warning: Could not delete bucket {bucket['Name']}: {e}")
+            pass

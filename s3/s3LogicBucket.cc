@@ -41,7 +41,17 @@ Aws::String encodeURLPath(const std::string &path)
     return result;
 }
 
-folly::Future<Aws::S3::Model::ListBucketsResult> S3Logic::listBuckets()
+folly::Future<Aws::S3::Model::ListBucketsResult> S3Logic::listBuckets(
+    bool forceUpdate)
+{
+    auto spaces = m_dataAccessScopeCache.listSpacesForProvider(
+        m_oneproviderId, forceUpdate);
+
+    return toListBucketsResult(std::move(spaces));
+}
+
+folly::Future<folly::fbvector<one::messages::fuse::FileAttr>>
+S3Logic::listSpaces()
 {
     folly::Optional<folly::fbstring> indexToken;
     constexpr auto kMaxFetchSize{10000};
@@ -50,7 +60,7 @@ folly::Future<Aws::S3::Model::ListBucketsResult> S3Logic::listBuckets()
         m_rootUuid, 0, kMaxFetchSize, indexToken, false, false};
 
     return communicate<FileChildrenAttrs>(std::move(getFileChildrenAttrs))
-        .then(&S3Logic::toListBucketsResult, this);
+        .thenValue([](auto &&children) { return children.childrenAttrs(); });
 }
 
 folly::Future<Aws::S3::Model::HeadObjectResult> S3Logic::headBucket(

@@ -8,6 +8,7 @@
 
 #include "helpers/init.h"
 #include "logging.h"
+#include "oneproviderRestClient.h"
 #include "options/options.h"
 #include "s3Server.h"
 #include "version.h"
@@ -154,7 +155,19 @@ int main(int argc, char *argv[])
         EXIT_SUCCESS)
         return EXIT_FAILURE;
 
-    auto s3Server = std::make_shared<one::s3::S3Server>(options);
+    // Resolve the specified Oneprovider host to Oneprovider Id
+    assert(options->getPreferredProviders().size() == 1);
+
+    const auto endpoint = options->getPreferredProviders().at(0);
+
+    assert(!endpoint.host.empty());
+
+    one::rest::oneprovider::OneproviderClient oneproviderClient{
+        endpoint.host, endpoint.port};
+
+    const auto oneproviderId = oneproviderClient.getProviderId();
+
+    auto s3Server = std::make_shared<one::s3::S3Server>(oneproviderId, options);
 
     app().registerController(s3Server);
     app().setLogLevel(trantor::Logger::kInfo);

@@ -29,6 +29,7 @@ class DataAccessScopeCache {
 
 public:
     DataAccessScopeCache(std::shared_ptr<options::Options> options,
+        std::string accessToken,
         std::unique_ptr<one::rest::onezone::OnezoneClient> onezoneClient = {});
 
     folly::Future<DataAccessScopePtr> getDataAccessScope(
@@ -49,6 +50,9 @@ public:
     folly::fbvector<folly::fbstring> readdir(
         const size_t maxSize, const off_t off);
 
+    std::vector<rest::onezone::model::UserSpaceDetails> listSpacesForProvider(
+        const std::string &providerId, bool forceUpdate = false);
+
     std::optional<rest::onezone::model::UserSpaceDetails> getSpaceById(
         const folly::fbstring &spaceId);
 
@@ -59,6 +63,8 @@ public:
      */
     bool isSpaceWhitelisted(
         const rest::onezone::model::UserSpaceDetails &space);
+
+    void disambiguateSpaceNames(DataAccessScope &accessScope);
 
 private:
     void setProviderForSpace(

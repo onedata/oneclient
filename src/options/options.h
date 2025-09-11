@@ -637,6 +637,8 @@ public:
 
     std::vector<std::pair<std::string, std::string>> toKeyValueList() const;
 
+    messages::handshake::ClientType clientType() const;
+
 private:
     template <typename T> std::shared_ptr<TypedOption<T>> add()
     {

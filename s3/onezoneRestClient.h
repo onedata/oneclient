@@ -43,6 +43,8 @@ struct DataAccessScope {
     bool readonly;
     std::map<std::string, UserSpaceDetails> spaces;
     std::map<std::string, Provider> providers;
+
+    void normalizeBucketNames(DataAccessScope &accessScope);
 };
 
 struct Space {

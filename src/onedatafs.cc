@@ -276,7 +276,8 @@ void OnedataFileHandle::close()
 OnedataFS::OnedataFS(std::shared_ptr<options::Options> options,
     std::unique_ptr<one::rest::onezone::OnezoneClient> onezoneRestClient)
     : m_options{options}
-    , m_dataAccessScopeCache{options, std::move(onezoneRestClient)}
+    , m_dataAccessScopeCache{options, options->getAccessToken().value(),
+          std::move(onezoneRestClient)}
 {
 }
 

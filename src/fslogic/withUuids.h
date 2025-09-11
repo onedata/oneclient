@@ -59,7 +59,8 @@ public:
         : m_inodeCache{std::move("")}
         , m_generation{std::chrono::system_clock::to_time_t(
               std::chrono::system_clock::now())}
-        , m_dataAccessScopeCache{options, std::move(onezoneRestClient)}
+        , m_dataAccessScopeCache{options, options->getAccessToken().value(),
+              std::move(onezoneRestClient)}
         , m_options{std::move(options)}
         , m_runInFiber{std::move(runInFiber)}
     {

@@ -5,6 +5,7 @@ This software is released under the MIT license cited in 'LICENSE.txt'
 import os
 import random
 import string
+import requests
 
 import time
 from contextlib import contextmanager
@@ -32,3 +33,38 @@ def random_bytes(size=random_int()):
     return random_str(size).encode('utf-8')
 
 
+def get_space_id(onezone_ip, token, space_name):
+    url = f'https://{onezone_ip}/api/v3/onezone/' \
+          f'user/spaces'
+    space_ids = requests.get(url,
+                             headers={'X-Auth-Token': token,
+                                      'Content-type': 'application/json'},
+                             verify=False).json()["spaces"]
+
+    for space_id in space_ids:
+        url2 = f'https://{onezone_ip}/api/v3/onezone/' \
+               f'user/effective_spaces/{space_id}'
+
+        res = requests.get(url2,
+                           headers={'X-Auth-Token': token,
+                                    'Content-type': 'application/json'},
+                           verify=False).json()
+
+        name = res["name"]
+
+        if name == space_name:
+            return space_id
+
+    return None
+
+
+def rename_space(onezone_ip, token, space_id, new_name):
+    spaces_endpoint = f'https://{onezone_ip}/api/v3/onezone/' \
+                      f'spaces/{space_id}'
+    res = requests.patch(spaces_endpoint, json={"name": new_name},
+                       headers={'X-Auth-Token': token, 'content-type': 'application/json'},
+                       verify=False)
+    if not res.ok:
+        print(res.content)
+
+    assert res.ok
