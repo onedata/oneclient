@@ -188,15 +188,21 @@ def test_list_buckets_by_another_user(s3_client_joe, bucket,
             res = s3_client_joe.list_buckets()
             buckets = res['Buckets']
 
+            assert list(map(lambda b: b['Name'] == bucket, buckets)).count(True) == 1
+
             remove_user_from_space(onezone_ip, user_joe_id, space_id)
 
-            assert list(map(lambda b: b['Name'] == bucket, buckets)).count(True) == 1
             break  # Success, exit the loop
         except Exception as e:
             elapsed_time = time.time() - start_time
             if elapsed_time >= timeout:
-                # Cleanup before re-raising the exception
-                remove_user_from_space(onezone_ip, user_joe_id, space_id)
+                print(f'test_list_buckets_by_another_user failed due to: {str(e)}')
+                try:
+                    # Cleanup before re-raising the exception
+                    remove_user_from_space(onezone_ip, user_joe_id, space_id)
+                except Exception as ee:
+                    print(f'test_list_buckets_by_another_user cleanup failed due to: {str(ee)}')
+                    pass
                 raise e
             
             # Wait before retrying
@@ -280,12 +286,18 @@ def test_list_small_bucket_by_another_user(s3_client, s3_client_joe, bucket,
             assert (res['Name'] == bucket)
 
             remove_user_from_space(onezone_ip, user_joe_id, space_id)
+
             break  # Success, exit the loop
         except Exception as e:
             elapsed_time = time.time() - start_time
             if elapsed_time >= timeout:
-                # Cleanup before re-raising the exception
-                remove_user_from_space(onezone_ip, user_joe_id, space_id)
+                print(f'test_list_small_bucket_by_another_user failed due to: {str(e)}')
+                try:
+                    # Cleanup before re-raising the exception
+                    remove_user_from_space(onezone_ip, user_joe_id, space_id)
+                except Exception as ee:
+                    print(f'test_list_small_bucket_by_another_user cleanup failed due to: {str(ee)}')
+                    pass
                 raise e
             
             # Wait before retrying
