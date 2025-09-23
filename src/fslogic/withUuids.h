@@ -45,6 +45,7 @@ const auto ONEDATA_FILEID_ACCESS_PREFIX = ".__onedata__file_id__";
 
 namespace {
 using one::client::util::uuid::spaceIdToSpaceUUID;
+const std::string kAbsLinkPrefix = "<__onedata_space_id:"; // NOLINT
 } // namespace
 
 /**
@@ -532,7 +533,16 @@ public:
             throw one::helpers::makePosixException(EACCES);
         }
 
-        FileAttrPtr attr = wrap(&FsLogicT::symlink, parent, name, link);
+        folly::fbstring effectiveLink{link};
+        if (!effectiveLink.empty() && (effectiveLink[0] == '/')) {
+            effectiveLink = createSpaceRelativeSymlink(effectiveLink);
+
+            LOG_DBG(2) << "Creating space-relative absolute symlink: "
+                       << effectiveLink;
+        }
+
+        FileAttrPtr attr =
+            wrap(&FsLogicT::symlink, parent, name, effectiveLink);
 
         auto newInode = m_inodeCache.generateInode(
             attr->uuid(), m_inodeCache.at(parent).second);
@@ -550,6 +560,11 @@ public:
         LOG_FCALL() << LOG_FARG(ino);
 
         folly::fbstring link = wrap(&FsLogicT::readlink, ino);
+
+        if (link.find(kAbsLinkPrefix) == 0) {
+            // This is space-relative absolute symlink
+            return resolveSpaceRelativeSymlink(link);
+        }
 
         return link;
     }
@@ -755,6 +770,128 @@ private:
             throw one::helpers::makePosixException(ECANCELED);
 
         return (fsLogic->*fun)(uuid, std::forward<Args>(args)...);
+    }
+
+    /**
+     * Resolve a space-relative path to an absolute path starting with the
+     * current oneclient mountpoint.
+     *
+     * @param link Space-relative link
+     * @returns Oneclient mountpoint absolute path
+     */
+    folly::fbstring resolveSpaceRelativeSymlink(const folly::fbstring &link)
+    {
+        auto spaceId = link.substr(kAbsLinkPrefix.size());
+        if (spaceId.find('>') == std::string::npos)
+            return link;
+
+        auto prefixEnd = spaceId.find('>', 0);
+        auto relativePath = spaceId.substr(prefixEnd + 1);
+        if (!relativePath.empty() && relativePath[0] != '/')
+            relativePath = "/" + relativePath;
+        spaceId = spaceId.substr(0, spaceId.find('>', 0));
+
+        try {
+            auto spaceDetails = m_dataAccessScopeCache.getSpaceById(spaceId);
+
+            if (!spaceDetails)
+                throw std::system_error(
+                    std::make_error_code(std::errc::no_such_file_or_directory));
+
+            auto mountPoint =
+                boost::filesystem::absolute(m_options->getMountpoint(), "/");
+
+            auto mountPointString = mountPoint.string();
+            if (mountPointString.back() == '/')
+                mountPointString.pop_back();
+
+            if (m_options->showSpaceIds())
+                return fmt::format(
+                    "{}/{}{}", mountPointString, spaceId, relativePath);
+
+            auto absLink = fmt::format("{}/{}{}", mountPointString,
+                spaceDetails.value().name, relativePath);
+
+            LOG_DBG(2) << "Return space-relative absolute link: " << absLink;
+
+            return absLink;
+        }
+        catch (boost::filesystem::filesystem_error &e) {
+            return link;
+        }
+        catch (std::system_error &e) {
+            if (e.code().value() == ENOENT)
+                return link;
+            throw;
+        }
+    }
+
+    /**
+     * Creates a space-relative path from a absolute path pointing to
+     * an active oneclient mountpoint in the format:
+     *   <__onedata_space_id:SPACE_ID>/dir1/dir2/file.txt
+     *
+     *  @param link The original absolute link passed to FsLogic
+     *  @returns Space-relative link or original link if conversion fails
+     */
+    folly::fbstring createSpaceRelativeSymlink(const folly::fbstring &link)
+    {
+        folly::fbstring effectiveLink{link};
+        try {
+            auto mountPoint =
+                boost::filesystem::absolute(m_options->getMountpoint(), "/");
+
+            if (effectiveLink.back() == '/')
+                effectiveLink.pop_back();
+
+            if (effectiveLink.find(mountPoint.string()) == 0) {
+                // Get space name from the path
+                auto pathRelativeToMountpoint = boost::filesystem::path{
+                    effectiveLink.substr(mountPoint.string().size())
+                        .toStdString()};
+
+                if (pathRelativeToMountpoint.string().size() > 1) {
+                    auto spaceName =
+                        *pathRelativeToMountpoint.relative_path().begin();
+
+                    auto spaceId = m_dataAccessScopeCache.getSpaceIdByName(
+                        spaceName.string());
+
+                    if (!spaceId)
+                        throw std::system_error(std::make_error_code(
+                            std::errc::no_such_file_or_directory));
+
+                    auto spacePath = mountPoint.string();
+                    if (spacePath.back() == '/')
+                        spacePath += spaceName.string();
+                    else
+                        spacePath += std::string("/") + spaceName.string();
+
+                    auto spaceRelativePath =
+                        effectiveLink.substr(spacePath.size());
+
+                    if (!spaceRelativePath.empty()) {
+                        if (spaceRelativePath[0] == '/')
+                            spaceRelativePath.erase(spaceRelativePath.begin());
+
+                        effectiveLink = fmt::format("{}{}>/{}", kAbsLinkPrefix,
+                            spaceId.value().toStdString(), spaceRelativePath);
+                    }
+                    else {
+                        effectiveLink = fmt::format("{}{}>", kAbsLinkPrefix,
+                            spaceId.value().toStdString());
+                    }
+                }
+            }
+        }
+        catch (boost::filesystem::filesystem_error &e) {
+        }
+        catch (std::system_error &e) {
+            if (e.code().value() != ENOENT)
+                throw;
+        }
+
+        return effectiveLink;
     }
 
     struct fuse_entry_param toEntry(const FileAttrPtr attr)
