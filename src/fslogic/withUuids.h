@@ -40,7 +40,7 @@ namespace fslogic {
 namespace detail {
 struct stat toStatbuf(const FileAttrPtr &attr, const fuse_ino_t ino);
 const auto ONEDATA_FILEID_ACCESS_PREFIX = ".__onedata__file_id__";
-
+const auto ONEDATA_MOUNTPOINT_HIDDEN_FILE_INO{FUSE_ROOT_ID + 1};
 } // namespace detail
 
 namespace {
@@ -60,6 +60,7 @@ public:
         : m_inodeCache{std::move("")}
         , m_generation{std::chrono::system_clock::to_time_t(
               std::chrono::system_clock::now())}
+        , m_mountTime{std::chrono::system_clock::now()}
         , m_dataAccessScopeCache{options, options->getAccessToken().value(),
               std::move(onezoneRestClient)}
         , m_options{std::move(options)}
@@ -83,6 +84,28 @@ public:
         LOG_FCALL() << LOG_FARG(ino) << LOG_FARG(name);
 
         if (ino == FUSE_ROOT_ID) {
+            if (name == ".__onedata_mountpoint__") {
+                struct fuse_entry_param result;
+                result.ino = detail::ONEDATA_MOUNTPOINT_HIDDEN_FILE_INO;
+                result.generation = m_generation;
+
+                struct stat attr;
+                attr.st_ino = result.ino;
+                attr.st_uid = getuid();
+                attr.st_gid = getgid();
+                attr.st_mode = S_IFREG | 0444;
+                attr.st_size = 0;
+                // Set access and modification times to mount time
+                auto mountTimeT =
+                    std::chrono::system_clock::to_time_t(m_mountTime);
+                attr.st_atim = {mountTimeT, 0};
+                attr.st_mtim = {mountTimeT, 0};
+
+                result.attr = attr;
+
+                return result;
+            }
+
             LOG_DBG(2) << "Resolving inode for space " << name;
 
             // Handle
@@ -327,6 +350,21 @@ public:
             // Set access and modification times of attr to now
             attr.st_atim = {};
             attr.st_mtim = {};
+
+            return attr;
+        }
+
+        if (ino == detail::ONEDATA_MOUNTPOINT_HIDDEN_FILE_INO) {
+            struct stat attr;
+            attr.st_ino = ino;
+            attr.st_uid = getuid();
+            attr.st_gid = getgid();
+            attr.st_mode = S_IFREG | 0444;
+            attr.st_size = 0;
+            // Set access and modification times to mount time
+            auto mountTimeT = std::chrono::system_clock::to_time_t(m_mountTime);
+            attr.st_atim = {mountTimeT, 0};
+            attr.st_mtim = {mountTimeT, 0};
 
             return attr;
         }
@@ -906,6 +944,7 @@ private:
 
     cache::InodeCache m_inodeCache;
     const long long m_generation{};
+    const std::chrono::system_clock::time_point m_mountTime;
 
     std::map</* providerId */ folly::fbstring, std::shared_ptr<FsLogicT>>
         m_fsLogicMap;

@@ -116,7 +116,8 @@ def oneclient(request, onezone_ip, oneprovider_ip, ceph_monitor_ip, onezone_admi
         f' --force-direct-io {mountpoint}')
     proc = subprocess.Popen(oneclient_cli.split(' '))
     print(f"-- Starting oneclient: {oneclient_cli}")
-    wait_until(30, lambda: os.path.exists(f'{mountpoint}/test_oneclient_ceph'))
+    wait_until(30,
+               lambda: os.path.exists(f'{mountpoint}/.__onedata_mountpoint__'))
     print("-- Done")
 
     def unmount():
@@ -149,7 +150,8 @@ def oneclient_proxy(request, oneprovider_ip, ceph_monitor_ip, onezone_admin_toke
         f' --force-proxy-io {mountpoint}')
     proc = subprocess.Popen(oneclient_cli.split(' '))
     print(f"-- Starting oneclient: {oneclient_cli}")
-    wait_until(30, lambda: os.path.exists(f'{mountpoint}/test_oneclient_ceph'))
+    wait_until(30,
+               lambda: os.path.exists(f'{mountpoint}/.__onedata_mountpoint__'))
     print("-- Done")
 
     def unmount():

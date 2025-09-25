@@ -117,7 +117,7 @@ private:
     const std::size_t m_targetCacheSize;
     Map m_cache;
     std::list<fuse_ino_t> m_lru;
-    std::size_t m_nextInode = FUSE_ROOT_ID + 1;
+    std::size_t m_nextInode = FUSE_ROOT_ID + 2;
 };
 
 } // namespace cache
