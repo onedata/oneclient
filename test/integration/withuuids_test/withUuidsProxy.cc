@@ -87,7 +87,7 @@ public:
         bool forceFullblockRead, const std::chrono::seconds providerTimeout,
         const std::chrono::seconds directoryCacheDropAfter,
         std::function<void(folly::Function<void()>)> runInFiber,
-        bool autoStart = false)
+        bool autoStart = false, std::thread::id = {})
     {
     }
 

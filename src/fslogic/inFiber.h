@@ -68,6 +68,7 @@ public:
             folly::setThreadName("InFiber");
             m_eventBase.loopForever();
         }};
+        m_fsLogic.setFiberThreadId(m_thread.get_id());
     }
 
     /**

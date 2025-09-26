@@ -79,6 +79,8 @@ public:
         }
     }
 
+    void setFiberThreadId(std::thread::id id) { m_fiberThreadId = id; }
+
     auto lookup(const fuse_ino_t ino, const folly::fbstring &name)
     {
         LOG_FCALL() << LOG_FARG(ino) << LOG_FARG(name);
@@ -304,7 +306,8 @@ public:
                     m_options->areFileReadEventsDisabled(),
                     m_options->isFullblockReadEnabled(),
                     m_options->getProviderTimeout(),
-                    m_options->getDirectoryCacheDropAfter(), m_runInFiber);
+                    m_options->getDirectoryCacheDropAfter(), m_runInFiber, true,
+                    m_fiberThreadId);
 
                 fsLogic->setAuthManager(authManager);
 
@@ -960,6 +963,8 @@ private:
 
     // Function pointer to run callbacks in fiber
     std::function<void(folly::Function<void()>)> m_runInFiber;
+
+    std::thread::id m_fiberThreadId{};
 };
 
 } // namespace fslogic

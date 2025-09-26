@@ -133,7 +133,8 @@ FsLogic::FsLogic(std::shared_ptr<OneclientContext> context,
     unsigned int metadataCacheSize, bool readEventsDisabled,
     bool forceFullblockRead, const std::chrono::seconds providerTimeout,
     const std::chrono::seconds directoryCacheDropAfter,
-    std::function<void(folly::Function<void()>)> runInFiber, bool autoStart)
+    std::function<void(folly::Function<void()>)> runInFiber, bool autoStart,
+    std::thread::id tid)
     : m_context{context}
     , m_providerTimeout{providerTimeout}
     , m_metadataCache{*m_context->communicator(), metadataCacheSize,
@@ -181,12 +182,30 @@ FsLogic::FsLogic(std::shared_ptr<OneclientContext> context,
     , m_rootUuid{configuration->rootUuid()}
 /* clang-format on */
 {
-    m_runInFiber([this]() {
-        auto tid = std::this_thread::get_id();
+    if (tid != std::thread::id{}) {
+        LOG_DBG(3) << "Setting FsLogic Fiber thread id to: " << tid;
+
         setFiberThreadId(tid);
         m_metadataCache.setFiberThreadId(tid);
         m_readdirCache->setFiberThreadId(tid);
-    });
+    }
+    else {
+        m_runInFiber([this]() {
+            auto tid = std::this_thread::get_id();
+
+            LOG_DBG(3) << "Setting FsLogic Fiber thread id (from fiber) to: "
+                       << tid;
+
+            setFiberThreadId(tid);
+            m_metadataCache.setFiberThreadId(tid);
+            m_readdirCache->setFiberThreadId(tid);
+        });
+    }
+
+    //
+    // Registration of medatacache events callbacks
+    //
+    m_metadataCache.setRunInFiber(m_runInFiber);
 
     m_eventManager.subscribe(*configuration);
 
@@ -213,11 +232,6 @@ FsLogic::FsLogic(std::shared_ptr<OneclientContext> context,
     m_forceProxyIOCache.onRemove([this](const folly::fbstring &uuid) {
         m_fsSubscriptions.unsubscribeFilePermChanged(uuid);
     });
-
-    //
-    // Registration of medatacache events callbacks
-    //
-    m_metadataCache.setRunInFiber(m_runInFiber);
 
     // Called when file attributes are added to the metadata cache
     m_metadataCache.onAdd([this](const folly::fbstring &uuid) {
