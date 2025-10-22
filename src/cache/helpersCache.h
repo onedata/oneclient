@@ -503,6 +503,31 @@ HelpersCache<CommunicatorT>::performAutoIOStorageDetection(
                     params.args(), m_options.isIOBuffered(), overrideParams);
             }
 
+#if WITH_WEBDAV
+            if (params.name() == helpers::HTTP_HELPER_NAME) {
+                try {
+                    {
+                        std::lock_guard<std::mutex> guard(m_accessTypeMutex);
+                        auto at = m_accessType.emplace(
+                            std::make_pair(storageId, AccessType::DIRECT));
+                        if (!at.second)
+                            at.first->second = AccessType::DIRECT;
+                    }
+
+                    auto helper = m_helperFactory.getStorageHelper(
+                        params.name(), params.args(), m_options.isIOBuffered(),
+                        overrideParams);
+                    helper->checkStorageAvailability().get();
+                    return helper;
+                }
+                catch (std::exception &e) {
+                    LOG_DBG(1)
+                        << "HTTP server with storage id '" << storageId
+                        << "' not available for direct access: " << e.what();
+                }
+            }
+#endif
+
             if (params.name() == helpers::POSIX_HELPER_NAME &&
                 overrideParams.find("mountPoint") != overrideParams.end()) {
 
@@ -623,6 +648,21 @@ HelpersCache<CommunicatorT>::performForcedDirectIOStorageDetection(
             throw std::errc::operation_not_supported; // NOLINT
         }
 
+#if WITH_WEBDAV
+        if (params.name() == helpers::HTTP_HELPER_NAME) {
+            try {
+                auto helper = m_helperFactory.getStorageHelper(params.name(),
+                    params.args(), m_options.isIOBuffered(), overrideParams);
+                helper->checkStorageAvailability().get();
+                return helper;
+            }
+            catch (std::exception &e) {
+                LOG_DBG(1) << "HTTP server with storage id '" << storageId
+                           << "' not available for direct access: " << e.what();
+            }
+        }
+#endif
+
         if (params.name() == helpers::POSIX_HELPER_NAME &&
             overrideParams.find("mountPoint") == overrideParams.end()) {
             LOG(INFO) << "Direct IO requested to Posix storage " << storageId
@@ -717,6 +757,11 @@ HelpersCache<CommunicatorT>::handleStorageTestFile(
             std::lock_guard<std::mutex> guard(m_accessTypeMutex);
             m_accessType[storageId] = AccessType::PROXY;
             return {};
+        }
+
+        if (helper->name() == helpers::HTTP_HELPER_NAME) {
+            // HTTP storage helper doesn't support write
+            return helper;
         }
 
         LOG_DBG(2)
