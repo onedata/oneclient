@@ -1,6 +1,35 @@
-# Release notes for project oneclient
+Release notes for project oneclient
+===================================
 
-## CHANGELOG
+CHANGELOG
+---------
+
+### 21.02.9
+
+-   **VFS-13186** Improve handling of HEAD request headers and ensure
+    that HTTP servers without range access are not supported.
+-   **VFS-13110** Fixed handling of Hostname header in requests made by
+    HTTP helper to ensure the Hostname is identical to the specified
+    endpoint in storage parameters.
+-   **VFS-12997** Fixed possible buffer overrun in the implementation of
+    listxattr in case a new attribute is added right after the list is
+    returned to the preallocated user buffer.
+-   **VFS-12848** Added storage helper caching in Oneprovider.
+-   **VFS-12803** Fixed GlusterFS storage verification check logic.
+-   **VFS-12757** Added support for structured error messages in
+    oneclient and ones3 logs.
+-   **VFS-12688** Updated Swift helper to support Keystone V3
+    authentication.
+-   **VFS-12680** Fixed listing public shares in Oneclient.
+-   **VFS-12620** Fixed handling of quota exceeded error in S3 helper.
+-   **VFS-12459** Reworked the concept of Open Data into Public Data; it
+    concerns Shared collections that have been assigned a PID/DOI and
+    are advertised via OAI-PMH. The collections may have different
+    levels of licences assigned, not only the open ones - the rename is
+    to avoid confusion. The `--open-shares-mode` in Oneclient has been
+    renamed to `--public-data-mode`.
+-   **VFS-11877** Added support for storage parameters change in OneS3.
+
 
 ### 21.02.8
 
