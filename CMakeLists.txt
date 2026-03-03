@@ -177,11 +177,11 @@ else(FETCH_FOLLY)
     )
     ExternalProject_Add_StepTargets(wangle install)
     ExternalProject_Add(proxygen
-        GIT_REPOSITORY    https://github.com/facebook/proxygen.git
-        GIT_TAG           v2021.01.04.00
+        GIT_REPOSITORY    https://github.com/bkryza/proxygen.git
+        GIT_TAG           v2021.01.04.01
         DEPENDS           wangle-install
         INSTALL_DIR       ${CMAKE_BINARY_DIR}/contrib
-        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC';-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/contrib;-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
+        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC -Wno-error=implicit-fallthrough -Wno-error=attributes -DFOLLY_FALLTHROUGH=';-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/contrib;-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
     )
     ExternalProject_Add_StepTargets(proxygen install)
     set(FOLLY_INCLUDE_DIR ${CMAKE_BINARY_DIR}/contrib/include)
