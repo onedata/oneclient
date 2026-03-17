@@ -222,7 +222,7 @@ def s3_port():
 
 @pytest.fixture(scope=FIXTURE_SCOPE)
 def s3_https_port():
-    return '8443'
+    return '18443'
 
 
 @pytest.fixture(scope=FIXTURE_SCOPE)
