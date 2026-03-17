@@ -221,6 +221,11 @@ def s3_port():
 
 
 @pytest.fixture(scope=FIXTURE_SCOPE)
+def s3_https_port():
+    return '8443'
+
+
+@pytest.fixture(scope=FIXTURE_SCOPE)
 def s3_port_bucket_cache_invalidation():
     return '8081'
 
@@ -228,6 +233,11 @@ def s3_port_bucket_cache_invalidation():
 @pytest.fixture(scope=FIXTURE_SCOPE)
 def s3_endpoint(s3_host, s3_port):
     return f'http://{s3_host}:{s3_port}'
+
+
+@pytest.fixture(scope=FIXTURE_SCOPE)
+def s3_https_endpoint(s3_host, s3_https_port):
+    return f'https://{s3_host}:{s3_https_port}'
 
 
 @pytest.fixture(scope=FIXTURE_SCOPE)
@@ -266,6 +276,41 @@ def s3_server(request, onezone_ip, oneprovider_ip, ceph_monitor_ip,
         proc.terminate()  # Sends SIGTERM signal
         proc.wait()  # Waits for the process to terminate
         print("-- ones3 server stopped")
+
+    request.addfinalizer(cleanup)
+
+
+@pytest.fixture(scope=FIXTURE_SCOPE)
+def s3_https_server(request, onezone_ip, oneprovider_ip, ceph_monitor_ip,
+              onezone_admin_token, support_storage_id, s3_host, s3_https_port):
+    if s3_host != '0.0.0.0':
+        return
+
+    ones3_cli = (
+        f'debug/s3/ones3'
+        f' --custom-ca-dir test/onenv_tests/certs'
+        f' -v 1'
+        f' --onezone-host dev-onezone.default.svc.cluster.local'
+        f' -H dev-oneprovider-krakow.default.svc.cluster.local'
+        f' --ones3-support-storage-id {support_storage_id}'
+        f' --ones3-support-storage-credentials onepanel:password'
+        f' --ones3-thread-num 10 --scheduler-thread-count 1'
+        f' --storage-helper-thread-count 10'
+        f' --ones3-https-port {s3_https_port} --force-direct-io'
+        f' --ones3-ssl-cert /etc/ones3/ssl/localhost+1.pem'
+        f' --ones3-ssl-key /etc/ones3/ssl/localhost+1-key.pem'
+        f' --no-buffer --provider-timeout 180')
+    proc = subprocess.Popen(ones3_cli.split(' '))
+    print(f"-- Starting ones3 server: {ones3_cli}")
+    time.sleep(15)
+    print("-- Done")
+
+    # Finalizer to send SIGTERM to the process when the fixture is torn down
+    def cleanup():
+        print("-- Stopping ones3 https server")
+        proc.terminate()  # Sends SIGTERM signal
+        proc.wait()  # Waits for the process to terminate
+        print("-- ones3 https server stopped")
 
     request.addfinalizer(cleanup)
 
@@ -339,6 +384,13 @@ def dummy_bucket(s3_static_client):
 @pytest.fixture
 def s3_client(onezone_admin_token, s3_server, secret_access_key, s3_endpoint):
     return create_s3client(s3_endpoint, onezone_admin_token, secret_access_key)
+
+
+@pytest.fixture
+def s3_https_client(onezone_admin_token, s3_https_server, secret_access_key,
+                    s3_https_endpoint):
+    return create_s3client(s3_https_endpoint, onezone_admin_token,
+                           secret_access_key)
 
 
 @pytest.fixture
@@ -484,5 +536,19 @@ def bucket(s3_client, uuid_str):
     try:
         clean_bucket(s3_client, uuid_str)
         delete_bucket(s3_client, uuid_str)
+    except:
+        pass
+
+
+@pytest.fixture
+def bucket_https(s3_https_client, uuid_str):
+    create_bucket(s3_https_client, uuid_str)
+
+    yield uuid_str
+
+    # Ignore errors when cleaning buckets
+    try:
+        clean_bucket(s3_https_client, uuid_str)
+        delete_bucket(s3_https_client, uuid_str)
     except:
         pass
