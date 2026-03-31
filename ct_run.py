@@ -221,7 +221,7 @@ ret = docker.run(tty=True,
                  cpuset_cpus=args.cpuset_cpus,
                  command=['python', '-c', command])
 
-if not args.no_clean:
+if not args.no_clean and args.onenv_config is not None:
     try:
         up_output = subprocess.check_output(['./one-env/onenv', 'clean'])
     except subprocess.CalledProcessError as e:
