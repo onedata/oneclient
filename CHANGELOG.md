@@ -1,8 +1,10 @@
-Release notes for project oneclient
-===================================
+# Release notes for project oneclient
 
-CHANGELOG
----------
+## CHANGELOG
+
+### 25.1
+
+-   **VFS-13398** Fixed handling of new aws-cli PUT requests in OneS3.
 
 ### 25.0
 
