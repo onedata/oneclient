@@ -14,12 +14,12 @@ sources: false
 # be based off onedata/worker image (it contains all the machinery to run the
 # application from sources - images based off onedata-worker are images with
 # -dev suffix).
-onezoneImage: "docker.onedata.org/onezone-dev:25.1"
+onezoneImage: "docker.onedata.org/onezone-dev:develop"
 
 # Oneprovider image to use. Note that if 'sources' option is enabled, it must
 # be based off onedata/worker image (images based off onedata-worker are
 # images with -dev suffix).
-oneproviderImage: "docker.onedata.org/oneprovider-dev:25.1"
+oneproviderImage: "docker.onedata.org/oneprovider-dev:develop"
 
 
 
@@ -33,7 +33,7 @@ onedataCli: false
 oneclients: false
 
 # Oneclient image to use.
-oneclientImage: "docker.onedata.org/oneclient-dev:25.1"
+oneclientImage: "docker.onedata.org/oneclient-dev:develop"
 
 # Onedata rest client image to use.
 onedataCliImage: "docker.onedata.org/rest-cli:ID-f310819457"
