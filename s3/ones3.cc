@@ -167,6 +167,27 @@ int main(int argc, char *argv[])
                 bind_address, *options->getOneS3HTTPPort(), false);
 
         if (options->getOneS3HTTPSPort().has_value()) {
+            const std::vector<std::pair<std::string, std::string>> sslConfig{
+                {"MinProtocol", "TLSv1.2"},
+
+                // TLS 1.2:
+                {"CipherString",
+                    "ECDHE+AESGCM:ECDHE+CHACHA20:"
+                    "!CBC:!aNULL:!eNULL:!EXPORT:!DES:!3DES:!RC4:!MD5:!PSK:!"
+                    "SRP"},
+
+                // TLS 1.3:
+                {"Ciphersuites",
+                    "TLS_AES_256_GCM_SHA384:"
+                    "TLS_CHACHA20_POLY1305_SHA256:"
+                    "TLS_AES_128_GCM_SHA256"},
+
+                // SSL/TLS: Renegotiation DoS Vulnerability (CVE-2011-1473,
+                // CVE-2011-5094)
+                {"Options", "NoRenegotiation"}};
+
+            app().setSSLConfigCommands(sslConfig);
+
             if (options->getOneS3SSLCertificatePath().has_value() &&
                 options->getOneS3SSLKeyPath().has_value())
                 app().addListener(bind_address, *options->getOneS3HTTPSPort(),

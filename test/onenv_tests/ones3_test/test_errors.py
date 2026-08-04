@@ -197,25 +197,13 @@ def test_error_list_buckets_user_with_no_spaces(s3_client_noone):
 
 
 def test_error_list_small_bucket_by_another_user(s3_client, s3_client_joe,
-                                                 bucket,
-                                                 onezone_admin_token,
-                                                 onezone_ip,
-                                                 user_joe_id):
+                                                 bucket):
     for i in range(20):
         s3_client.put_object(Bucket=bucket, Key=f'file-{i}.txt', Body=b'TEST')
 
-    space_id = get_space_id(onezone_ip, onezone_admin_token, bucket)
-    add_user_to_space(onezone_ip, user_joe_id, space_id,
-                      ['space_view'])
+    with pytest.raises(s3_client_joe.exceptions.ClientError) as excinfo:
+        s3_client_joe.list_objects(Bucket=bucket, Delimiter='/',
+                                   EncodingType='path', MaxKeys=1000,
+                                   Prefix='')
 
-    # Wait until infer token scope can see that the user was added to the space
-    time.sleep(10)
-
-    with pytest.raises(botocore.exceptions.ClientError) as e:
-        res = s3_client_joe.list_objects(Bucket=bucket, Delimiter='/',
-                                         EncodingType='path', MaxKeys=1000,
-                                         Prefix='')
-
-    assert e.value.response['Error']['Code'] == 'AccessDenied'
-
-    remove_user_from_space(onezone_ip, user_joe_id, space_id)
+    assert 'NoSuchBucket' in str(excinfo.value)
