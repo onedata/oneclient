@@ -27,7 +27,7 @@ requirements:
     - conda-forge::cmake
     - conda-forge::double-conversion
     - conda-forge::fmt =7.1.*
-    - conda-forge::gflags
+    - conda-forge::gflags =2.2.2
     - conda-forge::git
     - conda-forge::glog =0.4.0
     - conda-forge::gperf
@@ -64,7 +64,7 @@ requirements:
     - conda-forge::aws-sdk-cpp =1.9.283
     - conda-forge::boost =1.78.0
     - conda-forge::double-conversion
-    - conda-forge::gflags
+    - conda-forge::gflags =2.2.2
     - conda-forge::glog =0.4.0
     - conda-forge::jemalloc
     - conda-forge::libevent
