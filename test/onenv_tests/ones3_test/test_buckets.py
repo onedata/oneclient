@@ -180,6 +180,23 @@ def test_list_buckets_by_another_user(s3_client_joe, bucket,
     assert list(map(lambda b: b['Name'] == bucket, buckets)).count(True) == 1
 
 
+def test_list_buckets_space_unsupported_locally(s3_client,
+                                                onezone_admin_token,
+                                                onezone_ip):
+
+    res = s3_client.list_buckets()
+    buckets = res['Buckets']
+
+    bucket = 'test_unsupported_in_krk'
+
+    assert list(map(lambda b: b['Name'] == bucket, buckets)).count(True) == 1
+
+    with pytest.raises(s3_client.exceptions.ClientError) as excinfo:
+         s3_client.list_objects(Bucket=bucket)
+
+    assert 'Bad Request' in str(excinfo.value)
+
+
 @pytest.mark.parametrize(
     "encoding_type,delimiter",
     [
