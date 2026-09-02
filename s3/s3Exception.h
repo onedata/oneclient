@@ -171,6 +171,10 @@ S3_EXCEPTION(XAMZContentSHA256Mismatch, k400BadRequest,
     "computed.")
 S3_EXCEPTION(
     ServiceUnavailable, k503ServiceUnavailable, "Server is currently down.")
+S3_EXCEPTION(IncorrectEndpoint, k400BadRequest,
+    "The specified bucket exists in another Region, i.e. the corresponding "
+    "space is not supported by this provider. Direct requests to a OneS3 "
+    "endpoint of a supporting provider.")
 
 } // namespace error
 } // namespace s3

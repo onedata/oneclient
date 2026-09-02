@@ -1799,6 +1799,9 @@ std::vector<std::pair<std::string, std::string>> Options::toKeyValueList() const
         if (name == "token")
             continue;
 
+        if (name == "ones3-support-storage-credentials")
+            continue;
+
         if (it.second.defaulted())
             continue;
 

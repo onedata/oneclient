@@ -19,7 +19,7 @@ onezoneImage: "docker.onedata.org/onezone-dev:develop"
 # Oneprovider image to use. Note that if 'sources' option is enabled, it must
 # be based off onedata/worker image (images based off onedata-worker are
 # images with -dev suffix).
-oneproviderImage: "docker.onedata.org/oneprovider-dev:develop"
+oneproviderImage: "docker.onedata.org/oneprovider-dev:VFS-13530"
 
 
 
@@ -83,6 +83,7 @@ spaces:
       - provider: oneprovider-1
         storage_name: 's3'
         size: '1000000000' # in bytes
+  - name: test_unsupported
   - name: test_unsupported_in_krk
     supports:
       - provider: oneprovider-2

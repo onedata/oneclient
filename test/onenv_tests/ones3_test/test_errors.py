@@ -207,3 +207,12 @@ def test_error_list_small_bucket_by_another_user(s3_client, s3_client_joe,
                                    Prefix='')
 
     assert 'NoSuchBucket' in str(excinfo.value)
+
+
+def test_error_unsupported_bucket(s3_client, s3_client_joe):
+    bucket = 'test_unsupported'
+
+    with pytest.raises(s3_client_joe.exceptions.ClientError) as excinfo:
+        s3_client.put_object(Bucket=bucket, Key=f'test.txt', Body=b'TEST')
+
+    assert 'NoSuchBucket' in str(excinfo.value)
