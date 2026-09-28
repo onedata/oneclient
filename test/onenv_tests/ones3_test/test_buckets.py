@@ -180,6 +180,26 @@ def test_list_buckets_by_another_user(s3_client_joe, bucket,
     assert list(map(lambda b: b['Name'] == bucket, buckets)).count(True) == 1
 
 
+def test_list_buckets_space_unsupported_locally(s3_client):
+
+    res = s3_client.list_buckets()
+    buckets = res['Buckets']
+
+    bucket = 'test_unsupported_in_krk'
+
+    assert list(map(lambda b: b['Name'] == bucket, buckets)).count(True) == 1
+
+    with pytest.raises(s3_client.exceptions.ClientError) as excinfo:
+         s3_client.list_objects(Bucket=bucket)
+
+    assert 'The specified bucket exists in another Region' in str(excinfo.value)
+
+    with pytest.raises(s3_client.exceptions.ClientError) as excinfo:
+         s3_client.put_object(Bucket=bucket, Key=f'test.txt', Body=b'TEST')
+
+    assert 'The specified bucket exists in another Region' in str(excinfo.value)
+
+
 @pytest.mark.parametrize(
     "encoding_type,delimiter",
     [

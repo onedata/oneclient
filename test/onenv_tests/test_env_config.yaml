@@ -83,6 +83,12 @@ spaces:
       - provider: oneprovider-1
         storage_name: 's3'
         size: '1000000000' # in bytes
+  - name: test_unsupported
+  - name: test_unsupported_in_krk
+    supports:
+      - provider: oneprovider-2
+        storage_name: 'posix'
+        size: '1000000000' # in bytes
   - name: test_onedatafs
     supports:
       - provider: oneprovider-1

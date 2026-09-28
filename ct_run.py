@@ -122,6 +122,9 @@ if args.onenv_config is not None:
         sys.exit(1)
 
     print(f'One-env environment ready')
+    print('-- Volumes after one-env --------------', flush=True)
+    subprocess.call(['df', '-h'])
+    print('-------------------------', flush=True)
 
     envs['ONES3_HOST'] = '0.0.0.0'
 
