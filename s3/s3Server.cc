@@ -1041,6 +1041,72 @@ void S3Server::putObject(const HttpRequestPtr &req,
     }
 }
 
+namespace {
+
+void decodeUploadBody(const HttpRequestPtr &req, const std::string &bucket,
+    const std::string &path, const std::string &requestId,
+    const char *&bodyData, size_t &bodyLength, std::string &bodyMD5,
+    std::string &decodedBody)
+{
+    std::vector<std::string> contentEncodings;
+    folly::split(",", req->getHeader("content-encoding"), contentEncodings);
+    const auto awsChunked = std::any_of(contentEncodings.begin(),
+        contentEncodings.end(), [](const auto &encoding) {
+            return boost::iequals(
+                folly::trimWhitespace(encoding).toString(), "aws-chunked");
+        });
+    const auto &payloadHash = req->getHeader("x-amz-content-sha256");
+    const auto signedStreaming =
+        payloadHash == "STREAMING-AWS4-HMAC-SHA256-PAYLOAD" ||
+        payloadHash == "STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER";
+    const auto streamingBody = awsChunked || signedStreaming ||
+        payloadHash == "STREAMING-UNSIGNED-PAYLOAD-TRAILER";
+
+    if (streamingBody ||
+        req->headers().count("x-amz-decoded-content-length") != 0) {
+        try {
+            const auto &length = req->getHeader("x-amz-decoded-content-length");
+            if (length.empty() ||
+                length.find_first_not_of("0123456789") != std::string::npos)
+                throw std::invalid_argument("Invalid decoded content length");
+
+            const auto decodedLength = std::stoull(length);
+            if (decodedLength > bodyLength)
+                throw std::invalid_argument("Invalid decoded content length");
+
+            // MinIO sends empty signed uploads without chunk framing.
+            const auto emptySignedBody =
+                signedStreaming && bodyLength == 0 && decodedLength == 0;
+            if (streamingBody && !emptySignedBody) {
+                decodedBody = decodeAwsChunkedBody(
+                    folly::StringPiece(bodyData, bodyLength), decodedLength);
+                bodyData = decodedBody.data();
+                bodyLength = decodedBody.size();
+                bodyMD5.clear();
+            }
+            else if (decodedLength != bodyLength) {
+                throw std::invalid_argument("Invalid decoded content length");
+            }
+        }
+        catch (const std::invalid_argument &e) {
+            LOG_REQUEST_ERROR(requestId, "Invalid streaming upload",
+                fmt::format("{} (body-length={}, decoded-length={}, "
+                            "payload={})",
+                    e.what(), bodyLength,
+                    req->getHeader("x-amz-decoded-content-length"),
+                    payloadHash));
+            throw one::s3::error::InvalidRequest(bucket, path, requestId);
+        }
+        catch (const std::out_of_range &e) {
+            LOG_REQUEST_ERROR(
+                requestId, "Streaming upload length out of range", e.what());
+            throw one::s3::error::InvalidRequest(bucket, path, requestId);
+        }
+    }
+}
+
+} // namespace
+
 void S3Server::putMultipartPart(const HttpRequestPtr &req,
     HttpResponseCallback &&callback, const std::string &bucket,
     const std::string &path) const
@@ -1071,6 +1137,7 @@ void S3Server::putMultipartPart(const HttpRequestPtr &req,
             const char *bodyData{nullptr};
             size_t bodyLength{0};
             std::string bodyMD5;
+            std::string decodedBody;
 
             MultiPartParser fileUpload;
 
@@ -1089,6 +1156,9 @@ void S3Server::putMultipartPart(const HttpRequestPtr &req,
                 bodyLength = file.fileLength();
                 bodyMD5 = file.getMd5();
             }
+
+            decodeUploadBody(req, bucket, path, requestId, bodyData, bodyLength,
+                bodyMD5, decodedBody);
 
             if (bodyMD5.empty())
                 bodyMD5 = one::client::util::md5::md5(bodyData, bodyLength);
@@ -1183,71 +1253,8 @@ void S3Server::putCompleteObject(const HttpRequestPtr &req,
                 }
             }
 
-            std::vector<std::string> contentEncodings;
-            folly::split(
-                ",", req->getHeader("content-encoding"), contentEncodings);
-            const auto awsChunked = std::any_of(contentEncodings.begin(),
-                contentEncodings.end(), [](const auto &encoding) {
-                    return boost::iequals(
-                        folly::trimWhitespace(encoding).toString(),
-                        "aws-chunked");
-                });
-            const auto &payloadHash = req->getHeader("x-amz-content-sha256");
-            const auto signedStreaming =
-                payloadHash == "STREAMING-AWS4-HMAC-SHA256-PAYLOAD" ||
-                payloadHash == "STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER";
-            const auto streamingBody = awsChunked || signedStreaming ||
-                payloadHash == "STREAMING-UNSIGNED-PAYLOAD-TRAILER";
-
-            if (streamingBody ||
-                req->headers().count("x-amz-decoded-content-length") != 0) {
-                try {
-                    const auto &length =
-                        req->getHeader("x-amz-decoded-content-length");
-                    if (length.empty() ||
-                        length.find_first_not_of("0123456789") !=
-                            std::string::npos)
-                        throw std::invalid_argument(
-                            "Invalid decoded content length");
-
-                    const auto decodedLength = std::stoull(length);
-                    if (decodedLength > bodyLength)
-                        throw std::invalid_argument(
-                            "Invalid decoded content length");
-
-                    // MinIO sends empty signed uploads without chunk framing.
-                    const auto emptySignedBody = signedStreaming &&
-                        bodyLength == 0 && decodedLength == 0;
-                    if (streamingBody && !emptySignedBody) {
-                        decodedBody = decodeAwsChunkedBody(
-                            folly::StringPiece(bodyData, bodyLength),
-                            decodedLength);
-                        bodyData = decodedBody.data();
-                        bodyLength = decodedBody.size();
-                        bodyMD5.clear();
-                    }
-                    else if (decodedLength != bodyLength) {
-                        throw std::invalid_argument(
-                            "Invalid decoded content length");
-                    }
-                }
-                catch (const std::invalid_argument &e) {
-                    LOG_REQUEST_ERROR(requestId, "Invalid streaming upload",
-                        fmt::format("{} (body-length={}, decoded-length={}, "
-                                    "payload={})",
-                            e.what(), bodyLength,
-                            req->getHeader("x-amz-decoded-content-length"),
-                            payloadHash));
-                    throw one::s3::error::InvalidRequest(
-                        bucket, path, requestId);
-                }
-                catch (const std::out_of_range &e) {
-                    LOG_REQUEST_ERROR(requestId,
-                        "Streaming upload length out of range", e.what());
-                    throw one::s3::error::InvalidRequest(
-                        bucket, path, requestId);
-                }
-            }
+            decodeUploadBody(req, bucket, path, requestId, bodyData, bodyLength,
+                bodyMD5, decodedBody);
 
             if (req->headers().find("content-type") != req->headers().end())
                 bodyContentType = req->headers().at("content-type");
