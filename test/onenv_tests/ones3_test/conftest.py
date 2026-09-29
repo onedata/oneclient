@@ -480,6 +480,18 @@ def rclone_setup(onezone_admin_token, secret_access_key, s3_endpoint):
 
 
 @pytest.fixture(scope=FIXTURE_SCOPE)
+def awscli_setup(onezone_admin_token, secret_access_key):
+    env = os.environ.copy()
+    env['AWS_ACCESS_KEY_ID'] = onezone_admin_token
+    env['AWS_SECRET_ACCESS_KEY'] = secret_access_key
+    env['AWS_DEFAULT_REGION'] = 'pl-reg-k1'
+    env.pop('AWS_SESSION_TOKEN', None)
+    env.pop('AWS_SECURITY_TOKEN', None)
+
+    return env
+
+
+@pytest.fixture(scope=FIXTURE_SCOPE)
 def minio_setup(onezone_admin_token, secret_access_key, s3_server, s3_endpoint):
     os.system(
         f'mc alias set --insecure s3proxy "{s3_endpoint}" {onezone_admin_token} {secret_access_key}')

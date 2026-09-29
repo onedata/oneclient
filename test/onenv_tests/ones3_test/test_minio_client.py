@@ -26,10 +26,11 @@ def test_minio_copy(s3_client, bucket, minio_setup):
         output = subprocess.check_output('mc alias list'.split(' '))
         assert 's3proxy' in output.decode('utf-8')
 
-        output = subprocess.check_output(minio_cmd.split(' '))
-        print("--- Minio complete successfully \n" + output.decode('utf-8'))
+        output = subprocess.check_output(minio_cmd.split(' '),
+                                         stderr=subprocess.STDOUT)
+        print("--- Minio complete successfully \n" + output.decode(errors='replace'))
     except subprocess.CalledProcessError as e:
-        assert False, "mc command failed " + str(e.stdout)
+        pytest.fail(f'mc command failed: {e.output.decode(errors="replace")}')
 
     test_file = 'src/main.cc'
 
@@ -37,7 +38,39 @@ def test_minio_copy(s3_client, bucket, minio_setup):
 
     pprint.pprint(res)
 
+    expected_body = pathlib.Path(source, 'main.cc').read_bytes()
+    try:
+        assert res['Body'].read() == expected_body
+    finally:
+        res['Body'].close()
+    assert res['ContentLength'] == len(expected_body)
+    assert res['ETag'] == f'"{hashlib.md5(expected_body).hexdigest()}"'
     assert(res['Metadata'] == {})
+
+
+@pytest.mark.parametrize('body', [b'', b'abcdefgh' * (1024 * 1024 // 8)],
+                         ids=['empty', '1MB'])
+def test_minio_copy_streaming(s3_client, bucket, minio_setup, tmp_path, body):
+    key = random_path()
+    source = tmp_path / 'minio-upload.bin'
+    source.write_bytes(body)
+
+    try:
+        output = subprocess.check_output(
+            ['mc', '--insecure', 'cp', str(source), f's3proxy/{bucket}/{key}'],
+            stderr=subprocess.STDOUT)
+        print("--- Minio complete successfully \n" + output.decode(errors='replace'))
+    except subprocess.CalledProcessError as e:
+        pytest.fail(f'mc command failed: {e.output.decode(errors="replace")}')
+
+    res = s3_client.get_object(Bucket=bucket, Key=key)
+    try:
+        assert res['Body'].read() == body
+    finally:
+        res['Body'].close()
+    assert res['ContentLength'] == len(body)
+    assert res['ETag'] == f'"{hashlib.md5(body).hexdigest()}"'
+    assert res['Metadata'] == {}
 
 
 @pytest.mark.parametrize(
