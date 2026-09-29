@@ -19,6 +19,7 @@
 #include "messages/macaroon.h"
 #include "options/options.h"
 #include "scheduler.h"
+#include "util/systemProperties.h"
 
 #include <boost/optional.hpp>
 #include <folly/futures/Future.h>
@@ -206,7 +207,8 @@ public:
                 one::messages::ClientHandshakeRequest handshake{sessionId,
                     m_macaroonHandler->restrictedMacaroon(), version,
                     compatibleOneproviderVersions, sessionMode, clientType,
-                    context->options()->toKeyValueList(), {}};
+                    context->options()->toKeyValueList(),
+                    one::client::util::getSystemProperties()};
 
                 return handshake;
             },

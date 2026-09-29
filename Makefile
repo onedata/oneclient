@@ -1,5 +1,5 @@
 # distro for package building (oneof: xenial, centos-7-x86_64)
-RELEASE               ?= 2102
+RELEASE               ?= 25
 DISTRIBUTION          ?= none
 
 PKG_REVISION    ?= $(shell git describe --tags --always  --abbrev=7)
@@ -42,8 +42,8 @@ ONECLIENT_FPMPACKAGE_TMP := package_fpm
 
 # Detect compilation on CentOS using Software Collections environment
 ifeq ($(shell awk -F= '/^ID=/{print $$2}' /etc/os-release), "centos")
-		OPENSSL_ROOT_DIR ?= /opt/onedata/onedata2102/root/usr
-		TBB_INSTALL_DIR ?= /opt/onedata/onedata2102/root/usr
+		OPENSSL_ROOT_DIR ?= /opt/onedata/onedata25/root/usr
+		TBB_INSTALL_DIR ?= /opt/onedata/onedata25/root/usr
 endif
 
 .PHONY: all

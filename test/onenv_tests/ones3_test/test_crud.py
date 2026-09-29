@@ -28,6 +28,20 @@ def test_put_object_simple(s3_client, bucket):
     assert (res['Body'].read() == body)
 
 
+def test_put_object_simple_https(s3_https_client, bucket_https):
+    key = random_path()
+
+    body = random_bytes()
+    etag = hashlib.md5(body).hexdigest()
+
+    s3_https_client.put_object(Bucket=bucket_https, Key=key, Body=body)
+    res = s3_https_client.get_object(Bucket=bucket_https, Key=key)
+
+    assert (res['ContentLength'] == len(body))
+    assert (res['ETag'] == f'"{etag}"')
+    assert (res['Body'].read() == body)
+
+
 def test_get_object_readonly_token(s3_client, s3_readonly_client, bucket):
     key = random_path()
 

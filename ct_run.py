@@ -129,6 +129,9 @@ if args.onenv_config is not None:
         sys.exit(1)
 
     print(f'One-env environment ready')
+    print('-- Volumes after one-env --------------', flush=True)
+    subprocess.call(['df', '-h'])
+    print('-------------------------', flush=True)
 
     envs['ONES3_HOST'] = '0.0.0.0'
 
@@ -233,7 +236,7 @@ ret = docker.run(tty=True,
                  cpuset_cpus=args.cpuset_cpus,
                  command=['python', '-c', command])
 
-if args.onenv_config and not args.no_clean:
+if not args.no_clean and args.onenv_config is not None:
     try:
         up_output = subprocess.check_output(['./one-env/onenv', 'clean'])
     except subprocess.CalledProcessError as e:

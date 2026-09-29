@@ -157,7 +157,7 @@ void S3Exception::raiseFromSystemError(const std::system_error &e,
         case ENOTTY:
             throw one::s3::error::InternalServerError(bucket, path, requestId);
         case ENXIO:
-            throw one::s3::error::InternalServerError(bucket, path, requestId);
+            throw one::s3::error::IncorrectEndpoint(bucket, path, requestId);
         case EOVERFLOW:
             throw one::s3::error::InternalServerError(bucket, path, requestId);
         case EOWNERDEAD:
