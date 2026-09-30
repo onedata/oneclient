@@ -2,6 +2,20 @@
 
 ## CHANGELOG
 
+### 25.2
+
+-   **VFS-13877** Fixed handling of CRC64NVME checksum in OneS3.
+-   **VFS-13757** Fixed potential SSL renegotiation vulnerability in
+    OneS3 server.
+-   **VFS-13718** Enabled registration of Onedata shared file ids in
+    HTTP storage.
+-   **VFS-13599** Added support for storages based on HTTP servers with
+    invalid content-range header in responses.
+-   **VFS-13530** OneS3 now shows spaces which are not supported by the
+    local provider, but blocks access to them with InvalidRegion error.
+-   **VFS-13215** Fixed HTTP helper error for storages supporting HEAD
+    but not accept-ranges header.
+
 ### 25.1
 
 -   **VFS-13398** Fixed handling of new aws-cli PUT requests in OneS3.
