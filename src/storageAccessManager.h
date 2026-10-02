@@ -98,7 +98,23 @@ public:
         const auto &overrideParams =
             m_options.getHelperOverrideParams(storageId);
 
-        if (helperParams.name() == helpers::POSIX_HELPER_NAME) {
+#if WITH_WEBDAV
+        if (helperParams.name() == helpers::HTTP_HELPER_NAME) {
+            auto helper =
+                m_helperFactory.getStorageHelper(helpers::HTTP_HELPER_NAME,
+                    helperParams.args(), m_options.isIOBuffered());
+            try {
+                helper->checkStorageAvailability().get();
+                return helper;
+            }
+            catch (std::exception &e) {
+                LOG_DBG(1) << "HTTP server with storage id '" << storageId
+                           << "' not available for direct access: " << e.what();
+            }
+        }
+        else
+#endif // WITH_WEBDAV
+            if (helperParams.name() == helpers::POSIX_HELPER_NAME) {
             std::vector<boost::filesystem::path> mountPoints;
 
             // Check if the mount point is provided during integration tests
@@ -108,7 +124,8 @@ public:
                     helperParams.args().at("testMountPoint").toStdString());
             }
             else {
-                // List all mountpoints in the system for automatic detection
+                // List all mountpoints in the system for automatic
+                // detection
                 mountPoints = detail::getMountPoints();
             }
 
@@ -142,11 +159,7 @@ public:
                 }
             }
         }
-        else if ((helperParams.name() == helpers::NULL_DEVICE_HELPER_NAME)
-#if WITH_WEBDAV
-            || (helperParams.name() == helpers::HTTP_HELPER_NAME)
-#endif
-        ) {
+        else if (helperParams.name() == helpers::NULL_DEVICE_HELPER_NAME) {
             return m_helperFactory.getStorageHelper(helperParams.name(),
                 helperParams.args(), m_options.isIOBuffered(), overrideParams);
         }
@@ -161,7 +174,8 @@ public:
                 helperParams.args().at("skipStorageDetection") == "true")
                 skipStorageDetection = true;
 
-            // Command line override has higher priority than server settings
+            // Command line override has higher priority than server
+            // settings
             if (overrideParams.find("skipStorageDetection") !=
                 overrideParams.cend()) {
                 if (overrideParams.at("skipStorageDetection") == "true")

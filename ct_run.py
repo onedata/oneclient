@@ -114,13 +114,13 @@ if args.onenv_config is not None:
         sys.exit(1)
 
     environment_ready = False
-    retries = 3
+    retries = 5
     while (not environment_ready) and retries > 0:
         try:
             subprocess.check_call(['./one-env/onenv', 'wait'])
             environment_ready = True
         except subprocess.CalledProcessError as e:
-            retries =- 1
+            retries = retries - 1
             time.sleep(5)
             print(f'Waiting for one-env environment setup...')
 
@@ -129,6 +129,13 @@ if args.onenv_config is not None:
         sys.exit(1)
 
     print(f'One-env environment ready')
+    print('-- One-env status --------------', flush=True)
+    subprocess.call(['kubectl', 'get', 'po', '-o', 'wide'])
+    print('-------------------------', flush=True)
+
+    print('-- Volumes after one-env --------------', flush=True)
+    subprocess.call(['df', '-h'])
+    print('-------------------------', flush=True)
 
     envs['ONES3_HOST'] = '0.0.0.0'
 
@@ -233,7 +240,7 @@ ret = docker.run(tty=True,
                  cpuset_cpus=args.cpuset_cpus,
                  command=['python', '-c', command])
 
-if args.onenv_config and not args.no_clean:
+if not args.no_clean and args.onenv_config is not None:
     try:
         up_output = subprocess.check_output(['./one-env/onenv', 'clean'])
     except subprocess.CalledProcessError as e:

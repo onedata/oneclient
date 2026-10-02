@@ -83,7 +83,15 @@ folly::Future<Aws::S3::Model::ListObjectsResult> S3Logic::readDir(
     const std::string &requestId)
 {
     return getBucketAttr(bucket, requestId)
-        .thenValue([this, prefix](FileAttr &&attr) {
+        .thenTry([this, prefix](folly::Try<FileAttr> &&maybeAttr) {
+            if (maybeAttr.hasException()) {
+                LOG_DBG(3) << "getBucketAttr failed: "
+                           << maybeAttr.exception().what();
+                maybeAttr.throwIfFailed();
+            }
+
+            auto attr = std::move(maybeAttr).value();
+
             if (prefix.empty() || prefix == "/")
                 return folly::makeFuture<FileAttr>(std::move(attr));
 
@@ -91,8 +99,7 @@ folly::Future<Aws::S3::Model::ListObjectsResult> S3Logic::readDir(
         })
         .thenTry([this, maxKeys, marker](auto &&attr) {
             if (attr.hasException()) {
-                auto attrs = FileChildrenAttrs{};
-                PUSH_FUTURES_2(attrs, true);
+                attr.throwIfFailed();
             }
 
             if (attr.value().type() == FileAttr::FileType::directory) {
@@ -177,7 +184,15 @@ folly::Future<Aws::S3::Model::ListObjectsV2Result> S3Logic::readDirV2(
     const std::string &requestId)
 {
     return getBucketAttr(bucket, requestId)
-        .thenValue([this, prefix](FileAttr &&attr) {
+        .thenTry([this, prefix](folly::Try<FileAttr> &&maybeAttr) {
+            if (maybeAttr.hasException()) {
+                LOG_DBG(3) << "getBucketAttr failed: "
+                           << maybeAttr.exception().what();
+                maybeAttr.throwIfFailed();
+            }
+
+            auto attr = std::move(maybeAttr).value();
+
             if (prefix.empty() || prefix == "/")
                 return folly::makeFuture<FileAttr>(std::move(attr));
 
