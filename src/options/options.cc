@@ -84,39 +84,34 @@ Options::Options(messages::handshake::ClientType clientType)
         .withGroup(OptionGroup::GENERAL)
         .withDescription("Ignore options from environment variables.");
 
-    add<std::string>()
+    add<std::vector<std::string>>()
         ->withShortName("H")
         .withLongName("host")
         .withEnvName("provider_host")
         .withConfigName("provider_host")
         .withValueName("<host>")
         .withGroup(OptionGroup::GENERAL)
-        .withDescription("Specify the hostname of the Oneprovider instance to "
-                         "which the Oneclient should connect.");
+        .withDescription(
+            "Specify the hostnames of preferred Oneprovider hosts.");
 
-    if (m_clientType == messages::handshake::ClientType::ones3) {
-        add<std::string>()
-            ->withShortName("Z")
-            .withLongName("onezone-host")
-            .withEnvName("onezone_host")
-            .withConfigName("onezone_host")
-            .withValueName("<onezone_host>")
-            .withGroup(OptionGroup::GENERAL)
-            .withDescription("Specify the hostname of the Onezone instance to "
-                             "which the OneS3 should connect.");
-    }
-
-    add<unsigned int>()
-        ->withShortName("P")
-        .withLongName("port")
-        .withEnvName("provider_port")
-        .withConfigName("provider_port")
-        .withValueName("<port>")
-        .withDefaultValue(
-            DEFAULT_PROVIDER_PORT, std::to_string(DEFAULT_PROVIDER_PORT))
+    add<std::vector<std::string>>()
+        ->withShortName("A")
+        .withLongName("allowed-host")
+        .withEnvName("allowed_provider_host")
+        .withConfigName("allowed_provider_host")
+        .withValueName("<host>")
         .withGroup(OptionGroup::GENERAL)
-        .withDescription("Specify the port to which the Oneclient should "
-                         "connect on the Oneprovider.");
+        .withDescription("Specify the hostnames of allowed Oneprovider hosts.");
+
+    add<std::string>()
+        ->withShortName("Z")
+        .withLongName("onezone-host")
+        .withEnvName("onezone_host")
+        .withConfigName("onezone_host")
+        .withValueName("<onezone_host>")
+        .withGroup(OptionGroup::GENERAL)
+        .withDescription(
+            "Specify the hostname of the Onezone instance to connect to.");
 
     add<bool>()
         ->asSwitch()
@@ -989,11 +984,6 @@ Options::Options(messages::handshake::ClientType clientType)
         .withEnvName("force_fullblock_read")
         .withConfigName("force_fullblock_read")
         .withGroup(OptionGroup::DEPRECATED);
-
-    add<std::string>()
-        ->withEnvName("provider_hostname")
-        .withConfigName("provider_hostname")
-        .withGroup(OptionGroup::DEPRECATED);
 }
 
 void Options::parse(const int argc, const char *const argv[])
@@ -1024,10 +1014,6 @@ void Options::parse(const int argc, const char *const argv[])
         if (!getOnezoneHost()) {
             throw boost::program_options::error_with_no_option_name(
                 "ERROR: required option 'onezone-host' missing");
-        }
-        if (!getProviderHost()) {
-            throw boost::program_options::error_with_no_option_name(
-                "ERROR: required option 'host' missing");
         }
     }
     boost::program_options::notify(m_vm);
@@ -1161,21 +1147,66 @@ bool Options::getSingleThread() const
         .get_value_or(false);
 }
 
-boost::optional<std::string> Options::getProviderHost() const
+std::vector<Endpoint> Options::getPreferredProviders() const
 {
-    return get<std::string>({"host", "provider_host", "provider_hostname"});
+    std::vector<Endpoint> result;
+
+    auto hosts = get<std::vector<std::string>>(
+        {"host", "provider_host", "provider_hostname"})
+                     .get_value_or({});
+
+    for (const auto &h : hosts) {
+        std::vector<std::string> endpointToks;
+        boost::algorithm::split(endpointToks, h, boost::is_any_of(":"));
+
+        Endpoint endpoint;
+        if (endpointToks.size() == 1) {
+            endpoint.host = endpointToks.at(0);
+            endpoint.port = DEFAULT_PROVIDER_PORT;
+        }
+        if (endpointToks.size() == 2) {
+            endpoint.host = endpointToks.at(0);
+            endpoint.port = std::stoi(endpointToks.at(1));
+        }
+
+        result.emplace_back(std::move(endpoint));
+    }
+
+    return result;
+}
+
+std::vector<Endpoint> Options::getAllowedProviders() const
+{
+    std::vector<Endpoint> result;
+
+    auto hosts = get<std::vector<std::string>>(
+        {"allowed-host", "allowed_provider_host", "allowed_provider_hostname"})
+                     .get_value_or({});
+
+    for (const auto &h : hosts) {
+        std::vector<std::string> endpointToks;
+        boost::algorithm::split(endpointToks, h, boost::is_any_of(":"));
+
+        Endpoint endpoint;
+        if (endpointToks.size() == 1) {
+            endpoint.host = endpointToks.at(0);
+            endpoint.port = DEFAULT_PROVIDER_PORT;
+        }
+        if (endpointToks.size() == 2) {
+            endpoint.host = endpointToks.at(0);
+            endpoint.port = std::stoi(endpointToks.at(1));
+        }
+
+        result.emplace_back(std::move(endpoint));
+    }
+
+    return result;
 }
 
 boost::optional<std::string> Options::getOnezoneHost() const
 {
     return get<std::string>(
         {"onezone-host", "onezone_host", "onezone_hostname"});
-}
-
-unsigned int Options::getProviderPort() const
-{
-    return get<unsigned int>({"port", "provider_port"})
-        .get_value_or(DEFAULT_PROVIDER_PORT);
 }
 
 boost::optional<boost::filesystem::path>
@@ -1845,6 +1876,11 @@ std::vector<std::pair<std::string, std::string>> Options::toKeyValueList() const
     }
 
     return result;
+}
+
+messages::handshake::ClientType Options::clientType() const
+{
+    return m_clientType;
 }
 
 } // namespace options

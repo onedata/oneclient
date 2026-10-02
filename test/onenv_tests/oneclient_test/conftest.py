@@ -9,6 +9,8 @@ import uuid
 import requests
 import subprocess
 import time
+import requests
+
 from pathlib import Path
 
 import urllib3
@@ -99,7 +101,7 @@ def s3_support_storage_id(request, oneprovider_ip, onezone_admin_token):
 
 
 @pytest.fixture(scope="class")
-def oneclient(request, oneprovider_ip, ceph_monitor_ip, onezone_admin_token,
+def oneclient(request, onezone_ip, oneprovider_ip, ceph_monitor_ip, onezone_admin_token,
               ceph_support_storage_id, s3_support_storage_id, s3_server_ip,
               mountpoint):
     oneclient_cli = (
@@ -114,7 +116,8 @@ def oneclient(request, oneprovider_ip, ceph_monitor_ip, onezone_admin_token,
         f' --force-direct-io {mountpoint}')
     proc = subprocess.Popen(oneclient_cli.split(' '))
     print(f"-- Starting oneclient: {oneclient_cli}")
-    wait_until(30, lambda: os.path.exists(f'{mountpoint}/test_oneclient_ceph'))
+    wait_until(30,
+               lambda: os.path.exists(f'{mountpoint}/.__onedata_mountpoint__'))
     print("-- Done")
 
     def unmount():
@@ -128,6 +131,9 @@ def oneclient(request, oneprovider_ip, ceph_monitor_ip, onezone_admin_token,
     request.addfinalizer(unmount)
 
     request.cls.mountpoint = mountpoint
+    request.cls.onezone_admin_token = onezone_admin_token
+    request.cls.onezone_ip = onezone_ip
+    request.cls.oneprovider_ip = oneprovider_ip
 
 
 @pytest.fixture(scope="class")
@@ -144,7 +150,8 @@ def oneclient_proxy(request, oneprovider_ip, ceph_monitor_ip, onezone_admin_toke
         f' --force-proxy-io {mountpoint}')
     proc = subprocess.Popen(oneclient_cli.split(' '))
     print(f"-- Starting oneclient: {oneclient_cli}")
-    wait_until(30, lambda: os.path.exists(f'{mountpoint}/test_oneclient_ceph'))
+    wait_until(30,
+               lambda: os.path.exists(f'{mountpoint}/.__onedata_mountpoint__'))
     print("-- Done")
 
     def unmount():

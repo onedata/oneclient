@@ -1,5 +1,5 @@
 # distro for package building (oneof: xenial, centos-7-x86_64)
-RELEASE               ?= 25
+RELEASE               ?= 2202
 DISTRIBUTION          ?= none
 
 PKG_REVISION    ?= $(shell git describe --tags --always  --abbrev=7)

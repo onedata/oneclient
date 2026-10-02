@@ -18,9 +18,11 @@ namespace one {
 namespace client {
 namespace cache {
 
-InodeCache::Entry::Entry(const fuse_ino_t inode_, folly::fbstring uuid_)
+InodeCache::Entry::Entry(
+    const fuse_ino_t inode_, folly::fbstring uuid_, folly::fbstring providerId_)
     : inode{inode_}
     , uuid{std::move(uuid_)}
+    , providerId{std::move(providerId_)}
 {
 }
 
@@ -28,10 +30,46 @@ InodeCache::InodeCache(
     const folly::fbstring &rootUuid, const std::size_t targetCacheSize)
     : m_targetCacheSize{targetCacheSize}
 {
-    m_cache.emplace(FUSE_ROOT_ID, rootUuid);
+    m_cache.emplace(FUSE_ROOT_ID, rootUuid, folly::fbstring{});
 
     ONE_METRIC_COUNTER_SET(
         "comp.oneclient.mod.inodecache.maxsize", targetCacheSize);
+}
+
+folly::fbstring InodeCache::providerId(const fuse_ino_t inode) const
+{
+    LOG_FCALL() << LOG_FARG(inode);
+
+    const auto &index = boost::multi_index::get<ByInode>(m_cache);
+    auto entryIt = index.find(inode);
+    if (entryIt == index.end() || entryIt->lruIt) {
+        LOG(ERROR) << "No provider found for inode " << inode;
+        throw std::out_of_range{
+            "no active mapping for inode " + std::to_string(inode)};
+    }
+
+    LOG_DBG(2) << "Returning providerId " << entryIt->uuid << " for inode "
+               << inode;
+
+    return entryIt->providerId;
+}
+
+fuse_ino_t InodeCache::generateInode(
+    const folly::fbstring &uuid, const folly::fbstring &providerId)
+{
+    auto &index = boost::multi_index::get<ByUuid>(m_cache);
+    auto entryIt = index.find(uuid);
+
+    if (entryIt == index.end()) {
+        const auto inode = m_nextInode++;
+        m_cache.emplace(inode, uuid, providerId);
+
+        LOG_DBG(2) << "Created new inode " << inode << " for file " << uuid;
+
+        prune();
+    }
+
+    return lookup(uuid);
 }
 
 fuse_ino_t InodeCache::lookup(const folly::fbstring &uuid)
@@ -57,19 +95,12 @@ fuse_ino_t InodeCache::lookup(const folly::fbstring &uuid)
         return entryIt->inode;
     }
 
-    const auto inode = m_nextInode++;
-    m_cache.emplace(inode, uuid);
-
-    LOG_DBG(2) << "Created new inode " << inode << " for file " << uuid;
-
-    prune();
-
-    ONE_METRIC_COUNTER_SET("comp.oneclient.mod.inodecache.size", index.size());
-
-    return inode;
+    LOG(ERROR) << "No file found for uuid " << uuid;
+    throw std::out_of_range{"no active mapping for uuid " + uuid.toStdString()};
 }
 
-folly::fbstring InodeCache::at(const fuse_ino_t inode) const
+std::pair<folly::fbstring, folly::fbstring> InodeCache::at(
+    const fuse_ino_t inode) const
 {
     LOG_FCALL() << LOG_FARG(inode);
 
@@ -83,7 +114,7 @@ folly::fbstring InodeCache::at(const fuse_ino_t inode) const
 
     LOG_DBG(2) << "Returning file " << entryIt->uuid << " for inode " << inode;
 
-    return entryIt->uuid;
+    return {entryIt->uuid, entryIt->providerId};
 }
 
 void InodeCache::forget(const fuse_ino_t inode, const std::size_t count)

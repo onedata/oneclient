@@ -30,11 +30,20 @@ public:
 
     void assertInFiber() const
     {
+        LOG_DBG(3) << "Checking fiber thread id " << m_fiberThreadId << "=?"
+                   << std::this_thread::get_id();
+
+        if (m_fiberThreadId != std::this_thread::get_id()) {
+            LOG(ERROR) << "Running fiber bound code outside of fiber thread: "
+                       << m_fiberThreadId << "!=" << std::this_thread::get_id()
+                       << ": " << ::one::logging::print_stacktrace();
+        }
+
         assert(m_fiberThreadId == std::this_thread::get_id());
     }
 
 private:
-    std::thread::id m_fiberThreadId;
+    std::thread::id m_fiberThreadId{};
 };
 
 } // namespace client

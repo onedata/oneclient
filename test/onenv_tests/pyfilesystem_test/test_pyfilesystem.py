@@ -97,7 +97,6 @@ class OSFSBase(FSTestCases):
     def tearDownClass(cls):
         warnings.simplefilter(warnings.defaultaction)
 
-
     def _get_real_path(self, path):
         _path = os.path.join(self.fs.root_path, relpath(path))
         return _path

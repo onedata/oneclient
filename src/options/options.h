@@ -87,6 +87,19 @@ static constexpr auto DEFAULT_EMULATE_AVAILABLE_SPACE = 0ULL;
 #endif
 }
 
+struct Endpoint {
+    std::string host;
+    int port{443};
+
+    std::string to_string() const { return host + ":" + std::to_string(port); }
+
+    bool operator==(const Endpoint &other) const
+    {
+        return host == other.host && port == other.port;
+    }
+    bool operator!=(const Endpoint &other) const { return !(*this == other); }
+};
+
 class Option;
 template <typename T> class TypedOption;
 enum class OptionGroup;
@@ -181,9 +194,14 @@ public:
     bool getSingleThread() const;
 
     /*
-     * @return Provider hostname if option has been provided.
+     * @return Preferred provider hostname if option has been provided.
      */
-    boost::optional<std::string> getProviderHost() const;
+    std::vector<Endpoint> getPreferredProviders() const;
+
+    /*
+     * @return Allowed provider hostname if option has been provided.
+     */
+    std::vector<Endpoint> getAllowedProviders() const;
 
     /*
      * @return Onezone hostname if option has been provided.
@@ -265,11 +283,6 @@ public:
      * @return POSIX file mode for new files.
      */
     int getOneS3FileMode() const;
-
-    /*
-     * @return Provider port.
-     */
-    unsigned int getProviderPort() const;
 
     /*
      * @return true if 'insecure' option has been provided, otherwise false.
@@ -623,6 +636,8 @@ public:
     struct fuse_args getFuseArgs(const char *programName) const;
 
     std::vector<std::pair<std::string, std::string>> toKeyValueList() const;
+
+    messages::handshake::ClientType clientType() const;
 
 private:
     template <typename T> std::shared_ptr<TypedOption<T>> add()

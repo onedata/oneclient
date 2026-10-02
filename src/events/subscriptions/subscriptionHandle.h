@@ -36,9 +36,22 @@ public:
      */
     virtual ~SubscriptionHandle();
 
+    /**
+     * Mark subscription as stopped.
+     */
+    void stop();
+
+    /**
+     * Is subscription stopped?
+     *
+     * @return
+     */
+    bool stopped() const;
+
 private:
     StreamKey m_streamKey;
     Streams &m_streams;
+    bool m_stopped;
 };
 
 } // namespace events

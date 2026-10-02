@@ -100,10 +100,6 @@ namespace fslogic {
 
 using namespace std::literals;
 
-namespace {
-const std::string kAbsLinkPrefix = "<__onedata_space_id:"; // NOLINT
-} // namespace
-
 /**
  * Filters given flags set to one of RDONLY, WRONLY or RDWR.
  * Returns RDONLY if flag value is zero.
@@ -137,7 +133,8 @@ FsLogic::FsLogic(std::shared_ptr<OneclientContext> context,
     unsigned int metadataCacheSize, bool readEventsDisabled,
     bool forceFullblockRead, const std::chrono::seconds providerTimeout,
     const std::chrono::seconds directoryCacheDropAfter,
-    std::function<void(folly::Function<void()>)> runInFiber, bool autoStart)
+    std::function<void(folly::Function<void()>)> runInFiber, bool autoStart,
+    std::thread::id tid)
     : m_context{context}
     , m_providerTimeout{providerTimeout}
     , m_metadataCache{*m_context->communicator(), metadataCacheSize,
@@ -156,7 +153,6 @@ FsLogic::FsLogic(std::shared_ptr<OneclientContext> context,
     , m_forceFullblockRead{forceFullblockRead}
     , m_fsSubscriptions{m_eventManager, m_metadataCache, m_forceProxyIOCache,
           *m_helpersCache, runInFiber}
-    , m_nextFuseHandleId{0}
     , m_storageTimeout{m_context->options()->getStorageTimeout()}
     , m_runInFiber{std::move(runInFiber)} /* clang-format off */
     , m_prefetchModeAsync{m_context->options()->getPrefetchMode() == "async"}
@@ -186,14 +182,30 @@ FsLogic::FsLogic(std::shared_ptr<OneclientContext> context,
     , m_rootUuid{configuration->rootUuid()}
 /* clang-format on */
 {
-    m_nextFuseHandleId = 0;
+    if (tid != std::thread::id{}) {
+        LOG_DBG(3) << "Setting FsLogic Fiber thread id to: " << tid;
 
-    m_runInFiber([this]() {
-        auto tid = std::this_thread::get_id();
         setFiberThreadId(tid);
         m_metadataCache.setFiberThreadId(tid);
         m_readdirCache->setFiberThreadId(tid);
-    });
+    }
+    else {
+        m_runInFiber([this]() {
+            auto tid = std::this_thread::get_id();
+
+            LOG_DBG(3) << "Setting FsLogic Fiber thread id (from fiber) to: "
+                       << tid;
+
+            setFiberThreadId(tid);
+            m_metadataCache.setFiberThreadId(tid);
+            m_readdirCache->setFiberThreadId(tid);
+        });
+    }
+
+    //
+    // Registration of medatacache events callbacks
+    //
+    m_metadataCache.setRunInFiber(m_runInFiber);
 
     m_eventManager.subscribe(*configuration);
 
@@ -220,11 +232,6 @@ FsLogic::FsLogic(std::shared_ptr<OneclientContext> context,
     m_forceProxyIOCache.onRemove([this](const folly::fbstring &uuid) {
         m_fsSubscriptions.unsubscribeFilePermChanged(uuid);
     });
-
-    //
-    // Registration of medatacache events callbacks
-    //
-    m_metadataCache.setRunInFiber(m_runInFiber);
 
     // Called when file attributes are added to the metadata cache
     m_metadataCache.onAdd([this](const folly::fbstring &uuid) {
@@ -359,6 +366,8 @@ void FsLogic::stop()
 {
     LOG_FCALL();
 
+    const auto kSessionCloseMessageWaitTimeout{100U};
+
     if (!m_stopping) {
         m_stopping = true;
 
@@ -373,20 +382,45 @@ void FsLogic::stop()
 
         m_directoryCachePruneBaton.post();
 
-        LOG(INFO) << "Stopping FsLogic communicator...";
+        LOG(INFO) << "Stopping FsLogic for "
+                  << m_context->communicator()->host() << ":"
+                  << m_context->communicator()->port() << " ...";
 
-        folly::makeSemiFuture()
-            .via(folly::getGlobalCPUExecutor().get())
-            .delayed(std::chrono::seconds{2})
-            .thenValue([this](auto && /*unit*/) {
-                m_context->communicator()->send(messages::CloseSession{});
-            })
-            .delayed(std::chrono::seconds{5})
-            .thenTry(
-                [this](auto && /*unit*/) { m_context->communicator()->stop(); })
-            .get();
+        if (m_context->communicator()->isConnected()) {
+            folly::makeSemiFuture()
+                .via(folly::getGlobalCPUExecutor().get())
+                .thenValue([context = m_context](auto && /*unit*/) {
+                    LOG(INFO)
+                        << "Sending close session message and stopping...";
+                    context->communicator()->send(messages::CloseSession{},
+                        communication::CLOSE_CONNECTION_AFTER_SEND);
+                })
+                .delayed(
+                    std::chrono::milliseconds{kSessionCloseMessageWaitTimeout})
+                .thenTry([context = m_context](auto && /*unit*/) {
+                    LOG(INFO) << "Stopping communicator ...";
+
+                    context->communicator()->stop();
+                    LOG(INFO) << "Communicator stopped ...";
+                })
+                .get();
+        }
+        else {
+            folly::makeSemiFuture()
+                .via(folly::getGlobalCPUExecutor().get())
+                .thenTry([context = m_context](auto && /*unit*/) {
+                    LOG(INFO) << "Stopping communicator immediately...";
+
+                    context->communicator()->stop();
+                    LOG(INFO) << "Communicator stopped ...";
+                })
+                .get();
+        }
 
         LOG(INFO) << "FsLogic communicator stopped...";
+    }
+    else {
+        LOG_DBG(2) << "FsLogic already stopping...";
     }
 }
 
@@ -399,8 +433,6 @@ void FsLogic::reset()
     }
 
     LOG_DBG(1) << "Resetting internal caches after connection lost...";
-
-    assertInFiber();
 
     // Close all files
     for (auto &fh : m_fuseFileHandles) {
@@ -504,7 +536,9 @@ FileAttrPtr FsLogic::lookup(
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(name);
 
-    IOTRACE_START()
+    assert(!uuid.empty());
+
+    IOTRACE_START();
 
     assertInFiber();
 
@@ -559,6 +593,8 @@ FileAttrPtr FsLogic::getattr(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
+    assert(!uuid.empty());
+
     IOTRACE_GUARD(IOTraceGetAttr, IOTraceLogger::OpType::GETATTR, uuid, 0)
 
     assertInFiber();
@@ -589,7 +625,7 @@ std::uint64_t FsLogic::opendir(const folly::fbstring &uuid)
         throw std::system_error(
             std::make_error_code(std::errc::no_such_file_or_directory));
 
-    const auto fuseFileHandleId = m_nextFuseHandleId++;
+    const auto fuseFileHandleId = FuseFileHandle::newHandleId();
 
     m_metadataCache.opendir(uuid);
 
@@ -668,7 +704,7 @@ std::uint64_t FsLogic::open(const folly::fbstring &uuid, const int flags,
 
     auto fuseFileHandleId = reuseFuseFileHandleId;
     if (fuseFileHandleId == 0U)
-        fuseFileHandleId = m_nextFuseHandleId++;
+        fuseFileHandleId = FuseFileHandle::newHandleId();
 
     if (attr->isVirtual()) {
         // Create a virtual file handle id
@@ -739,7 +775,7 @@ void FsLogic::release(
 
     auto releaseExceptionFuture =
         folly::collectAll(releaseFutures)
-            .via(folly::getCPUExecutor().get())
+            .via(folly::getUnsafeMutableGlobalCPUExecutor().get())
             .thenValue([](std::vector<folly::Try<folly::Unit>> &&tries) {
                 for (auto &t : tries)
                     t.value();
@@ -990,8 +1026,8 @@ folly::IOBufQueue FsLogic::readInternal(const folly::fbstring &uuid,
             }
 
             LOG(INFO) << "Cannot synchronize block " << wantedRange << " after "
-                      << m_maxRetryCount << " retries "
-                      << " in file " << uuid << " - returning block of zeros";
+                      << m_maxRetryCount << " retries in file " << uuid
+                      << " - returning block of zeros";
 
             auto iobuf = folly::IOBuf::create(size);
             memset(iobuf->writableTail(), 0, size);
@@ -1129,7 +1165,7 @@ folly::IOBufQueue FsLogic::readInternal(const folly::fbstring &uuid,
         // Folly fibers does not allow to recursively call from exception
         // handler Keep the error data, and retry after the catch block
         ec = e.code().value();
-        ew = folly::exception_wrapper(std::current_exception(), e);
+        ew = folly::exception_wrapper(std::in_place_t{}, e);
     }
 
     // Retry on error or rethrow exception
@@ -1503,7 +1539,7 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
         // Folly fibers does not allow to recursively call from exception
         // handler Keep the error data, and retry after the catch block
         ec = e.code().value();
-        ew = folly::exception_wrapper(std::current_exception(), e);
+        ew = folly::exception_wrapper(std::in_place_t{}, e);
     }
 
     if (ec != 0) {
@@ -1697,15 +1733,7 @@ FileAttrPtr FsLogic::symlink(const folly::fbstring &parentUuid,
 
     IOTRACE_START()
 
-    folly::fbstring effectiveLink{link};
-    if (!effectiveLink.empty() && (effectiveLink[0] == '/')) {
-        effectiveLink = createSpaceRelativeSymlink(effectiveLink);
-
-        LOG_DBG(2) << "Creating space-relative absolute symlink: "
-                   << effectiveLink;
-    }
-
-    messages::fuse::MakeSymLink msg{parentUuid, name, effectiveLink};
+    messages::fuse::MakeSymLink msg{parentUuid, name, link};
     auto attr = communicate<FileAttr>(std::move(msg), m_providerTimeout);
     auto sharedAttr = std::make_shared<FileAttr>(std::move(attr));
 
@@ -1728,11 +1756,6 @@ folly::fbstring FsLogic::readlink(const folly::fbstring &uuid)
     messages::fuse::ReadSymLink msg{uuid};
     auto symlink = communicate<one::messages::fuse::SymLink>(
         std::move(msg), m_providerTimeout);
-
-    if (symlink.link().find(kAbsLinkPrefix) == 0) {
-        // This is space-relative absolute symlink
-        return resolveSpaceRelativeSymlink(symlink.link());
-    }
 
     return symlink.link();
 }
@@ -1770,7 +1793,7 @@ std::pair<FileAttrPtr, std::uint64_t> FsLogic::create(
     auto openFileToken =
         m_metadataCache.open(uuid, sharedAttr, std::move(location));
 
-    const auto fuseFileHandleId = m_nextFuseHandleId++;
+    const auto fuseFileHandleId = FuseFileHandle::newHandleId();
 
     auto fuseFileHandle = std::make_shared<FuseFileHandle>(flags,
         created.handleId(), openFileToken, *m_helpersCache, m_forceProxyIOCache,
@@ -2315,7 +2338,7 @@ void FsLogic::pruneExpiredDirectories(const std::chrono::seconds delay)
         m_directoryCachePruneBaton.reset();
         m_directoryCachePruneBaton.timed_wait(delay);
 
-        if (m_stopped)
+        if (m_stopping)
             break;
 
         LOG_DBG(2) << "Running scheduled pruning of expired entries from "
@@ -2409,105 +2432,6 @@ std::shared_ptr<IOTraceLogger> FsLogic::createIOTraceLogger()
     return IOTraceLogger::make(traceFilePath.native());
 }
 
-folly::fbstring FsLogic::resolveSpaceRelativeSymlink(
-    const folly::fbstring &link)
-{
-    auto spaceId = link.substr(kAbsLinkPrefix.size());
-    if (spaceId.find('>') == std::string::npos)
-        return link;
-
-    auto prefixEnd = spaceId.find('>', 0);
-    auto relativePath = spaceId.substr(prefixEnd + 1);
-    if (!relativePath.empty() && relativePath[0] != '/')
-        relativePath = "/" + relativePath;
-    spaceId = spaceId.substr(0, spaceId.find('>', 0));
-
-    auto spaceUuid = util::uuid::spaceIdToSpaceUUID(spaceId);
-
-    try {
-        auto attr = m_metadataCache.getAttr(spaceUuid);
-        auto mountPoint = boost::filesystem::absolute(
-            m_context->options()->getMountpoint(), "/");
-
-        auto mountPointString = mountPoint.string();
-        if (mountPointString.back() == '/')
-            mountPointString.pop_back();
-
-        if (m_showSpaceIdsNotNames)
-            return fmt::format(
-                "{}/{}{}", mountPointString, spaceId, relativePath);
-
-        auto absLink = fmt::format(
-            "{}/{}{}", mountPointString, attr->name(), relativePath);
-
-        LOG_DBG(2) << "Return space-relative absolute link: " << absLink;
-
-        return absLink;
-    }
-    catch (boost::filesystem::filesystem_error &e) {
-        return link;
-    }
-    catch (std::system_error &e) {
-        if (e.code().value() == ENOENT)
-            return link;
-        throw;
-    }
-}
-
-folly::fbstring FsLogic::createSpaceRelativeSymlink(const folly::fbstring &link)
-{
-    folly::fbstring effectiveLink{link};
-    try {
-        auto mountPoint = boost::filesystem::absolute(
-            m_context->options()->getMountpoint(), "/");
-
-        if (effectiveLink.back() == '/')
-            effectiveLink.pop_back();
-
-        if (effectiveLink.find(mountPoint.string()) == 0) {
-            // Get space name from the path
-            auto pathRelativeToMountpoint = boost::filesystem::path{
-                effectiveLink.substr(mountPoint.string().size()).toStdString()};
-
-            if (pathRelativeToMountpoint.string().size() > 1) {
-                auto spaceName =
-                    *pathRelativeToMountpoint.relative_path().begin();
-
-                auto attr =
-                    m_metadataCache.getAttr(m_rootUuid, spaceName.string());
-
-                auto spacePath = mountPoint.string();
-                if (spacePath.back() == '/')
-                    spacePath += spaceName.string();
-                else
-                    spacePath += std::string("/") + spaceName.string();
-
-                auto spaceRelativePath = effectiveLink.substr(spacePath.size());
-
-                if (!spaceRelativePath.empty()) {
-                    if (spaceRelativePath[0] == '/')
-                        spaceRelativePath.erase(spaceRelativePath.begin());
-
-                    effectiveLink = fmt::format("{}{}>/{}", kAbsLinkPrefix,
-                        util::uuid::uuidToSpaceId(attr->uuid()).toStdString(),
-                        spaceRelativePath);
-                }
-                else {
-                    effectiveLink = fmt::format("{}{}>", kAbsLinkPrefix,
-                        util::uuid::uuidToSpaceId(attr->uuid()).toStdString());
-                }
-            }
-        }
-    }
-    catch (boost::filesystem::filesystem_error &e) {
-    }
-    catch (std::system_error &e) {
-        if (e.code().value() != ENOENT)
-            throw;
-    }
-
-    return effectiveLink;
-}
 } // namespace fslogic
 } // namespace client
 } // namespace one

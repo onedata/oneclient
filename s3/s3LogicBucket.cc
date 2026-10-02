@@ -41,7 +41,17 @@ Aws::String encodeURLPath(const std::string &path)
     return result;
 }
 
-folly::Future<Aws::S3::Model::ListBucketsResult> S3Logic::listBuckets()
+folly::Future<Aws::S3::Model::ListBucketsResult> S3Logic::listBuckets(
+    bool forceUpdate)
+{
+    auto spaces = m_dataAccessScopeCache.listSpacesForProvider(
+        m_oneproviderId, forceUpdate);
+
+    return toListBucketsResult(std::move(spaces));
+}
+
+folly::Future<folly::fbvector<one::messages::fuse::FileAttr>>
+S3Logic::listSpaces()
 {
     folly::Optional<folly::fbstring> indexToken;
     constexpr auto kMaxFetchSize{10000};
@@ -50,7 +60,7 @@ folly::Future<Aws::S3::Model::ListBucketsResult> S3Logic::listBuckets()
         m_rootUuid, 0, kMaxFetchSize, indexToken, false, false};
 
     return communicate<FileChildrenAttrs>(std::move(getFileChildrenAttrs))
-        .then(&S3Logic::toListBucketsResult, this);
+        .thenValue([](auto &&children) { return children.childrenAttrs(); });
 }
 
 folly::Future<Aws::S3::Model::HeadObjectResult> S3Logic::headBucket(
@@ -106,7 +116,7 @@ folly::Future<Aws::S3::Model::ListObjectsResult> S3Logic::readDir(
         .thenValue([prefix, bucket, marker, maxKeys](auto &&args) {
             POP_FUTURES_2(args, attrs, isPrefixARegularFilePath);
 
-            attrs.throwIfFailed();
+            attrs.throwUnlessValue();
 
             Aws::S3::Model::ListObjectsResult result;
             result.SetPrefix(prefix.toStdString());
@@ -209,7 +219,7 @@ folly::Future<Aws::S3::Model::ListObjectsV2Result> S3Logic::readDirV2(
         .thenValue([prefix, bucket, marker, maxKeys](auto &&args) {
             POP_FUTURES_2(args, attrs, isPrefixARegularFilePath);
 
-            attrs.throwIfFailed();
+            attrs.throwUnlessValue();
 
             Aws::S3::Model::ListObjectsV2Result result;
             result.SetPrefix(prefix.toStdString());
@@ -287,7 +297,7 @@ folly::Future<Aws::S3::Model::ListObjectsV2Result> S3Logic::readDirV2Recursive(
     return getBucketAttr(bucket, requestId)
         .thenTry([this, maxKeys, startAfter, includeDirectories, token, prefix](
                      auto &&maybeAttr) {
-            maybeAttr.throwIfFailed();
+            maybeAttr.throwUnlessValue();
             return communicate<FileList>(ListFilesRecursively{
                 maybeAttr.value().uuid(), maxKeys, token, startAfter, prefix,
                 {ONEDATA_S3_XATTR_CONTENT_MD5}, includeDirectories});

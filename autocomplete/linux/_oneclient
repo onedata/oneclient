@@ -38,8 +38,8 @@ arg_oneclient=(\
   {-c,--config}'[Specify path to user config file.]: :_files' \
   {-u,--unmount}'[Unmount oneclient and exit]: :{_values "Oneclient mount points" "" $onemounts}' \
   {-i,--insecure}'[Disable verification of server certificate, allows to connect to servers without valid certificate.]' \
-  {-H,--host}'[Specify the hostname of the Oneprovider instance to which the oneclient should connect.]: :_hosts' \
-  {-P,--port}'[Specify the port to which the oneclient should connect on the Oneprovider.]:_ports' \
+  {-H,--host}'[Specify the hostnames of preferred Oneproviders.]: :_hosts' \
+  {-Z,--onezone-host}'[Specify the hostname of the Onezone instance to connect to.]: :_hosts'\
   {-t,--token}'[Specify Onedata access token for authentication and authorization.]:token' \
   {-l,--log-path}'[Specify custom path for oneclient logs.]: :{_files -/}' \
   {-r,--override}'[Allows to override selected helper parameters for specific storage.]' \

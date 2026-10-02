@@ -74,9 +74,9 @@ void startLogging(
     LOG(INFO) << "Oneclient commit: " << ONECLIENT_GIT_COMMIT;
     LOG(INFO) << "Helpers commit: " << HELPERS_GIT_COMMIT;
     LOG(INFO) << "Verbose logging level: " << options->getVerboseLogLevel();
-    if (options->getProviderHost())
-        LOG(INFO) << "Connecting to Oneprovider: "
-                  << options->getProviderHost().get();
+    if (options->getOnezoneHost())
+        LOG(INFO) << "Connecting to Onezone: "
+                  << options->getOnezoneHost().get();
     LOG(INFO) << "Forced direct IO: " << options->isDirectIOForced();
     LOG(INFO) << "Forced proxy IO: " << options->isProxyIOForced();
     LOG(INFO) << "Verify server certificate: " << !options->isInsecure();
@@ -136,8 +136,6 @@ void startLoggingOneS3(
     LOG(INFO) << "Verbose logging level: " << options->getVerboseLogLevel();
     LOG(INFO) << "Log directory: " << options->getLogDirPath().string();
     LOG(INFO) << "Connecting to Onezone: " << options->getOnezoneHost().get();
-    LOG(INFO) << "Connecting to Oneprovider: "
-              << options->getProviderHost().get();
     LOG(INFO) << "Forced direct IO: " << options->isDirectIOForced();
     LOG(INFO) << "Forced proxy IO: " << options->isProxyIOForced();
     LOG(INFO) << "Verify server certificate: " << !options->isInsecure();

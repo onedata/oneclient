@@ -17,9 +17,10 @@ namespace one {
 namespace rest {
 namespace oneprovider {
 
-OneproviderClient::OneproviderClient(const std::string &hostname)
+OneproviderClient::OneproviderClient(const std::string &hostname, int port)
 {
     session_.setHost(hostname);
+    session_.setPort(port);
     session_.setKeepAlive(true);
 }
 

@@ -25,8 +25,11 @@ import random
 
 from six import text_type
 
+from os import listdir
+from os.path import isdir, join
 from concurrent.futures import ThreadPoolExecutor, wait, ALL_COMPLETED
 from .common import random_bytes, random_str, random_int, timer
+from .common import get_space_id, rename_space
 
 try:
     from unittest import mock
@@ -35,6 +38,52 @@ except ImportError:
 
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+
+@pytest.mark.usefixtures("oneclient")
+class SpaceOperationsTests(unittest.TestCase):
+
+    def test_space_name_conflict(self):
+        """Test space name disambiguation when creating spaces with conflicting names."""
+
+        space_name_1 = 'test_oneclient_conflict_ceph'
+        space_name_2 = 'test_oneclient_conflict_ceph_2'
+
+        # Get the space IDs
+        space_id_1 = get_space_id(self.onezone_ip, self.onezone_admin_token, space_name_1)
+        space_id_2 = get_space_id(self.onezone_ip, self.onezone_admin_token, space_name_2)
+        assert space_id_1 is not None, f'Space ID for space {space_name_1} not found'
+        assert space_id_2 is not None, f'Space ID for space {space_name_2} not found'
+
+        # Rename the second space to generate conflict
+        rename_space(self.onezone_ip, self.onezone_admin_token, space_id_2, space_name_1)
+
+        # Wait a bit for the rename to propagate
+        time.sleep(15)
+
+        # List spaces and check for disambiguation
+        spaces = [f for f in listdir(self.mountpoint) if isdir(join(self.mountpoint, f))]
+
+        assert 'test_oneclient_conflict_ceph' not in spaces
+        assert 'test_oneclient_conflict_ceph_2' not in spaces
+
+        assert f'test_oneclient_conflict_ceph@{space_id_1}' in spaces
+        assert f'test_oneclient_conflict_ceph@{space_id_2}' in spaces
+
+        # Rename conflicting space to it's original name
+        rename_space(self.onezone_ip, self.onezone_admin_token, space_id_2, space_name_2)
+
+        # Wait a bit for the rename to propagate
+        time.sleep(15)
+
+        # List spaces and check for disambiguation
+        spaces = [f for f in listdir(self.mountpoint) if isdir(join(self.mountpoint, f))]
+
+        assert 'test_oneclient_conflict_ceph' in spaces
+        assert 'test_oneclient_conflict_ceph_2' in spaces
+
+        assert f'test_oneclient_conflict_ceph@{space_id_1}' not in spaces
+        assert f'test_oneclient_conflict_ceph@{space_id_2}' not in spaces
 
 
 @pytest.mark.usefixtures("oneclient")
@@ -95,7 +144,6 @@ class ConcurrentXattrOperations(unittest.TestCase):
             thread_errors.append(f'Thread {thread_id}: Unexpected error: {e}')
 
         return thread_errors
-
 
     def test_concurrent_xattr_operations(self):
         temp_dir = tempfile.mkdtemp('concurrent_xattr_operations',

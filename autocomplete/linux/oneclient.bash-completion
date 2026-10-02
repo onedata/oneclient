@@ -107,7 +107,7 @@ _oneclient() {
     -*)
     COMPREPLY=( $( compgen -W '-h --help -V --version -c --config -u --unmount \
                                -i --insecure -H --host -P --port -t --token \
-                               -l --log-path \
+                               -Z --onezone-host -l --log-path \
                                -f --foreground -d --debug -s --single-thread \
                                -o --opt \
                                -v --verbose-log-level \

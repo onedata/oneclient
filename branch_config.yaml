@@ -1,5 +1,5 @@
 # Used when specific branch for given repo does not exist.
-default: develop
+default: release/22.02.0
 
 branches:
   # Specification of branches from which artifacts will be pulled.

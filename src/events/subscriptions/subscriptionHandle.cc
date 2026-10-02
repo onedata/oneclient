@@ -17,6 +17,7 @@ namespace events {
 SubscriptionHandle::SubscriptionHandle(StreamKey streamKey, Streams &streams)
     : m_streamKey{streamKey}
     , m_streams{streams}
+    , m_stopped{false}
 {
 }
 
@@ -26,10 +27,15 @@ SubscriptionHandle::~SubscriptionHandle()
     if (m_streams.find(acc, m_streamKey)) {
         if (acc->second->release()) {
             LOG_DBG(1) << "Removing stream '" << m_streamKey << "'";
+
             m_streams.erase(acc);
         }
     }
 }
+
+void SubscriptionHandle::stop() { m_stopped = true; }
+
+bool SubscriptionHandle::stopped() const { return m_stopped; }
 
 } // namespace events
 } // namespace client

@@ -155,6 +155,10 @@ folly::Optional<size_t> getParameter(
 folly::Optional<std::string> S3Server::getCachedBucketId(
     const std::string &name) const
 {
+    if (name.find("spaceid-") == 0) {
+        return name.substr(8);
+    }
+
     std::lock_guard<std::mutex> guard{m_bucketNameCacheMutex};
 
     if (m_bucketNameCache.find(name) == m_bucketNameCache.end())
@@ -337,7 +341,7 @@ void S3Server::listBuckets(
 
     m_logicCache->get(token)
         .thenTry([](auto &&s3) {
-            s3.throwIfFailed();
+            s3.throwUnlessValue();
             return s3.value()->listBuckets();
         })
         .thenValue([callback](auto &&buckets) {
@@ -383,17 +387,21 @@ void S3Server::putBucket(const HttpRequestPtr &req,
 
         one::rest::onezone::OnezoneClient onezoneClient{onezoneHost};
 
+        const auto providerEndpoint =
+            m_options->getPreferredProviders().front();
+
         one::rest::oneprovider::OneproviderClient oneproviderClient{
-            m_options->getProviderHost().value()};
+            providerEndpoint.host, providerEndpoint.port};
 
         one::rest::onepanel::OnepanelClient onepanelClient{
-            m_options->getProviderHost().value()};
+            providerEndpoint.host, providerEndpoint.port};
 
         setOnepanelCredentials(bucket, requestId, onepanelClient);
 
-        if (getCachedBucketId(bucket).hasValue())
+        if (getCachedBucketId(bucket).hasValue()) {
             throw one::s3::error::BucketAlreadyOwnedByYou(
                 bucket, bucket, requestId);
+        }
 
         try {
             // List spaces to check if that space already exists (regardless of
@@ -466,21 +474,44 @@ bool S3Server::waitUntilSpaceIsVisibleInS3Logic(const std::string &bucket,
     const int kEnsureSpaceSupportRetryCount = 100;
     const int kEnsureSpaceSupportDelayMS = 100;
     auto retries = kEnsureSpaceSupportRetryCount;
+
+    bool visibleInDataAccessScope{false};
+    bool visibleInCLProto{false};
+
     while (retries-- > 0) {
         auto buckets =
             m_logicCache->get(token)
                 .delayed(std::chrono::milliseconds(kEnsureSpaceSupportDelayMS))
-                .thenTry([](auto &&s3) { return s3.value()->listBuckets(); })
+                .thenTry(
+                    [](auto &&s3) { return s3.value()->listBuckets(true); })
                 .get();
 
-        for (const auto &listedBucket : buckets.GetBuckets()) {
-            if (listedBucket.GetName() == bucket) {
-                return true;
-            }
-        }
+        visibleInDataAccessScope = std::any_of(buckets.GetBuckets().begin(),
+            buckets.GetBuckets().end(),
+            [&bucket](const auto &b) { return b.GetName() == bucket; });
+
+        if (visibleInDataAccessScope)
+            break;
     }
 
-    return false;
+    if (!visibleInDataAccessScope)
+        return false;
+
+    while (retries-- > 0) {
+        auto spaces =
+            m_logicCache->get(token)
+                .delayed(std::chrono::milliseconds(kEnsureSpaceSupportDelayMS))
+                .thenTry([](auto &&s3) { return s3.value()->listSpaces(); })
+                .get();
+
+        visibleInCLProto = std::any_of(spaces.begin(), spaces.end(),
+            [&bucket](const auto &space) { return space.name() == bucket; });
+
+        if (visibleInCLProto)
+            break;
+    }
+
+    return visibleInCLProto;
 }
 
 void S3Server::checkIfSpaceExistsInOnezone(const std::string &bucket,
@@ -652,11 +683,16 @@ void S3Server::deleteBucket(const HttpRequestPtr &req,
                 throw one::s3::error::AccessDenied(bucket, bucket, requestId);
 
             // Check if space exists
-            for (const auto &space :
-                onezoneClient.listUserSpaces(auth->getToken())) {
-                if (space.name == bucket) {
-                    spaceIdToDelete = space.id;
-                    break;
+            if (bucket.find("spaceid-") == 0) {
+                spaceIdToDelete = bucket.substr(8);
+            }
+            else {
+                for (const auto &space :
+                    onezoneClient.listUserSpaces(auth->getToken())) {
+                    if (space.name == bucket) {
+                        spaceIdToDelete = space.id;
+                        break;
+                    }
                 }
             }
 
@@ -694,7 +730,7 @@ void S3Server::deleteBucket(const HttpRequestPtr &req,
                     m_logicCache->get(auth->getToken())
                         .delayed(std::chrono::milliseconds(kRetryDelayMs))
                         .thenValue([](std::shared_ptr<S3Logic> &&s3) {
-                            return s3->listBuckets();
+                            return s3->listBuckets(true);
                         })
                         .thenError(folly::tag_t<std::exception>{},
                             [callback](auto && /*e*/) mutable {
@@ -723,21 +759,10 @@ void S3Server::deleteBucket(const HttpRequestPtr &req,
             response->setStatusCode(HttpStatusCode::k204NoContent);
         }
         catch (Poco::Net::HTTPException &e) {
-            LOG_REQUEST_ERROR(requestId,
-                fmt::format("Failed to delete bucket due to HTTP exception: {}",
-                    e.code()),
-                e.what())
-
             one::s3::error::S3Exception::raiseFromPocoHTTPException(
                 e, bucket, bucket, requestId);
         }
         catch (std::system_error &e) {
-            LOG_REQUEST_ERROR(requestId,
-                fmt::format(
-                    "Failed to delete bucket due to system exception: {}",
-                    e.code()),
-                e.what())
-
             one::s3::error::S3Exception::raiseFromSystemError(
                 e, bucket, bucket, requestId);
         }
@@ -1132,7 +1157,7 @@ void S3Server::putMultipartPart(const HttpRequestPtr &req,
     m_logicCache->get(auth->getToken())
         .thenTry([&req, uploadId, partNumber, response, callback, bucket, path,
                      requestId, timer](auto &&s3) {
-            s3.throwIfFailed();
+            s3.throwUnlessValue();
 
             const char *bodyData{nullptr};
             size_t bodyLength{0};
@@ -1378,7 +1403,7 @@ void S3Server::deleteObjects(const HttpRequestPtr &req,
 
     auto response = HttpResponse::newHttpResponse();
 
-    std::string body = req->getBody().to_string();
+    std::string body{req->getBody()};
     auto requestXml = Aws::Utils::Xml::XmlDocument::CreateFromXmlString(body);
     auto deleteRequest = Aws::S3::Model::Delete{requestXml.GetRootElement()};
 
@@ -1421,7 +1446,7 @@ void S3Server::deleteObjects(const HttpRequestPtr &req,
         })
         .via(m_logicCache->executor())
         .thenTry([callback](auto &&futs) {
-            futs.throwIfFailed();
+            futs.throwUnlessValue();
 
             Aws::S3::Model::DeleteObjectsResult result;
 
@@ -1829,7 +1854,7 @@ void S3Server::completeMultipartUpload(const HttpRequestPtr &req,
                 requestId, bucket, path, uploadId);
         })
         .thenTry([response, callback](auto &&result) {
-            result.throwIfFailed();
+            result.throwUnlessValue();
 
             response->setStatusCode(HttpStatusCode::k200OK);
             std::string body =

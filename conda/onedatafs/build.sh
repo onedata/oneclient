@@ -4,7 +4,7 @@ mkdir build
 
 cd build
 
-export CXXFLAGS="-Wno-shadow -Wno-unused-local-typedefs -Wno-sign-compare -fvisibility-inlines-hidden -std=c++14 -fmessage-length=0 -march=nocona -mtune=haswell -ftree-vectorize -fPIC -fstack-protector-strong -fno-plt -O2 -ffunction-sections -pipe -I$BUILD_PREFIX/include -I$PREFIX/include -fdebug-prefix-map=$SRC_DIR=/usr/local/src/conda/oneclient-$ONECLIENT_VERSION -fdebug-prefix-map=$PREFIX=/usr/local/src/conda-prefix"
+export CXXFLAGS="-Wno-class-memaccess -Wno-deprecated-declarations -Wno-cast-user-defined -Wno-address -Wno-shadow -Wno-unused-local-typedefs -Wno-sign-compare -fvisibility-inlines-hidden -std=c++14 -fmessage-length=0 -march=nocona -mtune=haswell -ftree-vectorize -fPIC -fstack-protector-strong -fno-plt -O2 -ffunction-sections -pipe -I$BUILD_PREFIX/include -I$PREFIX/include -fdebug-prefix-map=$SRC_DIR=/usr/local/src/conda/oneclient-$ONECLIENT_VERSION -fdebug-prefix-map=$PREFIX=/usr/local/src/conda-prefix"
 
 export PKG_CONFIG_PATH="$BUILD_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH"
 
@@ -23,7 +23,7 @@ cmake -DCMAKE_BUILD_TYPE=Release \
 	  -DCODE_COVERAGE=OFF \
 	  -DWITH_CEPH=ON \
 	  -DWITH_SWIFT=ON \
-      -DCMAKE_AR=${AR} \
+	  -DCMAKE_AR=${AR} \
 	  -DWITH_S3=ON \
 	  -DWITH_GLUSTERFS=OFF \
 	  -DWITH_WEBDAV=ON \
@@ -33,11 +33,10 @@ cmake -DCMAKE_BUILD_TYPE=Release \
 	  -DWITH_ONEBENCH=OFF \
 	  -DWITH_ONEDATAFS=ON \
 	  -DWITH_ONES3=OFF \
-	  -DFOLLY_SHARED=ON \
 	  -DWITH_LIBDL=OFF \
 	  -DWITH_LIBRT=ON \
 	  -DWITH_TESTS=OFF \
-      -DWITH_PYTHON2=${WITH_PYTHON2} \
+	  -DWITH_PYTHON2=${WITH_PYTHON2} \
 	  -DWITH_PYTHON3=${WITH_PYTHON3} \
 	  -DFETCH_FOLLY=ON \
 	  -DFOLLY_SHARED=OFF \

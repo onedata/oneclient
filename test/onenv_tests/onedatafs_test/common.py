@@ -4,9 +4,10 @@ This software is released under the MIT license cited in 'LICENSE.txt'
 """
 import random
 import string
-
+import requests
 import time
 from contextlib import contextmanager
+
 
 @contextmanager
 def timer() -> float:
@@ -30,4 +31,35 @@ def random_path(size=random_int(3, 10)):
 def random_bytes(size=random_int()):
     return random_str(size).encode('utf-8')
 
+
+def put_file(oneprovider_host, token, bucket_name, path, data,
+             content_type='application/octet-stream'):
+    url = (f'https://{oneprovider_host}/api/v3/oneprovider/'
+           f'lookup-file-id/{bucket_name}')
+
+    repeats = 5
+    space_id = None
+    while (repeats > 0) and (space_id is None):
+        try:
+            r = requests.post(url,
+                              headers={'X-Auth-Token': token,
+                                       'Content-type': 'application/json'},
+                              verify=False)
+            if r.status_code != 200:
+                repeats -= 1
+                continue
+
+            space_id = r.json()["fileId"]
+        except Exception as e:
+            time.sleep(5)
+            repeats -= 1
+
+    url = f'https://{oneprovider_host}/api/v3/oneprovider/' \
+          f'data/{space_id}/path/{path}'
+
+    return requests.put(url,
+                        data=data,
+                        headers={'X-Auth-Token': token,
+                                 'Content-type': content_type},
+                        verify=False)
 
