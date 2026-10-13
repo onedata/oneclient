@@ -199,6 +199,11 @@ public:
     std::vector<Endpoint> getPreferredProviders() const;
 
     /*
+     * @return Oneprovider ID if option has been provided.
+     */
+    boost::optional<std::string> getProviderId() const;
+
+    /*
      * @return Allowed provider hostname if option has been provided.
      */
     std::vector<Endpoint> getAllowedProviders() const;

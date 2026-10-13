@@ -94,6 +94,14 @@ Options::Options(messages::handshake::ClientType clientType)
         .withDescription(
             "Specify the hostnames of preferred Oneprovider hosts.");
 
+    add<std::string>()
+        ->withLongName("provider-id")
+        .withEnvName("provider_id")
+        .withConfigName("provider_id")
+        .withValueName("<provider_id>")
+        .withGroup(OptionGroup::GENERAL)
+        .withDescription("Specify the Oneprovider ID.");
+
     add<std::vector<std::string>>()
         ->withShortName("A")
         .withLongName("allowed-host")
@@ -1173,6 +1181,11 @@ std::vector<Endpoint> Options::getPreferredProviders() const
     }
 
     return result;
+}
+
+boost::optional<std::string> Options::getProviderId() const
+{
+    return get<std::string>({"provider-id", "provider_id"});
 }
 
 std::vector<Endpoint> Options::getAllowedProviders() const
