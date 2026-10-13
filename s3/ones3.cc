@@ -155,7 +155,7 @@ int main(int argc, char *argv[])
         EXIT_SUCCESS)
         return EXIT_FAILURE;
 
-    // Resolve the specified Oneprovider host to Oneprovider Id
+    // Resolve the specified Oneprovider host to Oneprovider ID.
     assert(options->getPreferredProviders().size() == 1);
 
     const auto endpoint = options->getPreferredProviders().at(0);
@@ -165,9 +165,12 @@ int main(int argc, char *argv[])
     one::rest::oneprovider::OneproviderClient oneproviderClient{
         endpoint.host, endpoint.port};
 
-    const auto oneproviderId = oneproviderClient.getProviderId();
+    auto oneproviderId = options->getProviderId();
+    if (!oneproviderId)
+        oneproviderId = oneproviderClient.getProviderId();
 
-    auto s3Server = std::make_shared<one::s3::S3Server>(oneproviderId, options);
+    auto s3Server =
+        std::make_shared<one::s3::S3Server>(*oneproviderId, options);
 
     app().registerController(s3Server);
     app().setLogLevel(trantor::Logger::kInfo);

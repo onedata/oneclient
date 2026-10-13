@@ -29,8 +29,8 @@ struct OptionsTest : public ::testing::Test {
     ~OptionsTest()
     {
         for (const std::string env :
-            {"CONFIG", "PROVIDER_HOST", "PROVIDER_PORT", "INSECURE",
-                "ACCESS_TOKEN", "AUTHORIZATION_TOKEN", "LOG_DIR",
+            {"CONFIG", "PROVIDER_HOST", "PROVIDER_ID", "PROVIDER_PORT",
+                "INSECURE", "ACCESS_TOKEN", "AUTHORIZATION_TOKEN", "LOG_DIR",
                 "FUSE_FOREGROUND", "FUSE_DEBUG", "FUSE_SINGLE_THREAD",
                 "FUSE_MOUNT_OPT", "FUSE_MOUNTPOINT"}) {
             unsetenv(env.c_str());
@@ -70,8 +70,8 @@ struct OneS3OptionsTest : public ::testing::Test {
     ~OneS3OptionsTest()
     {
         for (const std::string env :
-            {"CONFIG", "PROVIDER_HOST", "PROVIDER_PORT", "INSECURE",
-                "ACCESS_TOKEN", "AUTHORIZATION_TOKEN", "LOG_DIR",
+            {"CONFIG", "PROVIDER_HOST", "PROVIDER_ID", "PROVIDER_PORT",
+                "INSECURE", "ACCESS_TOKEN", "AUTHORIZATION_TOKEN", "LOG_DIR",
                 "FUSE_FOREGROUND", "FUSE_DEBUG", "FUSE_SINGLE_THREAD",
                 "FUSE_MOUNT_OPT", "FUSE_MOUNTPOINT"}) {
             unsetenv(env.c_str());
@@ -1184,6 +1184,37 @@ TEST_F(OptionsTest, parseShouldSetOptionsInOrder)
     options = one::client::options::Options{};
     options.parse(fileArgs.size(), fileArgs.data());
     EXPECT_EQ("someHost3", options.getPreferredProviders().at(0).host);
+}
+
+TEST_F(OneS3OptionsTest, providerIdShouldBeUnsetByDefault)
+{
+    cmdArgs.insert(cmdArgs.end(), {"-Z", "localhost"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_FALSE(options.getProviderId());
+}
+
+TEST_F(OneS3OptionsTest, parseCommandLineShouldSetProviderId)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"-Z", "localhost", "--provider-id", "providerId"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ("providerId", options.getProviderId().value());
+}
+
+TEST_F(OneS3OptionsTest, parseEnvironmentShouldSetProviderId)
+{
+    setenv("ONECLIENT_PROVIDER_ID", "providerId", 1);
+    envArgs.insert(envArgs.end(), {"-Z", "localhost"});
+    options.parse(envArgs.size(), envArgs.data());
+    EXPECT_EQ("providerId", options.getProviderId().value());
+}
+
+TEST_F(OneS3OptionsTest, parseConfigFileShouldSetProviderId)
+{
+    setInConfigFile("onezone_host", "localhost");
+    setInConfigFile("provider_id", "providerId");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ("providerId", options.getProviderId().value());
 }
 
 TEST_F(OneS3OptionsTest, parseCommandLineShouldReturnOneS3SupportStorageId)
