@@ -647,7 +647,9 @@ bool MetadataCache::rename(const folly::fbstring &uuid,
 
     auto &targetIndex = bmi::get<ByParentName>(m_cache);
     auto targetIt = targetIndex.find(std::make_tuple(newParentUuid, newName));
-    if (targetIt != targetIndex.end()) {
+    // Different FUSE directory views can rename a UUID onto its own path.
+    // Only an actual replacement should mark the destination as deleted.
+    if (targetIt != targetIndex.end() && targetIt->attr->uuid() != uuid) {
         LOG_DBG(1) << "Target file " << newName << " in " << newParentUuid
                    << " is already cached - marking as deleted";
         markDeletedIt(m_cache.project<ByUuid>(targetIt));

@@ -536,7 +536,7 @@ FileAttrPtr FsLogic::lookup(
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(name);
 
-    assert(!uuid.empty());
+    //    assert(!uuid.empty());
 
     IOTRACE_START();
 
@@ -549,6 +549,9 @@ FileAttrPtr FsLogic::lookup(
     std::exception_ptr current_exception;
     try {
         if (fileNameUUID.empty()) {
+            if (uuid.empty()) {
+                throw one::helpers::makePosixException(ENOENT);
+            }
             m_metadataCache.onAdd(uuid);
             attr = m_metadataCache.getAttr(uuid, name);
         }
@@ -564,7 +567,7 @@ FileAttrPtr FsLogic::lookup(
             throw e;
     }
 
-    if (tryVirtualFile) {
+    if (tryVirtualFile && !uuid.empty()) {
         if (m_metadataCache.getAttr(uuid)->isVirtual()) {
             // Force update of the directory contents and lookup
             // the file again

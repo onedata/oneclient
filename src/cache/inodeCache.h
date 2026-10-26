@@ -48,6 +48,19 @@ public:
         const folly::fbstring &uuid, const folly::fbstring &providerId);
 
     /**
+     * Returns a directory inode specific to its virtual parent and increments
+     * its lookup count. Creates a new inode if the view is not cached.
+     * Backend operations still use the original UUID returned by @c at().
+     * @param uuid UUID of the backend directory.
+     * @param providerId ID of the provider serving the directory.
+     * @param parent Inode of the virtual parent.
+     * @returns Inode associated with this directory view.
+     */
+    fuse_ino_t generateVirtualInode(const folly::fbstring &uuid,
+        const folly::fbstring &providerId, fuse_ino_t parent);
+    bool isVirtualInode(fuse_ino_t inode) const;
+
+    /**
      * Looks up an number by its uuid and increments lookup count for the
      * entry.
      * A new inode is returned and cached if there's no known association.
@@ -89,19 +102,30 @@ public:
 
 private:
     void prune();
+    fuse_ino_t lookupKey(const folly::fbstring &key);
 
     struct ByInode {
     };
     struct ByUuid {
     };
+    struct ByKey {
+    };
 
     struct Entry {
-        Entry(fuse_ino_t, folly::fbstring, folly::fbstring);
+        Entry(fuse_ino_t, folly::fbstring, folly::fbstring, folly::fbstring,
+            fuse_ino_t = 0);
 
         fuse_ino_t inode;
         folly::fbstring uuid;
         folly::fbstring providerId;
-        std::size_t lookupCount{1};
+        // Unique lookup key: UUID for ordinary nodes, UUID:parent for virtual
+        // views, or retired:inode to preserve handles without reusing the view.
+        folly::fbstring key;
+        // Parent inode that identifies this virtual directory view; zero for
+        // ordinary nodes. Retained after retirement until the node is
+        // forgotten.
+        fuse_ino_t virtualParent;
+        std::size_t lookupCount{0};
         folly::Optional<std::list<fuse_ino_t>::iterator> lruIt;
         bool deleted{false};
     };
@@ -110,9 +134,13 @@ private:
         boost::multi_index::indexed_by<
             boost::multi_index::ordered_unique<boost::multi_index::tag<ByInode>,
                 boost::multi_index::member<Entry, fuse_ino_t, &Entry::inode>>,
-            boost::multi_index::ordered_unique<boost::multi_index::tag<ByUuid>,
+            boost::multi_index::ordered_non_unique<
+                boost::multi_index::tag<ByUuid>,
                 boost::multi_index::member<Entry, folly::fbstring,
-                    &Entry::uuid>>>>;
+                    &Entry::uuid>>,
+            boost::multi_index::ordered_unique<boost::multi_index::tag<ByKey>,
+                boost::multi_index::member<Entry, folly::fbstring,
+                    &Entry::key>>>>;
 
     const std::size_t m_targetCacheSize;
     Map m_cache;

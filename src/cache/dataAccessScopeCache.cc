@@ -211,28 +211,43 @@ DataAccessScopeCache::getProviderForSpace(const folly::fbstring &spaceId)
 {
     LOG_FCALL() << LOG_FARG(spaceId);
 
-    std::optional<folly::fbstring> providerId;
-    {
-        auto selectedProviders = m_selectedProviderForSpace.rlock();
+    using namespace std::chrono_literals;
 
-        if (selectedProviders->count(spaceId) == 0) {
+    bool forceAccessScopeUpdate =
+        (std::chrono::steady_clock::now() - m_lastUpdate.load() > 10s);
+
+    return getDataAccessScope(forceAccessScopeUpdate)
+        .thenValue([this, spaceId](auto && /*accessScope*/)
+                       -> std::optional<one::rest::onezone::model::Provider> {
+            std::optional<folly::fbstring> providerId;
+            {
+                auto selectedProviders = m_selectedProviderForSpace.rlock();
+
+                if (selectedProviders->count(spaceId) == 0) {
+                    return {};
+                }
+
+                providerId = selectedProviders->at(spaceId);
+            }
+
+            if (providerId) {
+                return getProvider(*providerId);
+            }
+
             return {};
-        }
-
-        providerId = selectedProviders->at(spaceId);
-    }
-
-    if (providerId) {
-        return getProvider(*providerId);
-    }
-
-    return {};
+        })
+        .get();
 }
 
 std::optional<one::rest::onezone::model::Provider>
 DataAccessScopeCache::getProvider(const folly::fbstring &providerId)
 {
-    return getDataAccessScope()
+    using namespace std::chrono_literals;
+
+    bool forceAccessScopeUpdate =
+        (std::chrono::steady_clock::now() - m_lastUpdate.load() > 10s);
+
+    return getDataAccessScope(forceAccessScopeUpdate)
         .thenValue([providerId](auto &&accessScope)
                        -> std::optional<one::rest::onezone::model::Provider> {
             if (accessScope->providers.count(providerId.toStdString()) > 0) {

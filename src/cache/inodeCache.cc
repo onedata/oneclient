@@ -13,16 +13,20 @@
 #include <cassert>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 namespace one {
 namespace client {
 namespace cache {
 
-InodeCache::Entry::Entry(
-    const fuse_ino_t inode_, folly::fbstring uuid_, folly::fbstring providerId_)
+InodeCache::Entry::Entry(const fuse_ino_t inode_, folly::fbstring uuid_,
+    folly::fbstring providerId_, folly::fbstring key_,
+    const fuse_ino_t virtualParent_)
     : inode{inode_}
     , uuid{std::move(uuid_)}
     , providerId{std::move(providerId_)}
+    , key{std::move(key_)}
+    , virtualParent{virtualParent_}
 {
 }
 
@@ -30,7 +34,8 @@ InodeCache::InodeCache(
     const folly::fbstring &rootUuid, const std::size_t targetCacheSize)
     : m_targetCacheSize{targetCacheSize}
 {
-    m_cache.emplace(FUSE_ROOT_ID, rootUuid, folly::fbstring{});
+    m_cache.emplace(FUSE_ROOT_ID, rootUuid, folly::fbstring{}, rootUuid);
+    lookup(rootUuid);
 
     ONE_METRIC_COUNTER_SET(
         "comp.oneclient.mod.inodecache.maxsize", targetCacheSize);
@@ -57,12 +62,12 @@ folly::fbstring InodeCache::providerId(const fuse_ino_t inode) const
 fuse_ino_t InodeCache::generateInode(
     const folly::fbstring &uuid, const folly::fbstring &providerId)
 {
-    auto &index = boost::multi_index::get<ByUuid>(m_cache);
+    auto &index = boost::multi_index::get<ByKey>(m_cache);
     auto entryIt = index.find(uuid);
 
     if (entryIt == index.end()) {
         const auto inode = m_nextInode++;
-        m_cache.emplace(inode, uuid, providerId);
+        m_cache.emplace(inode, uuid, providerId, uuid);
 
         LOG_DBG(2) << "Created new inode " << inode << " for file " << uuid;
 
@@ -72,12 +77,38 @@ fuse_ino_t InodeCache::generateInode(
     return lookup(uuid);
 }
 
+fuse_ino_t InodeCache::generateVirtualInode(const folly::fbstring &uuid,
+    const folly::fbstring &providerId, const fuse_ino_t parent)
+{
+    assert(parent != 0);
+    const folly::fbstring key =
+        uuid.toStdString() + ":" + std::to_string(parent);
+    auto &index = boost::multi_index::get<ByKey>(m_cache);
+    if (index.find(key) == index.end()) {
+        m_cache.emplace(m_nextInode++, uuid, providerId, key, parent);
+        prune();
+    }
+    return lookupKey(key);
+}
+
+bool InodeCache::isVirtualInode(const fuse_ino_t inode) const
+{
+    const auto &index = boost::multi_index::get<ByInode>(m_cache);
+    auto it = index.find(inode);
+    return it != index.end() && it->virtualParent != 0;
+}
+
 fuse_ino_t InodeCache::lookup(const folly::fbstring &uuid)
 {
-    LOG_FCALL() << LOG_FARG(uuid);
+    return lookupKey(uuid);
+}
 
-    auto &index = boost::multi_index::get<ByUuid>(m_cache);
-    auto entryIt = index.find(uuid);
+fuse_ino_t InodeCache::lookupKey(const folly::fbstring &key)
+{
+    LOG_FCALL() << LOG_FARG(key);
+
+    auto &index = boost::multi_index::get<ByKey>(m_cache);
+    auto entryIt = index.find(key);
 
     if (entryIt != index.end()) {
         if (entryIt->lruIt) {
@@ -90,13 +121,13 @@ fuse_ino_t InodeCache::lookup(const folly::fbstring &uuid)
         else
             index.modify(entryIt, [](Entry &e) { ++e.lookupCount; });
 
-        LOG_DBG(2) << "Found inode " << entryIt->inode << " for file " << uuid;
+        LOG_DBG(2) << "Found inode " << entryIt->inode << " for key " << key;
 
         return entryIt->inode;
     }
 
-    LOG(ERROR) << "No file found for uuid " << uuid;
-    throw std::out_of_range{"no active mapping for uuid " + uuid.toStdString()};
+    LOG(ERROR) << "No inode found for key " << key;
+    throw std::out_of_range{"no active mapping for key " + key.toStdString()};
 }
 
 std::pair<folly::fbstring, folly::fbstring> InodeCache::at(
@@ -139,7 +170,7 @@ void InodeCache::forget(const fuse_ino_t inode, const std::size_t count)
                    << newCount;
         index.modify(entryIt, [&](Entry &e) { e.lookupCount = newCount; });
     }
-    else if (entryIt->deleted) {
+    else if (entryIt->deleted || entryIt->virtualParent != 0) {
         LOG_DBG(2) << "Removing deleted inode " << inode << " from inode cache";
         index.erase(entryIt);
     }
@@ -163,13 +194,32 @@ void InodeCache::rename(const folly::fbstring &oldUuid, folly::fbstring newUuid,
 {
     LOG_FCALL() << LOG_FARG(oldUuid) << LOG_FARG(newUuid);
 
-    if (oldUuid == newUuid)
-        return;
+    // Snapshot node IDs: modifying UUIDs changes the ByUuid index ordering.
+    auto &byUuid = boost::multi_index::get<ByUuid>(m_cache);
+    const auto range = byUuid.equal_range(oldUuid);
+    std::vector<fuse_ino_t> inodes;
+    for (auto it = range.first; it != range.second; ++it)
+        inodes.push_back(it->inode);
 
-    auto &index = boost::multi_index::get<ByUuid>(m_cache);
-    const auto entryRange = index.equal_range(oldUuid);
-    for (auto it = entryRange.first; it != entryRange.second; ++it)
-        index.modify_key(it, [&](folly::fbstring &key) { key.swap(newUuid); });
+    auto &byInode = boost::multi_index::get<ByInode>(m_cache);
+    auto &byKey = boost::multi_index::get<ByKey>(m_cache);
+    for (auto inode : inodes) {
+        auto it = byInode.find(inode);
+        auto target = byKey.find(newUuid);
+        const bool targetExists =
+            target != byKey.end() && target->inode != inode;
+        byInode.modify(it, [&](Entry &entry) {
+            entry.uuid = newUuid;
+            if (entry.virtualParent != 0 || targetExists) {
+                // The kernel may have moved this node to the rename target.
+                // Keep it usable by existing handles, but allocate a new node
+                // on the next lookup through its original virtual parent.
+                entry.key = "retired:" + std::to_string(entry.inode);
+            }
+            else if (entry.key == oldUuid)
+                entry.key = newUuid;
+        });
+    }
 }
 
 void InodeCache::markDeleted(const folly::fbstring &uuid)

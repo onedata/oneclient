@@ -67,16 +67,6 @@ public:
         , m_runInFiber{std::move(runInFiber)}
     {
         LOG_FCALL();
-
-        // TODO:
-        for (auto &kv : m_fsLogicMap) {
-            kv.second->onMarkDeleted(std::bind(&cache::InodeCache::markDeleted,
-                &m_inodeCache, std::placeholders::_1));
-
-            kv.second->onRename(std::bind(&cache::InodeCache::rename,
-                &m_inodeCache, std::placeholders::_1, std::placeholders::_2,
-                std::placeholders::_3));
-        }
     }
 
     void setFiberThreadId(std::thread::id id) { m_fiberThreadId = id; }
@@ -196,7 +186,7 @@ public:
         FileAttrPtr attr =
             m_fsLogicMap.at(providerId).get()->lookup(uuid, name);
 
-        auto newInode = m_inodeCache.generateInode(attr->uuid(), providerId);
+        auto newInode = directoryEntryInode(attr, providerId, ino);
 
         struct fuse_entry_param entry = {0};
         entry.generation = m_generation;
@@ -224,9 +214,12 @@ public:
         auto providerId = maybeProviderForSpace->providerId;
 
         auto providerFsLogic = m_fsLogicMap.at(providerId);
-        FileAttrPtr attr = providerFsLogic->lookup("_", name);
+        FileAttrPtr attr = providerFsLogic->lookup("", name);
 
-        auto newInode = m_inodeCache.generateInode(attr->uuid(), providerId);
+        auto newInode = attr->type() == FileAttr::FileType::directory
+            ? m_inodeCache.generateVirtualInode(
+                  attr->uuid(), providerId, FUSE_ROOT_ID)
+            : m_inodeCache.generateInode(attr->uuid(), providerId);
 
         struct fuse_entry_param entry = {0};
         entry.generation = m_generation;
@@ -310,6 +303,14 @@ public:
                     m_fiberThreadId);
 
                 fsLogic->setAuthManager(authManager);
+                fsLogic->onMarkDeleted([this](const folly::fbstring &uuid) {
+                    m_inodeCache.markDeleted(uuid);
+                });
+                fsLogic->onRename([this](const folly::fbstring &oldUuid,
+                                      const folly::fbstring &newUuid,
+                                      const folly::fbstring &newParentUuid) {
+                    m_inodeCache.rename(oldUuid, newUuid, newParentUuid);
+                });
 
                 m_fsLogicMap.emplace(providerId, std::move(fsLogic));
             }
@@ -505,8 +506,8 @@ public:
 
         FileAttrPtr attr = wrap(&FsLogicT::mkdir, ino, name, mode);
 
-        auto newInode = m_inodeCache.generateInode(
-            attr->uuid(), m_inodeCache.at(ino).second);
+        auto newInode =
+            directoryEntryInode(attr, m_inodeCache.at(ino).second, ino);
 
         struct fuse_entry_param entry = {0};
         entry.generation = m_generation;
@@ -614,6 +615,11 @@ public:
     {
         LOG_FCALL() << LOG_FARG(ino) << LOG_FARG(name);
 
+        auto maybeUUID = getFileIdFromFilename(name);
+        if (maybeUUID.has_value()) {
+            return wrap_with_uuid(&FsLogicT::unlink, *maybeUUID, name);
+        }
+
         if (ino == FUSE_ROOT_ID) {
             LOG_DBG(1) << "Cannot delete space directory: " << name;
             throw one::helpers::makePosixException(EACCES);
@@ -627,6 +633,17 @@ public:
     {
         LOG_FCALL() << LOG_FARG(ino) << LOG_FARG(name) << LOG_FARG(targetIno)
                     << LOG_FARG(targetName);
+
+        // Target name cannot be Onedata special file
+        if (targetName.find(".__onedata__") == 0)
+            throw one::helpers::makePosixException(EINVAL);
+
+        auto maybeUUID = getFileIdFromFilename(name);
+        if (maybeUUID.has_value()) {
+            const auto targetUuid = m_inodeCache.at(targetIno).first;
+            return wrap_with_uuid(
+                &FsLogicT::rename, *maybeUUID, name, targetUuid, targetName);
+        }
 
         if (ino == FUSE_ROOT_ID) {
             LOG_DBG(1) << "Cannot rename space directory: " << name;
@@ -797,6 +814,17 @@ public:
     }
 
 private:
+    fuse_ino_t directoryEntryInode(const FileAttrPtr &attr,
+        const folly::fbstring &providerId, const fuse_ino_t parent)
+    {
+        if (attr->type() == FileAttr::FileType::directory &&
+            m_inodeCache.isVirtualInode(parent))
+            return m_inodeCache.generateVirtualInode(
+                attr->uuid(), providerId, parent);
+
+        return m_inodeCache.generateInode(attr->uuid(), providerId);
+    }
+
     template <typename Ret, typename... FunArgs, typename... Args>
     inline Ret wrap(Ret (FsLogicT::*fun)(const folly::fbstring &, FunArgs...),
         const fuse_ino_t inode, Args &&...args)
@@ -813,6 +841,30 @@ private:
         return (fsLogic->*fun)(uuid, std::forward<Args>(args)...);
     }
 
+    template <typename Ret, typename... FunArgs, typename... Args>
+    inline Ret wrap_with_uuid(
+        Ret (FsLogicT::*fun)(const folly::fbstring &, FunArgs...),
+        const folly::fbstring &maybeUUID, Args &&...args)
+    {
+        auto spaceId = util::uuid::uuidToSpaceId(maybeUUID);
+
+        createFsLogicForSpace(spaceId);
+
+        auto maybeProviderForSpace =
+            m_dataAccessScopeCache.getProviderForSpace(spaceId);
+        if (!maybeProviderForSpace.has_value()) {
+            throw helpers::makePosixException(ENOENT);
+        }
+
+        auto providerId = maybeProviderForSpace->providerId;
+
+        auto *fsLogic = (m_fsLogicMap.at(providerId)).get();
+
+        if (fsLogic == nullptr || fsLogic->stopped())
+            throw one::helpers::makePosixException(ECANCELED);
+
+        return (fsLogic->*fun)(folly::fbstring{}, std::forward<Args>(args)...);
+    }
     /**
      * Resolve a space-relative path to an absolute path starting with the
      * current oneclient mountpoint.
