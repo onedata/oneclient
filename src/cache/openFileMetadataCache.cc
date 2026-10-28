@@ -278,6 +278,8 @@ FileAttrPtr OpenFileMetadataCache::getAttr(const folly::fbstring &uuid)
 
     assertInFiber();
 
+    assert(!uuid.empty());
+
     std::shared_ptr<FileAttr> attr;
 
     if (m_lruFileData.find(uuid) != m_lruFileData.end()) {
@@ -309,6 +311,8 @@ FileAttrPtr OpenFileMetadataCache::getAttr(
     LOG_FCALL() << LOG_FARG(parentUuid) << LOG_FARG(name);
 
     assertInFiber();
+
+    assert(!parentUuid.empty());
 
     auto attr = MetadataCache::getAttr(parentUuid, name);
 
