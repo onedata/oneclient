@@ -536,8 +536,6 @@ FileAttrPtr FsLogic::lookup(
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(name);
 
-    //    assert(!uuid.empty());
-
     IOTRACE_START();
 
     assertInFiber();
