@@ -38,6 +38,7 @@ constexpr std::chrono::minutes RESTRICTED_MACAROON_REFRESH{5};
 std::string decode62(std::string macaroon62);
 std::string encode62(const std::string &macaroon64);
 macaroons::Macaroon restrictMacaroon(const macaroons::Macaroon &macaroon);
+macaroons::Macaroon deserialize(const std::string &macaroon);
 
 /**
  * Tries to deserialize macaroon assuming it is in base62 format.

@@ -74,6 +74,13 @@ parser.add_argument(
     help='CPUs in which to allow execution (0-3, 0,1)',
     dest='cpuset_cpus')
 
+parser.add_argument(
+    '--command',
+    action='store',
+    default=None,
+    help='Execute specific command instead of running tests',
+    dest='command')
+
 [args, pass_args] = parser.parse_known_args()
 dockers_config.ensure_image(args, 'image', 'builder')
 
@@ -107,13 +114,13 @@ if args.onenv_config is not None:
         sys.exit(1)
 
     environment_ready = False
-    retries = 3
+    retries = 5
     while (not environment_ready) and retries > 0:
         try:
             subprocess.check_call(['./one-env/onenv', 'wait'])
             environment_ready = True
         except subprocess.CalledProcessError as e:
-            retries =- 1
+            retries = retries - 1
             time.sleep(5)
             print(f'Waiting for one-env environment setup...')
 
@@ -122,6 +129,10 @@ if args.onenv_config is not None:
         sys.exit(1)
 
     print(f'One-env environment ready')
+    print('-- One-env status --------------', flush=True)
+    subprocess.call(['kubectl', 'get', 'po', '-o', 'wide'])
+    print('-------------------------', flush=True)
+
     print('-- Volumes after one-env --------------', flush=True)
     subprocess.call(['df', '-h'])
     print('-------------------------', flush=True)
@@ -181,7 +192,11 @@ if {shed_privileges}:
     os.setregid({gid}, {gid})
     os.setreuid({uid}, {uid})
 
-if {gdb}:
+if '{custom_command}' != 'None':
+    command = '{custom_command}'.split(' ')
+    ret = subprocess.call(command)
+    sys.exit(ret)
+elif {gdb}:
     command = ['gdb', 'python3', '-silent', '-statistics', '-ex', """run -c "
 import pytest
 pytest.main({args} + ['{test_dirs}'])" """]
@@ -202,6 +217,7 @@ command = command.format(
     shed_privileges=(platform.system() == 'Linux') and not args.no_shed_privileges,
     gdb=args.gdb,
     script_dir=script_dir,
+    custom_command=args.command,
     release=args.release)
 
 add_hosts = {}

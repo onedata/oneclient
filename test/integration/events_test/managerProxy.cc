@@ -211,7 +211,7 @@ namespace {
 boost::shared_ptr<ManagerProxy> create(
     std::string ip, const unsigned short port)
 {
-    FLAGS_minloglevel = 1;
+    FLAGS_v = 0;
 
     auto communicator = std::make_shared<Communicator>(/*connections*/ 10,
         /*threads*/ 1, ip, port,

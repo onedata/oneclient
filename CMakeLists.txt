@@ -1,5 +1,16 @@
 cmake_minimum_required(VERSION 3.7.0)
+if (POLICY CMP0148)
+  cmake_policy(SET CMP0148 OLD)
+endif()
+if (POLICY CMP0153)
+  cmake_policy(SET CMP0153 NEW)
+endif()
+
 project(oneclient C CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(CODE_COVERAGE "Enable code coverage (gcc only)." OFF)
 option(STATIC_BOOST "Link Boost statically" OFF)
@@ -152,50 +163,103 @@ if(NOT FETCH_FOLLY)
 else(FETCH_FOLLY)
     include(ExternalProject)
     ExternalProject_Add(folly
-        GIT_REPOSITORY    https://github.com/bkryza/folly.git
-        GIT_TAG           v2021.01.04.01
+        GIT_REPOSITORY    https://github.com/facebook/folly.git
+        GIT_TAG           v2024.06.24.00
         INSTALL_DIR       ${CMAKE_BINARY_DIR}/contrib
-        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC';-DCMAKE_C_FLAGS='-Wl,-lrt';-DCMAKE_EXE_LINKER_FLAGS='-lrt';-DCMAKE_EXE_LINKER_FLAGS='-lrt';-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
+        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC -Wno-address';-DBUILD_TESTS=OFF;-DCMAKE_C_FLAGS='-Wl,-lrt';-DCMAKE_EXE_LINKER_FLAGS='-lrt';-DCMAKE_EXE_LINKER_FLAGS='-lrt';-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
     )
     ExternalProject_Add_StepTargets(folly install)
     ExternalProject_Add(fizz
         GIT_REPOSITORY    https://github.com/facebookincubator/fizz.git
-        GIT_TAG           v2021.01.04.00
+        GIT_TAG           v2024.06.24.00
         SOURCE_SUBDIR     fizz
         DEPENDS           folly-install
         INSTALL_DIR       ${CMAKE_BINARY_DIR}/contrib
-        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC';-DBUILD_TESTS=OFF;-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/contrib;-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
+        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC -Wno-address';-DBUILD_TESTS=OFF;-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/contrib;-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
     )
     ExternalProject_Add_StepTargets(fizz install)
     ExternalProject_Add(wangle
         GIT_REPOSITORY    https://github.com/facebook/wangle.git
-        GIT_TAG           v2021.01.04.00
+        GIT_TAG           v2024.06.24.00
         SOURCE_SUBDIR     wangle
         DEPENDS           fizz-install
         INSTALL_DIR       ${CMAKE_BINARY_DIR}/contrib
-        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC';-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/contrib;-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib;-DBUILD_TESTS=OFF;-DBUILD_EXAMPLES=OFF;-DCMAKE_CROSSCOMPILING=ON"
+        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC -Wno-address';-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/contrib;-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib;-DBUILD_TESTS=OFF;-DBUILD_EXAMPLES=OFF;-DCMAKE_CROSSCOMPILING=ON"
     )
     ExternalProject_Add_StepTargets(wangle install)
-    ExternalProject_Add(proxygen
-        GIT_REPOSITORY    https://github.com/bkryza/proxygen.git
-        GIT_TAG           v2021.01.04.01
+    ExternalProject_Add(mvfst
+        GIT_REPOSITORY    https://github.com/facebook/mvfst.git
+        GIT_TAG           v2024.06.24.00
         DEPENDS           wangle-install
         INSTALL_DIR       ${CMAKE_BINARY_DIR}/contrib
-        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC -Wno-error=implicit-fallthrough -Wno-error=attributes -DFOLLY_FALLTHROUGH=';-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/contrib;-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
+        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC -Wno-address';-DBUILD_TESTS=OFF;-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/contrib;-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
+    )
+    ExternalProject_Add_StepTargets(mvfst install)
+    ExternalProject_Add(proxygen
+        GIT_REPOSITORY    https://github.com/facebook/proxygen.git
+        GIT_TAG           v2024.06.24.00
+        DEPENDS           mvfst-install
+        INSTALL_DIR       ${CMAKE_BINARY_DIR}/contrib
+        CMAKE_ARGS        "-DCMAKE_CXX_FLAGS='-D__STDC_FORMAT_MACROS=1 -fPIC -Wno-address';-DBUILD_TESTS=OFF;-DCMAKE_PREFIX_PATH=${CMAKE_BINARY_DIR}/contrib;-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/contrib"
     )
     ExternalProject_Add_StepTargets(proxygen install)
     set(FOLLY_INCLUDE_DIR ${CMAKE_BINARY_DIR}/contrib/include)
     set(FOLLY_LIBRARIES
+        ${CMAKE_BINARY_DIR}/contrib/lib/libwangle.a
         ${CMAKE_BINARY_DIR}/contrib/lib/libfolly.a
         ${CMAKE_BINARY_DIR}/contrib/lib/libfollybenchmark.a
         ${CMAKE_BINARY_DIR}/contrib/lib/libwangle.a
         ${LIBEVENT_LIBRARY}
         ${IBERTY_LIBRARY}
         ${CMAKE_BINARY_DIR}/contrib/lib/libfizz.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_async_udp_socket.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_batch_writer.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_buf_accessor.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_bufutil.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_cc_algo.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_client.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_codec.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_codec_decode.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_codec_packet_number_cipher.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_codec_pktbuilder.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_codec_pktrebuilder.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_codec_types.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_constants.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_dsr_frontend.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_dsr_types.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_events.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_exception.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_fizz_client.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_fizz_handshake.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_flowcontrol.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_handshake.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_happyeyeballs.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_looper.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_loss.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_observer.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_qlogger.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_server.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_server_async_tran.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_server_state.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_state_ack_handler.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_state_datagram_handler.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_state_functions.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_state_machine.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_state_pacing_functions.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_state_simple_frame_functions.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_state_stream.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_state_stream_functions.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_transport.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_transport_knobs.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_transport_settings_functions.a
+        ${CMAKE_BINARY_DIR}/contrib/lib/libmvfst_xsk.a
         ${CMAKE_BINARY_DIR}/contrib/lib/libproxygen.a
         ${DOUBLE_CONVERSION_LIBRARY}
         gflags
         glog)
+    if(NOT FOLLY_SHARED)
+        list(APPEND FOLLY_LIBRARIES unwind gflags)
+    endif(NOT FOLLY_SHARED)
 endif(NOT FETCH_FOLLY)
 
 # Setup Boost
@@ -241,7 +305,7 @@ endif(FOLLY_SHARED)
 
 # Utility libs
 find_library(LTDL_LIBRARY NAMES ltdl)
-find_library(ZLIB_LIBRARY NAMES z)
+find_package(ZLIB)
 
 if(WITH_LIBRT)
 find_library(RT_LIBRARY rt)
@@ -261,17 +325,10 @@ endif(WITH_CEPH)
 
 # AWS SDK library
 if(WITH_S3)
-    find_library(AWS_SDK_C_COMMON_LIBRARY aws-c-common HINTS /usr/lib/x86_64-linux-gnu)
-    find_library(AWS_SDK_CHECKSUMS_LIBRARY aws-checksums HINTS /usr/lib/x86_64-linux-gnu)
-    find_library(AWS_SDK_C_EVENT_STREAM_LIBRARY aws-c-event-stream HINTS /usr/lib/x86_64-linux-gnu)
-    find_library(AWS_SDK_CORE_LIBRARY aws-cpp-sdk-core HINTS /usr/lib/x86_64-linux-gnu)
-    find_library(AWS_SDK_S3_LIBRARY aws-cpp-sdk-s3 HINTS /usr/lib/x86_64-linux-gnu)
+    find_package(AWSSDK REQUIRED COMPONENTS s3)
     set(AWS_SDK_LIBRARIES
-        ${AWS_SDK_S3_LIBRARY}
-        ${AWS_SDK_CORE_LIBRARY}
-        ${AWS_SDK_C_COMMON_LIBRARY}
-        ${AWS_SDK_CHECKSUMS_LIBRARY}
-        ${AWS_SDK_C_EVENT_STREAM_LIBRARY}
+        ${AWSSDK_LINK_LIBRARIES}
+        ${AWSSDK_PLATFORM_DEPS}
         ${CURL_LIBRARIES})
     add_definitions(-DWITH_S3=1)
     if(APPLE)
@@ -355,7 +412,7 @@ list(REMOVE_ITEM SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/onedatafs.cc)
 set(PLATFORM_EXTRA_LIBS
     ${CMAKE_THREAD_LIBS_INIT}
     ${LTDL_LIBRARY}
-    ${ZLIB_LIBRARY}
+    ZLIB::ZLIB
     ${DL_LIBRARY})
 
 if(STATIC_LIBSTDCPP)
@@ -380,7 +437,7 @@ endif(APPLE)
 
 # Define build settings
 add_compile_options(${SECTION_FRAGMENTATION_FLAGS} -Wall -Wno-unused-result)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -fdiagnostics-color")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fdiagnostics-color")
 
 add_definitions(
     ${FUSE_DEFINITIONS}
@@ -470,7 +527,8 @@ set(CLIENT_LIBRARIES
     ${FOLLY_LIBRARIES}
     ${HELPERS_LIBRARIES}
     ${OPENSSL_LIBRARIES}
-    ${BACKWARD_CPP_LIBRARIES})
+    ${BACKWARD_CPP_LIBRARIES}
+    ${POCO_LIBRARIES})
 
 if(WITH_CEPH)
     list(APPEND CLIENT_LIBRARIES ${RADOSSTRIPER_LIBRARY} ${RADOS_LIBRARY} ${CEPHCOMMON_LIBRARY})
@@ -513,6 +571,9 @@ if(WITH_ONECLIENT)
 set(CLIENT_SOURCES
     ${MAIN_SOURCE_FILE}
     $<TARGET_OBJECTS:client>
+    ${CMAKE_CURRENT_SOURCE_DIR}/s3/onezoneRestClient.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/s3/restCommon.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/s3/s3util.cc
     ${PROJECT_SOURCES})
 endif(WITH_ONECLIENT)
 
@@ -528,6 +589,9 @@ if(WITH_ONEDATAFS)
   set(ONEDATAFS_SOURCES
       ${CMAKE_CURRENT_SOURCE_DIR}/src/onedatafs.cc
       $<TARGET_OBJECTS:client>
+      ${CMAKE_CURRENT_SOURCE_DIR}/s3/onezoneRestClient.cc
+      ${CMAKE_CURRENT_SOURCE_DIR}/s3/restCommon.cc
+      ${CMAKE_CURRENT_SOURCE_DIR}/s3/s3util.cc
       ${PROJECT_SOURCES})
 
   if(PYTHON2_FOUND)

@@ -74,6 +74,8 @@ public:
      */
     virtual bool unsubscribe(std::int64_t subscriptionId);
 
+    void unsubscribeAll();
+
     /**
      * Checks whether subscription given by the subscription ID exists.
      * @param subscriptionId ID of subscription which existence should be
@@ -97,6 +99,12 @@ public:
      * Reset streams.
      */
     void reset();
+
+    /**
+     * Notify that connection is shutting down - no need to cancel
+     * subscriptions.
+     */
+    void stop();
 
 private:
     std::int64_t subscribe(

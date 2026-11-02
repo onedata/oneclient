@@ -11,6 +11,7 @@ set(ONEBENCH_LIBRARIES
     ${FOLLY_LIBRARIES}
     ${HELPERS_LIBRARIES}
     ${OPENSSL_LIBRARIES}
+    ${POCO_LIBRARIES}
     gflags
     glog
     unwind

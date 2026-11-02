@@ -1,0 +1,27 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "debug-ubuntu-2404",
+      "binaryDir": "_build/debug",
+      "warnings": {
+        "dev": false
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++",
+        "FETCH_FOLLY": "OFF",
+        "FOLLY_SHARED": "OFF",
+        "WITH_SWIFT": "OFF",
+        "WITH_XROOTD": "OFF",
+        "GIT_VERSION": "21.02.1",
+        "WITH_ONES3": "OFF",
+        "WITH_ONEDATAFS": "OFF",
+        "WITH_ONEBENCH": "OFF",
+        "WITH_BENCHMARKS": "OFF",
+        "ONEDATA_DEPS_PREFIX": "/opt/onedata-2202-deps/usr"
+      }
+    }
+  ]
+}

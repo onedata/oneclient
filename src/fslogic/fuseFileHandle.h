@@ -135,6 +135,12 @@ public:
 
     bool isOnModifyTagSet() { return m_tagOnModifySet; }
 
+    static std::uint64_t newHandleId()
+    {
+        static std::atomic<std::uint64_t> counter_{1};
+        return counter_.fetch_add(1, std::memory_order_relaxed) + 1;
+    }
+
 private:
     std::unordered_map<folly::fbstring, folly::fbstring> makeParameters(
         const folly::fbstring &uuid);

@@ -37,6 +37,12 @@ def oneprovider_ip():
 
 
 @pytest.fixture(scope=FIXTURE_SCOPE)
+def oneprovider_2_ip():
+    opip = os.getenv('ONEPROVIDER_2_IP')
+    yield opip
+
+
+@pytest.fixture(scope=FIXTURE_SCOPE)
 def ceph_monitor_ip():
     cmip = os.getenv('CEPH_MONITOR_IP')
     yield cmip
@@ -86,18 +92,18 @@ def s3_support_storage_id(request, oneprovider_ip, onezone_admin_token):
 
 
 @pytest.fixture()
-def odfs_proxy(oneprovider_ip, onezone_admin_token):
-    return onedatafs.OnedataFS(oneprovider_ip, onezone_admin_token,
+def odfs_proxy(onezone_ip, oneprovider_ip, onezone_admin_token):
+    return onedatafs.OnedataFS(onezone_admin_token,
                                insecure=True, force_proxy_io=True)
 
 
 @pytest.fixture()
-def odfs_direct(oneprovider_ip, onezone_admin_token, ceph_monitor_ip,
+def odfs_direct(onezone_ip, oneprovider_ip, onezone_admin_token, ceph_monitor_ip,
                 ceph_support_storage_id):
 
     override_param = f'--override {ceph_support_storage_id}:monitorHostname:{ceph_monitor_ip}'
 
-    return onedatafs.OnedataFS(oneprovider_ip, onezone_admin_token,
+    return onedatafs.OnedataFS(onezone_admin_token,
                                insecure=True, force_direct_io=True,
                                provider_timeout=10,
                                cli_args=override_param)

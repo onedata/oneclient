@@ -37,6 +37,11 @@ FsSubscriptions::FsSubscriptions(events::Manager &eventManager,
 
 void FsSubscriptions::unsubscribeAll()
 {
+    LOG_FCALL() << LOG_FARG(m_subscriptions.size());
+
+    m_eventManager.stop();
+    m_eventManager.unsubscribeAll();
+
     SubscriptionAcc subscriptionAcc;
     m_subscriptions.clear();
 }

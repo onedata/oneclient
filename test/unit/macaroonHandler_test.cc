@@ -133,3 +133,17 @@ TEST_F(MacaroonHandlerTest, shouldCacheOptionsMacaroon)
     auto deserialized = macaroonFromCache();
     ASSERT_TRUE(verifier.verifyUnsafe(deserialized, key));
 }
+
+TEST(MacaroonTest, shoudExtractOnezoneHostFromToken)
+{
+    std::string token =
+        "MDAzM2xvY2F00aW9uIGRldi1vbmV6b25lLmRlZmF1bHQuc3ZjLmNsdXN00ZXIubG9jYWwK"
+        "MDA2YmlkZW500aWZpZXIgMi9ubWQvdXNyLTBlZGJiNjdmNDhjMzI5MjhjZjkyZmM1Y2ZmN"
+        "zM5ZTQxY2hjMzI5L2FjdC9lODYxODExOTBiYTdjMzVjZTExNmFhZWU5MWYxOThmN2NoZDh"
+        "hZgowMDFhY2lkIHRpbWUgPCAxNzcyMTE1OTQ3CjAwMmZzaWduYXR1cmUgOe4JzJcdNTVE5"
+        "nKrOpv5wpsYmwTdq00J7OdUVbVCKCn4K";
+
+    auto deserialized = one::client::auth::deserialize(token);
+
+    ASSERT_EQ(deserialized.location(), "dev-onezone.default.svc.cluster.local");
+}

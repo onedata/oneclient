@@ -4,7 +4,7 @@ mkdir build
 
 cd build
 
-export CXXFLAGS="-Wno-shadow -Wno-unused-local-typedefs -Wno-sign-compare -fvisibility-inlines-hidden -std=c++14 -fmessage-length=0 -march=nocona -mtune=haswell -ftree-vectorize -fPIC -fstack-protector-strong -fno-plt -O2 -ffunction-sections -pipe -I$BUILD_PREFIX/include -I$PREFIX/include -fdebug-prefix-map=$SRC_DIR=/usr/local/src/conda/oneclient-$ONECLIENT_VERSION -fdebug-prefix-map=$PREFIX=/usr/local/src/conda-prefix"
+export CXXFLAGS="-Wno-class-memaccess -Wno-deprecated-declarations -Wno-cast-user-defined -Wno-address -Wno-shadow -Wno-unused-local-typedefs -Wno-sign-compare -fvisibility-inlines-hidden -std=c++17 -fmessage-length=0 -march=nocona -mtune=haswell -ftree-vectorize -fPIC -fstack-protector-strong -fno-plt -O2 -ffunction-sections -pipe -I$BUILD_PREFIX/include -I$PREFIX/include -fdebug-prefix-map=$SRC_DIR=/usr/local/src/conda/oneclient-$ONECLIENT_VERSION -fdebug-prefix-map=$PREFIX=/usr/local/src/conda-prefix"
 
 export PKG_CONFIG_PATH="$BUILD_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH"
 
@@ -14,7 +14,7 @@ cmake -DCMAKE_BUILD_TYPE=Release \
 	  -DWITH_FUSE_VERSION=3 \
 	  -DWITH_CEPH=ON \
 	  -DWITH_SWIFT=ON \
-	  -DCMAKE_AR=${AR} \
+	  -DCMAKE_AR=${BUILD_PREFIX}/bin/${AR} \
 	  -DFETCH_FOLLY=ON \
 	  -DFOLLY_SHARED=OFF \
 	  -DWITH_S3=ON \

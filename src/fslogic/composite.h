@@ -18,6 +18,12 @@ namespace fslogic {
 
 using Composite = InFiber<WithUuids<FsLogic>>;
 
+#if defined(CLANG_UML_TRAVERSE)
+struct CompositeWrapper {
+    Composite composite;
+};
+#endif
+
 } // namespace fslogic
 } // namespace client
 } // namespace one

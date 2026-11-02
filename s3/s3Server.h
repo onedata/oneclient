@@ -125,8 +125,10 @@ public:
 
     S3Server() = delete;
 
-    S3Server(std::shared_ptr<one::client::options::Options> options)
-        : m_logicCache{std::make_shared<S3LogicCache>(options)}
+    S3Server(std::string oneproviderId,
+        std::shared_ptr<one::client::options::Options> options)
+        : m_logicCache{std::make_shared<S3LogicCache>(oneproviderId, options)}
+        , m_oneproviderId{std::move(oneproviderId)}
         , m_options{options}
         , m_readinessProbeBasicAuth{
               m_options->getOneS3ReadinessProbeBasicAuth()}
@@ -308,6 +310,7 @@ private:
     }
 
     std::shared_ptr<S3LogicCache> m_logicCache;
+    const std::string m_oneproviderId;
     std::shared_ptr<one::client::options::Options> m_options;
 
     const boost::optional<std::string> m_readinessProbeBasicAuth;

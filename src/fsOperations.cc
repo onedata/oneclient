@@ -97,6 +97,14 @@ std::ostream &operator<<(std::ostream &os, const struct fuse_file_info *fi)
 template <typename Fun, typename... Args>
 auto callFslogic(Fun &&fun, void *userData, Args &&...args)
 {
+    if (userData == nullptr)
+        LOG(ERROR) << "Fuse userData is null";
+
+    // NOLINTNEXTLINE
+    if (static_cast<std::unique_ptr<fslogic::Composite> *>(userData)->get() ==
+        nullptr)
+        LOG(ERROR) << "FsLogic Composite instance not initiliazed";
+
     auto &fsLogic =
         *static_cast<std::unique_ptr<fslogic::Composite> *>(userData);
 
@@ -106,6 +114,8 @@ auto callFslogic(Fun &&fun, void *userData, Args &&...args)
 template <typename Fun, typename... Args, typename Cb>
 void wrap(Fun &&fun, Cb &&callback, fuse_req_t req, Args &&...args)
 {
+    LOG_FCALL();
+
     one::helpers::activateFuseSession();
 
     callFslogic(std::forward<Fun>(fun), fuse_req_userdata(req),
@@ -149,7 +159,7 @@ void wrap(Fun &&fun, Cb &&callback, fuse_req_t req, Args &&...args)
             })
         .thenError(folly::tag_t<std::exception>{},
             [req](auto &&e) {
-                LOG_DBG(1) << "Unknown exception caught while handling Fuse "
+                LOG(ERROR) << "Unknown exception caught while handling Fuse "
                               "operation: "
                            << e.what();
                 fuse_reply_err(req, EIO);

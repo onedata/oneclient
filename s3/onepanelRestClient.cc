@@ -21,10 +21,11 @@ namespace one {
 namespace rest {
 namespace onepanel {
 
-OnepanelClient::OnepanelClient(const std::string &hostname)
+OnepanelClient::OnepanelClient(const std::string &hostname, int port)
     : credentials_{OnepanelNoAuth{}}
 {
     session_.setHost(hostname);
+    session_.setPort(port);
     session_.setKeepAlive(true);
 }
 

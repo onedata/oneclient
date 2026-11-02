@@ -5,9 +5,9 @@
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
+#include "context.h"
 
 namespace one {
 namespace client {
-
 } // namespace client
 } // namespace one

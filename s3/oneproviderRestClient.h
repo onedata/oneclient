@@ -28,7 +28,7 @@ namespace oneprovider {
 
 class OneproviderClient {
 public:
-    OneproviderClient(const std::string &hostname);
+    OneproviderClient(const std::string &hostname, int port);
 
     ~OneproviderClient();
 

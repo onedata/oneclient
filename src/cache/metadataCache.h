@@ -356,7 +356,7 @@ private:
     using ParentIndex = bmi::hashed_non_unique<bmi::tag<ByParent>,
         ParentUuidExtractor, ParentIndexHash>;
 
-    // Index for accessing FileAttr by it's name and
+    // Index for accessing FileAttr by its name and
     // UUID of the parent directory
     using ParentNameIndexHash =
         bmi::composite_key_hash<std::hash<folly::fbstring>,
@@ -401,8 +401,6 @@ private:
     const std::chrono::seconds m_providerTimeout;
 
     const folly::fbstring m_rootUuid;
-    std::unordered_set<folly::fbstring> m_whitelistedSpaceNames;
-    std::unordered_set<folly::fbstring> m_whitelistedSpaceIds;
     std::shared_ptr<VirtualFsHelpersCache> m_virtualFsHelpersCache{};
     const bool m_showOnlyFullReplicas;
     const bool m_showHardLinkCount;

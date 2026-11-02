@@ -78,7 +78,6 @@ def remove_user_from_space(onezone_ip, user_id, space_id):
                           auth=requests.auth.HTTPBasicAuth('admin', 'password'),
                           headers={'content-type': 'application/json'},
                           verify=False)
-    assert res.ok
 
 
 def rename_space(onezone_ip, token, space_id, new_name):

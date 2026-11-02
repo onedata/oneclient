@@ -58,6 +58,7 @@ include_directories(SYSTEM
 
 add_executable(ones3
         ones3.cc
+        s3util.cc
         s3Server.cc
         serialization.cc
         s3Logic.cc
