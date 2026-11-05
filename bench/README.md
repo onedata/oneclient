@@ -97,3 +97,16 @@ onebench -test rndwr -block_size 1024 -file_size 104857600 -events 50000 -test_t
 ```
 onebench -test rndwr -storage posix -block_size 1024 -file_size 10240 -events 10000000 -test_threads 100  -helper_threads 25 -file_count 5 -helper_count 5 -report_interval 2 -async_batch_size 1 -posix_mount_point /tmp/onebench/ -keep_test_files -flush
 ```
+
+#### HTTP
+
+HTTP helper is read only, thus the HTTP test server must already have some files, and a list of files must be provided either as a relative URL on the server or in a local file. 
+For testing, a special image can be used, which serves a list of files at `HOST_IP/test_data/index.txt`:
+```
+docker run -d onedata/lighttpd:v1
+```
+
+Then the test can be run as follows, assuing the IP of the container is `172.17.0.11`:
+```
+./onebench -test rndrd -storage http -http_connection_pool_size 5 -http_credentials "user:password" -http_credentials_type "basic" -http_endpoint "http://172.17.0.11/test_data" -http_verify_certificate "false" -events 100000 -file_index_path index.txt
+```

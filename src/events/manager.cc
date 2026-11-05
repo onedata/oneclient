@@ -10,18 +10,22 @@
 #include "events.h"
 #include "helpers/logging.h"
 #include "messages/configuration.h"
+#include "options/options.h"
 #include "scheduler.h"
 
 namespace one {
 namespace client {
 namespace events {
 
-Manager::Manager(std::shared_ptr<Context> context)
-    : m_scheduler{*context->scheduler()}
-    , m_sequencerManager{context->communicator()}
+Manager::Manager(Scheduler &scheduler,
+    std::shared_ptr<communication::Communicator> communicator,
+    std::chrono::seconds timeout)
+    : m_scheduler{scheduler}
+    , m_sequencerManager{communicator, timeout}
     , m_sequencerStream{m_sequencerManager.create()}
-    , m_router{*this, *context->communicator()}
+    , m_router{*this, *communicator}
 {
+    LOG_FCALL();
 }
 
 void Manager::emit(EventPtr<> event)
@@ -46,6 +50,9 @@ std::int64_t Manager::subscribe(
                 << LOG_FARG(subscription.toString());
 
     StreamAcc streamAcc;
+    // Add subscription to the Streams hash map
+    // If the subscription for specified stream key already exists,
+    // increase stream use counter
     if (m_streams.insert(streamAcc, subscription.streamKey())) {
         LOG_DBG(2) << "Creating stream '" << subscription.streamKey()
                    << "' for subscription " << subscription.toString();
@@ -105,7 +112,7 @@ void Manager::flush()
     LOG_FCALL();
 
     for (int it = static_cast<int>(StreamKey::FILE_READ);
-         it != static_cast<int>(StreamKey::TEST); ++it) {
+         it != static_cast<int>(StreamKey::STREAM_KEY_MAX); ++it) {
         flush(static_cast<StreamKey>(it));
     }
 }
@@ -114,10 +121,18 @@ void Manager::flush(StreamKey streamKey)
 {
     LOG_FCALL() << LOG_FARG(streamKey);
 
+    LOG_DBG(3) << "Trying to flush stream: " << streamKey;
+
     StreamConstAcc streamAcc;
     if (m_streams.find(streamAcc, streamKey)) {
         streamAcc->second->flush();
     }
+}
+
+void Manager::reset()
+{
+    LOG_DBG(3) << "Resetting sequence manager stream counters";
+    m_sequencerManager.reset();
 }
 
 } // namespace events

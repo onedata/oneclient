@@ -20,6 +20,8 @@ namespace one {
 namespace messages {
 namespace fuse {
 
+FileChildrenAttrs::FileChildrenAttrs() { m_isLast = true; }
+
 FileChildrenAttrs::FileChildrenAttrs(
     std::unique_ptr<ProtocolServerMessage> serverMessage)
     : FuseResponse{serverMessage}
@@ -28,10 +30,10 @@ FileChildrenAttrs::FileChildrenAttrs(
         throw std::system_error{std::make_error_code(std::errc::protocol_error),
             "file_children_attrs field missing"};
 
-    auto fileChildrenAttrs =
+    auto *fileChildrenAttrs =
         serverMessage->mutable_fuse_response()->mutable_file_children_attrs();
 
-    auto childAttrs = fileChildrenAttrs->mutable_child_attrs();
+    auto *childAttrs = fileChildrenAttrs->mutable_child_attrs();
 
     for (const auto &child :
         folly::range(childAttrs->pointer_begin(), childAttrs->pointer_end())) {
@@ -43,6 +45,12 @@ FileChildrenAttrs::FileChildrenAttrs(
 
     if (fileChildrenAttrs->has_is_last())
         m_isLast = fileChildrenAttrs->is_last();
+}
+
+FileChildrenAttrs::FileChildrenAttrs(FileAttr &&attr)
+{
+    m_isLast = true;
+    m_childrenAttrs.emplace_back(std::move(attr));
 }
 
 std::string FileChildrenAttrs::toString() const

@@ -38,8 +38,8 @@ std::unique_ptr<ProtocolClientMessage>
 VerifyStorageTestFile::serializeAndDestroy()
 {
     auto clientMsg = std::make_unique<ProtocolClientMessage>();
-    auto fuseRequest = clientMsg->mutable_fuse_request();
-    auto msg = fuseRequest->mutable_verify_storage_test_file();
+    auto *fuseRequest = clientMsg->mutable_fuse_request();
+    auto *msg = fuseRequest->mutable_verify_storage_test_file();
     msg->mutable_storage_id()->swap(m_storageId);
     msg->mutable_space_id()->swap(m_spaceId);
     msg->mutable_file_id()->swap(m_fileId);

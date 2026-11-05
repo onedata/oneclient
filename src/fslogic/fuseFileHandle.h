@@ -8,16 +8,16 @@
 
 #pragma once
 
-#include "cache/lruMetadataCache.h"
+#include "cache/openFileMetadataCache.h"
 #include "communication/communicator.h"
 #include "helpers/storageHelper.h"
 
-#include <folly/EvictingCacheMap.h>
 #include <folly/FBString.h>
 #include <folly/FBVector.h>
 #include <folly/Hash.h>
 #include <folly/Optional.h>
 #include <folly/Synchronized.h>
+#include <folly/container/EvictingCacheMap.h>
 #include <folly/futures/Future.h>
 
 #include <unordered_map>
@@ -26,12 +26,11 @@ namespace one {
 namespace client {
 
 namespace cache {
-class HelpersCache;
+class HelpersCacheBase;
 class ForceProxyIOCache;
 } // namespace cache
 
 namespace fslogic {
-
 /**
  * @c FuseFileHandle is responsible for storing information about open files.
  */
@@ -48,8 +47,9 @@ public:
      * @param providerTimeout Timeout for provider connections.
      */
     FuseFileHandle(const int flags, folly::fbstring handleId,
-        std::shared_ptr<cache::LRUMetadataCache::OpenFileToken> openFileToken,
-        cache::HelpersCache &helpersCache,
+        std::shared_ptr<cache::OpenFileMetadataCache::OpenFileToken>
+            openFileToken,
+        cache::HelpersCacheBase &helpersCache,
         cache::ForceProxyIOCache &forceProxyIOCache,
         std::chrono::seconds providerTimeout,
         const unsigned int prefetchCalculateSkipReads = 0,
@@ -63,9 +63,9 @@ public:
      * @param fileId ID of a file on the storage.
      * @returns A new or cached file handle for the location.
      */
-    helpers::FileHandlePtr getHelperHandle(const folly::fbstring &uuid,
-        const folly::fbstring &spaceId, const folly::fbstring &storageId,
-        const folly::fbstring &fileId);
+    folly::Future<helpers::FileHandlePtr> getHelperHandle(
+        const folly::fbstring &uuid, const folly::fbstring &spaceId,
+        const folly::fbstring &storageId, const folly::fbstring &fileId);
 
     /**
      * Releases an open helper handle for a file.
@@ -77,6 +77,14 @@ public:
      */
     void releaseHelperHandle(const folly::fbstring &uuid,
         const folly::fbstring &storageId, const folly::fbstring &fileId);
+
+    /**
+     * @brief Reset the handle state
+     *
+     * Unconditinally reset the handle state, including all helper handles and
+     * buffers as well as any buffers, for instance after a network loss.
+     */
+    void reset();
 
     /**
      * @returns Open flags with which the handle was created.
@@ -133,8 +141,9 @@ private:
 
     const int m_flags;
     folly::fbstring m_handleId;
-    std::shared_ptr<cache::LRUMetadataCache::OpenFileToken> m_openFileToken;
-    cache::HelpersCache &m_helpersCache;
+    std::shared_ptr<cache::OpenFileMetadataCache::OpenFileToken>
+        m_openFileToken;
+    cache::HelpersCacheBase &m_helpersCache;
     cache::ForceProxyIOCache &m_forceProxyIOCache;
     std::unordered_map<std::tuple<folly::fbstring, folly::fbstring, bool>,
         helpers::FileHandlePtr>

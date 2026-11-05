@@ -26,7 +26,7 @@ FileCreated::FileCreated(std::unique_ptr<ProtocolServerMessage> serverMessage)
         throw std::system_error{std::make_error_code(std::errc::protocol_error),
             "file_created field missing"};
 
-    auto fileCreated =
+    auto *fileCreated =
         serverMessage->mutable_fuse_response()->mutable_file_created();
 
     fileCreated->mutable_handle_id()->swap(m_handleId);

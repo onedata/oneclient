@@ -33,7 +33,7 @@ std::string Release::toString() const
 std::unique_ptr<ProtocolClientMessage> Release::serializeAndDestroy()
 {
     auto msg = FileRequest::serializeAndDestroy();
-    auto rm =
+    auto *rm =
         msg->mutable_fuse_request()->mutable_file_request()->mutable_release();
 
     rm->mutable_handle_id()->swap(m_handleId);

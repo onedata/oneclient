@@ -48,7 +48,7 @@ std::string FileRemovedSubscription::toString() const
 ProtoSubscriptionPtr FileRemovedSubscription::serialize() const
 {
     auto subscriptionMsg = std::make_unique<clproto::Subscription>();
-    auto msg = subscriptionMsg->mutable_file_removed();
+    auto *msg = subscriptionMsg->mutable_file_removed();
     msg->set_file_uuid(m_fileUuid);
 
     return subscriptionMsg;

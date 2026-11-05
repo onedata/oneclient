@@ -36,6 +36,25 @@ using namespace one::client::util::base64;
             << "DECODE_BASE64(" << IN << ") != " << OUT;                       \
     }
 
+#define TEST_BASE64_URL_ENCODE(IN_STRING_TYPE, OUT_STRING_TYPE, IN, OUT)       \
+    {                                                                          \
+        IN_STRING_TYPE __input = IN;                                           \
+        OUT_STRING_TYPE __output;                                              \
+        EXPECT_TRUE(base64_url_encode(__input, __output))                      \
+            << "BASE64(" << IN << ") failed.";                                 \
+        EXPECT_TRUE(__output == OUT) << "BASE64(" << IN << ") != " << OUT;     \
+    }
+
+#define TEST_BASE64_URL_DECODE(IN_STRING_TYPE, OUT_STRING_TYPE, OUT, IN)       \
+    {                                                                          \
+        IN_STRING_TYPE __input = IN;                                           \
+        OUT_STRING_TYPE __output;                                              \
+        EXPECT_TRUE(base64_url_decode(__input, __output))                      \
+            << "DECODE_BASE64(" << IN << ") failed.";                          \
+        EXPECT_TRUE(__output == OUT)                                           \
+            << "DECODE_BASE64(" << IN << ") != " << OUT;                       \
+    }
+
 /**
  * The purpose of this test suite is to test the internal base64
  * encoder/decoder functions.
@@ -76,6 +95,12 @@ TEST_F(Base64Test, encodingBase64ShouldWork)
     // BASE64("foobar") = "Zm9vYmFy"
     TEST_BASE64_ENCODE(std::string, std::string, "foobar", "Zm9vYmFy");
     TEST_BASE64_ENCODE(folly::fbstring, folly::fbstring, "foobar", "Zm9vYmFy");
+
+    // BASE64("<<???>>") = "PDw/Pz8+Pg=="
+    TEST_BASE64_ENCODE(
+        std::string, std::string, R"(<<???>>)", R"(PDw/Pz8+Pg==)");
+    TEST_BASE64_ENCODE(
+        folly::fbstring, folly::fbstring, R"(<<???>>)", R"(PDw/Pz8+Pg==)");
 }
 
 TEST_F(Base64Test, decodingBase64ShouldWorkWith)
@@ -108,4 +133,55 @@ TEST_F(Base64Test, decodingBase64ShouldWorkWith)
     // BASE64("foobar") = "Zm9vYmFy"
     TEST_BASE64_DECODE(std::string, std::string, "foobar", "Zm9vYmFy");
     TEST_BASE64_DECODE(folly::fbstring, folly::fbstring, "foobar", "Zm9vYmFy");
+
+    // BASE64("<<???>>") = "PDw/Pz8+Pg=="
+    TEST_BASE64_DECODE(
+        std::string, std::string, R"(<<???>>)", R"(PDw/Pz8+Pg==)");
+    TEST_BASE64_DECODE(
+        folly::fbstring, folly::fbstring, R"(<<???>>)", R"(PDw/Pz8+Pg==)");
+}
+
+TEST_F(Base64Test, encodingBase64URLShouldWork)
+{
+    // BASE64("") = ""
+    TEST_BASE64_URL_ENCODE(std::string, std::string, "", "");
+    TEST_BASE64_URL_ENCODE(folly::fbstring, folly::fbstring, "", "");
+    TEST_BASE64_URL_ENCODE(folly::fbstring, std::string, "", "");
+    // BASE64("f") = "Zg=="
+    TEST_BASE64_URL_ENCODE(std::string, std::string, "f", "Zg");
+    TEST_BASE64_URL_ENCODE(folly::fbstring, folly::fbstring, "f", "Zg");
+    TEST_BASE64_URL_ENCODE(folly::fbstring, std::string, "f", "Zg");
+
+    // BASE64("foobar") = "Zm9vYmFy"
+    TEST_BASE64_URL_ENCODE(std::string, std::string, "foobar", "Zm9vYmFy");
+    TEST_BASE64_URL_ENCODE(
+        folly::fbstring, folly::fbstring, "foobar", "Zm9vYmFy");
+
+    // BASE64("<<???>>") = "PDw_Pz8-Pg"
+    TEST_BASE64_URL_ENCODE(
+        std::string, std::string, R"(<<???>>)", R"(PDw_Pz8-Pg)");
+    TEST_BASE64_URL_ENCODE(
+        folly::fbstring, folly::fbstring, R"(<<???>>)", R"(PDw_Pz8-Pg)");
+}
+
+TEST_F(Base64Test, decodingBase64URLShouldWorkWith)
+{
+
+    // BASE64("") = ""
+    TEST_BASE64_URL_DECODE(std::string, std::string, "", "");
+    TEST_BASE64_URL_DECODE(folly::fbstring, folly::fbstring, "", "");
+
+    // BASE64("f") = "Zg=="
+    TEST_BASE64_URL_DECODE(std::string, std::string, "f", "Zg");
+    TEST_BASE64_URL_DECODE(folly::fbstring, folly::fbstring, "f", "Zg");
+
+    // BASE64("fo") = "Zm8="
+    TEST_BASE64_URL_DECODE(std::string, std::string, "fo", "Zm8");
+    TEST_BASE64_URL_DECODE(folly::fbstring, folly::fbstring, "fo", "Zm8");
+
+    // BASE64("<<???>>") = "PDw_Pz8-Pg"
+    TEST_BASE64_URL_DECODE(
+        std::string, std::string, R"(<<???>>)", R"(PDw_Pz8-Pg)");
+    TEST_BASE64_URL_DECODE(
+        folly::fbstring, folly::fbstring, R"(<<???>>)", R"(PDw_Pz8-Pg)");
 }

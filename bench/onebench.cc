@@ -20,14 +20,14 @@
 #include <iostream>
 #include <set>
 
-static const std::set<folly::fbstring> storages{
-    "posix", "s3", "ceph", "cephrados", "webdav", "glusterfs", "swift", "null"};
+static const std::set<folly::fbstring> storages{"posix", "s3", "ceph",
+    "cephrados", "webdav", "glusterfs", "swift", "xrootd", "null"};
 
 static const std::set<folly::fbstring> tests{"rndwr"};
 
 DEFINE_string(storage, "",
     "Specify storage type: posix, s3, ceph, cephrados, webdav, glusterfs, "
-    "swift, null");
+    "swift, xrootd, null");
 
 DEFINE_string(test, "", "Specify test type: rndwr");
 
@@ -36,17 +36,30 @@ DEFINE_int32(helper_threads, 8, "Specify number of helper worker threads");
 DEFINE_int32(test_threads, 8, "Specify number of test worker threads");
 
 DEFINE_int32(file_count, 1, "Specify number of test files");
-DEFINE_int32(file_size, 1024 * 1024, "Specify maximum size of each file");
+DEFINE_int64(file_size, 1024 * 1024, "Specify maximum size of each file");
 DEFINE_int32(block_size, 4096, "Specify the block size used for requests");
+DEFINE_bool(block_aligned, false,
+    "Specify whether the read and write operations should be aligned to "
+    "block_size boundary");
 DEFINE_int32(events, 1000, "Specify number of IO requests");
 DEFINE_int32(report_interval, 10, "Specify report interval in seconds");
 DEFINE_int32(async_batch_size, 1, "Specify request batch size for each worker");
+DEFINE_bool(
+    create_test_files, true, "Create test files before running benchmark");
 DEFINE_bool(keep_test_files, false,
     "Keep created temporary test files after test completes");
 DEFINE_bool(flush, false, "Force flush after each IO request");
+DEFINE_string(file_index_path, "",
+    "File containing list of files, one file per line, relative to the "
+    "registered storage");
+DEFINE_string(storage_path_type, "canonical",
+    "Specify storage path type: canonical or flat.");
 
 DEFINE_int32(
     timeout_ms, 60 * 1000, "Specify maximum request timeout in milliseconds");
+
+DEFINE_bool(
+    archive_storage, false, "Does storage support long-term preservation.");
 
 DEFINE_string(ceph_mon_host, "", "Specify Ceph monitor host");
 DEFINE_string(ceph_pool, "", "Specify Ceph pool name");
@@ -66,6 +79,17 @@ DEFINE_string(s3_secretkey, "", "Specify S3 secret key");
 DEFINE_int32(s3_blocksize, 1024 * 1024 * 10,
     "Specify the block size used for striping files into S3 objects");
 
+DEFINE_int32(nfs_version, 3, "NFS version <3|4>");
+DEFINE_string(nfs_host, "", "NFS host");
+DEFINE_string(nfs_volume, "/", "NFS volume");
+DEFINE_int32(nfs_uid, 0, "NFS UID");
+DEFINE_int32(nfs_gid, 0, "NFS GID");
+DEFINE_int64(nfs_readahead, 0, "NFS readahead");
+DEFINE_int64(nfs_tcpsyncnt, 0, "NFS TCP syncnt");
+DEFINE_bool(nfs_dircache, true, "NFS dircache");
+DEFINE_int32(nfs_autoreconnect, 0, "NFS autoreconnect");
+DEFINE_int32(nfs_connection_pool_size, 10, "NFS connection pool size");
+
 DEFINE_string(
     webdav_endpoint, "", "Specify the WebDAV host, e.g.: 'http://192.168.1.2'");
 DEFINE_string(webdav_credentials_type, "basic",
@@ -81,15 +105,43 @@ DEFINE_int64(webdav_maximum_upload_size, 0,
 DEFINE_int32(webdav_connection_pool_size, 10,
     "Specify WebDAV connection pool size for each helper instance");
 
+DEFINE_string(
+    http_endpoint, "", "Specify the HTTP host, e.g.: 'http://192.168.1.2'");
+DEFINE_string(http_credentials_type, "basic",
+    "Specify the HTTP credentials, e.g.: 'basic'");
+DEFINE_string(http_credentials, "",
+    "Specify the HTTP credentials, e.g.: 'admin:password'");
+DEFINE_string(http_verify_certificate, "false",
+    "Specify whether onebench should verify HTTP server certificate.");
+DEFINE_int32(http_connection_pool_size, 10,
+    "Specify HTTP connection pool size for each helper instance");
+
+DEFINE_string(xrootd_url, "",
+    "Specify the XRootD url, e.g.: 'xrootd://192.168.1.2//data/'");
+DEFINE_string(xrootd_credentials_type, "none",
+    "Specify the XRootD credentials type: [none, pwd]");
+DEFINE_string(xrootd_credentials, "",
+    "Specify the XRootD credentials, e.g.: 'admin:password'");
+
 DEFINE_string(posix_mount_point, "/tmp", "Specify mountpoint for test files");
 DEFINE_string(
     posix_uid, std::to_string(getuid()), "Specify user UID for created files");
 DEFINE_string(
     posix_gid, std::to_string(getgid()), "Specify user GID for created files");
 
+DEFINE_string(
+    null_latency_min, "0", "Specify null helper minimum simulated latency");
+DEFINE_string(
+    null_latency_max, "0", "Specify null helper maximum simulated latency");
+DEFINE_string(
+    null_timeout_probability, "0.0", "Specify null helper timeout probabilty");
+DEFINE_string(
+    null_apply_issues_to, "*", "Specify null helper issues operation filter");
+
 one::helpers::Params makeHelperParams()
 {
     one::helpers::Params params;
+    params["storagePathType"] = FLAGS_storage_path_type;
     if (FLAGS_storage == "ceph") {
         params["clusterName"] = "ceph";
         params["monitorHostname"] = FLAGS_ceph_mon_host;
@@ -115,6 +167,7 @@ one::helpers::Params makeHelperParams()
         params["secretKey"] = FLAGS_s3_secretkey;
         params["timeout"] = std::to_string(FLAGS_timeout_ms);
         params["blockSize"] = std::to_string(FLAGS_s3_blocksize);
+        params["archiveStorage"] = std::to_string(FLAGS_archive_storage);
     }
     else if (FLAGS_storage == "webdav") {
         params["endpoint"] = FLAGS_webdav_endpoint;
@@ -127,12 +180,42 @@ one::helpers::Params makeHelperParams()
         params["connectionPoolSize"] =
             std::to_string(FLAGS_webdav_connection_pool_size);
     }
+    else if (FLAGS_storage == "http") {
+        params["endpoint"] = FLAGS_http_endpoint;
+        params["credentialsType"] = FLAGS_http_credentials_type;
+        params["credentials"] = FLAGS_http_credentials;
+        params["verifyServerCertificate"] = FLAGS_http_verify_certificate;
+        params["connectionPoolSize"] =
+            std::to_string(FLAGS_http_connection_pool_size);
+    }
+    else if (FLAGS_storage == "xrootd") {
+        params["url"] = FLAGS_xrootd_url;
+        params["credentialsType"] = FLAGS_xrootd_credentials_type;
+        params["credentials"] = FLAGS_xrootd_credentials;
+    }
     else if (FLAGS_storage == "posix") {
         params["mountPoint"] = FLAGS_posix_mount_point;
         params["uid"] = FLAGS_posix_uid;
         params["gid"] = FLAGS_posix_gid;
     }
+    else if (FLAGS_storage == "nfs") {
+        params["version"] = std::to_string(FLAGS_nfs_version);
+        params["host"] = FLAGS_nfs_host;
+        params["volume"] = FLAGS_nfs_volume;
+        params["uid"] = std::to_string(FLAGS_nfs_uid);
+        params["gid"] = std::to_string(FLAGS_nfs_gid);
+        params["readAhead"] = std::to_string(FLAGS_nfs_readahead);
+        params["tcpSyncnt"] = std::to_string(FLAGS_nfs_tcpsyncnt);
+        params["dirCache"] = std::to_string(FLAGS_nfs_dircache);
+        params["autoReconnect"] = std::to_string(FLAGS_nfs_autoreconnect);
+        params["connectionPoolSize"] =
+            std::to_string(FLAGS_nfs_connection_pool_size);
+    }
     else if (FLAGS_storage == "null") {
+        params["latencyMin"] = FLAGS_null_latency_min;
+        params["latencyMax"] = FLAGS_null_latency_max;
+        params["timeoutProbability"] = FLAGS_null_timeout_probability;
+        params["filter"] = FLAGS_null_apply_issues_to;
     }
     return params;
 }
@@ -150,11 +233,19 @@ one::bench::TestRunnerConfig makeTestRunnerConfig()
     config.fileCount = FLAGS_file_count;
     config.fileSize = FLAGS_file_size;
     config.blockSize = FLAGS_block_size;
+    config.blockAligned = FLAGS_block_aligned;
     config.testType = FLAGS_test;
     config.reportInterval = FLAGS_report_interval;
     config.asyncBatchSize = FLAGS_async_batch_size;
+    config.createTestFiles = FLAGS_create_test_files;
     config.keepTestFiles = FLAGS_keep_test_files;
     config.flush = FLAGS_flush;
+    config.fileIndexPath = FLAGS_file_index_path;
+    config.archiveStorage = FLAGS_archive_storage;
+
+    if (!config.fileIndexPath.empty()) {
+        config.keepTestFiles = true;
+    }
 
     return config;
 }

@@ -19,8 +19,11 @@ struct MockManager : public one::client::events::Manager {
     {
     }
 
-    MockManager(std::shared_ptr<one::client::Context> context)
-        : one::client::events::Manager{std::move(context)}
+    MockManager(
+        std::shared_ptr<one::client::Context<one::communication::Communicator>>
+            context)
+        : one::client::events::Manager{*context->scheduler(),
+              context->communicator(), std::chrono::seconds{10}}
     {
     }
 
@@ -28,6 +31,9 @@ struct MockManager : public one::client::events::Manager {
         subscribe, std::int64_t(const one::client::events::Subscription &));
     MOCK_METHOD1(unsubscribe, bool(std::int64_t));
     MOCK_METHOD1(flush, void(one::client::events::StreamKey));
+
+    std::shared_ptr<one::client::Context<one::communication::Communicator>>
+        context{testContext()};
 };
 
 #endif // ONECLIENT_TEST_UNIT_EVENTS_MANAGER_MOCK_H

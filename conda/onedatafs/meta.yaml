@@ -1,0 +1,99 @@
+{% set name = "onedatafs" %}
+{% set version = "<<PKG_VERSION>>" %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ version|replace('-', '.') }}
+
+source:
+  url: "<<PKG_SOURCE>>"
+
+build:
+  number: 0
+  string: py{{ py }}
+  binary_relocation: true
+
+requirements:
+  build:
+    - {{ compiler('c') }}
+    - {{ compiler('cxx') }}
+    - conda-forge::aws-c-common =0.7.2
+    - conda-forge::aws-c-event-stream =0.2.7
+    - conda-forge::aws-checksums =0.1.12
+    - conda-forge::aws-sdk-cpp =1.9.283
+    - conda-forge::backports.lzma
+    - conda-forge::binutils_linux-64
+    - conda-forge::boost =1.78.0
+    - conda-forge::cmake
+    - conda-forge::double-conversion
+    - conda-forge::fmt =7.1.*
+    - conda-forge::gflags =2.2.2
+    - conda-forge::git
+    - conda-forge::glog =0.4.0
+    - conda-forge::gperf
+    - conda-forge::jemalloc
+    - conda-forge::libevent
+    - conda-forge::libfuse =3.10.*
+    - conda-forge::libsodium
+    - conda-forge::libtool
+    - conda-forge::libunwind
+    - conda-forge::libuuid
+    - conda-forge::libxcrypt
+    - conda-forge::make
+    - conda-forge::nspr
+    - conda-forge::nss
+    - conda-forge::openssl =1.1.1o
+    - conda-forge::pcre
+    - conda-forge::pkg-config
+    - conda-forge::poco =1.11.1
+    - conda-forge::protobuf =3.17.0
+    - conda-forge::pthread-stubs
+    - conda-forge::python =3.9.*
+    - conda-forge::spdlog =1.8.*
+    - conda-forge::tbb =2018.0.5
+    - conda-forge::tbb-devel =2018.0.5
+    - conda-forge::zlib
+    - onedata::ceph-client =14.2.2.5
+    - onedata::libacl
+    - onedata::libattr
+    - onedata::libiberty
+  run:
+    - conda-forge::aws-c-common =0.7.2
+    - conda-forge::aws-c-event-stream =0.2.7
+    - conda-forge::aws-checksums =0.1.12
+    - conda-forge::aws-sdk-cpp =1.9.283
+    - conda-forge::boost =1.78.0
+    - conda-forge::double-conversion
+    - conda-forge::gflags =2.2.2
+    - conda-forge::glog =0.4.0
+    - conda-forge::jemalloc
+    - conda-forge::libevent
+    - conda-forge::libsodium
+    - conda-forge::libfuse =3.10.*
+    - conda-forge::libunwind
+    - conda-forge::libuuid
+    - conda-forge::libxcrypt
+    - conda-forge::nspr
+    - conda-forge::nss
+    - conda-forge::openssl =1.1.1o
+    - conda-forge::pcre
+    - conda-forge::poco =1.11.1
+    - conda-forge::protobuf =3.17.0
+    - conda-forge::python =3.9.*
+    - conda-forge::spdlog =1.8.*
+    - conda-forge::tbb =2018.0.5
+    - conda-forge::zlib
+    - onedata::ceph-client =14.2.2.5
+
+test:
+  commands:
+    - python -c "from onedatafs import OnedataFS"
+
+about:
+  home: https://onedata.org
+  license: MIT
+  summary: OnedataFS is the Onedata Python library for accessing distributed virtual filesystem.
+
+extra:
+  recipe-maintainers:
+    - bkryza

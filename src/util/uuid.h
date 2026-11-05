@@ -8,8 +8,6 @@
 
 #pragma once
 
-#include "base64.h"
-
 #include <folly/FBString.h>
 #include <folly/String.h>
 
@@ -18,37 +16,53 @@ namespace client {
 namespace util {
 namespace uuid {
 
-constexpr auto ONEDATA_GUID_FRAGMENT_COUNT = 3u;
-
 /**
  * Extracts space Id from Onedata UUID.
  * @param uuid Onedata uuid Based64 encoded Onedata uuid.
  */
-folly::fbstring uuidToSpaceId(const folly::fbstring &uuid)
-{
-    folly::fbstring result;
-    folly::fbstring decodedUuid;
-    auto status = util::base64::base64_decode(uuid, decodedUuid);
+folly::fbstring uuidToSpaceId(const folly::fbstring &uuid);
 
-    if (status) {
-        std::vector<folly::StringPiece> v;
-        folly::split("#", decodedUuid, v);
+/**
+ * Extracts local temporary id from Onedata UUID.
+ * @param uuid Onedata uuid Based64 encoded Onedata uuid.
+ */
+folly::fbstring uuidToTmpDirId(const folly::fbstring &uuid);
 
-        if ((v.size() != ONEDATA_GUID_FRAGMENT_COUNT) || (v[0] != "guid"))
-            throw std::invalid_argument("Invalid Onedata uuid format.");
+/**
+ * Extracts file Id from Onedata UUID.
+ * @param uuid Onedata uuid Based64 encoded Onedata uuid.
+ */
+folly::fbstring uuidToGuid(const folly::fbstring &uuid);
 
-        auto spaceFragment = v[1];
+/**
+ * Generates space UUID from spaceId, which is in the format:
+ *    guid#space_<spaceId>#<spaceId>
+ * < and > are omitted
+ *
+ * @param spaceId ID of the space
+ * @return Space UUID
+ */
+folly::fbstring spaceIdToSpaceUUID(const folly::fbstring &spaceId);
 
-        if (spaceFragment.removePrefix("space_")) {
-            return spaceFragment.toString();
-        }
+/**
+ * Converts guid (e.g. baa020971f9a7b089645b047c523a9dach9a7b) to uuid
+ * (e.g.
+ * Z3VpZCN1c2VyUm9vdF8yZTA4MDdiMWVmNzBkZGRjNGUwM2U5MjAwN2I0OGFkNmNoNzBkZCNyb290RGlyVmlydHVhbFNwYWNlSWQ)
+ * @param spaceId
+ * @param guid
+ * @return
+ */
+folly::fbstring guidToUUID(
+    const folly::fbstring &spaceId, const folly::fbstring &guid);
 
-        throw std::invalid_argument("Onedata uuid does not contain space id.");
-    }
-    else
-        throw std::invalid_argument("Base64 decoding of Onedata uuid failed.");
-}
-}
-}
-}
-}
+/**
+ * Checks whether a UUID is a space id
+ * @param uuid
+ * @return True, if UUID represents a space id
+ */
+bool isSpaceUUID(const folly::fbstring &uuid);
+
+} // namespace uuid
+} // namespace util
+} // namespace client
+} // namespace one

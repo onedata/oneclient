@@ -54,7 +54,7 @@ std::string FileLocationChangedSubscription::toString() const
 ProtoSubscriptionPtr FileLocationChangedSubscription::serialize() const
 {
     auto subscriptionMsg = std::make_unique<clproto::Subscription>();
-    auto msg = subscriptionMsg->mutable_file_location_changed();
+    auto *msg = subscriptionMsg->mutable_file_location_changed();
     msg->set_file_uuid(m_fileUuid);
     msg->set_time_threshold(m_remoteThreshold.count());
 

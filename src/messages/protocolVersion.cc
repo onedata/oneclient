@@ -12,20 +12,27 @@
 
 #include <sstream>
 
+#ifdef major
+#undef major
+#endif
+#ifdef minor
+#undef minor
+#endif
+
 namespace one {
 namespace messages {
 
 ProtocolVersion::ProtocolVersion(
     std::unique_ptr<ProtocolServerMessage> serverMessage)
 {
-    auto &protocolVersionMsg = serverMessage->protocol_version();
+    const auto &protocolVersionMsg = serverMessage->protocol_version();
     m_major = protocolVersionMsg.major();
     m_minor = protocolVersionMsg.minor();
 }
 
-uint32_t ProtocolVersion::major() const { return m_major; }
+uint32_t ProtocolVersion::majorVersion() const { return m_major; }
 
-uint32_t ProtocolVersion::minor() const { return m_minor; }
+uint32_t ProtocolVersion::minorVersion() const { return m_minor; }
 
 std::string ProtocolVersion::toString() const
 {

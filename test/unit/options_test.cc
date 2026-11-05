@@ -28,7 +28,7 @@ struct OptionsTest : public ::testing::Test {
 
     ~OptionsTest()
     {
-        for (const std::string &env :
+        for (const std::string env :
             {"CONFIG", "PROVIDER_HOST", "PROVIDER_PORT", "INSECURE",
                 "ACCESS_TOKEN", "AUTHORIZATION_TOKEN", "LOG_DIR",
                 "FUSE_FOREGROUND", "FUSE_DEBUG", "FUSE_SINGLE_THREAD",
@@ -53,7 +53,49 @@ struct OptionsTest : public ::testing::Test {
     std::vector<const char *> cmdArgs;
     std::vector<const char *> envArgs;
     std::vector<const char *> fileArgs;
-    one::client::options::Options options{};
+    one::client::options::Options options{
+        one::messages::handshake::ClientType::oneclient};
+};
+
+struct OneS3OptionsTest : public ::testing::Test {
+    OneS3OptionsTest()
+        : configFilePath{boost::filesystem::temp_directory_path() /
+              boost::filesystem::unique_path()}
+        , cmdArgs{"oneclient"}
+        , envArgs{"oneclient"}
+        , fileArgs{"oneclient", "-c", configFilePath.c_str()}
+    {
+    }
+
+    ~OneS3OptionsTest()
+    {
+        for (const std::string env :
+            {"CONFIG", "PROVIDER_HOST", "PROVIDER_PORT", "INSECURE",
+                "ACCESS_TOKEN", "AUTHORIZATION_TOKEN", "LOG_DIR",
+                "FUSE_FOREGROUND", "FUSE_DEBUG", "FUSE_SINGLE_THREAD",
+                "FUSE_MOUNT_OPT", "FUSE_MOUNTPOINT"}) {
+            unsetenv(env.c_str());
+            unsetenv(("ONECLIENT_" + env).c_str());
+        }
+
+        boost::system::error_code ec;
+        boost::filesystem::remove_all(configFilePath, ec);
+    }
+
+    void setInConfigFile(const std::string &key, const std::string &value)
+    {
+        std::ofstream configFile;
+        configFile.open(configFilePath.c_str(), std::ios_base::app);
+        configFile << key << " = " << value << std::endl;
+        configFile.close();
+    }
+
+    boost::filesystem::path configFilePath;
+    std::vector<const char *> cmdArgs;
+    std::vector<const char *> envArgs;
+    std::vector<const char *> fileArgs;
+    one::client::options::Options options{
+        one::messages::handshake::ClientType::ones3};
 };
 
 TEST_F(OptionsTest, formatHelpShouldReturnNonemptyString)
@@ -86,17 +128,25 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(false, options.getUnmount());
     EXPECT_EQ(false, options.getForeground());
     EXPECT_EQ(false, options.getDebug());
+    EXPECT_EQ(false, options.disableLogBuffering());
     EXPECT_EQ(false, options.getSingleThread());
     EXPECT_EQ(false, options.isInsecure());
     EXPECT_EQ(false, options.isIOTraceLoggerEnabled());
+    EXPECT_EQ(false, options.isMessageTraceLoggerEnabled());
     EXPECT_EQ(false, options.isProxyIOForced());
     EXPECT_EQ(false, options.isDirectIOForced());
+    EXPECT_FALSE(options.showOnlyFullReplicas());
+    EXPECT_FALSE(options.showHardLinkCount());
+    EXPECT_EQ(false, options.isArchivematicaModeEnabled());
+    EXPECT_EQ(false, options.isPublicDataModeEnabled());
+    EXPECT_EQ(false, options.showSpaceIds());
     EXPECT_EQ(false, options.isMonitoringEnabled());
     EXPECT_EQ(false, options.isMonitoringLevelFull());
     EXPECT_EQ(false, options.areFileReadEventsDisabled());
     EXPECT_EQ(true, options.isFullblockReadEnabled());
     EXPECT_EQ(true, options.isMonitoringLevelBasic());
     EXPECT_EQ(false, options.isClusterPrefetchThresholdRandom());
+    EXPECT_FALSE(options.getCustomCACertificateDir().has_value());
     EXPECT_EQ(0, options.getVerboseLogLevel());
     EXPECT_EQ(options::DEFAULT_PROVIDER_PORT, options.getProviderPort());
     EXPECT_EQ(options::DEFAULT_BUFFER_SCHEDULER_THREAD_COUNT,
@@ -110,8 +160,11 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(options::DEFAULT_STORAGE_HELPER_THREAD_COUNT,
         options.getStorageHelperThreadCount());
     EXPECT_EQ(true, options.isIOBuffered());
+    EXPECT_EQ(true, options.enableExtendedAttributes());
     EXPECT_EQ(options::DEFAULT_PROVIDER_TIMEOUT,
         options.getProviderTimeout().count());
+    EXPECT_EQ(
+        options::DEFAULT_STORAGE_TIMEOUT, options.getStorageTimeout().count());
     EXPECT_EQ(
         options::DEFAULT_READ_BUFFER_MIN_SIZE, options.getReadBufferMinSize());
     EXPECT_EQ(
@@ -128,10 +181,14 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
         options.getWriteBufferMaxSize());
     EXPECT_EQ(options::DEFAULT_WRITE_BUFFER_FLUSH_DELAY,
         options.getWriteBufferFlushDelay().count());
+    EXPECT_EQ(options::DEFAULT_MIN_BLOCK_PREFETCH_SIZE,
+        options.getMinimumBlockPrefetchSize());
     EXPECT_EQ(
         options::DEFAULT_METADATA_CACHE_SIZE, options.getMetadataCacheSize());
     EXPECT_EQ(options::DEFAULT_READDIR_PREFETCH_SIZE,
         options.getReaddirPrefetchSize());
+    EXPECT_EQ(options::DEFAULT_DIR_CACHE_DROP_AFTER,
+        options.getDirectoryCacheDropAfter().count());
     EXPECT_EQ(1.0, options.getLinearReadPrefetchThreshold());
     EXPECT_EQ(1.0, options.getRandomReadPrefetchThreshold());
     EXPECT_EQ(options::DEFAULT_PREFETCH_CLUSTER_WINDOW_SIZE,
@@ -142,8 +199,49 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(options::DEFAULT_PREFETCH_CLUSTER_BLOCK_THRESHOLD,
         options.getRandomReadPrefetchClusterBlockThreshold());
     EXPECT_EQ(0.0, options.getRandomReadPrefetchClusterWindowGrowFactor());
+    EXPECT_EQ(0, options.getEmulateAvailableSpace());
+    EXPECT_EQ(options::DEFAULT_ONES3_BUCKET_SPACEID_CACHE_EXPIRATION_SECONDS,
+        options.getOneS3BucketIdCacheExpirationTime());
     EXPECT_FALSE(options.getProviderHost());
     EXPECT_FALSE(options.getAccessToken());
+    EXPECT_FALSE(options.isReadWritePerfEnabled());
+    EXPECT_FALSE(options.isIgnoreEnv());
+    EXPECT_FALSE(options.isOneS3BucketIdCacheExpirationAbsolute());
+    EXPECT_EQ(options.getOneS3LogicThreadNum(),
+        options::DEFAULT_ONES3_LOGIC_THREAD_NUM);
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldCreateKeyValueMap)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"-t", "ABCD", "-H", "example.com", "--force-direct-io", "--space-id",
+            "s1", "--space-id", "s2", "/mnt/oneclient"});
+
+    options.parse(cmdArgs.size(), cmdArgs.data());
+
+    auto optionValues = options.toKeyValueList();
+    EXPECT_EQ(5, optionValues.size());
+
+    int matches{0};
+    bool token_skipped{true};
+    for (const auto &o : optionValues) {
+        if (o.first == "token" && o.second == "ABCD")
+            token_skipped = false;
+        if (o.first == "host" && o.second == "example.com")
+            matches++;
+        if (o.first == "force-direct-io" && o.second == "true")
+            matches++;
+        if (o.first == "mountpoint" && o.second == "/mnt/oneclient")
+            matches++;
+        if (o.first == "space-id" && o.second == "s1")
+            matches++;
+        if (o.first == "space-id" && o.second == "s2")
+            matches++;
+    }
+
+    EXPECT_TRUE(token_skipped);
+
+    EXPECT_EQ(5, matches);
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetHelpWhenNoArguments)
@@ -247,11 +345,34 @@ TEST_F(OptionsTest, parseCommandLineShouldSetLogDirPath)
     EXPECT_EQ("somePath", options.getLogDirPath());
 }
 
+TEST_F(OptionsTest, parseCommandLineShouldSetLogCustomCADir)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--custom-ca-dir", "/tmp/custom_ca", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(
+        "/tmp/custom_ca", options.getCustomCACertificateDir().value().string());
+}
+
 TEST_F(OptionsTest, parseCommandLineShouldEnableIOTraceLog)
 {
     cmdArgs.insert(cmdArgs.end(), {"--io-trace-log", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ(true, options.isIOTraceLoggerEnabled());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldEnableMessageTraceLog)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--message-trace-log", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.isMessageTraceLoggerEnabled());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldGetCustomLogLevels)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--log-read-write-perf", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(options.isReadWritePerfEnabled(), true);
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetForceProxyIO)
@@ -289,7 +410,7 @@ TEST_F(OptionsTest, parseCommandLineShouldSetCommunicatorThreadCount)
     cmdArgs.insert(
         cmdArgs.end(), {"--communicator-thread-count", "8", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
-    EXPECT_EQ(8, options.getCommunicatorThreadCount());
+    EXPECT_EQ(1 /* sic! */, options.getCommunicatorThreadCount());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetSchedulerThreadCount)
@@ -315,6 +436,20 @@ TEST_F(OptionsTest, parseCommandLineShouldSetNoBuffer)
     EXPECT_EQ(false, options.isIOBuffered());
 }
 
+TEST_F(OptionsTest, parseCommandLineShouldSetIgnoreEnv)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--ignore-env", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.isIgnoreEnv());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetNoXattr)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--no-xattr", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(false, options.enableExtendedAttributes());
+}
+
 TEST_F(OptionsTest, parseCommandLineShouldSetDisableFileReadEvents)
 {
     cmdArgs.insert(cmdArgs.end(), {"--disable-read-events", "mountpoint"});
@@ -334,6 +469,13 @@ TEST_F(OptionsTest, parseCommandLineShouldSetProviderTimeout)
     cmdArgs.insert(cmdArgs.end(), {"--provider-timeout", "300", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ(300, options.getProviderTimeout().count());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetStorageTimeout)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--storage-timeout", "45", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(45, options.getStorageTimeout().count());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetReadBufferMinSize)
@@ -400,6 +542,14 @@ TEST_F(OptionsTest, parseCommandLineShouldSetWriteBufferFlushDelay)
     EXPECT_EQ(10, options.getWriteBufferFlushDelay().count());
 }
 
+TEST_F(OptionsTest, parseCommandLineShouldSetMinPrefetchSize)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--min-block-prefetch-size", "1024", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(1024, options.getMinimumBlockPrefetchSize());
+}
+
 TEST_F(OptionsTest, parseCommandLineShouldSetMetadataCacheSize)
 {
     cmdArgs.insert(
@@ -414,6 +564,14 @@ TEST_F(OptionsTest, parseCommandLineShouldSetReaddirPrefetchSize)
         cmdArgs.end(), {"--readdir-prefetch-size", "10000", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ(10000, options.getReaddirPrefetchSize());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetDirCacheDropAfter)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--dir-cache-drop-after", "60", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(60, options.getDirectoryCacheDropAfter().count());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetTagOnCreate)
@@ -517,6 +675,14 @@ TEST_F(OptionsTest, parseCommandLineShouldSetRandomReadClusterWindowGrowFactor)
     EXPECT_EQ(1.2, options.getRandomReadPrefetchClusterWindowGrowFactor());
 }
 
+TEST_F(OptionsTest, parseCommandLineShouldSetEmulateAvailableSpace)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"--emulate-available-space", "1125899906842624", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(1125899906842624ULL, options.getEmulateAvailableSpace());
+}
+
 TEST_F(OptionsTest, parseCommandLineShouldSetPrefetchMode)
 {
     cmdArgs.insert(cmdArgs.end(), {"--prefetch-mode=sync", "mountpoint"});
@@ -561,6 +727,13 @@ TEST_F(OptionsTest, parseCommandLineShouldSetVerboseLogLevel)
     EXPECT_EQ(3, options.getVerboseLogLevel());
 }
 
+TEST_F(OptionsTest, parseCommandLineShouldDisableLogBuffering)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--disable-log-buffering", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.disableLogBuffering());
+}
+
 TEST_F(OptionsTest, parseCommandLineShouldSetSingleThread)
 {
     cmdArgs.insert(cmdArgs.end(), {"--single-thread", "mountpoint"});
@@ -588,7 +761,11 @@ TEST_F(OptionsTest, parseCommandLineShouldSetFuseArgs)
         {"--foreground", "--debug", "--single-thread", "--opt", "someOpt0",
             "--opt", "someOpt1", "--opt", "someOpt2", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
+#if FUSE_USE_VERSION > 30
+    EXPECT_EQ(8, options.getFuseArgs("oneclient").argc);
+#else
     EXPECT_EQ(9, options.getFuseArgs("oneclient").argc);
+#endif
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldWarnOnDeprecatedOptions)
@@ -771,6 +948,21 @@ TEST_F(OptionsTest, parseConfigFileShouldSetLogDir)
     EXPECT_EQ("somePath", options.getLogDirPath());
 }
 
+TEST_F(OptionsTest, parseConfigFileShouldSetCustomCADir)
+{
+    setInConfigFile("custom_ca_dir", "/tmp/certs");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(
+        "/tmp/certs", options.getCustomCACertificateDir().value().string());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetIgnoreEnv)
+{
+    setInConfigFile("ignore_env", "true");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(true, options.isIgnoreEnv());
+}
+
 TEST_F(OptionsTest, parseConfigFileShouldSetForceProxyIO)
 {
     setInConfigFile("force_proxy_io", "1");
@@ -803,7 +995,7 @@ TEST_F(OptionsTest, parseConfigFileShouldSetCommunicatorThreadCount)
 {
     setInConfigFile("communicator_thread_count", "8");
     options.parse(fileArgs.size(), fileArgs.data());
-    EXPECT_EQ(8, options.getCommunicatorThreadCount());
+    EXPECT_EQ(1 /* sic! */, options.getCommunicatorThreadCount());
 }
 
 TEST_F(OptionsTest, parseConfigFileShouldSetSchedulerThreadCount)
@@ -890,11 +1082,63 @@ TEST_F(OptionsTest, parseConfigFileShouldSetDebug)
     EXPECT_EQ(true, options.getDebug());
 }
 
+TEST_F(OptionsTest, parseConfigFileShouldSetDisableLogBuffering)
+{
+    setInConfigFile("disable_log_buffering", "1");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(true, options.disableLogBuffering());
+}
+
 TEST_F(OptionsTest, parseConfigFileShouldSetSingleThread)
 {
     setInConfigFile("fuse_single_thread", "1");
     options.parse(fileArgs.size(), fileArgs.data());
     EXPECT_EQ(true, options.getSingleThread());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldShowOnlyFullReplicas)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--only-full-replicas", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.showOnlyFullReplicas());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldShowHardLinkCount)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--hard-link-count", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.showHardLinkCount());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldEnableArchivematicaMode)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--enable-archivematica", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.isArchivematicaModeEnabled());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldEnablePublicDataMode)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--public-data-mode", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.isPublicDataModeEnabled());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetDropDirCacheInPublicDataMode)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--public-data-mode", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+
+    using namespace one::client::options;
+    EXPECT_EQ(DEFAULT_DIR_CACHE_DROP_AFTER_IN_PUBLIC_DATA_MODE,
+        options.getDirectoryCacheDropAfter().count());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldShouldShowSpaceIds)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--show-space-ids", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.showSpaceIds());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldEnableMonitoringWithType)
@@ -972,4 +1216,47 @@ TEST_F(OptionsTest, parseShouldSetOptionsInOrder)
     options = one::client::options::Options{};
     options.parse(fileArgs.size(), fileArgs.data());
     EXPECT_EQ("someHost3", options.getProviderHost().get());
+}
+
+TEST_F(OneS3OptionsTest, parseCommandLineShouldReturnOneS3SupportStorageId)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"-Z", "localhost", "--ones3-support-storage-id", "ABCD"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_TRUE(options.getOneS3SupportStorageId().value() == "ABCD");
+}
+
+TEST_F(OneS3OptionsTest, parseCommandLineShouldReturnOneS3SupportStorage)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"-Z", "localhost", "--ones3-support-storage-size", "1024"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_TRUE(options.getOneS3SupportStorageSize() == 1024);
+}
+
+TEST_F(OneS3OptionsTest, parseCommandLineShouldReturnOneS3LogicThreadNum)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"-Z", "localhost", "--ones3-logic-thread-num", "16"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_TRUE(options.getOneS3LogicThreadNum() == 16);
+}
+
+TEST_F(OneS3OptionsTest,
+    parseCommandLineShouldReturnOneS3BucketIdCacheExpirationTime)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"-Z", "localhost", "--ones3-bucketid-cache-expiration", "15"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_TRUE(options.getOneS3BucketIdCacheExpirationTime() ==
+        std::chrono::seconds{15});
+}
+
+TEST_F(OneS3OptionsTest,
+    parseCommandLineShouldReturnOneS3BucketIdCacheExpirationAbsolute)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"-Z", "localhost", "--ones3-bucketid-cache-expiration-absolute"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_TRUE(options.isOneS3BucketIdCacheExpirationAbsolute());
 }

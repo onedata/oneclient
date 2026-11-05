@@ -25,10 +25,11 @@ InodeCache::Entry::Entry(const fuse_ino_t inode_, folly::fbstring uuid_)
 }
 
 InodeCache::InodeCache(
-    folly::fbstring rootUuid, const std::size_t targetCacheSize)
+    const folly::fbstring &rootUuid, const std::size_t targetCacheSize)
     : m_targetCacheSize{targetCacheSize}
 {
     m_cache.emplace(FUSE_ROOT_ID, rootUuid);
+
     ONE_METRIC_COUNTER_SET(
         "comp.oneclient.mod.inodecache.maxsize", targetCacheSize);
 }
@@ -72,7 +73,7 @@ folly::fbstring InodeCache::at(const fuse_ino_t inode) const
 {
     LOG_FCALL() << LOG_FARG(inode);
 
-    auto &index = boost::multi_index::get<ByInode>(m_cache);
+    const auto &index = boost::multi_index::get<ByInode>(m_cache);
     auto entryIt = index.find(inode);
     if (entryIt == index.end() || entryIt->lruIt) {
         LOG(ERROR) << "No file found for inode " << inode;
@@ -92,7 +93,12 @@ void InodeCache::forget(const fuse_ino_t inode, const std::size_t count)
     auto &index = boost::multi_index::get<ByInode>(m_cache);
     auto entryIt = index.find(inode);
 
-    assert(entryIt != index.end());
+    if (entryIt == index.end()) {
+        LOG_DBG(2) << "Inode " << inode
+                   << " not found in inode cache - ignoring...";
+        return;
+    }
+
     assert(entryIt->lookupCount >= count);
 
     const auto newCount = entryIt->lookupCount - count;
@@ -117,12 +123,17 @@ void InodeCache::forget(const fuse_ino_t inode, const std::size_t count)
 
         prune();
     }
+
     ONE_METRIC_COUNTER_SET("comp.oneclient.mod.inodecache.size", index.size());
 }
 
-void InodeCache::rename(folly::fbstring oldUuid, folly::fbstring newUuid)
+void InodeCache::rename(const folly::fbstring &oldUuid, folly::fbstring newUuid,
+    const folly::fbstring & /*newParentUuid*/)
 {
     LOG_FCALL() << LOG_FARG(oldUuid) << LOG_FARG(newUuid);
+
+    if (oldUuid == newUuid)
+        return;
 
     auto &index = boost::multi_index::get<ByUuid>(m_cache);
     const auto entryRange = index.equal_range(oldUuid);
@@ -130,7 +141,7 @@ void InodeCache::rename(folly::fbstring oldUuid, folly::fbstring newUuid)
         index.modify_key(it, [&](folly::fbstring &key) { key.swap(newUuid); });
 }
 
-void InodeCache::markDeleted(folly::fbstring uuid)
+void InodeCache::markDeleted(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 

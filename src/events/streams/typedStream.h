@@ -67,17 +67,26 @@ TypedStream<T>::TypedStream(
 {
 }
 
-template <class T> TypedStream<T>::~TypedStream() { flush(); }
+template <class T> TypedStream<T>::~TypedStream()
+{
+    flush();
+    stop();
+}
 
 template <class T> void TypedStream<T>::process(EventPtr<> event)
 {
     LOG_FCALL();
 
+    if (is_stopped())
+        return;
+
     auto rawEvent = event.release();
     std::unique_ptr<T> typedEvent{dynamic_cast<T *>(rawEvent)};
     if (typedEvent) {
-        m_aggregator->process(m_emitter->process(std::move(typedEvent)));
+        auto processed = m_emitter->process(std::move(typedEvent));
+        m_aggregator->process(std::move(processed));
         if (m_emitter->ready()) {
+            LOG_DBG(3) << "Flushing ready emitter...";
             flush();
         }
     }
@@ -89,6 +98,9 @@ template <class T> void TypedStream<T>::process(EventPtr<> event)
 
 template <class T> void TypedStream<T>::flush()
 {
+    if (is_stopped())
+        return;
+
     m_handler->process(m_aggregator->flush());
     m_emitter->reset();
 }

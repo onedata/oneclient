@@ -31,8 +31,7 @@ public:
      * Constructor.
      * @param contextGuid Uuid of the file targeted by request.
      */
-    FileRequest(std::string contextGuid,
-        folly::Optional<bool> extendedDirectIO = folly::Optional<bool>());
+    FileRequest(std::string contextGuid);
 
     virtual ~FileRequest() = default;
 
@@ -41,7 +40,6 @@ protected:
     serializeAndDestroy() override;
 
     std::string m_contextGuid;
-    folly::Optional<bool> m_extendedDirectIO;
 };
 
 } // namespace fuse

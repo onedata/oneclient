@@ -37,9 +37,9 @@ std::string GetFileChildren::toString() const
 std::unique_ptr<ProtocolClientMessage> GetFileChildren::serializeAndDestroy()
 {
     auto msg = FileRequest::serializeAndDestroy();
-    auto gfc = msg->mutable_fuse_request()
-                   ->mutable_file_request()
-                   ->mutable_get_file_children();
+    auto *gfc = msg->mutable_fuse_request()
+                    ->mutable_file_request()
+                    ->mutable_get_file_children();
 
     gfc->set_offset(m_offset);
     gfc->set_size(m_size);

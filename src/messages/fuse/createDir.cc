@@ -34,9 +34,9 @@ std::string CreateDir::toString() const
 std::unique_ptr<ProtocolClientMessage> CreateDir::serializeAndDestroy()
 {
     auto msg = FileRequest::serializeAndDestroy();
-    auto cd = msg->mutable_fuse_request()
-                  ->mutable_file_request()
-                  ->mutable_create_dir();
+    auto *cd = msg->mutable_fuse_request()
+                   ->mutable_file_request()
+                   ->mutable_create_dir();
 
     cd->mutable_name()->swap(m_name);
     cd->set_mode(m_mode);

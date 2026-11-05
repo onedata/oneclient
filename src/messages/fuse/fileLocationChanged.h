@@ -73,6 +73,8 @@ public:
 
     std::string toString() const override;
 
+    void setUuid(const folly::fbstring &uuid);
+
 private:
     void deserialize(const ProtocolMessage &message);
 

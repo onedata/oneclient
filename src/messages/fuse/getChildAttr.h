@@ -12,6 +12,7 @@
 
 #include <boost/filesystem/path.hpp>
 #include <folly/FBString.h>
+#include <folly/Optional.h>
 
 #include <string>
 
@@ -30,7 +31,8 @@ public:
      * @param uuid Uuid of a parent directory.
      * @param name Name of parent's child to look up.
      */
-    GetChildAttr(folly::fbstring uuid, folly::fbstring name);
+    GetChildAttr(const folly::fbstring &uuid, folly::fbstring name,
+        bool includeReplicationStatus = false, bool includeLinkCount = false);
 
     std::string toString() const override;
 
@@ -39,6 +41,8 @@ private:
 
     folly::fbstring n_uuid;
     folly::fbstring m_name;
+    bool m_includeReplicationStatus;
+    bool m_includeLinkCount;
 };
 
 } // namespace fuse

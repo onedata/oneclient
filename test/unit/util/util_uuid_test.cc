@@ -26,3 +26,11 @@ TEST_F(UUIDTest, uuidToSpaceIdShouldWork)
             "hNDYxODc1YjU5OTg4YmQxNmVjYTk2MGQ4MTMwYg"),
         "a58a461875b59988bd16eca960d8130b");
 }
+
+TEST_F(UUIDTest, spaceIdToSpaceUUIDShouldWork)
+{
+    ASSERT_EQ(spaceIdToSpaceUUID("a574c843c4826a044d96d49c69eb1db1ch3505")
+                  .toStdString(),
+        "Z3VpZCNzcGFjZV9hNTc0Yzg0M2M0ODI2YTA0NGQ5NmQ0OWM2OWViMWRiMWNoMzUwNSNhNT"
+        "c0Yzg0M2M0ODI2YTA0NGQ5NmQ0OWM2OWViMWRiMWNoMzUwNQ");
+}

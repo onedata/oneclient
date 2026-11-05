@@ -93,7 +93,39 @@ FileAttr::FileType FileAttr::type() const { return m_type; }
 
 folly::Optional<off_t> FileAttr::size() const { return m_size; }
 
+void FileAttr::nlink(const int count) { m_nlink = count; }
+
+folly::Optional<int> FileAttr::nlink() const { return m_nlink; }
+
 void FileAttr::size(const off_t size_) { m_size = size_; }
+
+bool FileAttr::fullyReplicated() const
+{
+    return m_fullyReplicated && *m_fullyReplicated;
+}
+
+folly::Optional<bool> FileAttr::fullyReplicatedOpt() const
+{
+    return m_fullyReplicated;
+}
+
+void FileAttr::setFullyReplicated(bool isFullyReplicated)
+{
+    m_fullyReplicated = isFullyReplicated;
+}
+
+bool FileAttr::isVirtual() const { return !!m_virtualFsAdapter; }
+
+void FileAttr::setVirtualFsAdapter(
+    std::shared_ptr<VirtualFsAdapter> virtualFsAdapter)
+{
+    m_virtualFsAdapter = virtualFsAdapter;
+}
+
+std::shared_ptr<VirtualFsAdapter> FileAttr::getVirtualFsAdapter() const
+{
+    return m_virtualFsAdapter;
+}
 
 std::string FileAttr::toString() const
 {
@@ -110,6 +142,9 @@ std::string FileAttr::toString() const
     else
         stream << "unset";
 
+    if (m_nlink)
+        stream << ", nlink: " << *m_nlink;
+
     stream << ", type: ";
 
     switch (m_type) {
@@ -121,8 +156,19 @@ std::string FileAttr::toString() const
             break;
         case FileType::link:
             stream << "link";
+        case FileType::symlink:
+            stream << "symlink";
             break;
     }
+
+    if (m_parentUuid)
+        stream << ", parentUuid: " << *m_parentUuid;
+
+    if (m_fullyReplicated)
+        stream << ", fullyReplicated: " << *m_fullyReplicated;
+
+    if (!m_ownerId.empty())
+        stream << ", ownerId: " << m_ownerId;
 
     return stream.str();
 }
@@ -138,8 +184,13 @@ void FileAttr::deserialize(const ProtocolMessage &message)
     m_atime = std::chrono::system_clock::from_time_t(message.atime());
     m_mtime = std::chrono::system_clock::from_time_t(message.mtime());
     m_ctime = std::chrono::system_clock::from_time_t(message.ctime());
+
     if (message.has_size())
         m_size = message.size();
+    if (message.has_fully_replicated())
+        m_fullyReplicated = message.fully_replicated();
+    if (message.has_nlink())
+        m_nlink = message.nlink();
 
     if (message.type() == clproto::FileType::DIR)
         m_type = FileType::directory;
@@ -147,9 +198,21 @@ void FileAttr::deserialize(const ProtocolMessage &message)
         m_type = FileType::regular;
     else if (message.type() == clproto::FileType::LNK)
         m_type = FileType::link;
+    else if (message.type() == clproto::FileType::SYMLNK)
+        m_type = FileType::symlink;
     else
         throw std::system_error{
             std::make_error_code(std::errc::protocol_error), "bad filetype"};
+
+    for (auto i = 0; i < message.xattrs_size(); i++) {
+        if (message.xattrs(i).has_name() && message.xattrs(i).has_value())
+            m_xattrs.emplace(
+                message.xattrs(i).name(), message.xattrs(i).value());
+    }
+
+    if (message.has_owner_id()) {
+        m_ownerId = message.owner_id();
+    }
 }
 
 } // namespace fuse

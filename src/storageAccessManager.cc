@@ -9,7 +9,6 @@
 #include "storageAccessManager.h"
 #include "helpers/logging.h"
 #include "helpers/storageHelper.h"
-#include "helpers/storageHelperCreator.h"
 #include "messages/fuse/createStorageTestFile.h"
 #include "messages/fuse/storageTestFile.h"
 #include "messages/fuse/verifyStorageTestFile.h"
@@ -30,7 +29,85 @@
 namespace one {
 namespace client {
 
-namespace {
+constexpr std::chrono::seconds VERIFY_TEST_REQUEST_TIMEOUT{5};
+
+bool checkPosixMountpointOverride(const folly::fbstring &storageId,
+    const std::unordered_map<folly::fbstring, folly::fbstring> &overrideParams)
+{
+    // Check, if the user has provided a mountPoint override for this
+    // storage, in which case just return a POSIX helper without storage
+    // detection
+    if (overrideParams.find("mountPoint") != overrideParams.cend()) {
+        // Check if the specified mountPoint is one of the system
+        // mountpoints
+        const auto &mountPointOverride =
+            overrideParams.find("mountPoint")->second;
+        auto mountPoints = detail::getMountPoints();
+        bool mountPointOverrideExists = false;
+
+        for (const auto &mountPoint : mountPoints) {
+            if (mountPointOverride.rfind(mountPoint.string(), 0) == 0) {
+                mountPointOverrideExists = true;
+                break;
+            }
+        }
+
+        if (!mountPointOverrideExists)
+            LOG(WARNING)
+                << "Manually specified mountPoint " << mountPointOverride
+                << " for storage " << storageId
+                << " is not one of mounts available in the system. Please "
+                << "make sure it is correct...";
+
+        return mountPointOverrideExists;
+    }
+
+    return false;
+}
+
+folly::fbstring modifyStorageTestFile(const folly::fbstring &storageId,
+    std::shared_ptr<helpers::StorageHelper> helper,
+    const messages::fuse::StorageTestFile &testFile)
+{
+    LOG_FCALL() << LOG_FARG(storageId);
+
+    auto size = testFile.fileContent().size();
+    folly::IOBufQueue buf{folly::IOBufQueue::cacheChainLength()};
+
+    auto *data = static_cast<char *>(buf.allocate(size));
+
+    std::random_device device;
+    std::default_random_engine engine(device());
+    std::uniform_int_distribution<char> distribution('a', 'z');
+    std::generate_n(data, size, [&]() { return distribution(engine); });
+
+    LOG_DBG(2) << "Opening storage test file for modification: "
+               << testFile.fileId();
+
+    auto handle =
+        communication::wait(helper->open(testFile.fileId(), O_WRONLY, {}),
+            VERIFY_TEST_REQUEST_TIMEOUT);
+
+    std::string content;
+    buf.appendToString(content);
+
+    LOG_DBG(2) << "Writing modified content to storage test file: " << content;
+
+    communication::wait(
+        handle->write(0, std::move(buf), {}), VERIFY_TEST_REQUEST_TIMEOUT);
+
+    LOG_DBG(2) << "Flushing modifed content to file: " << content;
+
+    communication::wait(handle->fsync(true), VERIFY_TEST_REQUEST_TIMEOUT);
+
+    LOG_DBG(1) << "Storage " << storageId << " test file " << testFile.fileId()
+               << " in space " << testFile.spaceId()
+               << " modified with content " << content;
+
+    return content;
+}
+
+namespace detail {
 #ifdef __APPLE__
 
 std::vector<boost::filesystem::path> getMountPoints()
@@ -75,7 +152,10 @@ std::vector<boost::filesystem::path> getMountPoints()
 
 std::vector<boost::filesystem::path> getMountPoints()
 {
-    std::vector<boost::filesystem::path> mountPoints;
+    LOG_FCALL();
+
+    namespace fs = boost::filesystem;
+    std::vector<fs::path> mountPoints;
 
     FILE *file = setmntent("/proc/mounts", "r");
     if (file == nullptr) {
@@ -83,16 +163,26 @@ std::vector<boost::filesystem::path> getMountPoints()
         return mountPoints;
     }
 
-    struct mntent *ent;
+    struct mntent *ent = nullptr;
     while ((ent = getmntent(file)) != nullptr) {
         std::string type(ent->mnt_type);
         std::string path(ent->mnt_dir);
         if (type.compare(0, strlen("fuse"), "fuse") != 0 &&
+            type.compare(0, strlen("fuse.oneclient"), "fuse.oneclient") != 0 &&
             path.compare(0, strlen("/proc"), "/proc") != 0 &&
             path.compare(0, strlen("/dev"), "/dev") != 0 &&
             path.compare(0, strlen("/sys"), "/sys") != 0 &&
             path.compare(0, strlen("/etc"), "/etc") != 0 && path != "/") {
-            mountPoints.emplace_back(ent->mnt_dir);
+            fs::path boostPath{ent->mnt_dir};
+            // Only consider mountpoints which are directories
+            try {
+                if (fs::exists(boostPath) && fs::is_directory(boostPath))
+                    mountPoints.emplace_back(ent->mnt_dir);
+            }
+            catch (...) {
+                LOG_DBG(2) << "Cannot access mounpoint: " << boostPath
+                           << " - ignoring...";
+            }
         }
     }
 
@@ -102,87 +192,24 @@ std::vector<boost::filesystem::path> getMountPoints()
 }
 
 #endif
-} // namespace
 
-StorageAccessManager::StorageAccessManager(
-    helpers::StorageHelperCreator &helperFactory,
-    const options::Options &options)
-    : m_helperFactory{helperFactory}
-    , m_options{options}
-{
-}
-
-std::shared_ptr<helpers::StorageHelper>
-StorageAccessManager::verifyStorageTestFile(const folly::fbstring &storageId,
-    const messages::fuse::StorageTestFile &testFile)
-{
-    const auto &helperParams = testFile.helperParams();
-    const auto &overrideParams = m_options.getHelperOverrideParams(storageId);
-
-    if (helperParams.name() == helpers::POSIX_HELPER_NAME) {
-        std::vector<boost::filesystem::path> mountPoints;
-
-        // Check, if the user has provided a mountPoint override for this
-        // storage, otherwise list all local mountpoints
-        if (overrideParams.find("mountPoint") != overrideParams.cend()) {
-            mountPoints.emplace_back(
-                overrideParams.at("mountPoint").toStdString());
-        }
-        // Check if the mount point is provided during integration tests
-        else if (helperParams.args().find("testMountPoint") !=
-            helperParams.args().cend()) {
-            mountPoints.emplace_back(
-                helperParams.args().at("testMountPoint").toStdString());
-        }
-        else {
-            mountPoints = getMountPoints();
-        }
-
-        for (const auto &mountPoint : mountPoints) {
-            LOG_DBG(1) << "Verifying storage " << storageId
-                       << " test file under mountpoint " << mountPoint;
-
-            auto helper = m_helperFactory.getStorageHelper(
-                helpers::POSIX_HELPER_NAME,
-                {{helpers::POSIX_HELPER_MOUNT_POINT_ARG, mountPoint.string()}},
-                m_options.isIOBuffered());
-
-            if (verifyStorageTestFile(storageId, helper, testFile)) {
-                LOG_DBG(1) << "Storage " << storageId
-                           << " successfuly located under " << mountPoint;
-                return helper;
-            }
-        }
-    }
-    else if (helperParams.name() == helpers::NULL_DEVICE_HELPER_NAME) {
-        return m_helperFactory.getStorageHelper(helperParams.name(),
-            helperParams.args(), m_options.isIOBuffered(), overrideParams);
-    }
-    else {
-        auto helper = m_helperFactory.getStorageHelper(helperParams.name(),
-            helperParams.args(), m_options.isIOBuffered(), overrideParams);
-
-        if (verifyStorageTestFile(storageId, helper, testFile))
-            return helper;
-    }
-
-    return {};
-}
-
-bool StorageAccessManager::verifyStorageTestFile(
-    const folly::fbstring &storageId,
+bool verifyStorageTestFile(const folly::fbstring &storageId,
     std::shared_ptr<helpers::StorageHelper> helper,
     const messages::fuse::StorageTestFile &testFile)
 {
-    try {
+    LOG_FCALL() << LOG_FARG(storageId);
 
+    assert(helper);
+
+    try {
         auto size = testFile.fileContent().size();
 
-        auto handle = communication::wait(
-            helper->open(testFile.fileId(), O_RDONLY, {}), helper->timeout());
+        auto handle =
+            communication::wait(helper->open(testFile.fileId(), O_RDONLY, {}),
+                VERIFY_TEST_REQUEST_TIMEOUT);
 
-        auto buf =
-            communication::wait(handle->read(0, size), helper->timeout());
+        auto buf = communication::wait(
+            handle->read(0, size), VERIFY_TEST_REQUEST_TIMEOUT);
         std::string content;
         buf.appendToString(content);
 
@@ -200,49 +227,27 @@ bool StorageAccessManager::verifyStorageTestFile(
             return false;
         }
 
+        LOG(INFO) << "Storage test file for storage " << storageId
+                  << " verified successfuly";
+
         return true;
     }
     catch (const std::system_error &e) {
+        LOG_DBG(2) << "System error while validating test file: " << e.what();
+
         auto code = e.code().value();
         if (code != ENOENT && code != ENOTDIR && code != EPERM) {
-            LOG(WARNING) << "Storage test file validation failed!";
+            LOG_DBG(2) << "Storage test file validation failed!";
             throw;
         }
+    }
+    catch (const std::exception &e) {
+        LOG_DBG(2) << "Exception while validating test file: " << e.what();
     }
 
     return false;
 }
 
-folly::fbstring StorageAccessManager::modifyStorageTestFile(
-    const folly::fbstring &storageId,
-    std::shared_ptr<helpers::StorageHelper> helper,
-    const messages::fuse::StorageTestFile &testFile)
-{
-    auto size = testFile.fileContent().size();
-    folly::IOBufQueue buf{folly::IOBufQueue::cacheChainLength()};
-
-    auto data = static_cast<char *>(buf.allocate(size));
-
-    std::random_device device;
-    std::default_random_engine engine(device());
-    std::uniform_int_distribution<char> distribution('a', 'z');
-    std::generate_n(data, size, [&]() { return distribution(engine); });
-
-    auto handle = communication::wait(
-        helper->open(testFile.fileId(), O_WRONLY, {}), helper->timeout());
-
-    std::string content;
-    buf.appendToString(content);
-
-    communication::wait(handle->write(0, std::move(buf)), helper->timeout());
-    communication::wait(handle->fsync(true), helper->timeout());
-
-    LOG_DBG(1) << "Storage " << storageId << " test file " << testFile.fileId()
-               << " in space " << testFile.spaceId()
-               << " modified with content " << content;
-
-    return content;
-}
-
+} // namespace detail
 } // namespace client
 } // namespace one

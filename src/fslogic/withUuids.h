@@ -29,15 +29,13 @@ namespace detail {
 struct stat toStatbuf(const FileAttrPtr &attr, const fuse_ino_t ino);
 } // namespace detail
 
-constexpr auto WITHUUIDS_RETRY_COUNT = 4;
-
 /**
  * @c WithUuids is responsible for translating inodes to uuids.
  */
 template <typename FsLogicT> class WithUuids {
 public:
     template <typename... Args>
-    WithUuids(folly::fbstring rootUuid, Args &&... args)
+    WithUuids(folly::fbstring rootUuid, Args &&...args)
         : m_inodeCache{std::move(rootUuid)}
         , m_generation{std::chrono::system_clock::to_time_t(
               std::chrono::system_clock::now())}
@@ -47,7 +45,8 @@ public:
             &m_inodeCache, std::placeholders::_1));
 
         m_fsLogic.onRename(std::bind(&cache::InodeCache::rename, &m_inodeCache,
-            std::placeholders::_1, std::placeholders::_2));
+            std::placeholders::_1, std::placeholders::_2,
+            std::placeholders::_3));
     }
 
     auto lookup(const fuse_ino_t ino, const folly::fbstring &name)
@@ -73,6 +72,20 @@ public:
         return detail::toStatbuf(std::move(attr), ino);
     }
 
+    auto opendir(const fuse_ino_t ino)
+    {
+        LOG_FCALL() << LOG_FARG(ino);
+
+        return wrap(&FsLogicT::opendir, ino);
+    }
+
+    auto releasedir(const fuse_ino_t ino, const std::uint64_t handle)
+    {
+        LOG_FCALL() << LOG_FARG(ino) << LOG_FARG(handle);
+
+        return wrap(&FsLogicT::releasedir, ino, handle);
+    }
+
     auto readdir(const fuse_ino_t ino, const size_t maxSize, const off_t off)
     {
         LOG_FCALL() << LOG_FARG(ino) << LOG_FARG(maxSize) << LOG_FARG(off);
@@ -84,7 +97,7 @@ public:
     {
         LOG_FCALL() << LOG_FARG(ino) << LOG_FARG(flags);
 
-        return wrap(&FsLogicT::open, ino, flags);
+        return wrap(&FsLogicT::open, ino, flags, 0);
     }
 
     auto read(const fuse_ino_t ino, const std::uint64_t handle,
@@ -94,7 +107,7 @@ public:
                     << LOG_FARG(size);
 
         return wrap(&FsLogicT::read, ino, handle, offset, size,
-            folly::Optional<folly::fbstring>{}, WITHUUIDS_RETRY_COUNT,
+            folly::Optional<folly::fbstring>{}, FsLogicT::MAX_RETRY_COUNT,
             std::unique_ptr<IOTraceRead>{});
     }
 
@@ -105,7 +118,7 @@ public:
                     << LOG_FARG(buf->length());
 
         return wrap(&FsLogicT::write, ino, handle, offset, std::move(buf),
-            WITHUUIDS_RETRY_COUNT, std::unique_ptr<IOTraceWrite>{});
+            FsLogicT::MAX_RETRY_COUNT, std::unique_ptr<IOTraceWrite>{});
     }
 
     auto release(const fuse_ino_t ino, const std::uint64_t handle)
@@ -131,6 +144,35 @@ public:
 
         FileAttrPtr attr = wrap(&FsLogicT::mknod, ino, name, mode);
         return toEntry(std::move(attr));
+    }
+
+    auto link(const fuse_ino_t ino, const fuse_ino_t newParent,
+        const folly::fbstring &newName)
+    {
+        LOG_FCALL() << LOG_FARG(ino) << LOG_FARG(newParent)
+                    << LOG_FARG(newName);
+
+        FileAttrPtr attr =
+            wrap(&FsLogicT::link, ino, m_inodeCache.at(newParent), newName);
+        return toEntry(std::move(attr));
+    }
+
+    auto symlink(const fuse_ino_t parent, const folly::fbstring &name,
+        const folly::fbstring &link)
+    {
+        LOG_FCALL() << LOG_FARG(parent) << LOG_FARG(name) << LOG_FARG(link);
+
+        FileAttrPtr attr = wrap(&FsLogicT::symlink, parent, name, link);
+        return toEntry(std::move(attr));
+    }
+
+    auto readlink(const fuse_ino_t ino)
+    {
+        LOG_FCALL() << LOG_FARG(ino);
+
+        folly::fbstring link = wrap(&FsLogicT::readlink, ino);
+
+        return link;
     }
 
     auto unlink(const fuse_ino_t ino, const folly::fbstring &name)
@@ -170,11 +212,11 @@ public:
         return {toEntry(std::move(ret.first)), ret.second};
     }
 
-    auto statfs(const fuse_ino_t)
+    auto statfs(const fuse_ino_t ino)
     {
         LOG_FCALL();
 
-        struct statvfs statinfo = {};
+        auto statinfo = wrap(&FsLogicT::statfs, ino);
         statinfo.f_fsid = m_generation;
         return statinfo;
     }
@@ -229,11 +271,13 @@ public:
         return m_fsLogic.isFullBlockReadForced();
     }
 
+    void stop() { m_fsLogic.stop(); }
+
 private:
     template <typename Ret, typename... FunArgs, typename... Args>
     inline constexpr Ret wrap(
         Ret (FsLogicT::*fun)(const folly::fbstring &, FunArgs...),
-        const fuse_ino_t inode, Args &&... args)
+        const fuse_ino_t inode, Args &&...args)
     {
         const auto &uuid = m_inodeCache.at(inode);
         return (m_fsLogic.*fun)(uuid, std::forward<Args>(args)...);

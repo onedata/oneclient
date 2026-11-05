@@ -42,6 +42,7 @@ void Router::handle(const ProtoEvents &msg)
 {
     LOG_FCALL() << LOG_FARG(msg.DebugString());
 
+    // Handle events received from Oneprovider
     for (const auto &eventMsg : msg.events()) {
         LOG_DBG(2) << "Handling event " << LOG_FARG(eventMsg.DebugString());
 
@@ -81,6 +82,12 @@ void Router::handle(const ProtoEvents &msg)
             ONE_METRIC_COUNTER_INC(
                 "comp.oneclient.mod.events.submod.emitted.quota_exceeded");
         }
+        else if (eventMsg.has_helper_params_changed()) {
+            m_eventManager.emit(std::make_unique<HelperParamsChanged>(
+                eventMsg.helper_params_changed()));
+            ONE_METRIC_COUNTER_INC("comp.oneclient.mod.events.submod.emitted."
+                                   "helper_params_changed");
+        }
         else {
             LOG_DBG(1) << "Received unhandled event '" << eventMsg.DebugString()
                        << "'";
@@ -93,12 +100,12 @@ void Router::handle(const ProtoSubscription &msg)
     LOG_FCALL() << LOG_FARG(msg.DebugString());
 
     if (msg.has_file_read()) {
-        LOG_DBG(2) << "Creating file read subscription";
+        LOG_DBG(2) << "Creating file remote read subscription";
         m_eventManager.subscribe(
             msg.id(), FileReadSubscription{msg.file_read()});
     }
     else if (msg.has_file_written()) {
-        LOG_DBG(2) << "Creating file written subscription";
+        LOG_DBG(2) << "Creating file remote written subscription";
         m_eventManager.subscribe(
             msg.id(), FileWrittenSubscription{msg.file_written()});
     }

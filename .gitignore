@@ -9,6 +9,12 @@ docker-build-report.txt
 integration-tests-results.xml
 oneclient.info
 oneclient.info.cleaned
+oneclient_cunit.info.cleaned
+/_build
+.gdb_history
+.cache
+__pycache__
+*-tests-results.xml
 
 # Compiled Object files
 *.slo
@@ -49,8 +55,21 @@ install_manifest.txt
 *.xcodeproj
 
 # Clion project files
-.idea
+*.iml
+cmake-build-debug/
+cmake-build-*/
 
 # YouCompleteMe database
 .ycm_extra_conf.py
 compile_commands.json
+
+/tmp
+warp-*
+
+venv
+.pytest_cache
+/core*
+conda-pkg-list.txt
+/uploads
+
+devcontainer.json

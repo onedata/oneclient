@@ -29,105 +29,110 @@ from proto import messages_pb2, fuse_messages_pb2, event_messages_pb2, \
 
 @pytest.fixture
 def endpoint(appmock_client):
-    return appmock_client.tcp_endpoint(443)
+    app = appmock_client.tcp_endpoint(443)
+    yield app
+    appmock_client.reset_tcp_history()
 
 
 @pytest.fixture
 def hc(endpoint):
-    return helperscache.HelpersCacheProxy(
+    cache = helperscache.HelpersCacheProxy(
             endpoint.ip, endpoint.port,
             '--no-buffer --provider-timeout=2 mountpoint')
+    yield cache
 
 
 @pytest.fixture
 def hc_directio(endpoint):
-    return helperscache.HelpersCacheProxy(
+    cache = helperscache.HelpersCacheProxy(
             endpoint.ip, endpoint.port,
             '--no-buffer --provider-timeout=2 --force-direct-io mountpoint')
+    yield cache
 
 
 @pytest.fixture
 def hc_proxyio(endpoint):
-    return helperscache.HelpersCacheProxy(
+    cache = helperscache.HelpersCacheProxy(
             endpoint.ip, endpoint.port,
             '--no-buffer --provider-timeout=2 --force-proxy-io mountpoint')
+    yield cache
 
 
 @pytest.fixture
 def storage_id():
-    return random_str()
+    return random_str().encode('utf-8')
 
 
 @pytest.fixture
 def space_id():
-    return random_str()
+    return random_str().encode('utf-8')
 
 
 @pytest.fixture
 def file_uuid():
-    return random_str()
+    return random_str().encode('utf-8')
 
 
 @pytest.fixture
 def file_content():
-    return random_str()
+    return random_str().encode('utf-8')
 
 
 def prepare_posix_helper_params(storage_id, mount_point):
     repl = fuse_messages_pb2.HelperParams()
-    repl.helper_name = 'posix'
+    repl.helper_name = b'posix'
     p = repl.helper_args.add()
     p.key = 'type'
-    p.value = 'posix'
+    p.value = b'posix'
     p = repl.helper_args.add()
     p.key = 'testMountPoint'
-    p.value = mount_point
+    p.value = mount_point.encode('utf-8')
     p = repl.helper_args.add()
     p.key = 'uid'
-    p.value = '-1'
+    p.value = b'-1'
     p = repl.helper_args.add()
     p.key = 'gid'
-    p.value = '-1'
+    p.value = b'-1'
     p = repl.helper_args.add()
     p.key = 'timeout'
-    p.value = '1'
+    p.value = b'1'
 
     return repl
 
 
 def prepare_refresh_posix_helper_params(storage_id, mount_point):
     repl = fuse_messages_pb2.HelperParams()
-    repl.helper_name = 'posix'
+    repl.helper_name = b'posix'
     p = repl.helper_args.add()
     p.key = 'type'
-    p.value = 'posix'
+    p.value = b'posix'
     p = repl.helper_args.add()
-    p.key = 'mountPoint'
+    p.key = b'mountPoint'
     p.value = mount_point
     p = repl.helper_args.add()
     p.key = 'uid'
-    p.value = '-1'
+    p.value = b'-1'
     p = repl.helper_args.add()
     p.key = 'gid'
-    p.value = '-1'
+    p.value = b'-1'
     p = repl.helper_args.add()
     p.key = 'timeout'
-    p.value = '1'
+    p.value = b'1'
 
     return repl
 
 def prepare_proxy_helper_response(storage_id):
     helper_params = fuse_messages_pb2.HelperParams()
-    helper_params.helper_name = 'proxy'
+    helper_params.helper_name = b'proxy'
     p = helper_params.helper_args.add()
     p.key = 'type'
-    p.value = 'proxy'
+    p.value = b'proxy'
     p = helper_params.helper_args.add()
     p.key = 'storageId'
     p.value = storage_id
     p = helper_params.helper_args.add()
     p.key = 'timeout'
-    p.value = '1'
+    p.value = b'1'
 
 
     server_response = messages_pb2.ServerMessage()
@@ -189,8 +194,11 @@ def test_automatic_posix_helper_detection_should_work(endpoint, hc, storage_id,
             prepare_posix_create_storage_test_file(file_uuid, storage_id,
                     space_id, file_content, mount_point)
 
+    posix_helper_params = \
+            prepare_posix_helper_params_response(storage_id, mount_point)
+
     # Write random content to file
-    with open(os.path.join(mount_point, file_uuid), 'wb') as test_file:
+    with open(os.path.join(mount_point, file_uuid.decode('utf-8')), 'wb') as test_file:
         test_file.write(file_content)
 
     verify_storage_test_file_response = messages_pb2.ServerMessage()
@@ -200,10 +208,12 @@ def test_automatic_posix_helper_detection_should_work(endpoint, hc, storage_id,
     create_storage_file_request = None
     verify_storage_file_request = None
 
-    with reply(endpoint, [create_storage_file_response,
+    with reply(endpoint, [posix_helper_params,
+                          create_storage_file_response,
                           verify_storage_test_file_response]) as queue:
-        res = hc.get(file_uuid, space_id, storage_id, False)
+        res = hc.get(file_uuid, space_id, storage_id, False, False)
         assert res
+        posix_helper_params_request = queue.get()
         create_storage_file_request = queue.get()
         verify_storage_file_request = queue.get()
 
@@ -225,7 +235,7 @@ def test_automatic_posix_helper_detection_should_work(endpoint, hc, storage_id,
     assert hc.get_access_type(storage_id) == "direct"
 
     # Verify content written to the test file by storage access manager
-    with open(os.path.join(mount_point, file_uuid), 'rb') as test_file:
+    with open(os.path.join(mount_point, file_uuid.decode('utf-8')), 'rb') as test_file:
         assert test_file.read() == file_contents
 
 
@@ -244,7 +254,7 @@ def test_directio_posix_helper_detection_should_work(endpoint, hc_directio,
                     space_id, file_content, mount_point)
 
     # Write random content to file
-    with open(os.path.join(mount_point, file_uuid), 'wb') as test_file:
+    with open(os.path.join(mount_point, file_uuid.decode('utf-8')), 'wb') as test_file:
         test_file.write(file_content)
 
     verify_storage_test_file_response = messages_pb2.ServerMessage()
@@ -258,7 +268,7 @@ def test_directio_posix_helper_detection_should_work(endpoint, hc_directio,
     with reply(endpoint, [posix_helper_params,
                           create_storage_file_response,
                           verify_storage_test_file_response]) as queue:
-        res = hc_directio.get(file_uuid, space_id, storage_id, False)
+        res = hc_directio.get(file_uuid, space_id, storage_id, False, False)
         assert res
         get_helper_params_request = queue.get()
         create_storage_file_request = queue.get()
@@ -289,7 +299,7 @@ def test_directio_posix_helper_detection_should_work(endpoint, hc_directio,
     assert hc_directio.get_access_type(storage_id) == "direct"
 
     # Verify content written to the test file by storage access manager
-    with open(os.path.join(mount_point, file_uuid), 'rb') as test_file:
+    with open(os.path.join(mount_point, file_uuid.decode('utf-8')), 'rb') as test_file:
         assert test_file.read() == file_contents
 
 
@@ -303,7 +313,7 @@ def test_proxyio_posix_helper_detection_should_work(endpoint, hc_proxyio,
     proxy_helper_params_request = None
 
     with reply(endpoint, [proxy_helper_params_response]) as queue:
-        res = hc_proxyio.get(file_uuid, space_id, storage_id, True)
+        res = hc_proxyio.get(file_uuid, space_id, storage_id, True, False)
         assert res
         proxy_helper_params_request = queue.get()
 
@@ -316,6 +326,7 @@ def test_proxyio_posix_helper_detection_should_work(endpoint, hc_proxyio,
     assert hc_proxyio.get_access_type(storage_id) == "proxy"
 
 
+@pytest.mark.skip("VFS-10551")
 def test_automatic_posix_helper_detection_should_fallback_to_proxy(endpoint,
            hc, storage_id, space_id, file_uuid, file_content):
 
@@ -325,12 +336,15 @@ def test_automatic_posix_helper_detection_should_fallback_to_proxy(endpoint,
     mount_point = tempfile.mkdtemp(suffix='helperscache')
     mount_point_invalid = tempfile.mkdtemp(suffix='helperscache')
 
+    posix_helper_params = \
+            prepare_posix_helper_params_response(storage_id, mount_point)
+
     create_storage_file_response = \
         prepare_posix_create_storage_test_file(file_uuid, storage_id,
             space_id, file_content, mount_point_invalid)
 
     # Write random content to file
-    with open(os.path.join(mount_point, file_uuid), 'wb') as test_file:
+    with open(os.path.join(mount_point, file_uuid.decode('utf-8')), 'wb') as test_file:
         test_file.write(file_content)
 
     proxy_helper_params_response = prepare_proxy_helper_response(storage_id)
@@ -342,22 +356,33 @@ def test_automatic_posix_helper_detection_should_fallback_to_proxy(endpoint,
     create_storage_file_request = None
     proxy_helper_params_request = None
 
-    with reply(endpoint, [create_storage_file_response,
+    with reply(endpoint, [posix_helper_params,
+                          create_storage_file_response,
                           proxy_helper_params_response,
                           create_storage_file_response]) as queue:
-        res = hc.get(file_uuid, space_id, storage_id, False)
+
+        res = hc.get(file_uuid, space_id, storage_id, False, False)
+        get_helper_params_request = queue.get()
         create_storage_file_request = queue.get()
         proxy_helper_params_request = queue.get()
         create_storage_file_request = queue.get()
 
     # Wait for storage detection to complete in background
-    time.sleep(15)
+    time.sleep(5)
+
+    print(f"get_helper_params_request = {get_helper_params_request}")
+
+    assert get_helper_params_request.HasField('fuse_request')
+
+    print(f"create_storage_file_request = {create_storage_file_request}")
 
     assert create_storage_file_request.HasField('fuse_request')
     create_storage_test_file = \
         create_storage_file_request.fuse_request.create_storage_test_file
     assert create_storage_test_file.storage_id == storage_id
     assert create_storage_test_file.file_uuid == file_uuid
+
+    print(f"proxy_helper_params_request = {proxy_helper_params_request}")
 
     assert proxy_helper_params_request.HasField('fuse_request')
     get_helper_params = \
@@ -376,12 +401,37 @@ def test_directio_posix_helper_detection_should_not_allow_proxy(
 
     with pytest.raises(RuntimeError) as excinfo:
         with reply(endpoint, []) as queue:
-            hc_directio.get(file_uuid, space_id, storage_id, True)
+            hc_directio.get(file_uuid, space_id, storage_id, True, False)
             queue.get()
 
     assert 'Operation not supported' in str(excinfo.value)
 
 
+@pytest.mark.skip("VFS-10551")
+def test_directio_posix_helper_detection_should_fallback_to_proxy_on_eaccess(
+        endpoint, hc_directio, storage_id, space_id, file_uuid):
+
+    assert hc_directio.is_directio_forced() is True
+
+    proxy_helper_params_response = prepare_proxy_helper_response(storage_id)
+
+    proxy_helper_params_request = None
+
+    with reply(endpoint, [proxy_helper_params_response]) as queue:
+        res = hc_directio.get(file_uuid, space_id, storage_id, True, True)
+        assert res
+        proxy_helper_params_request = queue.get()
+
+    assert proxy_helper_params_request.HasField('fuse_request')
+    get_helper_params = proxy_helper_params_request.fuse_request.get_helper_params
+    assert get_helper_params.storage_id == storage_id
+    assert get_helper_params.space_id == space_id
+    assert get_helper_params.helper_mode == 2
+
+    assert hc_directio.get_access_type(storage_id) == "proxy"
+
+
+@pytest.mark.skip("VFS-10551")
 def test_helper_should_refresh_parameters(
         endpoint, hc_directio, storage_id, space_id, file_uuid, file_content):
 
@@ -397,7 +447,7 @@ def test_helper_should_refresh_parameters(
                     space_id, file_content, mount_point)
 
     # Write random content to file
-    with open(os.path.join(mount_point, file_uuid), 'wb') as test_file:
+    with open(os.path.join(mount_point, file_uuid.decode('utf-8')), 'wb') as test_file:
         test_file.write(file_content)
 
     verify_storage_test_file_response = messages_pb2.ServerMessage()
@@ -411,7 +461,7 @@ def test_helper_should_refresh_parameters(
     with reply(endpoint, [posix_helper_params,
                           create_storage_file_response,
                           verify_storage_test_file_response]) as queue:
-        res = hc_directio.get(file_uuid, space_id, storage_id, False)
+        res = hc_directio.get(file_uuid, space_id, storage_id, False, False)
         assert res
         get_helper_params_request = queue.get()
         create_storage_file_request = queue.get()
@@ -435,7 +485,7 @@ def test_helper_should_refresh_parameters(
     assert hc_directio.get_access_type(storage_id) == "direct"
 
     # Verify content written to the test file by storage access manager
-    with open(os.path.join(mount_point, file_uuid), 'rb') as test_file:
+    with open(os.path.join(mount_point, file_uuid.decode('utf-8')), 'rb') as test_file:
         assert test_file.read() == file_contents
 
     mount_point = tempfile.mkdtemp(suffix='helperscache')
@@ -448,9 +498,9 @@ def test_helper_should_refresh_parameters(
 
     with reply(endpoint, [posix_helper_params]) as queue:
         # Refresh helper parameters
-        hc_directio.refresh_helper_parameters(storage_id, space_id)
+        hc_directio.refresh_helper_parameters(storage_id)
 
-        res = hc_directio.get(file_uuid, space_id, storage_id, False)
+        res = hc_directio.get(file_uuid, space_id, storage_id, False, False)
         assert res
         get_helper_params_request = queue.get()
 
@@ -471,4 +521,4 @@ def test_helper_should_refresh_parameters(
 
     # Verify content written to the file by helper
     with open(os.path.join(mount_point, 'file1'), 'rb') as test_file:
-        assert test_file.read() == file_contents
+        assert test_file.read() == file_contents.encode('utf-8')

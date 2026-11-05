@@ -46,7 +46,10 @@ public:
      * returned item.
      */
     GetFileChildrenAttrs(const folly::fbstring &uuid, const off_t offset,
-        const std::size_t size, folly::Optional<folly::fbstring> indexToken);
+        const std::size_t size, folly::Optional<folly::fbstring> indexToken,
+        bool includeReplicationStatus = false,
+        bool includeHardLinkCount = false,
+        std::vector<std::string> xattrs = {});
 
     std::string toString() const override;
 
@@ -56,6 +59,9 @@ private:
     const off_t m_offset;
     const std::size_t m_size;
     folly::Optional<folly::fbstring> m_indexToken;
+    bool m_includeReplicationStatus{};
+    bool m_includeHardLinkCount{};
+    std::vector<std::string> m_xattrs;
 };
 
 } // namespace fuse

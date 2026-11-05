@@ -13,6 +13,7 @@
 #include "events/events.h"
 #include "messages/fuse/fileAttr.h"
 #include "messages/fuse/fileLocation.h"
+#include "options/options.h"
 #include "scheduler.h"
 
 #include "messages.pb.h"
@@ -29,7 +30,7 @@ one::clproto::FileRenamedEvent fileRenamedEvent(std::string fileUuid);
 struct TestEvent : public one::client::events::SingleEvent {
     one::client::events::StreamKey streamKey() const override
     {
-        return one::client::events::StreamKey::TEST;
+        return one::client::events::StreamKey::STREAM_KEY_MAX;
     }
 
     std::string toString() const override { return "type: 'Test'"; }
@@ -44,7 +45,7 @@ struct TestSubscription : public one::client::events::Subscription {
 
     one::client::events::StreamKey streamKey() const override
     {
-        return one::client::events::StreamKey::TEST;
+        return one::client::events::StreamKey::STREAM_KEY_MAX;
     }
 
     one::client::events::StreamPtr createStream(
@@ -201,12 +202,16 @@ one::clproto::FileRenamedEvent fileRenamedEvent(std::string fileUuid)
     return event;
 }
 
-std::shared_ptr<one::client::Context> testContext()
+std::shared_ptr<one::client::Context<one::communication::Communicator>>
+testContext()
 {
-    auto context = std::make_shared<one::client::Context>();
+    auto context = std::make_shared<
+        one::client::Context<one::communication::Communicator>>();
+    context->setOptions(std::make_shared<one::client::options::Options>());
     context->setScheduler(std::make_shared<one::Scheduler>(0));
     context->setCommunicator(std::make_shared<one::communication::Communicator>(
-        1, 1, "127.0.0.1", 80, false));
+        0, 1, "127.0.0.1", 80, false));
+    context->communicator()->connect();
     return context;
 }
 

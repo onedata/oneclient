@@ -31,6 +31,7 @@ foreach(TEST_SRC ${TEST_SOURCES})
 	$<TARGET_OBJECTS:testRunner>)
     target_link_libraries(${TEST_NAME} PRIVATE
 	clientShared
+	${BACKWARD_CPP_LIBRARIES}
 	gmock_main
 	gtest)
     add_test(${TEST_NAME} ${TEST_NAME})

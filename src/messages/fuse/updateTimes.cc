@@ -39,9 +39,9 @@ std::string UpdateTimes::toString() const
 std::unique_ptr<ProtocolClientMessage> UpdateTimes::serializeAndDestroy()
 {
     auto msg = FileRequest::serializeAndDestroy();
-    auto ut = msg->mutable_fuse_request()
-                  ->mutable_file_request()
-                  ->mutable_update_times();
+    auto *ut = msg->mutable_fuse_request()
+                   ->mutable_file_request()
+                   ->mutable_update_times();
 
     if (m_atime)
         ut->set_atime(std::chrono::system_clock::to_time_t(*m_atime));

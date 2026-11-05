@@ -1,0 +1,106 @@
+--- a/debian/control
++++ b/debian/control
+@@ -10,9 +10,10 @@ Build-Depends:
+     cmake (>= 3.0.0),
+     debhelper (>= 9),
+     folly-dev,
+-    g++-5 (>= 5.0.0),
++    g++ (>= 9.4.0),
+     git,
+-    glusterfs-common (>= 3.12.1),
++    glusterfs-common (>= 7.2),
++    libglusterfs-dev (>= 7.2),
+     golang-go,
+     libacl1-dev,
+     libboost-all-dev,
+@@ -25,17 +26,17 @@ Build-Depends:
+     libnspr4-dev,
+     libnss3-dev,
+     libprotobuf-dev (>= 3.4.1),
+-    libradospp-dev (>= 14.2.2),
+-    libradosstriper-dev (>= 14.2.2),
++    libradospp-dev (>= 15.2.0),
++    libradosstriper-dev (>= 15.2.0),
+     libsodium-dev,
+     libssl-dev (>= 1.1.0),
+-    libstdc++-5-dev,
+-    libtbb-dev (>= 2018~U5),
++    libstdc++-9-dev,
++    libtbb-dev,
+     libpoco-dev,
+-    libpocofoundation50,
+-    libpoconetssl50,
+-    libpocoutil50,
+-    libpocoxml50,
++    libpocofoundation62,
++    libpoconetssl62,
++    libpocoutil62,
++    libpocoxml62,
+     libxrootd-client-dev,
+     libxrootd-server-dev,
+     libxrootd-private-dev,
+@@ -57,14 +58,14 @@ Homepage: https://onedata.org
+ 
+ Package: oneclient-base
+ Architecture: amd64
+-Depends: glusterfs-common (>= 3.12.1), libnfs13 (>= 4.0.0), folly, libxrootd-client-dev, xrootd-plugins, xrootd-client-plugins, ${shlibs:Depends}, ${misc:Depends}, fuse3, libunwind8
++Depends: glusterfs-common (>= 7.2), libnfs13 (>= 4.0.0), folly, libxrootd-client-dev, xrootd-plugins, xrootd-client-plugins, ${shlibs:Depends}, ${misc:Depends}, fuse3, libunwind8
+ Description: FUSE client for onedata system.
+  Oneclient is a software based on FUSE (Filesystem in Userspace) that allows
+  mounting onedata filesystem on Linux systems.
+ 
+ Package: python3-onedatafs
+ Architecture: amd64
+-Depends: python3, libboost-python1.58.0, libnfs13 (>= 4.0.0), folly, libxrootd-client-dev, xrootd-plugins, xrootd-client-plugins, libunwind8, ${shlibs:Depends}, ${misc:Depends}
++Depends: python3, libboost-python1.71.0, libnfs13 (>= 4.0.0), folly, libxrootd-client-dev, xrootd-plugins, xrootd-client-plugins, libunwind8, ${shlibs:Depends}, ${misc:Depends}
+ Description: FUSE client for onedata system.
+  oneclient is a software based on FUSE (Filesystem in Userspace) that allows
+  mounting onedata filesystem on Linux systems.
+
+diff --git a/debian/copyright b/debian/copyright
+index 3d14d8cf..c1209e43 100644
+--- a/debian/copyright
++++ b/debian/copyright
+@@ -2,7 +2,7 @@ Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+ Upstream-Name: oneclient-base
+ 
+ Files: *
+-Copyright: 2013-2015 ACK Cyfronet AGH
++Copyright: 2013-2022 ACK Cyfronet AGH
+ License: MIT
+ 
+ Files: debian/*
+
+diff --git a/debian/python3-onedatafs.install b/debian/python3-onedatafs.install
+index 2dfa7933..7cc09b48 100644
+--- a/debian/python3-onedatafs.install
++++ b/debian/python3-onedatafs.install
+@@ -1,2 +1,2 @@
+-usr/lib/python3.5/dist-packages/onedatafs/onedatafs*
+-usr/lib/python3.5/dist-packages/onedatafs/__init__.py
++usr/lib/python3.8/dist-packages/onedatafs/onedatafs*
++usr/lib/python3.8/dist-packages/onedatafs/__init__.py
+
+diff --git a/debian/python3-onedatafs.links b/debian/python3-onedatafs.links
+index d2f932d1..2a7f89fb 100644
+--- a/debian/python3-onedatafs.links
++++ b/debian/python3-onedatafs.links
+@@ -1,2 +1,2 @@
+-usr/lib/python3.5/dist-packages/onedatafs/onedatafs_py3.so usr/lib/python3.5/dist-packages/onedatafs/onedatafs.so
++usr/lib/python3.8/dist-packages/onedatafs/onedatafs_py3.so usr/lib/python3.8/dist-packages/onedatafs/onedatafs.so
+ 
+diff --git a/debian/rules b/debian/rules
+index f87bc221..31b9f1fd 100755
+--- a/debian/rules
++++ b/debian/rules
+@@ -16,8 +16,8 @@ include /usr/share/dpkg/default.mk
+ # package maintainers to append LDFLAGS
+ #export DEB_LDFLAGS_MAINT_APPEND = -Wl,--as-needed
+ 
+-export CC=gcc-5
+-export CXX=g++-5
++export CC=gcc
++export CXX=g++
+ 
+ # main packaging script based on dh7 syntax
+ %:

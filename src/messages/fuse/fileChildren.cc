@@ -27,9 +27,9 @@ FileChildren::FileChildren(std::unique_ptr<ProtocolServerMessage> serverMessage)
         throw std::system_error{std::make_error_code(std::errc::protocol_error),
             "file_children field missing"};
 
-    auto fileChildren = serverMessage->mutable_fuse_response()
-                            ->mutable_file_children()
-                            ->mutable_child_links();
+    auto *fileChildren = serverMessage->mutable_fuse_response()
+                             ->mutable_file_children()
+                             ->mutable_child_links();
 
     for (const auto &child : folly::range(
              fileChildren->pointer_begin(), fileChildren->pointer_end())) {

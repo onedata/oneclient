@@ -34,7 +34,7 @@ std::string FSync::toString() const
 std::unique_ptr<ProtocolClientMessage> FSync::serializeAndDestroy()
 {
     auto msg = FileRequest::serializeAndDestroy();
-    auto fsync =
+    auto *fsync =
         msg->mutable_fuse_request()->mutable_file_request()->mutable_fsync();
 
     fsync->set_data_only(m_dataOnly);

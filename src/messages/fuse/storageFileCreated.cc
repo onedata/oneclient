@@ -18,8 +18,8 @@ namespace one {
 namespace messages {
 namespace fuse {
 
-StorageFileCreated::StorageFileCreated(folly::fbstring uuid)
-    : FileRequest{uuid.toStdString(), true}
+StorageFileCreated::StorageFileCreated(const folly::fbstring &uuid)
+    : FileRequest{uuid.toStdString()}
 {
 }
 

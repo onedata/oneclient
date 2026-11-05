@@ -1,19 +1,15 @@
 # distro for package building (oneof: xenial, centos-7-x86_64)
-RELEASE               ?= 1802
+RELEASE               ?= 25
 DISTRIBUTION          ?= none
-DOCKER_RELEASE        ?= development
-DOCKER_REG_NAME       ?= "docker.onedata.org"
-DOCKER_REG_USER       ?= ""
-DOCKER_REG_PASSWORD   ?= ""
-DOCKER_BASE_IMAGE     ?= "ubuntu:16.04"
-DOCKER_DEV_BASE_IMAGE ?= "onedata/worker:1802-1"
 
-PKG_REVISION    ?= $(shell git describe --tags --always)
-PKG_VERSION     ?= $(shell git describe --tags --always | tr - .)
+PKG_REVISION    ?= $(shell git describe --tags --always  --abbrev=7)
+PKG_VERSION     ?= $(shell git describe --tags --always  --abbrev=7 | tr - .)
 PKG_COMMIT      ?= $(shell git rev-parse HEAD)
 HELPERS_COMMIT  ?= $(shell git -C helpers rev-parse HEAD)
 PKG_BUILD       ?= 1
 PKG_ID           = oneclient-base-$(PKG_VERSION)
+
+FSONEDATAFS_VERSION ?= $(PKG_VERSION)
 
 # Build with Ceph storge helper by default
 WITH_CEPH         ?= ON
@@ -25,20 +21,29 @@ WITH_S3           ?= ON
 WITH_GLUSTERFS    ?= ON
 # Build with WebDAV storage helper by default
 WITH_WEBDAV       ?= ON
+# Build with XRootD storage helper by default
+WITH_XROOTD       ?= ON
+# Build with NFS storage helper by default
+WITH_NFS          ?= ON
 # Build with onedatafs Python library
 WITH_ONEDATAFS    ?= ON
+# Build with ones3
+WITH_ONES3        ?= ON
+# Build with code coverage
+WITH_COVERAGE     ?= ON
+# Set Fuse version (2 or 3)
+WITH_FUSE_VERSION ?= 3
 
 # Oneclient FPM packaging variables
 PATCHELF_DOCKER_IMAGE   ?= docker.onedata.org/patchelf:0.9
 FPM_DOCKER_IMAGE        ?= docker.onedata.org/fpm:1.9.3
-GLUSTERFS_VERSION       ?= 3.12.1
+GLUSTERFS_VERSION       ?= 7.2
 ONECLIENT_FPMPACKAGE_TMP := package_fpm
 
-ifeq ($(strip $(ONECLIENT_BASE_IMAGE)),)
-# Oneclient base image is an ID of the Docker container 'oneclient-base' with
-# containing Oneclient installed on a reference OS (currently Ubuntu Xenial).
-# This image is used to create self-contained binary packages for other distributions.
-ONECLIENT_BASE_IMAGE    := ID-$(shell git rev-parse HEAD | cut -c1-10)
+# Detect compilation on CentOS using Software Collections environment
+ifeq ($(shell awk -F= '/^ID=/{print $$2}' /etc/os-release), "centos")
+		OPENSSL_ROOT_DIR ?= /opt/onedata/onedata25/root/usr
+		TBB_INSTALL_DIR ?= /opt/onedata/onedata25/root/usr
 endif
 
 .PHONY: all
@@ -49,6 +54,7 @@ all: debug test
                   helpers/test/integration/* helpers/test/integration/**
 	mkdir -p $*
 	cd $* && cmake -GNinja -DCMAKE_BUILD_TYPE=$* \
+	                       -DFETCH_FOLLY=${FETCH_FOLLY} \
 	                       -DGIT_VERSION=${PKG_REVISION} \
 	                       -DGIT_COMMIT=${PKG_COMMIT} \
 	                       -DGIT_HELPERS_COMMIT=${HELPERS_COMMIT} \
@@ -58,12 +64,43 @@ all: debug test
 	                       -DWITH_S3=${WITH_S3} \
 	                       -DWITH_GLUSTERFS=${WITH_GLUSTERFS} \
 	                       -DWITH_WEBDAV=${WITH_WEBDAV} \
+	                       -DWITH_XROOTD=${WITH_XROOTD} \
+	                       -DWITH_NFS=${WITH_NFS} \
 	                       -DWITH_ONEDATAFS=${WITH_ONEDATAFS} \
-	                       -DWITH_OPENSSL=${WITH_OPENSSL} \
-	                       -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR} \
+	                       -DWITH_ONES3=${WITH_ONES3} \
+	                       -DWITH_FUSE_VERSION=${WITH_FUSE_VERSION} \
 	                       -DCMAKE_INSTALL_PREFIX=${PWD}/debug/PREFIX \
-	                       -DOPENSSL_LIBRARIES=${OPENSSL_LIBRARIES} ..
+	                       -DTBB_INSTALL_DIR=${TBB_INSTALL_DIR} \
+	                       -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR} ..
 	touch $@
+
+%/build-native:
+	mkdir -p _build
+	cd _build && cmake -DCMAKE_BUILD_TYPE=$* \
+			-DFETCH_FOLLY=${FETCH_FOLLY} \
+			-DGIT_VERSION=${PKG_VERSION} \
+			-DCODE_COVERAGE=OFF \
+			-DWITH_CEPH=${WITH_CEPH} \
+			-DWITH_SWIFT=${WITH_SWIFT} \
+			-DWITH_S3=${WITH_S3} \
+			-DWITH_GLUSTERFS=${WITH_GLUSTERFS} \
+			-DWITH_WEBDAV=${WITH_WEBDAV} \
+			-DWITH_XROOTD=${WITH_XROOTD} \
+			-DWITH_NFS=${WITH_NFS} \
+			-DWITH_ONECLIENT=ON \
+			-DWITH_ONEBENCH=ON \
+			-DWITH_ONES3=${WITH_ONES3} \
+			-DWITH_ONEDATAFS=OFF \
+			-DWITH_FUSE_VERSION=${WITH_FUSE_VERSION} \
+			-DFOLLY_SHARED=ON \
+			-DWITH_LIBDL=ON \
+			-DWITH_LIBRT=ON \
+			-DWITH_TESTS=OFF \
+			-DBoost_NO_BOOST_CMAKE=ON \
+			-DCMAKE_INSTALL_PREFIX=${PREFIX} \
+			.. && \
+	make -j8 oneclient VERBOSE=1 && \
+	make -j8 onebench VERBOSE=1
 
 ##
 ## Submodules
@@ -80,6 +117,9 @@ phony:
 %/oneclient: %/CMakeCache.txt phony
 	cmake --build $* --target oneclient
 
+%/ones3: %/CMakeCache.txt phony
+	cmake --build $* --target ones3
+
 %/onebench: %/CMakeCache.txt phony
 	cmake --build $* --target onebench
 
@@ -93,13 +133,16 @@ phony:
 deb-info: relwithdebinfo/oneclient
 
 .PHONY: release
-release: release/oneclient release/onebench release/onedatafs-py2 release/onedatafs-py3
+release: release/oneclient release/ones3 release/onebench release/onedatafs-py3
 
 .PHONY: debug
-debug: debug/oneclient debug/onebench debug/onedatafs-py2 debug/onedatafs-py3
+debug: debug/oneclient debug/ones3 debug/onebench debug/onedatafs-py3
 
 .PHONY: test
 test: debug
+ifdef ONEDATA_GIT_URL
+	git config --global url."${ONEDATA_GIT_URL}".insteadOf "ssh://git@git.onedata.org:7999/vfs"
+endif
 	cmake --build debug
 	cmake --build debug --target test
 
@@ -116,20 +159,56 @@ install: release
 docs:
 	@doxygen Doxyfile
 
+#
+# Coverage tests are collected from 2 types of tests:
+# - Unit tests
+# - Integration tests
+#
+# Unit test coverage results are managed by CMake and are collected
+# in ./coverage/cunit/ subdirectory and should be generated after
+# running cunit target.
+#
+# Integration tests coverage results have to be collected after
+# each integration test (e.g. fslogic_test) and are stored in
+# ./coverage/integration/TEST_NAME.
+# A combined report containing the sum of coverage from individual
+# integration tests can be generated using coverage_integration target
+# and the result will be stored in ./coverage/integration/combined
+#
 .PHONY: coverage
-coverage:
-	lcov --directory `pwd`/debug --capture --output-file `pwd`/oneclient.info
-	lcov --remove `pwd`/oneclient.info 'test/*' '/usr/*' 'asio/*' '**/messages/*' \
+coverage_cunit coverage:
+	lcov --quiet --base-directory `pwd`/debug --directory `pwd`/debug --capture --output-file `pwd`/oneclient.info
+	lcov --quiet --base-directory `pwd`/debug --remove `pwd`/oneclient.info 'test/*' '/usr/*' 'asio/*' '**/messages/*' \
 	                                   'relwithdebinfo/*' 'debug/*' 'release/*' \
 	                                   '**/helpers/*' 'deps/*' \
-	     --output-file `pwd`/oneclient.info.cleaned
-	genhtml -o `pwd`/coverage `pwd`/oneclient.info.cleaned
-	@echo "Coverage written to `pwd`/coverage/index.html"
+	     --output-file `pwd`/oneclient_cunit.info.cleaned
+	find `pwd`/debug/ -name "*.gcda" -type f -delete
+	genhtml -o `pwd`/coverage/cunit `pwd`/oneclient_cunit.info.cleaned
+	@echo "Coverage written to `pwd`/coverage/cunit/index.html"
+
+.PHONY: coverage/%
+coverage/%:
+	lcov --quiet --base-directory `pwd`/debug --directory `pwd`/debug --capture --output-file `pwd`/oneclient.info
+	lcov --quiet --base-directory `pwd`/debug --remove `pwd`/oneclient.info 'test/*' '/usr/*' 'asio/*' '**/messages/*' \
+	                                   'relwithdebinfo/*' 'debug/*' 'release/*' \
+	                                   '**/helpers/*' 'deps/*' \
+	     --output-file `pwd`/oneclient_integration_$*.info.cleaned
+	find `pwd`/debug/ -name "*.gcda" -type f -delete
+	genhtml -o `pwd`/coverage/integration/$* `pwd`/oneclient_integration_$*.info.cleaned
+	@echo "Coverage written to `pwd`/coverage/integration/$*/index.html"
+
+.PHONY: coverage_integration
+coverage_integration:
+	lcov --quiet -a `pwd`/oneclient_integration_events_test.info.cleaned \
+		         -a `pwd`/oneclient_integration_fslogic_test.info.cleaned \
+		         -o `pwd`/oneclient_integration_combined.info
+	genhtml -o `pwd`/coverage/integration/combined `pwd`/oneclient_integration_combined.info
+	@echo "Coverage written to `pwd`/coverage/integration/combined/index.html"
 
 .PHONY: check_distribution
 check_distribution:
 ifeq ($(DISTRIBUTION), none)
-	@echo "Please provide package distribution. Oneof: 'trusty', 'wily', 'xenial', 'centos-7-x86_64', 'fedora-23-x86_64'"
+	@echo "Please provide package distribution. Oneof: 'trusty', 'xenial', 'bionic', 'centos-7-x86_64'"
 	@exit 1
 else
 	@echo "Building package for distribution $(DISTRIBUTION)"
@@ -147,9 +226,64 @@ package/$(PKG_ID).tar.gz:
 	cd helpers; git archive --format=tar --prefix=$(PKG_ID)/helpers/ $(helpers_sha) | (cd ../package && tar -xf -); cd ..
 	$(eval clproto_sha=$(shell git submodule status --recursive | grep "helpers/clproto" | awk '{print $$1;}'))
 	cd helpers/clproto; git archive --format=tar --prefix=$(PKG_ID)/helpers/clproto/ $(clproto_sha) | (cd ../../package && tar -xf -); cd ../..
+	$(eval bamboos_sha=$(shell git submodule status --recursive | grep "helpers/bamboos" | awk '{print $$1;}'))
+	cd helpers/bamboos; git archive --format=tar --prefix=$(PKG_ID)/helpers/bamboos/ $(bamboos_sha) | (cd ../../package && tar -xf -); cd ../..
 	find package/$(PKG_ID) -depth -name ".git" -exec rm -rf {} \;
 	echo "set(GIT_VERSION ${PKG_REVISION})" > package/$(PKG_ID)/version.txt
 	tar -C package -czf package/$(PKG_ID).tar.gz $(PKG_ID)
+
+.PHONY: conda/oneclient
+conda/oneclient: SHELL:=/bin/bash
+conda/oneclient: package/$(PKG_ID).tar.gz
+	cp /tmp/.condarc $$HOME/.condarc
+	cat $$HOME/.condarc
+	mkdir -p package/conda
+	mkdir -p package/conda-bld
+	cp -R conda/oneclient package/conda/
+	sed -i "s|<<PKG_VERSION>>|$(PKG_VERSION)|g" package/conda/oneclient/meta.yaml
+	sed -i "s|<<PKG_SOURCE>>|../../$(PKG_ID).tar.gz|g" package/conda/oneclient/meta.yaml
+	source /opt/conda/bin/activate base && \
+		PKG_VERSION=$(PKG_VERSION) CONDA_BLD_PATH=$$PWD/package/conda-bld \
+		conda build --user onedata-devel --token "${CONDA_TOKEN}" \
+		${CONDA_BUILD_OPTIONS} package/conda/oneclient
+	echo "onedata-devel/oneclient/$(PKG_VERSION)/download/linux-64/oneclient-$(PKG_VERSION)-py39.tar.bz2" >> conda-pkg-list.txt
+
+.PHONY: conda/oneclient_centos6
+conda/oneclient_centos6: SHELL:=/bin/bash
+conda/oneclient_centos6: package/$(PKG_ID).tar.gz
+	cp /tmp/.condarc-forge $$HOME/.condarc
+	cat $$HOME/.condarc
+	mkdir -p package/conda
+	mkdir -p package/conda-bld
+	cp -R conda/oneclient package/conda/
+	sed -i "s|<<PKG_VERSION>>|$(PKG_VERSION)|g" package/conda/oneclient/meta.yaml
+	sed -i "s|<<PKG_SOURCE>>|../../$(PKG_ID).tar.gz|g" package/conda/oneclient/meta.yaml
+	sed -i 's|conda-forge::libfuse|onedata-centos6::libfuse =2.8.3|g' package/conda/oneclient/meta.yaml
+	sed -i 's|protobuf.*$$|protobuf =3.8.0|g' package/conda/oneclient/meta.yaml
+	sed -i 's|onedata::|onedata-centos6::|g' package/conda/oneclient/meta.yaml
+	sed -i 's|DWITH_FUSE_VERSION=3|DWITH_FUSE_VERSION=2|g' package/conda/oneclient/build.sh
+	sed -i '/run:/ { :l; n; s/^.*libfuse.*$$//; tx; bl; :x; N; s/\n//; bl }' package/conda/oneclient/meta.yaml
+	source /opt/conda/bin/activate base && \
+		PKG_VERSION=$(PKG_VERSION) CONDA_BLD_PATH=$$PWD/package/conda-bld \
+		conda build --user onedata-centos6-devel --token "${CONDA_TOKEN}" \
+		${CONDA_BUILD_OPTIONS} package/conda/oneclient
+	echo "onedata-centos6-devel/oneclient/$(PKG_VERSION)/download/linux-64/oneclient-$(PKG_VERSION)-py39.tar.bz2" >> conda-pkg-list.txt
+
+.PHONY: conda/onedatafs
+conda/onedatafs: SHELL:=/bin/bash
+conda/onedatafs: package/$(PKG_ID).tar.gz
+	cp /tmp/.condarc $$HOME/.condarc
+	cat $$HOME/.condarc
+	mkdir -p package/conda
+	mkdir -p package/conda-bld
+	cp -R conda/onedatafs package/conda/
+	sed -i "s|<<PKG_VERSION>>|$(PKG_VERSION)|g" package/conda/onedatafs/meta.yaml
+	sed -i "s|<<PKG_SOURCE>>|../../$(PKG_ID).tar.gz|g" package/conda/onedatafs/meta.yaml
+	source /opt/conda/bin/activate base && \
+		PKG_VERSION=$(PKG_VERSION) CONDA_BLD_PATH=$$PWD/package/conda-bld \
+		conda build --user onedata-devel --token "${CONDA_TOKEN}" \
+		${CONDA_BUILD_OPTIONS} package/conda/onedatafs
+	echo "onedata-devel/onedatafs/$(PKG_VERSION)/download/linux-64/onedatafs-$(PKG_VERSION)-py39.tar.bz2" >> conda-pkg-list.txt
 
 .PHONY: deb
 deb: check_distribution package/$(PKG_ID).tar.gz
@@ -163,12 +297,12 @@ deb: check_distribution package/$(PKG_ID).tar.gz
 	sed -i "s/{{distribution}}/$(DISTRIBUTION)/g" package/$(PKG_ID)/debian/changelog
 	sed -i "s/{{date}}/`date -R`/g" package/$(PKG_ID)/debian/changelog
 
-	cd package/$(PKG_ID) && sg sbuild -c "sbuild -sd $(DISTRIBUTION) -j6"
+	cd package/$(PKG_ID) && sudo sg sbuild -c "sbuild -sd $(DISTRIBUTION) -j$$(nproc)"
 	mv package/*$(PKG_VERSION).orig.tar.gz package/packages/
 	mv package/*$(PKG_VERSION)-$(PKG_BUILD)*.deb package/packages/
-	mv package/*$(PKG_VERSION)-$(PKG_BUILD).dsc package/packages/
-	mv package/*$(PKG_VERSION)-$(PKG_BUILD)_amd64.changes package/packages/
-	-mv package/*$(PKG_VERSION)-$(PKG_BUILD).debian.tar.xz package/packages/ || true
+	mv package/*$(PKG_VERSION)-$(PKG_BUILD)*.dsc package/packages/
+	mv package/*$(PKG_VERSION)-$(PKG_BUILD)*_amd64.changes package/packages/
+	-mv package/*$(PKG_VERSION)-$(PKG_BUILD)*.debian.tar.xz package/packages/ || true
 
 .PHONY: rpm
 rpm: check_distribution package/$(PKG_ID).tar.gz
@@ -179,10 +313,9 @@ rpm: check_distribution package/$(PKG_ID).tar.gz
 	patch -d package/ -p1 -i $(PKG_ID)/pkg_config/$(DISTRIBUTION).patch
 	sed -i "s/{{version}}/$(PKG_VERSION)/g" package/oneclient.spec
 	sed -i "s/{{build}}/$(PKG_BUILD)/g" package/oneclient.spec
-
-	mock --root $(DISTRIBUTION) --buildsrpm --spec package/oneclient.spec --resultdir=package/packages \
+	mock --root $(DISTRIBUTION) --enable-network --buildsrpm --spec package/oneclient.spec --resultdir=package/packages \
 		--sources package/$(PKG_ID).orig.tar.gz
-	mock --root $(DISTRIBUTION) --resultdir=package/packages --rebuild package/packages/onedata$(RELEASE)-$(PKG_ID)*.src.rpm
+	mock --root $(DISTRIBUTION) --enable-network --resultdir=package/packages --rebuild package/packages/onedata$(RELEASE)-$(PKG_ID)*.src.rpm
 
 ##
 ## Oneclient self contained packages
@@ -248,7 +381,7 @@ oneclient_tar $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz:
 		    cp /var/lib/oneclient/_oneclient /output/share/zsh/site-functions/ && \
 		    cp /var/lib/oneclient/oneclient.bash-completion /output/etc/bash_completion.d/ && \
 		    cp -r /lib/x86_64-linux-gnu/* /output/lib/ && \
-		    cp -r /usr/lib/x86_64-linux-gnu/nss/* /output/lib/ && \
+	        cp -r /usr/lib/x86_64-linux-gnu/libXrd* /output/lib/ && \
 	        cp -r /usr/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/xlator/* /output/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/xlator/ && \
 	        cp -r /usr/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/rpc-transport/* /output/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/rpc-transport/'
 	# Collect all dynamic libraries GlusterFS dependencies
@@ -256,7 +389,7 @@ oneclient_tar $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz:
 		-v $(CURDIR)/cpld.sh:/bin/cpld.sh --entrypoint /bin/sh \
 		-t docker.onedata.org/oneclient-base:$(ONECLIENT_BASE_IMAGE) \
 		-c "find /usr/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/ -name '*so*' -exec /bin/cpld.sh '{}' /output/lib \;"
-	# Change the ld loader and rpath in Oneclient binary
+	# Change the ld loader and rpath in Oneclient binaries and dependencies
 	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
 		-t $(PATCHELF_DOCKER_IMAGE) \
 		--set-interpreter /opt/oneclient/lib/ld-linux-x86-64.so.2 \
@@ -267,11 +400,67 @@ oneclient_tar $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz:
 		--set-interpreter /opt/oneclient/lib/ld-linux-x86-64.so.2 \
 		--set-rpath /opt/oneclient/lib --force-rpath \
 		/output/bin/onebench
+	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
+		--entrypoint /bin/sh -t $(PATCHELF_DOCKER_IMAGE) -c \
+		"find /output/lib -name '*so*' -type f ! -path '*ld-[0-9]*.[0-9]*.so' ! -path '*ld-linux-x86-64.so.2' -exec patchelf --set-rpath /opt/oneclient/lib --force-rpath {} \;"
 	# Create binary archive
 	cd $(ONECLIENT_FPMPACKAGE_TMP)/root && \
 		tar -cf oneclient-bin.tar * && \
 		gzip -f oneclient-bin.tar && \
 		mv oneclient-bin.tar.gz ../ && \
+		cd ../..
+	# Cleanup the temporary files
+	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP):/output \
+		-v $(CURDIR)/cpld.sh:/bin/cpld.sh --entrypoint /bin/sh \
+		-t docker.onedata.org/oneclient-base:$(ONECLIENT_BASE_IMAGE) \
+		-c "rm -rf /output/root"
+
+#
+# Build OneS3 self-contained tarball
+#
+ones3_tar $(ONECLIENT_FPMPACKAGE_TMP)/ones3-bin.tar.gz:
+	# Create directory structure
+	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/bin
+	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/etc
+	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/etc/init.d
+	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/lib
+	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/xlator
+	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/rpc-transport
+
+	# Collect all necessary Oneclient files in one folder
+	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
+		-v $(CURDIR)/cpld.sh:/bin/cpld.sh --entrypoint /bin/cpld.sh \
+		-t docker.onedata.org/oneclient-base:$(ONECLIENT_BASE_IMAGE) \
+		/usr/bin/ones3 /output/lib
+	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
+		--entrypoint /bin/bash \
+		-t docker.onedata.org/oneclient-base:$(ONECLIENT_BASE_IMAGE) \
+		-c 'cp /usr/bin/ones3 /output/bin && \
+		    cp /etc/ones3.conf /output/etc && \
+		    cp /etc/init.d/ones3 /output/etc/init.d && \
+		    cp -r /lib/x86_64-linux-gnu/* /output/lib/ && \
+	        cp -r /usr/lib/x86_64-linux-gnu/libXrd* /output/lib/ && \
+	        cp -r /usr/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/xlator/* /output/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/xlator/ && \
+	        cp -r /usr/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/rpc-transport/* /output/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/rpc-transport/'
+	# Collect all dynamic libraries GlusterFS dependencies
+	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
+		-v $(CURDIR)/cpld.sh:/bin/cpld.sh --entrypoint /bin/sh \
+		-t docker.onedata.org/oneclient-base:$(ONECLIENT_BASE_IMAGE) \
+		-c "find /usr/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/ -name '*so*' -exec /bin/cpld.sh '{}' /output/lib \;"
+	# Change the ld loader and rpath in Oneclient binaries and dependencies
+	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
+		-t $(PATCHELF_DOCKER_IMAGE) \
+		--set-interpreter /opt/ones3/lib/ld-linux-x86-64.so.2 \
+		--set-rpath /opt/ones3/lib --force-rpath \
+		/output/bin/ones3
+	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
+		--entrypoint /bin/sh -t $(PATCHELF_DOCKER_IMAGE) -c \
+		"find /output/lib -name '*so*' -type f ! -path '*ld-[0-9]*.[0-9]*.so' ! -path '*ld-linux-x86-64.so.2' -exec patchelf --set-rpath /opt/ones3/lib --force-rpath {} \;"
+	# Create binary archive
+	cd $(ONECLIENT_FPMPACKAGE_TMP)/root && \
+		tar -cf ones3-bin.tar * && \
+		gzip -f ones3-bin.tar && \
+		mv ones3-bin.tar.gz ../ && \
 		cd ../..
 	# Cleanup the temporary files
 	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP):/output \
@@ -295,7 +484,7 @@ oneclient_rpm: $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz
 		   --iteration $(PKG_BUILD) --license "Apache 2.0" \
 		   --after-install=/data/oneclient_rpm.pre \
 		   --after-remove=/data/oneclient_rpm.post \
-		   --depends fuse --depends ca-certificates \
+		   --depends fuse3 --depends ca-certificates \
 		   --maintainer "Onedata Package Maintainers <info@onedata.org>" \
 		   --description "Self-contained Onedata Oneclient command-line client package" \
 		   /data/oneclient-bin.tar.gz
@@ -305,60 +494,70 @@ oneclient_rpm: $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz
 #
 oneclient_deb: $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz
 	# Build DEB package for the distribution specified using FPM
+	@echo "========== oneclient_deb =========="
 	cp pkg_config/fpm/oneclient_deb.pre $(ONECLIENT_FPMPACKAGE_TMP)/
 	cp pkg_config/fpm/oneclient_deb.post $(ONECLIENT_FPMPACKAGE_TMP)/
 	docker run -u=$$UID:$$GID -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro \
 		   -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP):/data \
 		   -t $(FPM_DOCKER_IMAGE) fpm -t deb -s tar \
-		   -p /data/oneclient_$(ONECLIENT_VERSION)-$(PKG_BUILD)_amd64.deb \
+		   -p /data/oneclient_$(ONECLIENT_VERSION)-$(PKG_BUILD)~$(DISTRIBUTION)_amd64.deb \
 		   --architecture=amd64 \
-		   --prefix=/opt/oneclient -n oneclient -v $(ONECLIENT_VERSION) \
-		   --iteration $(PKG_BUILD) --license "Apache 2.0" \
+		   --prefix=/opt/oneclient -n oneclient \
+		   -v $(ONECLIENT_VERSION)-$(PKG_BUILD)~$(DISTRIBUTION) --license "Apache 2.0" \
 		   --after-install=/data/oneclient_deb.pre \
 		   --after-remove=/data/oneclient_deb.post \
-		   --depends fuse --depends ca-certificates \
+		   --depends fuse3 --depends ca-certificates \
 		   --maintainer "Onedata Package Maintainers <info@onedata.org>" \
 		   --description "Self-contained Onedata Oneclient command-line client package" \
 		   /data/oneclient-bin.tar.gz
 
-.PHONY: docker-base
-docker-base:
-	./docker_build.py --repository $(DOCKER_REG_NAME) --user $(DOCKER_REG_USER) \
-                          --password $(DOCKER_REG_PASSWORD) \
-                          --build-arg BASE_IMAGE=$(DOCKER_BASE_IMAGE) \
-                          --build-arg RELEASE_TYPE=$(DOCKER_RELEASE) \
-                          --build-arg RELEASE=$(RELEASE) \
-                          --build-arg VERSION=$(PKG_VERSION) \
-                          --build-arg ONECLIENT_PACKAGE=oneclient-base \
-                          --name oneclient-base --publish --remove docker
+#
+# Build OneS3 self-contained rpm
+#
+ones3_rpm: $(ONECLIENT_FPMPACKAGE_TMP)/ones3-bin.tar.gz
+	# Build RPM package for the distribution specified using FPM
+	cp pkg_config/fpm/ones3_rpm.pre $(ONECLIENT_FPMPACKAGE_TMP)/
+	cp pkg_config/fpm/ones3_rpm.post $(ONECLIENT_FPMPACKAGE_TMP)/
+	docker run -u=$$UID:$$GID -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro \
+		   -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP):/data \
+		   -t $(FPM_DOCKER_IMAGE) \
+		   fpm -t rpm --rpm-dist $(RPM_DIST) -s tar \
+		   --prefix=/opt/ones3 -n ones3 -v $(ONECLIENT_VERSION) \
+		   --architecture=x86_64 \
+		   --iteration $(PKG_BUILD) --license "Apache 2.0" \
+		   --after-install=/data/ones3_rpm.pre \
+		   --after-remove=/data/ones3_rpm.post \
+		   --depends ca-certificates \
+		   --maintainer "Onedata Package Maintainers <info@onedata.org>" \
+		   --description "Self-contained Onedata OneS3 service" \
+		   /data/ones3-bin.tar.gz
 
-.PHONY: docker
-docker: docker-dev
-	./docker_build.py --repository $(DOCKER_REG_NAME) \
-	                  --user $(DOCKER_REG_USER) \
-                      --password $(DOCKER_REG_PASSWORD) \
-                      --build-arg BASE_IMAGE=$(DOCKER_BASE_IMAGE) \
-                      --build-arg RELEASE_TYPE=$(DOCKER_RELEASE) \
-                      --build-arg RELEASE=$(RELEASE) \
-                      --build-arg VERSION=$(PKG_VERSION) \
-                      --build-arg ONECLIENT_PACKAGE=oneclient \
-                      --name oneclient --publish --remove docker
+#
+# Build OneS3 self-contained deb
+#
+ones3_deb: $(ONECLIENT_FPMPACKAGE_TMP)/ones3-bin.tar.gz
+	# Build DEB package for the distribution specified using FPM
+	@echo "========== ones3_deb =========="
+	cp pkg_config/fpm/ones3_deb.pre $(ONECLIENT_FPMPACKAGE_TMP)/
+	cp pkg_config/fpm/ones3_deb.post $(ONECLIENT_FPMPACKAGE_TMP)/
+	docker run -u=$$UID:$$GID -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro \
+		   -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP):/data \
+		   -t $(FPM_DOCKER_IMAGE) fpm -t deb -s tar \
+		   -p /data/ones3_$(ONECLIENT_VERSION)-$(PKG_BUILD)~$(DISTRIBUTION)_amd64.deb \
+		   --architecture=amd64 \
+		   --prefix=/opt/ones3 -n ones3 \
+		   -v $(ONECLIENT_VERSION)-$(PKG_BUILD)~$(DISTRIBUTION) --license "Apache 2.0" \
+		   --after-install=/data/ones3_deb.pre \
+		   --after-remove=/data/ones3_deb.post \
+		   --depends ca-certificates \
+		   --maintainer "Onedata Package Maintainers <info@onedata.org>" \
+		   --description "Self-contained Onedata OneS3 service" \
+		   /data/ones3-bin.tar.gz
 
-docker-dev:
-	./docker_build.py --repository $(DOCKER_REG_NAME) \
-                      --user $(DOCKER_REG_USER) \
-                      --password $(DOCKER_REG_PASSWORD) \
-                      --build-arg BASE_IMAGE=$(DOCKER_DEV_BASE_IMAGE) \
-                      --build-arg RELEASE=$(RELEASE) \
-                      --build-arg VERSION=$(PKG_VERSION) \
-                      --build-arg ONECLIENT_PACKAGE=oneclient \
-                      --report docker-dev-build-report.txt \
-                      --short-report docker-dev-build-list.json \
-                      --name oneclient-dev --publish --remove docker
 
 .PHONY: clean
 clean:
-	rm -rf debug release relwithdebinfo doc package package_fpm
+	rm -rf debug release relwithdebinfo doc package package_fpm _build
 
 .PHONY: clang-tidy
 clang-tidy:
@@ -366,4 +565,4 @@ clang-tidy:
 
 .PHONY: clang-format
 clang-format:
-	docker run --rm -v $(CURDIR):/root/sources onedata/clang-format-check:1.1
+	docker run --rm -v $(CURDIR):/root/sources onedata/clang-format-check:1.3

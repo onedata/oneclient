@@ -22,7 +22,6 @@ namespace messages {
 class Configuration;
 } // namespace messages
 namespace client {
-class Context;
 namespace events {
 
 /**
@@ -37,7 +36,9 @@ public:
      * Constructor.
      * @param context An @c Context instance.
      */
-    Manager(std::shared_ptr<Context> context);
+    Manager(Scheduler &scheduler,
+        std::shared_ptr<communication::Communicator> communicator,
+        std::chrono::seconds timeout);
 
     virtual ~Manager() = default;
 
@@ -51,7 +52,7 @@ public:
      * A convenience overload function that creates and emits an event.
      * @param args Arguments required to construct an event.
      */
-    template <class T, class... Args> void emit(Args &&... args);
+    template <class T, class... Args> void emit(Args &&...args);
 
     /**
      * Adds subscription and creates associated event stream if not present.
@@ -92,6 +93,11 @@ public:
      */
     virtual void flush(StreamKey streamKey);
 
+    /**
+     * Reset streams.
+     */
+    void reset();
+
 private:
     std::int64_t subscribe(
         std::int64_t subscriptionId, const Subscription &subscription);
@@ -109,7 +115,7 @@ private:
     using HandleConstAcc = typename decltype(m_handles)::const_accessor;
 };
 
-template <class T, class... Args> void Manager::emit(Args &&... args)
+template <class T, class... Args> void Manager::emit(Args &&...args)
 {
     emit(std::make_unique<T>(std::forward<Args>(args)...));
 }

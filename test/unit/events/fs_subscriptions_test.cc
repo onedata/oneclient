@@ -7,7 +7,8 @@
  */
 
 #include "cache/forceProxyIOCache.h"
-#include "cache/lruMetadataCache.h"
+#include "cache/helpersCache.h"
+#include "cache/openFileMetadataCache.h"
 #include "mocks/manager_mock.h"
 #include "utils.h"
 
@@ -31,12 +32,18 @@ struct FsSubscriptionsTest : public ::testing::Test {
 
     StreamKey streamKey;
     std::int64_t subscriptionId;
-    std::shared_ptr<Context> context = testContext();
+    std::shared_ptr<one::client::Context<one::communication::Communicator>>
+        context{testContext()};
     MockManager mockManager{context};
-    LRUMetadataCache metadataCache{*context->communicator(), 10000, 60s};
+    OpenFileMetadataCache metadataCache{
+        *context->communicator(), 10000, 10s, 10s, "", {}, {}, {}, {}};
     ForceProxyIOCache forceProxyIOCache;
-    FsSubscriptions fsSubscriptions{
-        mockManager, metadataCache, forceProxyIOCache, [](auto) {}};
+    options::Options options{};
+    cache::HelpersCache<one::communication::Communicator> helpersCache{
+        *testContext()->communicator(), {}, options};
+
+    FsSubscriptions fsSubscriptions{mockManager, metadataCache,
+        forceProxyIOCache, helpersCache, [](auto) {}};
 };
 
 TEST_F(FsSubscriptionsTest, subscribeFileAttrChangedShouldSubscribeOnce)
@@ -178,4 +185,25 @@ TEST_F(FsSubscriptionsTest, subscribeFileRenamedShouldUseProperStream)
 {
     this->fsSubscriptions.subscribeFileRenamed("fileUuid");
     ASSERT_EQ(StreamKey::FILE_RENAMED, this->streamKey);
+}
+
+TEST_F(FsSubscriptionsTest, subscribeHelperParamsChangedShouldUseProperStream)
+{
+    this->fsSubscriptions.subscribeHelperParamsChanged("storageId");
+    ASSERT_EQ(StreamKey::HELPER_PARAMS_CHANGED, this->streamKey);
+}
+
+TEST_F(FsSubscriptionsTest, subscribeHelperParamsChangedShouldSubscribeOnce)
+{
+    EXPECT_CALL(this->mockManager, subscribe(_)).Times(1);
+    this->fsSubscriptions.subscribeHelperParamsChanged("storageId");
+    this->fsSubscriptions.subscribeHelperParamsChanged("storageId");
+}
+
+TEST_F(FsSubscriptionsTest, subscribeHelperParamsChangedShouldUnsubscribeOnce)
+{
+    EXPECT_CALL(this->mockManager, subscribe(_)).Times(1);
+    this->fsSubscriptions.subscribeHelperParamsChanged("storageId");
+    this->fsSubscriptions.unsubscribeHelperParamsChanged("storageId");
+    this->fsSubscriptions.unsubscribeHelperParamsChanged("storageId");
 }

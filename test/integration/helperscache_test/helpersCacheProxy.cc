@@ -23,9 +23,19 @@
 #include <boost/make_shared.hpp>
 #include <boost/python.hpp>
 #include <boost/python/suite/indexing/vector_indexing_suite.hpp>
-#include <fuse.h>
+#if FUSE_USE_VERSION > 30
+#include <fuse3/fuse.h>
+#else
+#include <fuse/fuse.h>
+#endif
 
 #include <memory>
+
+#ifdef ENABLE_BACKWARD_CPP
+#define BACKWARD_HAS_DW 1
+#define BACKWARD_HAS_LIBUNWIND 1
+#include <backward.hpp>
+#endif
 
 using namespace one;
 using namespace one::client;
@@ -57,7 +67,7 @@ public:
     {
         ReleaseGIL guard;
         return m_fileHandle->read(offset, size)
-            .then([](folly::IOBufQueue &&buf) {
+            .thenValue([](folly::IOBufQueue &&buf) {
                 std::string data;
                 buf.appendToString(data);
                 return data;
@@ -71,7 +81,7 @@ public:
         folly::IOBufQueue buf{folly::IOBufQueue::cacheChainLength()};
         buf.append(data);
 
-        return m_fileHandle->write(offset, std::move(buf)).get();
+        return m_fileHandle->write(offset, std::move(buf), {}).get();
     }
 
 private:
@@ -80,26 +90,28 @@ private:
 
 class HelpersCacheProxy {
 public:
-    HelpersCacheProxy(std::shared_ptr<Context> context)
-        : m_helpersCache{std::make_shared<HelpersCache>(
-              *context->communicator(), *context->scheduler(),
-              *context->options())}
+    HelpersCacheProxy(
+        std::shared_ptr<Context<communication::Communicator>> context)
+        : m_helpersCache{std::make_shared<
+              HelpersCache<communication::Communicator>>(
+              *context->communicator(), context->scheduler(),
+              *context->options(), 1)}
         , m_context{context}
     {
+#ifdef ENABLE_BACKWARD_CPP
+        backward::SignalHandling sh;
+#endif
     }
 
-    ~HelpersCacheProxy()
-    {
-        ReleaseGIL guard;
-        m_context->communicator()->stop();
-    }
+    ~HelpersCacheProxy() { stop(); }
 
     void mknod(std::string fileUuid, std::string spaceId, std::string storageId,
         bool forceProxyIO)
     {
-        m_helpersCache->get(fileUuid, spaceId, storageId, forceProxyIO)
-            .then([fileUuid](auto &helperPtr) {
-                helperPtr->mknod(fileUuid, S_IFREG | 0666, {}, 0);
+        m_helpersCache->get(fileUuid, spaceId, storageId, forceProxyIO, false)
+            .thenValue([fileUuid](std::shared_ptr<StorageHelper> &&helperPtr) {
+                helperPtr->mknod(fileUuid, S_IFREG | 0666, {}, 0)
+                    .thenValue([helperPtr](auto && /*unit*/) {});
             })
             .get();
     }
@@ -108,10 +120,14 @@ public:
         std::string spaceId, std::string storageId, bool forceProxyIO)
     {
         auto handle =
-            m_helpersCache->get(fileUuid, spaceId, storageId, forceProxyIO)
-                .then([fileUuid](auto &helperPtr) {
-                    return helperPtr->open(fileUuid, O_RDWR | O_CREAT, {});
-                })
+            m_helpersCache
+                ->get(fileUuid, spaceId, storageId, forceProxyIO, false)
+                .thenValue(
+                    [fileUuid](std::shared_ptr<StorageHelper> &&helperPtr) {
+                        return helperPtr->open(fileUuid, O_RDWR | O_CREAT, {})
+                            .thenValue([helperPtr, fileUuid](
+                                           auto &&handle) { return handle; });
+                    })
                 .get();
 
         return boost::make_shared<FileHandleProxy>(std::move(handle));
@@ -122,13 +138,16 @@ public:
     bool isProxyIOForced() { return m_context->options()->isProxyIOForced(); }
 
     bool get(std::string fileUuid, std::string spaceId, std::string storageId,
-        bool forceProxyIO)
+        bool forceProxyIO, bool proxyFallback)
     {
         ReleaseGIL guard;
 
         auto helper =
-            m_helpersCache->get(fileUuid, spaceId, storageId, forceProxyIO)
+            m_helpersCache
+                ->get(fileUuid, spaceId, storageId, forceProxyIO, proxyFallback)
                 .get();
+
+        assert(helper->executionContext() == ExecutionContext::ONECLIENT);
 
         return !!helper;
     }
@@ -139,24 +158,35 @@ public:
 
         auto accessType = m_helpersCache->getAccessType(storageId);
 
-        if (accessType == HelpersCache::AccessType::DIRECT)
+        if (accessType ==
+            HelpersCache<communication::Communicator>::AccessType::DIRECT)
             return "direct";
-        else if (accessType == HelpersCache::AccessType::PROXY)
+        else if (accessType ==
+            HelpersCache<communication::Communicator>::AccessType::PROXY)
             return "proxy";
         else
             return "unknown";
     }
 
-    void refreshHelperParameters(std::string storageId, std::string spaceId)
+    void refreshHelperParameters(std::string storageId)
     {
         ReleaseGIL guard;
 
-        m_helpersCache->refreshHelperParameters(storageId, spaceId);
+        m_helpersCache->refreshHelperParameters(storageId);
+    }
+
+    void stop()
+    {
+        if (!m_stopped.test_and_set()) {
+            ReleaseGIL guard;
+            m_context->communicator()->stop();
+        }
     }
 
 private:
-    std::shared_ptr<HelpersCache> m_helpersCache;
-    std::shared_ptr<Context> m_context;
+    std::shared_ptr<HelpersCache<communication::Communicator>> m_helpersCache;
+    std::shared_ptr<Context<communication::Communicator>> m_context;
+    std::atomic_flag m_stopped = ATOMIC_FLAG_INIT;
 };
 
 namespace {
@@ -177,7 +207,7 @@ boost::shared_ptr<HelpersCacheProxy> create(
         /*threads*/ 4, ip, port, /*verifyServerCertificate*/ false,
         /*upgrade to clproto*/ true, /*perform handshake*/ false);
 
-    auto context = std::make_shared<Context>();
+    auto context = std::make_shared<Context<communication::Communicator>>();
     context->setScheduler(std::make_shared<Scheduler>(4));
     context->setCommunicator(communicator);
     const auto globalConfigPath = boost::filesystem::unique_path();
@@ -219,6 +249,7 @@ BOOST_PYTHON_MODULE(helperscache)
             &HelpersCacheProxy::refreshHelperParameters)
         .def("open", &HelpersCacheProxy::open)
         .def("mknod", &HelpersCacheProxy::mknod)
+        .def("stop", &HelpersCacheProxy::stop)
         .def("is_directio_forced", &HelpersCacheProxy::isDirectIOForced)
         .def("is_proxyio_forced", &HelpersCacheProxy::isProxyIOForced);
 }

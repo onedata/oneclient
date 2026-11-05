@@ -1,30 +1,65 @@
 Checks: >-
   *,
-  -abseil*,
-  -*avoid-c-arrays,
-  -android*,
   -*braces-around-statements,
-  -cert-err58-cpp,
+  -*osx*,
+  -*use-override,
+  -*unused-parameters,
+  -abseil*,
+  -android*,
+  -bugprone-branch-clone,
+  -cert-err60-cpp,
   -clang-analyzer-alpha.*,
+  -clang-analyzer-cplusplus.NewDelete,
+  -clang-analyzer-cplusplus.NewDeleteLeaks,
+  -clang-analyzer-optin.cplusplus.VirtualCall,
   -clang-analyzer-core.UndefinedBinaryOperatorResult,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-avoid-c-arrays,
   -cppcoreguidelines-macro-usage,
   -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
   -cppcoreguidelines-pro-bounds-pointer-arithmetic,
   -cppcoreguidelines-pro-type-reinterpret-cast,
+  -cppcoreguidelines-non-private-member-variables-in-classes,
+  -cppcoreguidelines-owning-memory,
+  -misc-non-private-member-variables-in-classes,
   -fuchsia*,
+  -google-build-using-namespace,
+  -google-default-arguments,
+  -google-runtime-int,
   -google-readability-todo,
+  -hicpp-avoid-c-arrays,
+  -hicpp-member-init,
   -hicpp-no-array-decay,
   -hicpp-signed-bitwise,
-  -hicpp-vararg,-google-runtime-references,
-  -llvm-header-guard,
+  -google-runtime-references,
+  -llvm-*,
+  -misc-definitions-in-headers,
   -modernize-avoid-bind,
+  -modernize-avoid-c-arrays,
+  -modernize-use-default-member-init,
+  -modernize-use-trailing-return-type,
+  -readability-identifier-naming,
+  -readability-convert-member-functions-to-static,
+  -readability-avoid-const-params-in-decls,
   -mpi*,
   -objc*,
-  -*osx*,
-  -performance-unnecessary-value-param,
+  -openmp*,
+  -darwin*,
+  -clang-diagnostic-overloaded-virtual,
+  -modernize-redundant-void-arg,
   -zircon*
 WarningsAsErrors: '*'
-HeaderFilterRegex: 'oneclient/include|oneclient/src'
+HeaderFilterRegex: 'helpers/include|helpers/src'
 CheckOptions:
   - key:             readability-identifier-naming.ClassMemberPrefix
     value:           'm_'
+  - key:             performance-unnecessary-value-param.AllowedTypes
+    value:           shared_ptr;weak_ptr
+  - key:             misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic
+    value:           1
+  - key:             hicpp-special-member-functions.AllowSoleDefaultDtor
+    value:           1
+  - key:             cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor
+    value:           1
+  - key:             readability-magic-numbers.IgnoredIntegerValues
+    value:           0;1;2;3;4;5;6;7;8;9;1024

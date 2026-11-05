@@ -1,6 +1,8 @@
 # oneclient
 
-[![Build Status](https://api.travis-ci.org/onedata/oneclient.svg?branch=develop)](https://travis-ci.org/onedata/oneclient)
+[![Build Status](https://api.travis-ci.org/onedata/oneclient.svg?branch=develop)](https://travis-ci.org/onedata/oneclient) [![Coverage Status](https://coveralls.io/repos/github/onedata/oneclient/badge.svg?branch=develop)](https://coveralls.io/github/onedata/oneclient?branch=develop)
+
+Latest stable release: ![version](https://img.shields.io/badge/version-21.02.1-blue)
 
 *oneclient* is a command line [Onedata](onedata.org) client. It provides a POSIX interface to user's files in *Onedata* system.
 
@@ -10,33 +12,35 @@
 
 ### Dependencies
 
-An up-to-date list of *oneclient* build dependencies for Ubuntu and Fedora is available in [control](pkg_config/debian/control) and [oneclient.spec](pkg_config/oneclient.spec) files respectively.
+An up-to-date list of *oneclient* build dependencies for Ubuntu and Fedora is available in [control](pkg_config/debian/control) and [oneclient.spec](pkg_config/oneclient.spec) files respectively. For building on Ubuntu Bionic, detailed dependecy list can be found in [Travis configuration](.travis.yml).
 
-## Compilation
-
-When compiling from GitHub, an environment variable ONEDATA_GIT_URL must be exported to fetch dependencies from public repositories, i.e.:
+### Compilation
 
 ```bash
 export ONEDATA_GIT_URL=https://github.com/onedata
-git clone https://github.com/onedata/oneclient.git
-# To initialize submodules
+git clone https://github.com/onedata/oneclient.git && cd oneclient
+
+# Initialize submodules
 make submodules
-cd oneclient
+
 # To build debug version
-./make.py
-# To build release version
-./make.py release
+mkdir debug && cd debug
+cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DCODE_COVERAGE=ON -DWITH_CEPH=ON -DWITH_SWIFT=ON -DWITH_S3=ON -DWITH_GLUSTERFS=ON -DWITH_WEBDAV=ON -DWITH_XROOTD=ON -DWITH_ONEDATAFS=ON ..
+cd ..
+cmake --build release
 ```
 
-*oneclient* by default compiles with built-in support for Ceph, S3, OpenStack SWIFT and GlusterFS.  These drivers can be disabled during compilation by providing the following flags:
+*oneclient* by default compiles with built-in support for Ceph, S3, OpenStack SWIFT, GlusterFS, WebDAV and XRootD.  These drivers can be disabled during compilation by providing the following flags:
 
 * WITH_CEPH=OFF - disables Ceph support
 * WITH_S3=OFF - disables S3 support
 * WITH_SWIFT=OFF - disables Swift support
 * WITH_GLUSTERFS=OFF - disables GlusterFS support
 * WITH_WEBDAV=OFF - disables WebDAV support
+* WITH_XROOTD=OFF - disables XRootD support
+* WITH_NFS=OFF - disable NFS support
 
-The compiled binary `oneclient` will be created on path `release/oneclient` (or `debug/oneclient`).
+The compiled binary `oneclient` will be created on path `release/oneclient`.
 
 ## Installation
 
@@ -48,22 +52,6 @@ curl -sS  http://get.onedata.org/oneclient.sh | bash
 ```
 
 > Oneclient is packaged into self-contained packages, i.e. it has to be installed into it's default prefix `/opt/oneclient`. The provided packages will do that by default and create symlinks in the `/usr` prefix to the `oneclient` binary as well as man pages, configuration file and auto-completion scripts.
-
-### macOS
-An experimental version of *oneclient* is available for macOS (Sierra or higher), and can be installed using Homebrew:
-
-```bash
-# OSXFuse must be installed separately, at least version 3.5.4
-brew cask install osxfuse
-brew tap onedata/onedata
-brew install oneclient
-```
-
-In order to enable Desktop icon for the mounted Onedata volume, it is necessary to enable this feature in the system settings:
-
-```bash
-defaults write com.apple.finder ShowMountedServersOnDesktop 1
-```
 
 ## Usage
 
@@ -131,7 +119,7 @@ The list of all options can be accessed using:
 
 ```
 $ oneclient -h
-Usage: /usr/local/bin/oneclient [options] mountpoint
+Usage: oneclient [options] mountpoint
 
 A Onedata command line client.
 
@@ -140,8 +128,10 @@ General options:
   -V [ --version ]                      Show current Oneclient version and
                                         exit.
   -u [ --unmount ]                      Unmount Oneclient and exit.
-  -c [ --config ] <path> (=/usr/local/etc/oneclient.conf)
+  -c [ --config ] <path> (=/etc/oneclient.conf)
                                         Specify path to config file.
+  --ignore-env                          Ignore options from environment
+                                        variables.
   -H [ --host ] <host>                  Specify the hostname of the Oneprovider
                                         instance to which the Oneclient should
                                         connect.
@@ -166,14 +156,18 @@ General options:
                                         mounted.
   -l [ --log-dir ] <path> (=/tmp/oneclient/0)
                                         Specify custom path for Oneclient logs.
+  --custom-ca-dir <path>                Path to directory with custom CA
+                                        certificates in PEM format.
   -v [ --verbose-log-level ] <level> (=0)
                                         Specify the verbosity level (0-3) for
                                         verbose logs (only available in debug
                                         builds).
+  --disable-log-buffering               Disable log buffering.
 
 Advanced options:
   --io-trace-log                        Enable detailed IO trace log
                                         (experimental).
+  --log-read-write-perf                 Enable read write performance logger.
   --force-proxy-io                      Force proxied access to storage via
                                         Oneprovider for all spaces.
   --force-direct-io                     Force direct access to storage for all
@@ -181,12 +175,9 @@ Advanced options:
   --buffer-scheduler-thread-count <threads> (=1)
                                         Specify number of parallel buffer
                                         scheduler threads.
-  --communicator-pool-size <connections> (=10)
+  --communicator-pool-size <connections> (=25)
                                         Specify number of connections in
                                         communicator pool.
-  --communicator-thread-count <threads> (=4)
-                                        Specify number of parallel communicator
-                                        threads.
   --scheduler-thread-count <threads> (=1)
                                         Specify number of parallel scheduler
                                         threads.
@@ -195,8 +186,10 @@ Advanced options:
                                         helper threads.
   --no-buffer                           Disable in-memory cache for
                                         input/output data blocks.
+  --no-xattr                            Disable extended attributes support.
   --provider-timeout <duration> (=120)  Specify Oneprovider connection timeout
                                         in seconds.
+  --storage-timeout <duration> (=120)   Specify I/O storage timeout in seconds.
   --disable-read-events                 Disable reporting of file read events.
   --no-fullblock-read                   Disable fullblock read mode. With this
                                         option read can return less data than
@@ -232,6 +225,9 @@ Advanced options:
                                         Specify idle period in seconds before
                                         flush of in-memory cache for output
                                         data blocks.
+  --min-block-prefetch-size <bytes> (=1048576)
+                                        Specify the minimum prefetch block
+                                        size.
   --seqrd-prefetch-threshold <fraction> (=1.000000)
                                         Specify the fraction of the file, which
                                         will trigger replication prefetch after
@@ -277,13 +273,17 @@ Advanced options:
                                         Default is: async (experimental).
   --cluster-prefetch-threshold-random   Enables random cluster prefetch
                                         threshold selection (experimental).
-  --metadata-cache-size <size> (=20000) Number of separate blocks after which
-                                        replication for the file is triggered
-                                        automatically.
+  --metadata-cache-size <size> (=5000000)
+                                        Maximum number of file attributes
+                                        cached in the metadata cache.
   --readdir-prefetch-size <size> (=2500)
                                         Specify the size of requests made
                                         during readdir prefetch (in number of
                                         dir entries).
+  --dir-cache-drop-after <seconds>      Specify (in seconds) how long should
+                                        directories be cached since last
+                                        activity. When 0 is provided, the cache
+                                        never expires.
   --tag-on-create <name>:<value>        Adds <name>=<value> extended attribute
                                         to each locally created file.
   --tag-on-modify <name>:<value>        Adds <name>=<value> extended attribute
@@ -293,6 +293,19 @@ Advanced options:
                                         parameters for specific storage, e.g.
                                         'd40f2f63433da7c845886f6fe970048b:mount
                                         Point:/mnt/nfs'
+  --emulate-available-space <bytes> (=0)
+                                        When set to non-zero value, emulates
+                                        available space reported by stat system
+                                        call to specified number of bytes.
+  --hard-link-count                     Show hard link count properly in stat.
+  --enable-archivematica                Enable Archivematica mode.
+  --public-data-mode                    Enable Public Data mode, in which space
+                                        directories list Public Data
+                                        collections (shares with assigned
+                                        PID/DOI identifiers) instead of regular
+                                        files.
+  --show-space-ids                      Show space Id's instead of space names
+                                        in the filesystem tree.
 
 FUSE options:
   -f [ --foreground ]         Foreground operation.
@@ -307,7 +320,7 @@ Monitoring options:
                                       - default.
   --monitoring-level-full             Sets monitoring reporting level to full.
   --monitoring-period <seconds> (=30) Performance metrics reporting period.
-  --graphite-url <url>                Graphite url - required when
+  --graphite-url <url>                Graphite url - required when 
                                       monitoring-type is 'graphite', the scheme
                                       can be either tcp or udp and default port
                                       is 2003
@@ -327,13 +340,13 @@ Some options in the config file can be overridden using environment variables, w
 Running dockerized *oneclient* is easy:
 
 ```
-docker run -it --privileged onedata/oneclient:18.02.1
+docker run -it --privileged onedata/oneclient:21.02.1
 ```
 
 To run *oneclient* image without it automatically mounting the volume specify custom entrypoint:
 
 ```
-docker run -it --privileged --entrypoint bash onedata/oneclient:18.02.1
+docker run -it --privileged --entrypoint bash onedata/oneclient:21.02.1
 ```
 
 
@@ -342,37 +355,18 @@ docker run -it --privileged --entrypoint bash onedata/oneclient:18.02.1
 The application will ask for a token and run in the foreground. In order for *oneclient* to remember your token, mount volume `/root/.local/share/oneclient`:
 
 ```
-docker run -it --privileged -v ~/.oneclient_local:/root/.local/share/oneclient onedata/oneclient:18.02.1
+docker run -it --privileged -v ~/.oneclient_local:/root/.local/share/oneclient onedata/oneclient:21.02.1
 ```
 
 You can also pass your token in `ONECLIENT_ACCESS_TOKEN` environment variable:
 
 ```
-docker run -it --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:18.02.1
+docker run -it --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:21.02.1
 ```
 
 If *oneclient* knows the token (either by reading its config file or by reading the environment variable), it can be run as a daemon container:
 
 ```
-docker run -d --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:18.02.1
-```
-
-### Accessing your data
-
-*oneclient* exposes NFS and SMB services for easy outside access to your mounted
-spaces.
-
-```
-docker run -d --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:18.02.1
-
-# Display container's IP address
-docker inspect --format "{{ .NetworkSettings.IPAddress }}" $(docker ps -ql)
-```
-
-Now you can mount using *NFS* or *Samba* with:
-
-```
-nfs://<CONTAINER_IP_ADDR>/mnt/oneclient
-smb://<CONTAINER_IP_ADDR>/onedata
+docker run -d --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:21.02.1
 ```
 

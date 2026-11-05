@@ -15,17 +15,18 @@
 #define _XOPEN_SOURCE 700
 #endif
 
-#include "asio.hpp"
 #include "auth/authException.h"
 #include "auth/authManager.h"
 #include "communication/exception.h"
 #include "configuration.h"
 #include "context.h"
+#include "errors/handshakeErrors.h"
 #include "fsOperations.h"
 #include "fslogic/composite.h"
 #include "fuseOperations.h"
 #include "helpers/init.h"
 #include "helpers/logging.h"
+#include "logging.h"
 #include "messages/configuration.h"
 #include "messages/getConfiguration.h"
 #include "messages/handshakeResponse.h"
@@ -37,14 +38,21 @@
 #include "version.h"
 
 #include <folly/Singleton.h>
+#if FUSE_USE_VERSION > 30
+#include <fuse3/fuse_lowlevel.h>
+#include <fuse3/fuse_opt.h>
+#else
 #include <fuse/fuse_lowlevel.h>
 #include <fuse/fuse_opt.h>
+#endif
+#include <macaroons.hpp>
 
 #include <sys/mount.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <csignal>
 #include <exception>
 #include <future>
 #include <iostream>
@@ -53,156 +61,20 @@
 #include <regex>
 #include <string>
 
-using namespace one;             // NOLINT
-using namespace one::client;     // NOLINT
-using namespace one::monitoring; // NOLINT
+#ifdef ENABLE_BACKWARD_CPP
+#define BACKWARD_HAS_DW 1
+#define BACKWARD_HAS_UNWIND 1
+#include <backward.hpp>
+#endif
 
-void startLogging(
-    const char *programName, std::shared_ptr<options::Options> options)
-{
-    try {
-        boost::filesystem::create_directories(options->getLogDirPath());
-    }
-    catch (const boost::filesystem::filesystem_error &e) {
-        std::cerr << "Failed to create log directory "
-                  << options->getLogDirPath() << ": '" << e.what()
-                  << "'. Aborting..." << std::endl;
-    }
+using namespace one;                  // NOLINT
+using namespace one::client;          // NOLINT
+using namespace one::client::logging; // NOLINT
+using namespace one::monitoring;      // NOLINT
 
-    FLAGS_log_dir = options->getLogDirPath().c_str();
-    FLAGS_stop_logging_if_full_disk = true;
-    FLAGS_logtostderr = false;
-    FLAGS_v = options->getVerboseLogLevel();
-    // Set maximum log size to 50MB plus 50MB for each verbosity level
-    constexpr auto kMaximumLogSizeMB = 50;
-    FLAGS_max_log_size =
-        kMaximumLogSizeMB * (1 + options->getVerboseLogLevel());
-    FLAGS_minloglevel = 0;
-
-    google::InitGoogleLogging(programName);
-
-    LOG(INFO) << "Oneclient version: " << ONECLIENT_VERSION;
-    LOG(INFO) << "Oneclient commit: " << ONECLIENT_GIT_COMMIT;
-    LOG(INFO) << "Helpers commit: " << HELPERS_GIT_COMMIT;
-    LOG(INFO) << "Verbose logging level: " << options->getVerboseLogLevel();
-    if (options->getProviderHost())
-        LOG(INFO) << "Connecting to Oneprovider: "
-                  << options->getProviderHost().get();
-    LOG(INFO) << "Forced direct IO: " << options->isDirectIOForced();
-    LOG(INFO) << "Forced proxy IO: " << options->isProxyIOForced();
-    LOG(INFO) << "Verify server certificate: " << !options->isInsecure();
-    LOG(INFO) << "File read events disabled: "
-              << options->areFileReadEventsDisabled();
-    LOG(INFO) << "IO buffered: " << options->isIOBuffered();
-    LOG(INFO) << "Oneprovider connection timeout [s]: "
-              << options->getProviderTimeout().count();
-    LOG(INFO) << "Monitoring enabled: " << options->isMonitoringEnabled();
-    if (options->isMonitoringEnabled()) {
-        if (options->getMonitoringType())
-            LOG(INFO) << "Monitoring type: "
-                      << options->getMonitoringType().get();
-        LOG(INFO) << "Monitoring level basic: "
-                  << options->isMonitoringLevelBasic();
-        LOG(INFO) << "Monitoring level full: "
-                  << options->isMonitoringLevelFull();
-        if (options->getMonitoringGraphiteUrl())
-            LOG(INFO) << "Graphite URL: "
-                      << options->getMonitoringGraphiteUrl().get();
-        if (options->getMonitoringGraphiteNamespacePrefix())
-            LOG(INFO) << "Graphite namespace prefix: "
-                      << options->getMonitoringGraphiteNamespacePrefix().get();
-    }
-    LOG(INFO) << "Mountpoint: " << options->getMountpoint();
-
-    google::FlushLogFiles(google::GLOG_INFO);
-}
-
-int startPerformanceMonitoring(std::shared_ptr<options::Options> options)
-{
-    if (options->isMonitoringEnabled()) {
-        if (options->getMonitoringType().get() == "graphite") {
-            if (!options->getMonitoringGraphiteUrl()) {
-                std::cerr << "Graphite URL not specified - use option "
-                             "--graphite-url."
-                          << std::endl;
-                return EXIT_FAILURE;
-            }
-
-            auto config = std::make_shared<GraphiteMonitoringConfiguration>();
-            try {
-                config->fromGraphiteURL(
-                    options->getMonitoringGraphiteUrl().get());
-            }
-            catch (std::invalid_argument &e) {
-                std::cerr << "Graphite configuration error: " << e.what()
-                          << std::endl;
-            }
-            if (options->getMonitoringGraphiteNamespacePrefix()) {
-                config->namespacePrefix =
-                    options->getMonitoringGraphiteNamespacePrefix().get();
-            }
-            config->reportingPeriod = options->getMonitoringReportingPeriod();
-            if (options->isMonitoringLevelFull()) {
-                config->reportingLevel = cppmetrics::core::ReportingLevel::Full;
-            }
-            else {
-                config->reportingLevel =
-                    cppmetrics::core::ReportingLevel::Basic;
-            }
-
-            LOG(INFO) << "Starting Graphite performance monitoring to host: "
-                      << config->graphiteHostname;
-
-            // Configure and start monitoring threads
-            helpers::configureMonitoring(config, true);
-
-            // Initialize the command line option counter values
-            ONE_METRIC_COUNTER_SET(
-                "comp.oneclient.mod.options.scheduler_thread_count",
-                options->getSchedulerThreadCount());
-            ONE_METRIC_COUNTER_SET(
-                "comp.oneclient.mod.options.communicator_thread_count",
-                options->getCommunicatorThreadCount());
-            ONE_METRIC_COUNTER_SET(
-                "comp.oneclient.mod.options.storage_helper_thread_count",
-                options->getStorageHelperThreadCount());
-            ONE_METRIC_COUNTER_SET("comp.oneclient.mod.options.buffer_"
-                                   "scheduler_helper_thread_count",
-                options->getBufferSchedulerThreadCount());
-            ONE_METRIC_COUNTER_SET(
-                "comp.oneclient.mod.options.read_buffer_min_size",
-                options->getReadBufferMinSize());
-            ONE_METRIC_COUNTER_SET(
-                "comp.oneclient.mod.options.read_buffer_max_size",
-                options->getReadBufferMaxSize());
-            ONE_METRIC_COUNTER_SET(
-                "comp.oneclient.mod.options.write_buffer_min_size",
-                options->getWriteBufferMinSize());
-            ONE_METRIC_COUNTER_SET(
-                "comp.oneclient.mod.options.write_buffer_max_size",
-                options->getWriteBufferMaxSize());
-            ONE_METRIC_COUNTER_SET(
-                "comp.oneclient.mod.options.read_buffer_prefetch_duration",
-                options->getReadBufferPrefetchDuration().count());
-            ONE_METRIC_COUNTER_SET(
-                "comp.oneclient.mod.options.write_buffer_flush_delay",
-                options->getWriteBufferFlushDelay().count());
-            ONE_METRIC_COUNTER_SET(
-                "comp.oneclient.mod.options.metadata_cache_size",
-                options->getMetadataCacheSize());
-            ONE_METRIC_COUNTER_SET(
-                "comp.oneclient.mod.options.monitoring_reporting_period",
-                options->getMonitoringReportingPeriod());
-        }
-        else {
-            std::cerr << "Unsupported performance monitoring reporter: "
-                      << options->getMonitoringType().get() << std::endl;
-            return EXIT_FAILURE;
-        }
-    }
-
-    return EXIT_SUCCESS;
-}
+namespace {
+std::shared_ptr<options::Options> __options{};
+} // namespace
 
 std::shared_ptr<options::Options> getOptions(int argc, char *argv[])
 {
@@ -212,10 +84,45 @@ std::shared_ptr<options::Options> getOptions(int argc, char *argv[])
         return options;
     }
     catch (const boost::program_options::error &e) {
-        std::cerr << std::regex_replace(e.what(), std::regex("--"), "") << "\n"
-                  << "See '" << argv[0] << " --help'." << std::endl;
+        fmt::print(stderr, "{}\nSee '{} --help'\n",
+            std::regex_replace(e.what(), std::regex("--"), ""), argv[0]);
         exit(EXIT_FAILURE);
     }
+}
+
+void sigtermHandler(int signum)
+{
+    if (!__options)
+        exit(signum);
+
+#ifdef ENABLE_BACKWARD_CPP
+    const auto crashDumpPath = __options->getLogDirPath() /
+        fmt::format("crash-{}.log", std::time(nullptr));
+    constexpr auto kStackTraceSizeMax = 48U;
+    std::ofstream crashDumpStream(crashDumpPath.c_str(), std::ios::trunc);
+    if (crashDumpStream.is_open()) {
+        backward::StackTrace st;
+        st.load_here(kStackTraceSizeMax);
+        backward::Printer p;
+        p.print(st, crashDumpStream);
+    }
+    crashDumpStream.close();
+#endif
+
+    fmt::print(stderr,
+        "Oneclient received ({}) signal - releasing mountpoint: {}\n", signum,
+        __options->getMountpoint().c_str());
+
+#if FUSE_USE_VERSION > 30
+    const auto *exec = "/bin/fusermount3";
+#else
+    auto exec = "/bin/fusermount";
+#endif
+    // NOLINTNEXTLINE(hicpp-vararg,cppcoreguidelines-pro-type-vararg)
+    execl(exec, exec, "-uz", __options->getMountpoint().c_str(), NULL);
+
+    // Raise signal again. Should usually terminate the program.
+    std::raise(signum);
 }
 
 void unmountFuse(std::shared_ptr<options::Options> options)
@@ -229,12 +136,16 @@ void unmountFuse(std::shared_ptr<options::Options> options)
     else {
 #if defined(__APPLE__)
         auto exec = "/usr/sbin/diskutil";
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
-        execl(exec, exec, "unmount", options->getMountpoint().c_str(), NULL);
+        // NOLINTNEXTLINE(hicpp-vararg,cppcoreguidelines-pro-type-vararg)
+        execl(exec, exec, "unmount", options->getMountpoint().c_str(), nullptr);
+#else
+#if FUSE_USE_VERSION > 30
+        const auto *exec = "/bin/fusermount3";
 #else
         auto exec = "/bin/fusermount";
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
-        execl(exec, exec, "-u", options->getMountpoint().c_str(), NULL);
+#endif
+        // NOLINTNEXTLINE(hicpp-vararg,cppcoreguidelines-pro-type-vararg)
+        execl(exec, exec, "-uz", options->getMountpoint().c_str(), nullptr);
 #endif
     }
     if (status == 0) {
@@ -247,8 +158,9 @@ int main(int argc, char *argv[])
 {
     helpers::init();
 
-    auto context = std::make_shared<Context>();
+    auto context = std::make_shared<OneclientContext>();
     auto options = getOptions(argc, argv);
+    __options = options;
     context->setOptions(options);
 
     if (options->getHelp()) {
@@ -256,17 +168,17 @@ int main(int argc, char *argv[])
         return EXIT_SUCCESS;
     }
     if (options->getVersion()) {
-        std::cout << "Oneclient: " << ONECLIENT_VERSION << "\n"
-                  << "FUSE library: " << FUSE_MAJOR_VERSION << "."
-                  << FUSE_MINOR_VERSION << std::endl;
+        fmt::print("Oneclient: {}\nFUSE library: {}.{}\n", ONECLIENT_VERSION,
+            FUSE_MAJOR_VERSION, FUSE_MINOR_VERSION);
         return EXIT_SUCCESS;
     }
     if (options->getUnmount()) {
         unmountFuse(options);
     }
     if (!options->getProviderHost()) {
-        std::cerr << "the option 'host' is required but missing\n"
-                  << "See '" << argv[0] << " --help'." << std::endl;
+        fmt::print(stderr,
+            "The option 'host' is required but missing\nSee '{} --help'.\n",
+            argv[0]);
         return EXIT_FAILURE;
     }
     if (options->hasDeprecated()) {
@@ -278,91 +190,279 @@ int main(int argc, char *argv[])
     context->setScheduler(
         std::make_shared<Scheduler>(options->getSchedulerThreadCount()));
 
-    auto authManager = getAuthManager(context);
-    auto sessionId = generateSessionId();
-    auto configuration = getConfiguration(sessionId, authManager, context);
+    int res{};
 
-    auto fuse_oper = fuseOperations();
-    auto args = options->getFuseArgs(argv[0]);
-    char *mountpoint;
-    int multithreaded;
-    int foreground;
-    int res;
+    try {
+        auto fuse_oper = fuseOperations(options);
+        auto args = options->getFuseArgs(argv[0]);
+        char *mountpoint{nullptr};
+        int multithreaded{0};
+        int foreground{0};
+        struct fuse_session *fuse{nullptr};
 
-    res = fuse_parse_cmdline(&args, &mountpoint, &multithreaded, &foreground);
-    if (res == -1)
-        return EXIT_FAILURE;
-
-    ScopeExit freeMountpoint{[=] {
-        free(mountpoint); // NOLINT
-    }};
-
-    auto ch = fuse_mount(mountpoint, &args);
-    if (ch == nullptr)
-        return EXIT_FAILURE;
-
-    ScopeExit unmountFuse{[=] { fuse_unmount(mountpoint, ch); }};
-
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
-    res = fcntl(fuse_chan_fd(ch), F_SETFD, FD_CLOEXEC);
-    if (res == -1)
-        perror("WARNING: failed to set FD_CLOEXEC on fuse device");
-
-    std::unique_ptr<fslogic::Composite> fsLogic;
-    auto fuse =
-        fuse_lowlevel_new(&args, &fuse_oper, sizeof(fuse_oper), &fsLogic);
-    if (fuse == nullptr)
-        return EXIT_FAILURE;
-
-    ScopeExit destroyFuse{[=] { fuse_session_destroy(fuse); }, unmountFuse};
-
-    fuse_set_signal_handlers(fuse);
-    ScopeExit removeHandlers{[&] { fuse_remove_signal_handlers(fuse); }};
-
-    fuse_session_add_chan(fuse, ch);
-    ScopeExit removeChannel{[&] { fuse_session_remove_chan(ch); }};
-
-    std::cout << "Oneclient has been successfully mounted in '"
-              << options->getMountpoint().c_str() << "'." << std::endl;
-
-    if (foreground == 0) {
-        context->scheduler()->prepareForDaemonize();
-        folly::SingletonVault::singleton()->destroyInstances();
-
-        fuse_remove_signal_handlers(fuse);
-        res = fuse_daemonize(foreground);
-
-        if (res != -1)
-            res = fuse_set_signal_handlers(fuse);
-
+#if FUSE_USE_VERSION > 30
+        struct fuse_cmdline_opts opts {
+        };
+        res = fuse_parse_cmdline(&args, &opts);
         if (res == -1)
             return EXIT_FAILURE;
 
-        folly::SingletonVault::singleton()->reenableInstances();
-        context->scheduler()->restartAfterDaemonize();
-    }
-    else {
-        FLAGS_stderrthreshold = options->getDebug() ? 0 : 1;
-    }
+        multithreaded = !opts.singlethread; // NOLINT
+        foreground = opts.foreground;
+        mountpoint = opts.mountpoint;
 
-    if (startPerformanceMonitoring(options) != EXIT_SUCCESS)
+        if (foreground == 0) {
+            FLAGS_stderrthreshold = 3;
+        }
+        else {
+            FLAGS_stderrthreshold = options->getDebug() ? 0 : 1;
+        }
+
+        ScopeExit freeMountpoint{[=] {
+            free(mountpoint); // NOLINT
+        }};
+
+        // Create test communicator with single connection to test the
+        // authentication and get protocol configuration
+        auto authManager =
+            getCLIAuthManager<client::Context<communication::Communicator>>(
+                context);
+        auto sessionId = generateSessionId();
+        auto configuration = getConfiguration(sessionId, authManager, context,
+            messages::handshake::ClientType::oneclient);
+
+        if (!configuration)
+            return EXIT_FAILURE;
+
+        std::unique_ptr<fslogic::Composite> fsLogic;
+        fuse = fuse_session_new(&args, &fuse_oper, sizeof(fuse_oper), &fsLogic);
+        if (fuse == nullptr)
+            return EXIT_FAILURE;
+
+        res = fuse_set_signal_handlers(fuse);
+        if (res == -1)
+            return EXIT_FAILURE;
+
+        ScopeExit removeHandlers{[=] { fuse_remove_signal_handlers(fuse); }};
+
+        res = fuse_session_mount(fuse, mountpoint);
+        if (res != 0)
+            return EXIT_FAILURE;
+
+        ScopeExit unmountFuse{[=] { fuse_session_unmount(fuse); }};
+        ScopeExit destroyFuse{[=] { fuse_session_destroy(fuse); }, unmountFuse};
+
+        std::signal(SIGINT, sigtermHandler);
+        std::signal(SIGTERM, sigtermHandler);
+        std::signal(SIGSEGV, sigtermHandler);
+
+        std::cout << "Oneclient has been successfully mounted in '"
+                  << options->getMountpoint().c_str() << "'." << std::endl;
+
+        if (foreground == 0) {
+            context->scheduler()->prepareForDaemonize();
+            folly::SingletonVault::singleton()->destroyInstances();
+
+            fuse_remove_signal_handlers(fuse);
+            res = fuse_daemonize(foreground);
+
+            if (res != -1)
+                res = fuse_set_signal_handlers(fuse);
+
+            if (res == -1)
+                return EXIT_FAILURE;
+
+            folly::SingletonVault::singleton()->reenableInstances();
+            context->scheduler()->restartAfterDaemonize();
+        }
+        else {
+            FLAGS_stderrthreshold = options->getDebug() ? 0 : 1;
+        }
+#else
+        res =
+            fuse_parse_cmdline(&args, &mountpoint, &multithreaded, &foreground);
+        if (res == -1)
+            return EXIT_FAILURE;
+
+        if (foreground == 0) {
+            FLAGS_stderrthreshold = 3;
+        }
+        else {
+            FLAGS_stderrthreshold = options->getDebug() ? 0 : 1;
+        }
+
+        // Create test communicator with single connection to test the
+        // authentication and get protocol configuration
+        auto authManager = getAuthManager(context);
+        auto sessionId = generateSessionId();
+        auto configuration = getConfiguration(sessionId, authManager, context,
+            messages::handshake::ClientType::oneclient);
+
+        if (!configuration)
+            return EXIT_FAILURE;
+
+        ScopeExit freeMountpoint{[=] {
+            free(mountpoint); // NOLINT
+        }};
+
+        auto ch = fuse_mount(mountpoint, &args);
+        if (ch == nullptr)
+            return EXIT_FAILURE;
+
+        ScopeExit unmountFuse{[=] { fuse_unmount(mountpoint, ch); }};
+
+        std::signal(SIGINT, sigtermHandler);
+        std::signal(SIGTERM, sigtermHandler);
+        std::signal(SIGSEGV, sigtermHandler);
+
+        // NOLINTNEXTLINE(hicpp-vararg,cppcoreguidelines-pro-type-vararg)
+        res = fcntl(fuse_chan_fd(ch), F_SETFD, FD_CLOEXEC);
+        if (res == -1)
+            perror("WARNING: failed to set FD_CLOEXEC on fuse device");
+
+        std::unique_ptr<fslogic::Composite> fsLogic;
+        fuse =
+            fuse_lowlevel_new(&args, &fuse_oper, sizeof(fuse_oper), &fsLogic);
+        if (fuse == nullptr)
+            return EXIT_FAILURE;
+
+        ScopeExit destroyFuse{[=] { fuse_session_destroy(fuse); }, unmountFuse};
+
+        fuse_set_signal_handlers(fuse);
+        ScopeExit removeHandlers{[&] { fuse_remove_signal_handlers(fuse); }};
+
+        fuse_session_add_chan(fuse, ch);
+        ScopeExit removeChannel{[&] { fuse_session_remove_chan(ch); }};
+
+        std::cout << "Oneclient has been successfully mounted in '"
+                  << options->getMountpoint().c_str() << "'." << std::endl;
+
+        if (foreground == 0) {
+            context->scheduler()->prepareForDaemonize();
+            folly::SingletonVault::singleton()->destroyInstances();
+
+            fuse_remove_signal_handlers(fuse);
+            res = fuse_daemonize(foreground);
+
+            if (res != -1)
+                res = fuse_set_signal_handlers(fuse);
+
+            if (res == -1) {
+                return EXIT_FAILURE;
+            }
+
+            folly::SingletonVault::singleton()->reenableInstances();
+            context->scheduler()->restartAfterDaemonize();
+        }
+#endif
+
+        if (startPerformanceMonitoring(options) != EXIT_SUCCESS)
+            return EXIT_FAILURE;
+
+        auto communicator =
+            getCommunicator<client::Context<communication::Communicator>>(
+                sessionId, authManager, context,
+                messages::handshake::ClientType::oneclient);
+        context->setCommunicator(communicator);
+        communicator->setScheduler(context->scheduler());
+        communicator->connect();
+
+        communicator->schedulePeriodicMessageRequest();
+        authManager->scheduleRefresh(auth::RESTRICTED_MACAROON_REFRESH);
+
+        auto helpersCache =
+            std::make_unique<cache::HelpersCache<communication::Communicator>>(
+                *communicator, context->scheduler(), *options);
+
+        const auto &rootUuid = configuration->rootUuid();
+        fsLogic = std::make_unique<fslogic::Composite>(rootUuid,
+            std::move(context), std::move(configuration),
+            std::move(helpersCache), options->getMetadataCacheSize(),
+            options->areFileReadEventsDisabled(),
+            options->isFullblockReadEnabled(), options->getProviderTimeout(),
+            options->getDirectoryCacheDropAfter());
+
+#if FUSE_USE_VERSION > 31
+        struct fuse_loop_config config {
+        };
+        config.clone_fd = opts.clone_fd;
+        config.max_idle_threads = opts.max_idle_threads;
+        res = (multithreaded != 0) ? fuse_session_loop_mt(fuse, &config)
+                                   : fuse_session_loop(fuse);
+#elif FUSE_VERSION == 31
+        res = (multithreaded != 0) ? fuse_session_loop_mt(fuse, opts.clone_fd)
+                                   : fuse_session_loop(fuse);
+#else
+        res = (multithreaded != 0) ? fuse_session_loop_mt(fuse)
+                                   : fuse_session_loop(fuse);
+#endif
+    }
+    catch (const macaroons::exception::Invalid &e) {
+        fmt::print(stderr,
+            "ERROR: Cannot parse token - please make sure that the access "
+            "token has been copied correctly.\n");
         return EXIT_FAILURE;
+    }
+    catch (const macaroons::exception::NotAuthorized &e) {
+        fmt::print(stderr,
+            "ERROR: Invalid token - please make sure that the access token is "
+            "valid for Oneclient access to Oneprovider: {}\n",
+            *__options->getProviderHost());
+        return EXIT_FAILURE;
+    }
+    catch (const std::system_error &e) {
+        using one::errors::handshake::ErrorCode;
 
-    auto communicator = getCommunicator(sessionId, authManager, context);
-    context->setCommunicator(communicator);
-    communicator->connect();
+        if (e.code() == ErrorCode::macaroon_expired)
+            fmt::print(stderr,
+                "ERROR: Expired token - the provided token is "
+                "expired, please create a new one.\n");
+        else if (e.code() == ErrorCode::invalid_macaroon ||
+            e.code() == ErrorCode::invalid_provider ||
+            e.code() == ErrorCode::macaroon_not_found)
+            fmt::print(stderr,
+                "ERROR: Invalid token - the provided token is not valid for "
+                "Oneclient access to Oneprovider: {}\n",
+                *__options->getProviderHost());
+        else if (e.code() == ErrorCode::incompatible_version)
+            fmt::print(stderr,
+                "ERROR: This Oneclient version ({}) is not compatible with "
+                "this Oneprovider, see: "
+                "https://{}/api/v3/oneprovider/configuration\nPlease also "
+                "consult the current Onedata compatibility matrix: "
+                "https://onedata.org/#/home/versions\n",
+                ONECLIENT_VERSION, *__options->getProviderHost());
+        else {
+            fmt::print(stderr, "ERROR: Cannot connect to Oneprovider {} - {}\n",
+                *__options->getProviderHost(), e.what());
+        }
 
-    auto helpersCache = std::make_unique<cache::HelpersCache>(
-        *communicator, *context->scheduler(), *options);
+        return EXIT_FAILURE;
+    }
+    catch (const folly::AsyncSocketException &e) {
+        std::string message;
+        using fas = folly::AsyncSocketException;
+        if (e.getType() == fas::AsyncSocketExceptionType::SSL_ERROR) {
+            message = "SSL socket creation failed, if the Oneprovider has "
+                      "self-hosted certificate add option '-i'";
+        }
+        else if (e.getType() == fas::AsyncSocketExceptionType::TIMED_OUT) {
+            message = "Connection timed out, please make sure the Oneprovider "
+                      "hostname is correct and reachable from this host.";
+        }
+        else {
+            message = e.what();
+        }
 
-    const auto &rootUuid = configuration->rootUuid();
-    fsLogic = std::make_unique<fslogic::Composite>(rootUuid, std::move(context),
-        std::move(configuration), std::move(helpersCache),
-        options->getMetadataCacheSize(), options->areFileReadEventsDisabled(),
-        options->isFullblockReadEnabled(), options->getProviderTimeout());
+        fmt::print(stderr, "ERROR: Cannot connect to Oneprovider {} - {}\n",
+            *__options->getProviderHost(), message);
 
-    res = (multithreaded != 0) ? fuse_session_loop_mt(fuse)
-                               : fuse_session_loop(fuse);
+        return EXIT_FAILURE;
+    }
+    catch (const std::exception &e) {
+        fmt::print(stderr, "ERROR: Cannot connect to Oneprovider {} - {}\n",
+            *__options->getProviderHost(), e.what());
+    }
 
     return res == -1 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

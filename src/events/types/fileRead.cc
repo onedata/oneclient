@@ -49,12 +49,12 @@ void FileRead::aggregate(EventPtr<FileRead> event)
 ProtoEventPtr FileRead::serializeAndDestroy()
 {
     auto msg = std::make_unique<ProtoEvent>();
-    auto fileReadMsg = msg->mutable_file_read();
+    auto *fileReadMsg = msg->mutable_file_read();
     fileReadMsg->set_counter(m_counter);
     fileReadMsg->mutable_file_uuid()->swap(m_fileUuid);
     fileReadMsg->set_size(m_size);
     for (auto &block : m_blocks) {
-        auto blockMsg = fileReadMsg->add_blocks();
+        auto *blockMsg = fileReadMsg->add_blocks();
         blockMsg->set_offset(block.first.lower());
         blockMsg->set_size(block.first.upper() - block.first.lower());
         blockMsg->mutable_file_id()->swap(block.second.mutableFileId());

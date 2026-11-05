@@ -13,7 +13,10 @@ using namespace one::client::events;
 struct ManagerTest : public ::testing::Test {
     bool handlerCalled = false;
     TestSubscription subscription{[&](auto) { handlerCalled = true; }};
-    Manager manager{testContext()};
+    std::shared_ptr<one::client::Context<one::communication::Communicator>>
+        context{testContext()};
+    Manager manager{*context->scheduler(), context->communicator(),
+        std::chrono::seconds{10}};
 };
 
 TEST_F(ManagerTest, subscribeShouldReturnSubscriptionId)
@@ -63,7 +66,7 @@ TEST_F(ManagerTest, flushShouldCallHandler)
     this->manager.subscribe(this->subscription);
     this->manager.emit(std::make_unique<TestEvent>());
     ASSERT_FALSE(this->handlerCalled);
-    this->manager.flush(StreamKey::TEST);
+    this->manager.flush(StreamKey::STREAM_KEY_MAX);
     ASSERT_TRUE(this->handlerCalled);
 }
 

@@ -27,6 +27,8 @@ public:
      */
     XAttr(std::unique_ptr<ProtocolServerMessage> serverMessage);
 
+    XAttr(std::string name, std::string value);
+
     /**
      * @return The extended attribute name.
      */

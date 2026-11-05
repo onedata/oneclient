@@ -7,5 +7,7 @@
 + include/**/*.h
 + src/**/*.cc
 + src/**/*.h
++ s3/**/*.cc
++ s3/**/*.h
 + test/**/*.cc
 + test/**/*.h

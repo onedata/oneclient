@@ -3,7 +3,6 @@ find_package(GFlags REQUIRED)
 set(ONEBENCH_LIBRARIES
     libmacaroons-cpp
     ${PLATFORM_EXTRA_LIBS}
-    ${GLOG_LIBRARIES}
     ${FUSE_LIBRARIES}
     ${Boost_LIBRARIES}
     ${SODIUM_LIBRARIES}
@@ -12,11 +11,13 @@ set(ONEBENCH_LIBRARIES
     ${FOLLY_LIBRARIES}
     ${HELPERS_LIBRARIES}
     ${OPENSSL_LIBRARIES}
-    ${GFLAGS_LIBRARIES}
+    gflags
+    glog
+    unwind
     )
 
 if(WITH_CEPH)
-    list(APPEND ONEBENCH_LIBRARIES ${RADOS_LIBRARY} ${RADOSSTRIPER_LIBRARY})
+    list(APPEND ONEBENCH_LIBRARIES ${RADOSSTRIPER_LIBRARY} ${RADOS_LIBRARY} ${CEPHCOMMON_LIBRARY})
 endif(WITH_CEPH)
 
 if(WITH_S3)
@@ -31,14 +32,21 @@ if(WITH_GLUSTERFS)
     list(APPEND ONEBENCH_LIBRARIES ${GLUSTERFSAPI_LIBRARIES})
 endif(WITH_GLUSTERFS)
 
-if(WITH_WEBDAV)
-    list(APPEND ONEBENCH_LIBRARIES ${PROXYGEN_LIBRARY} ${WANGLE_LIBRARIES})
-endif(WITH_WEBDAV)
+if(WITH_XROOTD)
+    list(APPEND ONEBENCH_LIBRARIES ${XROOTD_LIBRARIES})
+endif(WITH_XROOTD)
+
+if(WITH_NFS)
+    list(APPEND ONEBENCH_LIBRARIES ${NFS_LIBRARIES})
+endif(WITH_NFS)
 
 add_executable(onebench
     "onebench.cc"
     "testRunner.cc"
     "testRunnerConfig.cc"
+    "testWorkerRndWr.cc"
+    "testWorkerRndRd.cc"
+    "testWorkerRndRdHTTP.cc"
     $<TARGET_OBJECTS:helpers>
     $<TARGET_OBJECTS:clproto>)
 

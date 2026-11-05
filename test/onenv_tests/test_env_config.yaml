@@ -1,0 +1,111 @@
+# Name of the scenario to run
+scenario: "scenario-1oz-2op"
+
+# Path or list of paths in which look for sources (can be either relative to
+# cwd or absolute path)
+sourcesRoot: ".."
+
+# Determines if onedata components should be started from pre-compiled sources
+# or pre-installed packages inside dockers. When enabled, sources are expected
+# to be found in CWD (from where the 'up' script was run) or one dir above.
+sources: false
+
+# Onezone image to use. Note that if 'sources' option is enabled, it must
+# be based off onedata/worker image (it contains all the machinery to run the
+# application from sources - images based off onedata-worker are images with
+# -dev suffix).
+onezoneImage: "docker.onedata.org/onezone-dev:25-latest"
+
+# Oneprovider image to use. Note that if 'sources' option is enabled, it must
+# be based off onedata/worker image (images based off onedata-worker are
+# images with -dev suffix).
+oneproviderImage: "docker.onedata.org/oneprovider-dev:25-latest"
+
+
+
+# Determines if elastic search should start.
+elasticSearch: false
+
+# Determines if onedata rest client should start.
+onedataCli: false
+
+# Determines if oneclients should start.
+oneclients: false
+
+# Oneclient image to use.
+oneclientImage: "docker.onedata.org/oneclient-dev:25-latest"
+
+# Onedata rest client image to use.
+onedataCliImage: "docker.onedata.org/rest-cli:ID-f310819457"
+
+# When enabled, onezoneImage and oneproviderImage will be pulled before every
+# deployment. If disabled, they will only be pulled if not existent.
+forceImagePull: true
+
+# User configuration
+users:
+  - &noone
+    name: noone
+    password: password
+
+# Determines if spaces should be created. It can be either boolean value or
+# list of spaces that should be created.
+#
+# By default spaces supported by all providers are created. For custom
+# space configuration please refer to one of MyValues.yaml file in
+# scenario directory.
+spaces:
+  - name: test_get_object_remote
+    supports:
+      - provider: oneprovider-1
+        storage_name: 'ceph'
+        size: '1000000000' # in bytes
+      - provider: oneprovider-2
+        storage_name: 'posix'
+        size: '1000000000' # in bytes
+  - name: test_pyfilesystem_ceph
+    supports:
+      - provider: oneprovider-1
+        storage_name: 'ceph'
+        size: '1000000000' # in bytes
+  - name: test_pyfilesystem_s3
+    supports:
+      - provider: oneprovider-1
+        storage_name: 's3'
+        size: '1000000000' # in bytes
+  - name: test_oneclient_ceph
+    supports:
+      - provider: oneprovider-1
+        storage_name: 'ceph'
+        size: '1000000000' # in bytes
+  - name: test_oneclient_s3
+    supports:
+      - provider: oneprovider-1
+        storage_name: 's3'
+        size: '1000000000' # in bytes
+  - name: test_unsupported
+  - name: test_unsupported_in_krk
+    supports:
+      - provider: oneprovider-2
+        storage_name: 'posix'
+        size: '1000000000' # in bytes
+  - name: test_onedatafs
+    supports:
+      - provider: oneprovider-1
+        storage_name: 'ceph'
+        size: '1000000000' # in bytes
+  - name: test_fsonedatafs
+    supports:
+      - provider: oneprovider-1
+        storage_name: 'ceph'
+        size: '1000000000' # in bytes
+
+storages:
+  - ceph
+  - s3
+
+oneprovider-1:
+  workerOverlayConfig: |-
+      [{op_worker, [
+          {skip_storage_detection, true}
+      ]}].

@@ -28,7 +28,7 @@ public:
      * Constructor.
      * @param uuid UUID of the file for which extended attributes are requested.
      */
-    ListXAttr(folly::fbstring uuid);
+    ListXAttr(const folly::fbstring &uuid);
 
     std::string toString() const override;
 

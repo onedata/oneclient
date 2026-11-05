@@ -20,8 +20,8 @@ constexpr auto FSLOGIC_RECENT_PREFETCH_CACHE_SIZE = 1000U;
 constexpr auto FSLOGIC_RECENT_PREFETCH_CACHE_PRUNE_SIZE = 50U;
 
 FuseFileHandle::FuseFileHandle(const int flags_, folly::fbstring handleId,
-    std::shared_ptr<cache::LRUMetadataCache::OpenFileToken> openFileToken,
-    cache::HelpersCache &helpersCache,
+    std::shared_ptr<cache::OpenFileMetadataCache::OpenFileToken> openFileToken,
+    cache::HelpersCacheBase &helpersCache,
     cache::ForceProxyIOCache &forceProxyIOCache,
     const std::chrono::seconds providerTimeout,
     const unsigned int prefetchCalculateSkipReads,
@@ -45,7 +45,7 @@ FuseFileHandle::FuseFileHandle(const int flags_, folly::fbstring handleId,
 {
 }
 
-helpers::FileHandlePtr FuseFileHandle::getHelperHandle(
+folly::Future<helpers::FileHandlePtr> FuseFileHandle::getHelperHandle(
     const folly::fbstring &uuid, const folly::fbstring &spaceId,
     const folly::fbstring &storageId, const folly::fbstring &fileId)
 {
@@ -53,13 +53,18 @@ helpers::FileHandlePtr FuseFileHandle::getHelperHandle(
 
     const bool forceProxyIO = m_forceProxyIOCache.contains(uuid);
     const auto key = std::make_tuple(storageId, fileId, forceProxyIO);
+    bool proxyFallback = false;
+    if (forceProxyIO)
+        proxyFallback = m_forceProxyIOCache.get(uuid);
 
     auto it = m_helperHandles.find(key);
     if (it != m_helperHandles.end())
         return it->second;
 
     auto helper =
-        m_helpersCache.get(uuid, spaceId, storageId, forceProxyIO).get();
+        m_helpersCache
+            .get(uuid, spaceId, storageId, forceProxyIO, proxyFallback)
+            .get();
 
     if (!helper) {
         LOG(ERROR) << "Could not create storage helper for file " << uuid
@@ -69,12 +74,13 @@ helpers::FileHandlePtr FuseFileHandle::getHelperHandle(
 
     const auto filteredFlags = m_flags & (~O_CREAT) & (~O_APPEND);
 
-    auto handle = communication::wait(
-        helper->open(fileId, filteredFlags, makeParameters(uuid)),
-        m_providerTimeout);
-
-    m_helperHandles[key] = handle;
-    return handle;
+    return helper->open(fileId, filteredFlags, makeParameters(uuid))
+        .thenTry([this, key](auto &&maybeHandle) {
+            maybeHandle.throwIfFailed();
+            assert(maybeHandle.value());
+            m_helperHandles[key] = maybeHandle.value();
+            return maybeHandle.value();
+        });
 }
 
 void FuseFileHandle::releaseHelperHandle(const folly::fbstring &uuid,
@@ -92,10 +98,17 @@ void FuseFileHandle::releaseHelperHandle(const folly::fbstring &uuid,
     }
 }
 
+void FuseFileHandle::reset()
+{
+    LOG_FCALL();
+
+    m_helperHandles.clear();
+}
+
 folly::fbvector<helpers::FileHandlePtr> FuseFileHandle::helperHandles() const
 {
     folly::fbvector<helpers::FileHandlePtr> result;
-    for (auto &elem : m_helperHandles)
+    for (const auto &elem : m_helperHandles)
         result.emplace_back(elem.second);
     return result;
 }
@@ -103,7 +116,7 @@ folly::fbvector<helpers::FileHandlePtr> FuseFileHandle::helperHandles() const
 helpers::FileHandlePtr FuseFileHandle::helperHandle(
     const folly::fbstring &storageId) const
 {
-    for (auto &elem : m_helperHandles) {
+    for (const auto &elem : m_helperHandles) {
         if ((std::get<0>(elem.first) == storageId) &&
             (!std::get<2>(elem.first)))
             return elem.second;

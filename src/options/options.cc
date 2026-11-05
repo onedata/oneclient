@@ -15,17 +15,29 @@
 
 #include <iostream>
 #include <sstream>
+#include <thread>
 #include <vector>
 
 namespace one {
+
 namespace client {
 namespace options {
 
-Options::Options()
-    : m_defaultConfigFilePath{boost::filesystem::path(ONECLIENT_CONFIG_DIR) /
-          boost::filesystem::path(CONFIG_FILE_NAME)}
+Options::Options(messages::handshake::ClientType clientType)
+    : m_clientType{clientType}
     , m_defaultLogDirPath{"/tmp/oneclient/" + std::to_string(geteuid())}
 {
+    if (clientType == messages::handshake::ClientType::ones3) {
+        m_defaultConfigFilePath =
+            boost::filesystem::path(ONECLIENT_CONFIG_DIR) /
+            boost::filesystem::path(CONFIG_FILE_NAME);
+    }
+    else {
+        m_defaultConfigFilePath =
+            boost::filesystem::path(ONECLIENT_CONFIG_DIR) /
+            boost::filesystem::path(ONES3_CONFIG_FILE_NAME);
+    }
+
     add<bool>()
         ->asSwitch()
         .withShortName("h")
@@ -63,6 +75,15 @@ Options::Options()
         .withGroup(OptionGroup::GENERAL)
         .withDescription("Specify path to config file.");
 
+    add<bool>()
+        ->asSwitch()
+        .withLongName("ignore-env")
+        .withConfigName("ignore_env")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::GENERAL)
+        .withDescription("Ignore options from environment variables.");
+
     add<std::string>()
         ->withShortName("H")
         .withLongName("host")
@@ -72,6 +93,18 @@ Options::Options()
         .withGroup(OptionGroup::GENERAL)
         .withDescription("Specify the hostname of the Oneprovider instance to "
                          "which the Oneclient should connect.");
+
+    if (m_clientType == messages::handshake::ClientType::ones3) {
+        add<std::string>()
+            ->withShortName("Z")
+            .withLongName("onezone-host")
+            .withEnvName("onezone_host")
+            .withConfigName("onezone_host")
+            .withValueName("<onezone_host>")
+            .withGroup(OptionGroup::GENERAL)
+            .withDescription("Specify the hostname of the Onezone instance to "
+                             "which the OneS3 should connect.");
+    }
 
     add<unsigned int>()
         ->withShortName("P")
@@ -139,6 +172,15 @@ Options::Options()
         .withGroup(OptionGroup::GENERAL)
         .withDescription("Specify custom path for Oneclient logs.");
 
+    add<boost::filesystem::path>()
+        ->withEnvName("custom_ca_dir")
+        .withLongName("custom-ca-dir")
+        .withConfigName("custom_ca_dir")
+        .withValueName("<path>")
+        .withGroup(OptionGroup::GENERAL)
+        .withDescription(
+            "Path to directory with custom CA certificates in PEM format.");
+
     add<bool>()
         ->asSwitch()
         .withLongName("io-trace-log")
@@ -147,6 +189,24 @@ Options::Options()
         .withDefaultValue(false, "false")
         .withGroup(OptionGroup::ADVANCED)
         .withDescription("Enable detailed IO trace log (experimental).");
+
+    add<bool>()
+        ->asSwitch()
+        .withLongName("message-trace-log")
+        .withConfigName("message_trace_log")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::INVISIBLE)
+        .withDescription("Enable detailed ProtoBuf messages trace log.");
+
+    add<bool>()
+        ->asSwitch()
+        .withLongName("log-read-write-perf")
+        .withConfigName("log_read_write_perf")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Enable read write performance logger.");
 
     add<bool>()
         ->asSwitch()
@@ -192,8 +252,9 @@ Options::Options()
         .withValueName("<threads>")
         .withDefaultValue(DEFAULT_COMMUNICATOR_THREAD_COUNT,
             std::to_string(DEFAULT_COMMUNICATOR_THREAD_COUNT))
-        .withGroup(OptionGroup::ADVANCED)
-        .withDescription("Specify number of parallel communicator threads.");
+        .withGroup(OptionGroup::INVISIBLE)
+        .withDescription(
+            "Specify number of parallel communicator threads (deprecated).");
 
     add<unsigned int>()
         ->withLongName("scheduler-thread-count")
@@ -223,6 +284,15 @@ Options::Options()
         .withDescription(
             "Disable in-memory cache for input/output data blocks.");
 
+    add<bool>()
+        ->asSwitch()
+        .withLongName("no-xattr")
+        .withConfigName("no_xattr")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Disable extended attributes support.");
+
     add<unsigned int>()
         ->withLongName("provider-timeout")
         .withConfigName("provider_timeout")
@@ -231,6 +301,15 @@ Options::Options()
             DEFAULT_PROVIDER_TIMEOUT, std::to_string(DEFAULT_PROVIDER_TIMEOUT))
         .withGroup(OptionGroup::ADVANCED)
         .withDescription("Specify Oneprovider connection timeout in seconds.");
+
+    add<unsigned int>()
+        ->withLongName("storage-timeout")
+        .withConfigName("storage_timeout")
+        .withValueName("<duration>")
+        .withDefaultValue(
+            DEFAULT_STORAGE_TIMEOUT, std::to_string(DEFAULT_STORAGE_TIMEOUT))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Specify I/O storage timeout in seconds.");
 
     add<bool>()
         ->asSwitch()
@@ -338,6 +417,15 @@ Options::Options()
         .withDescription("Specify idle period in seconds before flush of "
                          "in-memory cache for output data blocks.");
 
+    add<unsigned int>()
+        ->withLongName("min-block-prefetch-size")
+        .withConfigName("min_block_prefetch_size")
+        .withValueName("<bytes>")
+        .withDefaultValue(DEFAULT_MIN_BLOCK_PREFETCH_SIZE,
+            std::to_string(DEFAULT_MIN_BLOCK_PREFETCH_SIZE))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Specify the minimum prefetch block size.");
+
     add<double>()
         ->withLongName("seqrd-prefetch-threshold")
         .withConfigName("seqrd_prefetch_threshold")
@@ -444,8 +532,8 @@ Options::Options()
         .withDefaultValue(DEFAULT_METADATA_CACHE_SIZE,
             std::to_string(DEFAULT_METADATA_CACHE_SIZE))
         .withGroup(OptionGroup::ADVANCED)
-        .withDescription("Number of separate blocks after which replication "
-                         "for the file is triggered automatically.");
+        .withDescription(
+            "Maximum number of file attributes cached in the metadata cache.");
 
     add<unsigned int>()
         ->withLongName("readdir-prefetch-size")
@@ -456,6 +544,15 @@ Options::Options()
         .withGroup(OptionGroup::ADVANCED)
         .withDescription("Specify the size of requests made during readdir "
                          "prefetch (in number of dir entries).");
+
+    add<unsigned int>()
+        ->withLongName("dir-cache-drop-after")
+        .withConfigName("dir_cache_drop_after")
+        .withValueName("<seconds>")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Specify (in seconds) how long should directories be "
+                         "cached since last activity. When 0 is provided, "
+                         "the cache never expires.");
 
     add<std::string>()
         ->withEnvName("tag_on_create")
@@ -486,6 +583,17 @@ Options::Options()
             "Allows to override selected helper parameters for specific "
             "storage, e.g. "
             "'d40f2f63433da7c845886f6fe970048b:mountPoint:/mnt/nfs'");
+
+    add<uint64_t>()
+        ->withLongName("emulate-available-space")
+        .withConfigName("emulate_available_space")
+        .withValueName("<bytes>")
+        .withDefaultValue(DEFAULT_EMULATE_AVAILABLE_SPACE,
+            std::to_string(DEFAULT_EMULATE_AVAILABLE_SPACE))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription(
+            "When set to non-zero value, emulates available space reported by "
+            "stat system call to specified number of bytes.");
 
     add<bool>()
         ->asSwitch()
@@ -522,6 +630,16 @@ Options::Options()
 
     add<bool>()
         ->asSwitch()
+        .withLongName("disable-log-buffering")
+        .withEnvName("disable_log_buffering")
+        .withConfigName("disable_log_buffering")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::GENERAL)
+        .withDescription("Disable log buffering.");
+
+    add<bool>()
+        ->asSwitch()
         .withShortName("s")
         .withLongName("single-thread")
         .withEnvName("fuse_single_thread")
@@ -538,6 +656,48 @@ Options::Options()
         .withValueName("<mount_option>")
         .withGroup(OptionGroup::FUSE)
         .withDescription("Pass mount arguments directly to FUSE.");
+
+    add<bool>()
+        ->asSwitch()
+        .withLongName("only-full-replicas")
+        .withImplicitValue(true)
+        .withGroup(OptionGroup::INVISIBLE)
+        .withDescription("Show only fully replicated files.");
+
+    add<bool>()
+        ->asSwitch()
+        .withLongName("hard-link-count")
+        .withImplicitValue(true)
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Show hard link count properly in stat.");
+
+    add<bool>()
+        ->asSwitch()
+        .withLongName("enable-archivematica")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Enable Archivematica mode.");
+
+    add<bool>()
+        ->asSwitch()
+        .withLongName("public-data-mode")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Enable Public Data mode, in which space "
+                         "directories list Public Data collections "
+                         "(shares with assigned PID/DOI identifiers) "
+                         "instead of regular files.");
+
+    add<bool>()
+        ->asSwitch()
+        .withLongName("show-space-ids")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription(
+            "Show space Id's instead of space names in the filesystem tree.");
 
     add<std::string>()
         ->withEnvName("monitoring_type")
@@ -596,14 +756,216 @@ Options::Options()
         .withGroup(OptionGroup::MONITORING)
         .withDescription("Graphite namespace prefix.");
 
-    add<boost::filesystem::path>()
-        ->required()
-        .positional("mountpoint", 1)
-        .withEnvName("mountpoint")
-        .withConfigName("mountpoint")
-        .withValueName("<path>")
-        .withGroup(OptionGroup::INVISIBLE)
-        .withDescription("Specify path for Oneclient mountpoint.");
+    if (m_clientType == messages::handshake::ClientType::ones3) {
+        add<std::string>()
+            ->withEnvName("ones3_support_admin_group")
+            .withLongName("ones3-support-admin-group")
+            .withConfigName("ones3_support_admin_group")
+            .withValueName("<support_admin_group>")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription("Specifies a Onedata group which will be added to "
+                             "each create and supported space.");
+
+        add<std::string>()
+            ->withEnvName("ones3_support_storage_id")
+            .withLongName("ones3-support-storage-id")
+            .withConfigName("ones3_support_storage_id")
+            .withValueName("<storage_id>")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription(
+                "Specifies default storage id for supporting new buckets.");
+
+        add<size_t>()
+            ->withEnvName("ones3_support_storage_size")
+            .withLongName("ones3-support-storage-size")
+            .withConfigName("ones3_support_storage_size")
+            .withValueName("<support_storage_size>")
+            .withDefaultValue(DEFAULT_ONES3_STORAGE_SUPPORT_SIZE, "")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription("Specifies default storage support size for new "
+                             "buckets in bytes.");
+
+        add<std::string>()
+            ->withEnvName("ones3_support_storage_credentials")
+            .withLongName("ones3-support-storage-credentials")
+            .withConfigName("ones3_support_storage_credentials")
+            .withValueName("<support_storage_credentials>")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription("Specifies credentials needed to automatically "
+                             "support storage for a new bucket.");
+
+        add<unsigned int>()
+            ->withEnvName("ones3_http_port")
+            .withLongName("ones3-http-port")
+            .withConfigName("ones3_http_port")
+            .withValueName("<port>")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription("HTTP port for OneS3 service, if not provided "
+                             "HTTP listener will "
+                             "be disabled if HTTPS port is provided.");
+
+        add<unsigned int>()
+            ->withEnvName("ones3_https_port")
+            .withLongName("ones3-https-port")
+            .withConfigName("ones3_https_port")
+            .withValueName("<port>")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription(
+                "HTTPS port for OneS3 service - if not provided HTTPS "
+                "endpoint will not be enabled.");
+
+        add<std::string>()
+            ->withEnvName("ones3_address_bind")
+            .withLongName("ones3-address-bind")
+            .withConfigName("ones3_address_bind")
+            .withValueName("<address>")
+            .withDefaultValue("0.0.0.0", "")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription("Address bind for OneS3 service.");
+
+        add<boost::filesystem::path>()
+            ->withEnvName("ones3_ssl_cert")
+            .withLongName("ones3-ssl-cert")
+            .withConfigName("ones3_ssl_cert")
+            .withValueName("<path>")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription(
+                "Path to OneS3 HTTPS endpoint SSL certificate in PEM format.");
+
+        add<boost::filesystem::path>()
+            ->withEnvName("ones3_ssl_key")
+            .withLongName("ones3-ssl-key")
+            .withConfigName("ones3_ssl_key")
+            .withValueName("<path>")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription(
+                "Path to OneS3 HTTPS endpoint SSL key in PEM format.");
+
+        add<unsigned int>()
+            ->withEnvName("ones3_thread_num")
+            .withLongName("ones3-thread-num")
+            .withConfigName("ones3_thread_num")
+            .withValueName("<port>")
+            .withDefaultValue(std::thread::hardware_concurrency(), "")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription(
+                "Number of receiver threads of the OneS3 HTTPS server.");
+
+        add<unsigned int>()
+            ->withEnvName("ones3_logic_thread_num")
+            .withLongName("ones3-logic-thread-num")
+            .withConfigName("ones3_logic_thread_num")
+            .withValueName("<port>")
+            .withDefaultValue(DEFAULT_ONES3_LOGIC_THREAD_NUM, "")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription("Number of threads of the OneS3 logic.");
+
+        add<bool>()
+            ->asSwitch()
+            .withEnvName("ones3_disable_bucket_operations")
+            .withLongName("ones3-disable-bucket-operations")
+            .withConfigName("ones3_disable_bucket_operations")
+            .withValueName("<bool>")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription(
+                "Disables bucket creation and deletion operations.");
+
+        add<unsigned int>()
+            ->withEnvName("ones3_keepalive_requests")
+            .withLongName("ones3-keepalive-requests")
+            .withConfigName("ones3_keepalive_requests")
+            .withValueName("<num>")
+            .withDefaultValue(DEFAULT_ONES3_KEEPALIVE_REQUESTS_MAX, "")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription(
+                "Number of concurrent keepalive requests maintained "
+                "by OneS3 server.");
+
+        add<size_t>()
+            ->withEnvName("ones3_max_body_size")
+            .withLongName("ones3-max-body-size")
+            .withConfigName("ones3_max_body_size")
+            .withValueName("<bytes>")
+            .withDefaultValue(DEFAULT_ONES3_MAX_BODY_SIZE, "")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription(
+                "Maximum size of body accepted by OneS3 requests.");
+
+        add<size_t>()
+            ->withEnvName("ones3_max_body_memory_size")
+            .withLongName("ones3-max-body-memory-size")
+            .withConfigName("ones3_max_body_memory_size")
+            .withValueName("<bytes>")
+            .withDefaultValue(DEFAULT_ONES3_MAX_BODY_MEMORY_SIZE, "")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription("Maximum size of a single request body buffered "
+                             "by OneS3 server.");
+
+        add<size_t>()
+            ->withEnvName("ones3_stream_get_threshold")
+            .withLongName("ones3-stream-get-threshold")
+            .withConfigName("ones3_stream_get_threshold")
+            .withValueName("<bytes>")
+            .withDefaultValue(DEFAULT_ONES3_GET_STREAM_THRESHOLD, "")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription("Minimum GET range size to use streaming instead "
+                             "of single read.");
+
+        add<unsigned int>()
+            ->withEnvName("ones3_idle_connection_timeout")
+            .withLongName("ones3-idle-connection-timeout")
+            .withConfigName("ones3_idle_connection_timeout")
+            .withValueName("<seconds>")
+            .withDefaultValue(DEFAULT_ONES3_IDLE_CONNECTION_TIMEOUT, "")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription(
+                "Time in seconds after which idle connections to OneS3 "
+                "server are closed.");
+
+        add<std::string>()
+            ->withEnvName("ones3_readiness_probe_auth")
+            .withLongName("ones3-readiness-probe-auth")
+            .withConfigName("ones3_readiness_probe_auth")
+            .withValueName("<readiness_probe_auth>")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription("Specifies the basic authentication for OneS3 "
+                             "readiness probe (default none).");
+
+        add<unsigned int>()
+            ->withEnvName("ones3_bucketid_cache_expiration")
+            .withLongName("ones3-bucketid-cache-expiration")
+            .withConfigName("ones3_bucketid_cache_expiration")
+            .withValueName("<seconds>")
+            .withDefaultValue(
+                DEFAULT_ONES3_BUCKET_SPACEID_CACHE_EXPIRATION_SECONDS.count(),
+                "")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription("Time in seconds after which bucket to space id "
+                             "mapping cache entries are invalidated.");
+
+        add<bool>()
+            ->asSwitch()
+            .withEnvName("ones3_bucketid_cache_expiration_absolute")
+            .withLongName("ones3-bucketid-cache-expiration-absolute")
+            .withConfigName("ones3_bucketid_cache_expiration_absolute")
+            .withImplicitValue(true)
+            .withDefaultValue(false, "false")
+            .withGroup(OptionGroup::ONES3)
+            .withDescription(
+                "Specifies that bucket to space id mapping cache entries are "
+                "expiration time relates to creation time not last use.");
+    }
+
+    if (m_clientType == messages::handshake::ClientType::oneclient) {
+        add<boost::filesystem::path>()
+            ->positional("mountpoint", 1)
+            .required()
+            .withEnvName("mountpoint")
+            .withConfigName("mountpoint")
+            .withValueName("<path>")
+            .withGroup(OptionGroup::INVISIBLE)
+            .withDescription("Specify path for Oneclient mountpoint.");
+    }
 
     add<std::string>()
         ->withEnvName("authorization_token")
@@ -647,8 +1009,27 @@ void Options::parse(const int argc, const char *const argv[])
     if (getHelp() || getVersion())
         return;
 
-    parser.parseEnvironment(m_deprecatedEnvs, m_vm);
+    if (!isIgnoreEnv())
+        parser.parseEnvironment(m_deprecatedEnvs, m_vm);
+
+    if (m_clientType == messages::handshake::ClientType::ones3 &&
+        !exists(getConfigFilePath())) {
+        fmt::print(stderr, "WARN: Configuration file not found in {}\n",
+            getConfigFilePath().c_str());
+    }
+
     parser.parseConfigFile(getConfigFilePath(), m_vm);
+
+    if (m_clientType == messages::handshake::ClientType::ones3) {
+        if (!getOnezoneHost()) {
+            throw boost::program_options::error_with_no_option_name(
+                "ERROR: required option 'onezone-host' missing");
+        }
+        if (!getProviderHost()) {
+            throw boost::program_options::error_with_no_option_name(
+                "ERROR: required option 'host' missing");
+        }
+    }
     boost::program_options::notify(m_vm);
 }
 
@@ -696,6 +1077,36 @@ std::string Options::formatHelp(const char *programName) const
     return ss.str();
 }
 
+std::string Options::formatHelpOneS3(const char *programName) const
+{
+    boost::program_options::options_description general{"General options"};
+    selectCommandLine(general, OptionGroup::GENERAL);
+    boost::program_options::options_description ones3{
+        "Onedata S3 server options"};
+    selectCommandLine(ones3, OptionGroup::ONES3);
+    boost::program_options::options_description advanced{"Advanced options"};
+    selectCommandLine(advanced, OptionGroup::ADVANCED);
+    boost::program_options::options_description monitoring{
+        "Monitoring options"};
+    selectCommandLine(monitoring, OptionGroup::MONITORING);
+
+    std::stringstream ss;
+    ss << "Usage: " << programName << " [options]\n";
+    ss << "\n";
+    ss << "OneS3 - a Onedata scalable S3 proxy service.";
+    ss << "\n";
+    ss << "\n";
+    ss << general;
+    ss << "\n";
+    ss << ones3;
+    ss << "\n";
+    ss << advanced;
+    ss << "\n";
+    ss << monitoring;
+
+    return ss.str();
+}
+
 bool Options::hasDeprecated()
 {
     return !m_deprecatedEnvs.empty() || !selectDeprecated().empty();
@@ -716,6 +1127,11 @@ bool Options::getUnmount() const
     return get<bool>({"unmount"}).get_value_or(false);
 }
 
+bool Options::isIgnoreEnv() const
+{
+    return get<bool>({"ignore-env", "ignore_env"}).get_value_or(false);
+}
+
 bool Options::getForeground() const
 {
     return get<bool>({"foreground", "fuse_foreground"}).get_value_or(false);
@@ -728,7 +1144,15 @@ bool Options::getDebug() const
 
 unsigned int Options::getVerboseLogLevel() const
 {
-    return get<unsigned int>({"verbose-log-level"}).get_value_or(0);
+    return get<unsigned int>(
+        {"verbose-log-level", "verbose_log_level", "verbose_log_level"})
+        .get_value_or(0);
+}
+
+bool Options::disableLogBuffering() const
+{
+    return get<bool>({"disable-log-buffering", "disable_log_buffering"})
+        .get_value_or(false);
 }
 
 bool Options::getSingleThread() const
@@ -742,10 +1166,22 @@ boost::optional<std::string> Options::getProviderHost() const
     return get<std::string>({"host", "provider_host", "provider_hostname"});
 }
 
+boost::optional<std::string> Options::getOnezoneHost() const
+{
+    return get<std::string>(
+        {"onezone-host", "onezone_host", "onezone_hostname"});
+}
+
 unsigned int Options::getProviderPort() const
 {
     return get<unsigned int>({"port", "provider_port"})
         .get_value_or(DEFAULT_PROVIDER_PORT);
+}
+
+boost::optional<boost::filesystem::path>
+Options::getCustomCACertificateDir() const
+{
+    return get<boost::filesystem::path>({"custom-ca-dir", "custom_ca_dir"});
 }
 
 bool Options::isInsecure() const
@@ -777,6 +1213,18 @@ bool Options::isIOTraceLoggerEnabled() const
     return get<bool>({"io-trace-log", "io_trace_log"}).get_value_or(false);
 }
 
+bool Options::isMessageTraceLoggerEnabled() const
+{
+    return get<bool>({"message-trace-log", "message_trace_log"})
+        .get_value_or(false);
+}
+
+bool Options::isReadWritePerfEnabled() const
+{
+    return get<bool>({"log-read-write-perf", "log_read_write_perf"})
+        .get_value_or(false);
+}
+
 bool Options::isProxyIOForced() const
 {
     return get<bool>({"force-proxy-io", "force_proxy_io"}).get_value_or(false);
@@ -804,9 +1252,7 @@ unsigned int Options::getCommunicatorConnectionPoolSize() const
 
 unsigned int Options::getCommunicatorThreadCount() const
 {
-    return get<unsigned int>(
-        {"communicator-thread-count", "communicator_thread_count"})
-        .get_value_or(DEFAULT_COMMUNICATOR_THREAD_COUNT);
+    return DEFAULT_COMMUNICATOR_THREAD_COUNT;
 }
 
 unsigned int Options::getSchedulerThreadCount() const
@@ -840,11 +1286,23 @@ bool Options::isIOBuffered() const
     return !get<bool>({"no-buffer", "no_buffer"}).get_value_or(false);
 }
 
+bool Options::enableExtendedAttributes() const
+{
+    return !get<bool>({"no-xattr", "no_xattr"}).get_value_or(false);
+}
+
 std::chrono::seconds Options::getProviderTimeout() const
 {
     return std::chrono::seconds{
         get<unsigned int>({"provider-timeout", "provider_timeout"})
             .get_value_or(DEFAULT_PROVIDER_TIMEOUT)};
+}
+
+std::chrono::seconds Options::getStorageTimeout() const
+{
+    return std::chrono::seconds{
+        get<unsigned int>({"storage-timeout", "storage_timeout"})
+            .get_value_or(DEFAULT_STORAGE_TIMEOUT)};
 }
 
 unsigned int Options::getReadBufferMinSize() const
@@ -899,6 +1357,13 @@ std::chrono::seconds Options::getWriteBufferFlushDelay() const
         get<unsigned int>(
             {"write-buffer-flush-delay", "write_buffer_flush_delay"})
             .get_value_or(DEFAULT_WRITE_BUFFER_FLUSH_DELAY)};
+}
+
+unsigned int Options::getMinimumBlockPrefetchSize() const
+{
+    return get<unsigned int>(
+        {"min-block-prefetch-size", "min_block_prefetch_size"})
+        .get_value_or(DEFAULT_MIN_BLOCK_PREFETCH_SIZE);
 }
 
 double Options::getLinearReadPrefetchThreshold() const
@@ -973,6 +1438,21 @@ unsigned int Options::getReaddirPrefetchSize() const
         .get_value_or(DEFAULT_READDIR_PREFETCH_SIZE);
 }
 
+std::chrono::seconds Options::getDirectoryCacheDropAfter() const
+{
+    auto defaultDirCacheDropAfter = DEFAULT_DIR_CACHE_DROP_AFTER;
+    if (get<unsigned int>({"dir-cache-drop-after", "dir_cache_drop_after"}) ==
+            boost::none &&
+        isPublicDataModeEnabled()) {
+        defaultDirCacheDropAfter =
+            DEFAULT_DIR_CACHE_DROP_AFTER_IN_PUBLIC_DATA_MODE;
+    }
+
+    return std::chrono::seconds{
+        get<unsigned int>({"dir-cache-drop-after", "dir_cache_drop_after"})
+            .get_value_or(defaultDirCacheDropAfter)};
+}
+
 boost::optional<std::pair<std::string, std::string>>
 Options::getOnModifyTag() const
 {
@@ -1012,6 +1492,41 @@ Options::getHelperOverrideParams(const folly::fbstring &storageId) const
     return {};
 }
 
+uint64_t Options::getEmulateAvailableSpace() const
+{
+    return get<uint64_t>({"emulate-available-space", "emulate_available_space"})
+        .get_value_or(DEFAULT_EMULATE_AVAILABLE_SPACE);
+}
+
+bool Options::showOnlyFullReplicas() const
+{
+    return get<bool>({"only-full-replicas", "only_full_replicas"})
+        .get_value_or(false);
+}
+
+bool Options::showHardLinkCount() const
+{
+    return get<bool>({"hard-link-count", "hard_link_count"})
+        .get_value_or(false);
+}
+
+bool Options::isArchivematicaModeEnabled() const
+{
+    return get<bool>({"enable-archivematica", "enable_archivematica"})
+        .get_value_or(false);
+}
+
+bool Options::isPublicDataModeEnabled() const
+{
+    return get<bool>({"public-data-mode", "public-data-mode"})
+        .get_value_or(false);
+}
+
+bool Options::showSpaceIds() const
+{
+    return get<bool>({"show-space-ids", "show-space-ids"}).get_value_or(false);
+}
+
 bool Options::isMonitoringEnabled() const
 {
     return get<std::string>({"monitoring-type", "monitoring_type"})
@@ -1038,20 +1553,175 @@ bool Options::isMonitoringLevelFull() const
 
 boost::optional<std::string> Options::getMonitoringGraphiteUrl() const
 {
-    return get<std::string>({"graphite-url", "graphite_url"});
+    return get<std::string>({"graphite-url", "graphite_url", "graphite_url"});
 }
 
 boost::optional<std::string>
 Options::getMonitoringGraphiteNamespacePrefix() const
 {
-    return get<std::string>(
-        {"graphite-namespace-prefix", "graphite_namespace_prefix"});
+    return get<std::string>({"graphite-namespace-prefix",
+        "graphite_namespace_prefix", "graphite_namespace_prefix"});
 }
 
 unsigned int Options::getMonitoringReportingPeriod() const
 {
-    return get<unsigned int>({"monitoring-period", "monitoring_period"})
+    return get<unsigned int>(
+        {"monitoring-period", "monitoring_period", "monitoring_period"})
         .get_value_or(DEFAULT_MONITORING_PERIOD_SECONDS);
+}
+
+boost::optional<std::string> Options::getOneS3SupportAdminGroupId() const
+{
+    return get<std::string>({"ones3-support-admin-group",
+        "ones3_support_admin_group", "ones3_support_admin_group"});
+}
+
+size_t Options::getOneS3SupportStorageSize() const
+{
+    return get<size_t>(
+        {"ones3-support-storage-size", "ones3_support_storage_size",
+            "ones3_support_storage_size"})
+        .get_value_or(DEFAULT_ONES3_STORAGE_SUPPORT_SIZE);
+}
+
+boost::optional<std::string> Options::getOneS3SupportStorageCredentials() const
+{
+    return get<std::string>({"ones3-support-storage-credentials",
+        "ones3_support_storage_credentials",
+        "ones3_support_storage_credentials"});
+}
+
+boost::optional<std::string> Options::getOneS3SupportStorageId() const
+{
+    return get<std::string>({"ones3-support-storage-id",
+        "ones3_support_storage_id", "ones3_support_storage_id"});
+}
+
+std::chrono::seconds Options::getOneS3BucketIdCacheExpirationTime() const
+{
+    return std::chrono::seconds{
+        get<unsigned int>({"ones3-bucketid-cache-expiration",
+                              "ones3_bucketid_cache_expiration",
+                              "ones3_bucketid_cache_expiration"})
+            .get_value_or(
+                DEFAULT_ONES3_BUCKET_SPACEID_CACHE_EXPIRATION_SECONDS.count())};
+}
+
+bool Options::isOneS3BucketIdCacheExpirationAbsolute() const
+{
+    return get<bool>({"ones3-bucketid-cache-expiration-absolute",
+                         "ones3_bucketid_cache_expiration_absolute",
+                         "ones3_bucketid_cache_expiration_absolute"})
+        .get_value_or(false);
+}
+
+bool Options::areOneS3BucketOperationsDisabled() const
+{
+    return get<bool>(
+        {"ones3-disable-bucket-operations", "ones3_disable_bucket_operations",
+            "ones3_disable_bucket_operations"})
+        .get_value_or(false);
+}
+
+boost::optional<unsigned int> Options::getOneS3HTTPPort() const
+{
+    return get<unsigned int>(
+        {"ones3-http-port", "ones3_http_port", "ones3_http_port"});
+}
+
+boost::optional<unsigned int> Options::getOneS3HTTPSPort() const
+{
+    return get<unsigned int>(
+        {"ones3-https-port", "ones3_https_port", "ones3_https_port"});
+}
+
+boost::optional<boost::filesystem::path>
+Options::getOneS3SSLCertificatePath() const
+{
+    return get<boost::filesystem::path>(
+        {"ones3-ssl-cert", "ones3_ssl_cert", "ones3_ssl_cert"});
+}
+
+boost::optional<boost::filesystem::path> Options::getOneS3SSLKeyPath() const
+{
+    return get<boost::filesystem::path>(
+        {"ones3-ssl-key", "ones3_ssl_key", "ones3_ssl_key"});
+}
+
+boost::optional<std::string> Options::getOneS3ReadinessProbeBasicAuth() const
+{
+    return get<std::string>({"ones3-readiness-probe-auth",
+        "ones3_readiness_probe_auth", "ones3_readiness_probe_auth"});
+}
+
+unsigned int Options::getOneS3ThreadNum() const
+{
+    return get<unsigned int>(
+        {"ones3-thread-num", "ones3_thread_num", "ones3_thread_num"})
+        .get_value_or(std::thread::hardware_concurrency());
+}
+
+unsigned int Options::getOneS3LogicThreadNum() const
+{
+    return get<unsigned int>(
+        {"ones3-logic-thread-num", "ones3_logic_thread_num",
+            "ones3_logic_thread_num"})
+        .get_value_or(DEFAULT_ONES3_LOGIC_THREAD_NUM);
+}
+
+unsigned int Options::getOneS3KeepaliveRequests() const
+{
+    return get<unsigned int>(
+        {"ones3-keepalive-requests", "ones3_keepalive_requests",
+            "ones3_keepalive_requests"})
+        .get_value_or(DEFAULT_ONES3_KEEPALIVE_REQUESTS_MAX);
+}
+
+size_t Options::getOneS3MaxBodySize() const
+{
+    return get<size_t>(
+        {"ones3-max-body-size", "ones3_max_body_size", "ones3_max_body_size"})
+        .get_value_or(DEFAULT_ONES3_MAX_BODY_SIZE);
+}
+
+size_t Options::getOneS3MaxBodyMemorySize() const
+{
+    return get<size_t>(
+        {"ones3-max-memory-body-size", "ones3_max_memory_body_size",
+            "ones3_max_memory_body_size"})
+        .get_value_or(DEFAULT_ONES3_MAX_BODY_MEMORY_SIZE);
+}
+
+size_t Options::getOneS3StreamGetThreshold() const
+{
+    return get<size_t>(
+        {"ones3-stream-get-threshold", "ones3_stream_get_threshold",
+            "ones3_stream_get_threshold"})
+        .get_value_or(DEFAULT_ONES3_GET_STREAM_THRESHOLD);
+}
+
+unsigned int Options::getOneS3IdleConnectionTimeout() const
+{
+    return get<unsigned int>(
+        {"ones3-idle-connection-timeout", "ones3_idle_connection_timeout",
+            "ones3_idle_connection_timeout"})
+        .get_value_or(DEFAULT_ONES3_IDLE_CONNECTION_TIMEOUT);
+}
+
+std::string Options::getOneS3AddressBind() const
+{
+    return get<std::string>(
+        {"ones3-address-bind", "ones3_address_bind", "ones3_address_bind"})
+        .get_value_or("0.0.0.0");
+}
+
+int Options::getOneS3FileMode() const
+{
+    auto val = get<std::string>(
+        {"ones3-file-mode", "ones3_file_mode", "ones3_file_mode"})
+                   .get_value_or(DEFAULT_ONES3_FILE_MODE);
+
+    return std::stoi(val, nullptr, 8);
 }
 
 boost::filesystem::path Options::getMountpoint() const
@@ -1080,7 +1750,9 @@ struct fuse_args Options::getFuseArgs(const char *programName) const
     struct fuse_args args = FUSE_ARGS_INIT(0, nullptr);
 
     fuse_opt_add_arg(&args, programName);
+#if FUSE_USE_VERSION <= 30
     fuse_opt_add_arg(&args, "-obig_writes");
+#endif
 
     if (getDebug())
         fuse_opt_add_arg(&args, "-d");
@@ -1115,6 +1787,64 @@ std::vector<std::string> Options::selectDeprecated() const
             deprecated.push_back(option->name());
     }
     return deprecated;
+}
+
+std::vector<std::pair<std::string, std::string>> Options::toKeyValueList() const
+{
+    std::vector<std::pair<std::string, std::string>> result;
+
+    for (const auto &it : m_vm) {
+        auto name = it.first;
+
+        if (name == "token")
+            continue;
+
+        if (name == "ones3-support-storage-credentials")
+            continue;
+
+        if (it.second.defaulted())
+            continue;
+
+        const auto &value = it.second.value();
+
+        if (value.type() == typeid(std::string)) {
+            result.emplace_back(
+                std::move(name), boost::any_cast<std::string>(value));
+        }
+        else if (value.type() == typeid(boost::filesystem::path)) {
+            result.emplace_back(std::move(name),
+                boost::any_cast<boost::filesystem::path>(value).string());
+        }
+        else if (value.type() == typeid(bool)) {
+            result.emplace_back(std::move(name),
+                boost::any_cast<bool>(value) ? "true" : "false");
+        }
+        else if (value.type() == typeid(double)) {
+            result.emplace_back(std::move(name),
+                std::to_string(boost::any_cast<double>(value)));
+        }
+        else if (value.type() == typeid(int)) {
+            result.emplace_back(
+                std::move(name), std::to_string(boost::any_cast<int>(value)));
+        }
+        else if (value.type() == typeid(unsigned int)) {
+            result.emplace_back(std::move(name),
+                std::to_string(boost::any_cast<unsigned int>(value)));
+        }
+        else if (value.type() == typeid(uint64_t)) {
+            result.emplace_back(std::move(name),
+                std::to_string(boost::any_cast<uint64_t>(value)));
+        }
+        else if (value.type() == typeid(std::vector<std::string>)) {
+            // Handle multiple value command line options
+            for (const auto &v :
+                boost::any_cast<std::vector<std::string>>(value)) {
+                result.emplace_back(name, v);
+            }
+        }
+    }
+
+    return result;
 }
 
 } // namespace options

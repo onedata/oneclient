@@ -49,7 +49,7 @@ std::string GetHelperParams::toString() const
 std::unique_ptr<ProtocolClientMessage> GetHelperParams::serializeAndDestroy()
 {
     auto msg = std::make_unique<ProtocolClientMessage>();
-    auto ghp = msg->mutable_fuse_request()->mutable_get_helper_params();
+    auto *ghp = msg->mutable_fuse_request()->mutable_get_helper_params();
 
     ghp->mutable_storage_id()->swap(m_storageId);
     ghp->mutable_space_id()->swap(m_spaceId);

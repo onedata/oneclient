@@ -10,13 +10,20 @@
 #define ONECLIENT_OPTIONS_H
 
 #include "helpers/logging.h"
+#include "messages/common.h"
 
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/join.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/optional.hpp>
 #include <boost/program_options.hpp>
+#include <folly/Optional.h>
+
+#if FUSE_USE_VERSION > 30
+#include <fuse3/fuse_opt.h>
+#else
 #include <fuse/fuse_opt.h>
+#endif
 
 #include <chrono>
 #include <vector>
@@ -27,11 +34,12 @@ namespace options {
 
 namespace {
 static constexpr auto CONFIG_FILE_NAME = "oneclient.conf";
+static constexpr auto ONES3_CONFIG_FILE_NAME = "ones3.conf";
 static constexpr auto ENVIRONMENT_PREFIX = "ONECLIENT_";
 static constexpr auto DEFAULT_PROVIDER_PORT = 443;
 static constexpr auto DEFAULT_BUFFER_SCHEDULER_THREAD_COUNT = 1;
-static constexpr auto DEFAULT_COMMUNICATOR_POOL_SIZE = 10;
-static constexpr auto DEFAULT_COMMUNICATOR_THREAD_COUNT = 4;
+static constexpr auto DEFAULT_COMMUNICATOR_POOL_SIZE = 25;
+static constexpr auto DEFAULT_COMMUNICATOR_THREAD_COUNT = 1;
 static constexpr auto DEFAULT_SCHEDULER_THREAD_COUNT = 1;
 static constexpr auto DEFAULT_STORAGE_HELPER_THREAD_COUNT = 10;
 static constexpr auto DEFAULT_READ_BUFFER_MIN_SIZE = 4 * 1024;
@@ -49,12 +57,34 @@ static constexpr auto DEFAULT_PREFETCH_EVALUATE_FREQUENCY = 50;
 static constexpr double DEFAULT_PREFETCH_POWER_BASE = 1.3;
 static constexpr auto DEFAULT_PREFETCH_TARGET_LATENCY =
     std::chrono::nanoseconds{1000}; // NOLINT
+static constexpr auto DEFAULT_MIN_BLOCK_PREFETCH_SIZE = 1024 * 1024u;
 static constexpr auto DEFAULT_PREFETCH_CLUSTER_WINDOW_SIZE = 20971520;
 static constexpr auto DEFAULT_PREFETCH_CLUSTER_BLOCK_THRESHOLD = 5;
-static constexpr auto DEFAULT_METADATA_CACHE_SIZE = 20'000;
+static constexpr auto DEFAULT_METADATA_CACHE_SIZE = 5'000'000;
 static constexpr auto DEFAULT_READDIR_PREFETCH_SIZE = 2500;
+static constexpr auto DEFAULT_DIR_CACHE_DROP_AFTER = 5 * 60;
+static constexpr auto DEFAULT_DIR_CACHE_DROP_AFTER_IN_PUBLIC_DATA_MODE = 10;
 static constexpr auto DEFAULT_PROVIDER_TIMEOUT = 2 * 60;
+static constexpr auto DEFAULT_STORAGE_TIMEOUT = 2 * 60;
 static constexpr auto DEFAULT_MONITORING_PERIOD_SECONDS = 30;
+static constexpr auto DEFAULT_ONES3_STORAGE_SUPPORT_SIZE =
+    10 * 1024 * 1024 * 1024ULL;
+static constexpr auto DEFAULT_ONES3_MAX_BODY_SIZE = 128 * 1024 * 1024ULL;
+static constexpr auto DEFAULT_ONES3_MAX_BODY_MEMORY_SIZE = 16 * 1024 * 1024ULL;
+static constexpr auto DEFAULT_ONES3_IDLE_CONNECTION_TIMEOUT = 180;
+static constexpr auto DEFAULT_ONES3_KEEPALIVE_REQUESTS_MAX = 1024;
+static constexpr auto DEFAULT_ONES3_GET_STREAM_THRESHOLD = 2 * 1024 * 1024ULL;
+static constexpr auto DEFAULT_ONES3_FILE_MODE = "0664";
+static constexpr auto DEFAULT_ONES3_BUCKET_SPACEID_CACHE_EXPIRATION_SECONDS =
+    std::chrono::seconds{30};
+static constexpr auto DEFAULT_ONES3_LOGIC_THREAD_NUM = 4ULL;
+
+#if defined(__APPLE__)
+static constexpr auto DEFAULT_EMULATE_AVAILABLE_SPACE =
+    1024 * 1024 * 1024 * 1024ULL;
+#else
+static constexpr auto DEFAULT_EMULATE_AVAILABLE_SPACE = 0ULL;
+#endif
 }
 
 class Option;
@@ -68,10 +98,11 @@ enum class OptionGroup;
 class Options {
 public:
     /*
-     * Construstor.
+     * Constructor.
      * Builds list of supported client options.
      */
-    Options();
+    Options(messages::handshake::ClientType clientType =
+                messages::handshake::ClientType::oneclient);
 
     virtual ~Options() = default;
 
@@ -100,6 +131,7 @@ public:
      * @return Formatted help message.
      */
     std::string formatHelp(const char *programName) const;
+    std::string formatHelpOneS3(const char *programName) const;
 
     /*
      * @return true if 'help' option has been provided or if arguments list was
@@ -118,6 +150,11 @@ public:
     bool getUnmount() const;
 
     /*
+     * @return true if 'ignore-env' option has been provided, otherwise false.
+     */
+    bool isIgnoreEnv() const;
+
+    /*
      * @return true if 'foreground' option has been provided, otherwise false.
      */
     bool getForeground() const;
@@ -132,6 +169,11 @@ public:
      */
     unsigned int getVerboseLogLevel() const;
 
+    /**
+     * @return If true, logs will buffering will be disabled.
+     */
+    bool disableLogBuffering() const;
+
     /*
      * @return true if 'single-thread' option has been provided, otherwise
      * false.
@@ -142,6 +184,87 @@ public:
      * @return Provider hostname if option has been provided.
      */
     boost::optional<std::string> getProviderHost() const;
+
+    /*
+     * @return Onezone hostname if option has been provided.
+     */
+    boost::optional<std::string> getOnezoneHost() const;
+
+    boost::optional<boost::filesystem::path> getCustomCACertificateDir() const;
+
+    /*
+     * @return OneS3 readiness probe authentication if option has been provided.
+     */
+    boost::optional<std::string> getOneS3ReadinessProbeBasicAuth() const;
+
+    std::string getOneS3AddressBind() const;
+
+    /*
+     * @return OneS3 HTTP port - if provided.
+     */
+    boost::optional<unsigned int> getOneS3HTTPPort() const;
+
+    /*
+     * @return OneS3 HTTPS port - if provided.
+     */
+    boost::optional<unsigned int> getOneS3HTTPSPort() const;
+
+    /*
+     * @return Path to OneS3 SSL certificate n PEM format.
+     */
+    boost::optional<boost::filesystem::path> getOneS3SSLCertificatePath() const;
+
+    /*
+     * @return Path to OneS3 SSL key in PEM format.
+     */
+    boost::optional<boost::filesystem::path> getOneS3SSLKeyPath() const;
+
+    /**
+     * @return Number of OneS3 HTTP server threads.
+     */
+    unsigned int getOneS3ThreadNum() const;
+
+    /**
+     * @return Number of OneS3 S3 logic threads.
+     */
+    unsigned int getOneS3LogicThreadNum() const;
+
+    /**
+     *
+     * @return Number of maximum simultaneous keepalive requests.
+     */
+    unsigned int getOneS3KeepaliveRequests() const;
+
+    /**
+     *
+     * @return Maximum OneS3 put request body size in bytes.
+     */
+    size_t getOneS3MaxBodySize() const;
+
+    /**
+     *
+     * @return Maximum OneS3 put request body size that will be handled in
+     * memory.
+     */
+    size_t getOneS3MaxBodyMemorySize() const;
+
+    /**
+     *
+     * @return Maximum GET request content-length size that will be returned
+     * in a single read. Larger requests will be streamed.
+     */
+    size_t getOneS3StreamGetThreshold() const;
+
+    /**
+     *
+     * @return OneS3 idle connection timeout in seconds.
+     */
+    unsigned int getOneS3IdleConnectionTimeout() const;
+
+    /**
+     * @return POSIX file mode for new files.
+     */
+    int getOneS3FileMode() const;
 
     /*
      * @return Provider port.
@@ -172,6 +295,16 @@ public:
      * @return True if IO trace log is enabled.
      */
     bool isIOTraceLoggerEnabled() const;
+
+    /*
+     * @return True if message trace log is enabled.
+     */
+    bool isMessageTraceLoggerEnabled() const;
+
+    /*
+     * @return True if read write perf is enabled.
+     */
+    bool isReadWritePerfEnabled() const;
 
     /*
      * @return true if 'force-proxy-io' option has been provided, otherwise
@@ -226,9 +359,19 @@ public:
     bool isIOBuffered() const;
 
     /*
+     * @return false if 'no-xattr' option has been provided, otherwise true.
+     */
+    bool enableExtendedAttributes() const;
+
+    /*
      * @return Return timeout for Oneprovider communication.
      */
     std::chrono::seconds getProviderTimeout() const;
+
+    /*
+     * @return Return timeout for storage operations.
+     */
+    std::chrono::seconds getStorageTimeout() const;
 
     /*
      * @return Minimum size in bytes of in-memory cache for input data blocks.
@@ -273,6 +416,14 @@ public:
      * output data blocks.
      */
     std::chrono::seconds getWriteBufferFlushDelay() const;
+
+    /*
+     * @return The minimum prefetch block size. If a read for a block smaller
+     * than this is requested, and the data is not available locally and needs
+     * to be fetched from remote provider, the client will request to fetch this
+     * amount anyway.
+     */
+    unsigned int getMinimumBlockPrefetchSize() const;
 
     /*
      * @return The linear read prefetch threshold trigger in (0.0-1.0]
@@ -333,6 +484,16 @@ public:
     unsigned int getReaddirPrefetchSize() const;
 
     /*
+     * @return Get size of emulated available space.
+     */
+    uint64_t getEmulateAvailableSpace() const;
+
+    /*
+     * @return Duration after which directory cache entries are dropped.
+     */
+    std::chrono::seconds getDirectoryCacheDropAfter() const;
+
+    /*
      * @return Get xattr on-modify tag.
      */
     boost::optional<std::pair<std::string, std::string>> getOnModifyTag() const;
@@ -356,6 +517,31 @@ public:
      */
     std::unordered_map<folly::fbstring, folly::fbstring>
     getHelperOverrideParams(const folly::fbstring &storageId) const;
+
+    /**
+     * @return Should client show only fully replicated files?
+     */
+    bool showOnlyFullReplicas() const;
+
+    /**
+     * @return Show number of hard links
+     */
+    bool showHardLinkCount() const;
+
+    /**
+     * @return Is Archivematica mode enabled.
+     */
+    bool isArchivematicaModeEnabled() const;
+
+    /**
+     * @return Is Public Data browsing mode enabled.
+     */
+    bool isPublicDataModeEnabled() const;
+
+    /**
+     * @return Show space ids instead of names in filesystem tree.
+     */
+    bool showSpaceIds() const;
 
     /*
      * @return Is monitoring enabled.
@@ -392,6 +578,24 @@ public:
      */
     unsigned int getMonitoringReportingPeriod() const;
 
+    boost::optional<std::string> getOneS3SupportAdminGroupId() const;
+
+    size_t getOneS3SupportStorageSize() const;
+
+    boost::optional<std::string> getOneS3SupportStorageCredentials() const;
+
+    boost::optional<std::string> getOneS3SupportStorageId() const;
+
+    std::chrono::seconds getOneS3BucketIdCacheExpirationTime() const;
+
+    bool isOneS3BucketIdCacheExpirationAbsolute() const;
+
+    /**
+     * @brief Check, if bucket create and delete operations should be disabled.
+     * @return True, if bucket create and delete operations should be disabled.
+     */
+    bool areOneS3BucketOperationsDisabled() const;
+
     /*
      * @return Mountpoint path.
      */
@@ -417,6 +621,8 @@ public:
      * @return Constructed FUSE arguments from FUSE mount options.
      */
     struct fuse_args getFuseArgs(const char *programName) const;
+
+    std::vector<std::pair<std::string, std::string>> toKeyValueList() const;
 
 private:
     template <typename T> std::shared_ptr<TypedOption<T>> add()
@@ -495,6 +701,7 @@ private:
 
     std::vector<std::string> selectDeprecated() const;
 
+    messages::handshake::ClientType m_clientType;
     boost::program_options::variables_map m_vm;
     boost::filesystem::path m_defaultConfigFilePath;
     boost::filesystem::path m_defaultLogDirPath;

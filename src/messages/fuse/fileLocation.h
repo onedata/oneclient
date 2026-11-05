@@ -63,6 +63,7 @@ public:
      * @return File UUID.
      */
     const std::string &uuid() const;
+    void setUuid(const std::string &uuid) { m_uuid = uuid; }
 
     /**
      * @return ID of a space the file belongs to.

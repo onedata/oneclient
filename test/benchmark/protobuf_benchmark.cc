@@ -12,7 +12,7 @@
 #include <boost/random.hpp>
 #include <boost/range/irange.hpp>
 #include <folly/Benchmark.h>
-#include <folly/Foreach.h>
+#include <folly/container/Foreach.h>
 
 #include <utility>
 

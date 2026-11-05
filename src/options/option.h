@@ -23,6 +23,7 @@ enum class OptionGroup {
     ADVANCED,
     FUSE,
     MONITORING,
+    ONES3,
     INVISIBLE,
     DEPRECATED
 };

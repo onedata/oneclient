@@ -74,6 +74,9 @@ public:
         WRITE,
         MKDIR,
         MKNOD,
+        LINK,
+        SYMLINK,
+        READLINK,
         UNLINK,
         RENAME,
         SETATTR,
@@ -231,6 +234,14 @@ using IOTraceMknod =
 // [create] arg-0: name, arg-1: new_file_uuid, arg-2: mode, arg-3: flags
 using IOTraceCreate =
     IOTraceLogger::IOTraceEntry<folly::fbstring, folly::fbstring, mode_t, int>;
+// [link] arg-0: name, arg-1: new_parent_uuid
+using IOTraceLink =
+    IOTraceLogger::IOTraceEntry<folly::fbstring, folly::fbstring>;
+// [symlink] arg-0: name, arg-1: link
+using IOTraceSymLink =
+    IOTraceLogger::IOTraceEntry<folly::fbstring, folly::fbstring>;
+// [readlink] None
+using IOTraceReadLink = IOTraceLogger::IOTraceEntry<>;
 // [unlink] arg-0: name, arg-1: uuid
 using IOTraceUnlink =
     IOTraceLogger::IOTraceEntry<folly::fbstring, folly::fbstring>;

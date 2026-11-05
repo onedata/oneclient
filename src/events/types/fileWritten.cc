@@ -26,7 +26,7 @@ FileWritten::FileWritten(std::string fileUuid, off_t offset, size_t size,
     , m_blocks{{boost::icl::discrete_interval<off_t>::right_open(
                     offset, offset + size),
           FileBlock{std::move(storageId), std::move(fileId)}}}
-    , m_fileSize{std::move(fileSize)}
+    , m_fileSize{fileSize}
 {
 }
 
@@ -60,7 +60,7 @@ void FileWritten::aggregate(EventPtr<FileWritten> event)
 ProtoEventPtr FileWritten::serializeAndDestroy()
 {
     auto msg = std::make_unique<ProtoEvent>();
-    auto fileWrittenMsg = msg->mutable_file_written();
+    auto *fileWrittenMsg = msg->mutable_file_written();
 
     fileWrittenMsg->set_counter(m_counter);
     fileWrittenMsg->mutable_file_uuid()->swap(m_fileUuid);
@@ -74,7 +74,7 @@ ProtoEventPtr FileWritten::serializeAndDestroy()
     }
 
     for (auto &block : blocks) {
-        auto blockMsg = fileWrittenMsg->add_blocks();
+        auto *blockMsg = fileWrittenMsg->add_blocks();
         blockMsg->set_offset(block.first.lower());
         blockMsg->set_size(boost::icl::size(block.first));
         blockMsg->mutable_storage_id()->swap(block.second.mutableStorageId());

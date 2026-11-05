@@ -9,18 +9,22 @@
 #include "cache/readdirCache.h"
 
 #include "communication/communicator.h"
+#include "fslogic/virtualfs/virtualFsRegistry.h"
 #include "helpers/logging.h"
-#include "options/options.h"
-#include "util/uuid.h"
-
 #include "messages/fuse/fileChildrenAttrs.h"
 #include "messages/fuse/getFileChildren.h"
 #include "messages/fuse/getFileChildrenAttrs.h"
-#include <folly/Enumerate.h>
+#include "options/options.h"
+
 #include <folly/FBString.h>
 #include <folly/Optional.h>
 #include <folly/Range.h>
+#include <folly/container/Enumerate.h>
+#if FUSE_USE_VERSION > 30
+#include <fuse3/fuse_lowlevel.h>
+#else
 #include <fuse/fuse_lowlevel.h>
+#endif
 
 #include <memory>
 
@@ -28,327 +32,199 @@ namespace one {
 namespace client {
 namespace cache {
 
-DirCacheEntry::DirCacheEntry(std::chrono::milliseconds cacheValidityPeriod)
-    : m_ctime{0}
-    , m_atime{0}
-    , m_invalid{false}
-    , m_cacheValidityPeriod{cacheValidityPeriod}
-{
-}
-
-DirCacheEntry::DirCacheEntry(const DirCacheEntry &e)
-    : m_ctime{e.m_ctime.load()}
-    , m_atime{e.m_atime.load()}
-    , m_invalid{e.m_invalid.load()}
-    , m_dirEntries{e.m_dirEntries}
-    , m_cacheValidityPeriod{e.m_cacheValidityPeriod}
-{
-}
-
-DirCacheEntry::DirCacheEntry(DirCacheEntry &&e) noexcept
-    : m_ctime{e.m_ctime.load()}
-    , m_atime{e.m_atime.load()}
-    , m_invalid{e.m_invalid.load()}
-    , m_dirEntries{std::move(e.m_dirEntries)}
-    , m_cacheValidityPeriod{e.m_cacheValidityPeriod}
-{
-}
-
-void DirCacheEntry::addEntry(const folly::fbstring &name)
-{
-    m_dirEntries.emplace_back(name);
-}
-
-void DirCacheEntry::addEntry(folly::fbstring &&name)
-{
-    m_dirEntries.emplace_back(std::forward<folly::fbstring>(name));
-}
-
-const std::list<folly::fbstring> &DirCacheEntry::dirEntries() const
-{
-    return m_dirEntries;
-}
-
-void DirCacheEntry::invalidate() { m_invalid = true; }
-
-bool DirCacheEntry::isValid(bool sinceLastAccess)
-{
-    if (sinceLastAccess) {
-        // Check validity since the last time the cache was accessed
-        return !m_invalid &&
-            std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::system_clock::now().time_since_epoch()) -
-                std::chrono::milliseconds(m_atime) <
-            m_cacheValidityPeriod;
-    }
-    // Check validity since the last time the cache entry was retrieved
-    // from server
-    return !m_invalid &&
-        std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::system_clock::now().time_since_epoch()) -
-            std::chrono::milliseconds(m_ctime) <
-        2 * m_cacheValidityPeriod;
-}
-
-void DirCacheEntry::touch()
-{
-    m_atime = std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::system_clock::now().time_since_epoch())
-                  .count();
-}
-
-void DirCacheEntry::markCreated()
-{
-    m_ctime = std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::system_clock::now().time_since_epoch())
-                  .count();
-}
-
-void DirCacheEntry::unique()
-{
-    m_dirEntries.sort();
-    m_dirEntries.unique();
-}
-
-ReaddirCache::ReaddirCache(LRUMetadataCache &metadataCache,
-    std::weak_ptr<Context> context, folly::fbstring rootUuid,
+ReaddirCache::ReaddirCache(OpenFileMetadataCache &metadataCache,
+    std::weak_ptr<OneclientContext> context,
+    std::shared_ptr<virtualfs::VirtualFsHelpersCache> virtualFsHelpersCache,
     std::function<void(folly::Function<void()>)> runInFiber)
     : m_metadataCache(metadataCache)
     , m_context{std::move(context)}
+    , m_virtualFsHelpersCache{std::move(virtualFsHelpersCache)}
     , m_providerTimeout(m_context.lock()->options()->getProviderTimeout())
     , m_prefetchSize(m_context.lock()->options()->getReaddirPrefetchSize())
-    , m_rootUuid{std::move(rootUuid)}
     , m_runInFiber{std::move(runInFiber)}
 {
-    for (const auto &name : m_context.lock()->options()->getSpaceNames()) {
-        m_whitelistedSpaceNames.emplace(name);
-    }
-
-    for (const auto &id : m_context.lock()->options()->getSpaceIds()) {
-        m_whitelistedSpaceIds.emplace(id);
-    }
 }
 
-void ReaddirCache::fetch(const folly::fbstring &uuid)
+void ReaddirCache::fetch(const folly::fbstring &uuid,
+    const bool includeReplicationStatus, const bool includeHardLinkCount)
 {
     LOG_FCALL() << LOG_FARG(uuid);
+
+    assertInFiber();
 
     // This private method is only called from a lock_guard block, which makes
     // sure before that uuid is no longer member of m_cache, so that we don't
     // have to check again here
-    auto p = std::make_shared<
-        folly::SharedPromise<std::shared_ptr<DirCacheEntry>>>();
+    auto p = std::make_shared<folly::SharedPromise<folly::Unit>>();
     m_cache.emplace(uuid, p);
 
-    m_context.lock()->scheduler()->post([
-        this, uuid = uuid, p = std::move(p)
-    ] {
-        p->setWith([=] {
-            auto cacheEntry =
-                std::make_shared<DirCacheEntry>(m_cacheValidityPeriod);
-            cacheEntry->addEntry(".");
-            cacheEntry->addEntry("..");
+    m_context.lock()->scheduler()->post([this, uuid, p = std::move(p),
+                                            includeReplicationStatus,
+                                            includeHardLinkCount] {
+        std::size_t chunkIndex = 0;
+        std::size_t fetchedSize = 0;
+        auto isLast = false;
 
-            std::size_t chunkIndex = 0;
-            std::size_t fetchedSize = 0;
-            auto isLast = false;
+        // Start with empty index token, and then if server returns
+        // index token pass to next request.
+        folly::Optional<folly::fbstring> indexToken;
 
-            // Start with empty index token, and then if server returns
-            // index token pass to next request.
-            folly::Optional<folly::fbstring> indexToken;
+        folly::fbvector<folly::Future<folly::Unit>> futs;
 
-            do {
-                LOG_DBG(2) << "Requesting directory entries for directory "
-                           << uuid << " starting at offset " << chunkIndex;
+        do {
+            LOG_DBG(2) << "Requesting directory entries for directory " << uuid
+                       << " starting at offset " << chunkIndex;
 
-                auto msg = communicate<one::messages::fuse::FileChildrenAttrs>(
-                    one::messages::fuse::GetFileChildrenAttrs{uuid,
-                        static_cast<off_t>(chunkIndex), m_prefetchSize,
-                        indexToken},
-                    m_providerTimeout);
+            auto ew = folly::try_and_catch<std::exception>(
+                [this, p, &isLast, uuid, &chunkIndex, &fetchedSize, &futs,
+                    &indexToken, includeReplicationStatus,
+                    includeHardLinkCount]() {
+                    auto msg =
+                        communicate<one::messages::fuse::FileChildrenAttrs>(
+                            one::messages::fuse::GetFileChildrenAttrs{uuid,
+                                static_cast<off_t>(chunkIndex), m_prefetchSize,
+                                indexToken, includeReplicationStatus,
+                                includeHardLinkCount},
+                            m_providerTimeout);
 
-                fetchedSize = msg.childrenAttrs().size();
-                indexToken.assign(msg.indexToken());
-                isLast = msg.isLast() && *msg.isLast();
+                    fetchedSize = msg.childrenAttrs().size();
+                    indexToken.assign(msg.indexToken());
+                    isLast = msg.isLast() && *msg.isLast();
+                    chunkIndex += fetchedSize;
 
-                for (const auto it : folly::enumerate(msg.childrenAttrs())) {
-                    cacheEntry->addEntry(it->name());
+                    folly::Promise<folly::Unit> partialPromise;
+                    futs.emplace_back(partialPromise.getFuture());
+                    m_runInFiber([this, msg = std::move(msg),
+                                     partialPromise = std::move(partialPromise),
+                                     uuid, includeReplicationStatus]() mutable {
+                        for (const auto it :
+                            folly::enumerate(msg.childrenAttrs())) {
+                            auto attr = std::make_shared<FileAttr>(*it);
+                            if (includeReplicationStatus &&
+                                (attr->type() == FileAttr::FileType::regular) &&
+                                !attr->fullyReplicated())
+                                continue;
 
-                    if (uuid == m_rootUuid && !isSpaceWhitelisted(it->name()))
-                        continue;
+                            if (!attr->parentUuid().hasValue() ||
+                                attr->parentUuid().value().empty()) {
+                                attr->setParentUuid(uuid);
+                            }
 
-                    m_runInFiber([ this, attr = *it ] {
-                        if (!m_metadataCache.updateAttr(attr)) {
-                            m_metadataCache.putAttr(
-                                std::make_shared<FileAttr>(attr));
+                            m_metadataCache.updateAttr(
+                                std::move(attr), false, true, true);
                         }
+                        partialPromise.setValue();
                     });
-                }
+                });
 
-                chunkIndex = cacheEntry->dirEntries().size() - 2;
+            if (bool(ew)) {
+                p->setException(ew);
+                return folly::Unit();
+            }
 
-            } while (!isLast && fetchedSize > 0);
+        } while (!isLast && fetchedSize > 0);
 
-            cacheEntry->unique();
-            cacheEntry->touch();
-            cacheEntry->markCreated();
+        folly::collectAll(futs)
+            .via(folly::getGlobalCPUExecutor().get())
+            .thenValue([this, p, uuid](
+                           std::vector<folly::Try<folly::Unit>> && /*unused*/) {
+                // Wait until all directory entries are added to the
+                // metadata cache
+                m_runInFiber([this, p, uuid]() {
+                    m_metadataCache.setDirectorySynced(uuid);
+                    p->setValue();
+                });
+            })
+            .get();
 
-            m_context.lock()->scheduler()->schedule(4 * m_cacheValidityPeriod, [
-                uuid = uuid, cacheEntry = cacheEntry, self = shared_from_this()
-            ]() { self->purgeWorker(uuid, cacheEntry); });
-
-            return cacheEntry;
-        });
+        return folly::Unit();
     });
 }
 
-void ReaddirCache::purgeWorker(
-    folly::fbstring uuid, std::shared_ptr<DirCacheEntry> entry)
-{
-    LOG_FCALL() << LOG_FARG(uuid);
-
-    if (!entry->isValid(false)) {
-        LOG_DBG(2) << "Purging stale readdir cache entry " << uuid;
-
-        purge(uuid);
-    }
-    else {
-        LOG_DBG(2) << "Readdir cache entry " << uuid
-                   << " still valid - scheduling next purge";
-
-        m_context.lock()->scheduler()->schedule(2 * m_cacheValidityPeriod, [
-            uuid = std::move(uuid), entry = std::move(entry),
-            self = shared_from_this()
-        ]() { self->purgeWorker(uuid, entry); });
-    }
-}
-
 folly::fbvector<folly::fbstring> ReaddirCache::readdir(
-    const folly::fbstring &uuid, off_t off, std::size_t chunkSize)
+    const folly::fbstring &uuid, off_t off, std::size_t chunkSize,
+    bool includeReplicationStatus, bool includeHardLinkCount)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(off) << LOG_FARG(chunkSize);
 
-    // Check if the uuid is already in the cache, if not start fetch
-    // asynchronously and add a shared promise to the cache so if any
-    // other request for this uuid comes in the meantime it gets queued
-    // on that promise
-    // In case of error, the promise contains an exception which can
-    // be propagated upwards
-    {
-        std::lock_guard<std::mutex> lock(m_cacheMutex);
+    assertInFiber();
 
-        auto uuidIt = m_cache.find(uuid);
+    folly::fbstring effectiveUuid{uuid};
+    auto virtualStorageId = m_virtualFsHelpersCache->match(uuid);
+    auto virtualMode = !virtualStorageId.empty();
+    if (virtualMode) {
+        effectiveUuid =
+            m_virtualFsHelpersCache->get(virtualStorageId)->effectiveName(uuid);
+    }
 
-        if (uuidIt != m_cache.cend() && (*uuidIt).second->isFulfilled() &&
-            ((*uuidIt).second->getFuture().hasException() ||
-                !(*uuidIt).second->getFuture().get()->isValid(off != 0))) {
-            m_cache.erase(uuidIt);
-            uuidIt = m_cache.end();
+    // Check if the directory is already in the metadata cache, if yes,
+    // just return the result
+    auto attr = m_metadataCache.getAttr(uuid);
+    auto includeVirtualEntries =
+        virtualMode || (attr->isVirtual() && !attr->isVirtualEntrypoint());
+    if (m_metadataCache.isDirectorySynced(effectiveUuid)) {
+        // Clean temporary dir contents fetch cache
+        m_cache.erase(effectiveUuid);
+
+        if (includeVirtualEntries) {
+            assert(attr->isVirtual());
+            attr->getVirtualFsAdapter()->readdir(
+                m_metadataCache.readdir(effectiveUuid, off, chunkSize, true,
+                    includeReplicationStatus, includeHardLinkCount),
+                attr, m_metadataCache);
         }
+
+        return m_metadataCache.readdir(effectiveUuid, off, chunkSize,
+            includeVirtualEntries, includeReplicationStatus);
+    }
+
+    if (!attr->isVirtual() ||
+        attr->getVirtualFsAdapter()->fetchRemoteDirectoryContents(attr)) {
+        auto uuidIt = m_cache.find(effectiveUuid);
 
         if (uuidIt == m_cache.end()) {
-            fetch(uuid);
+            fetch(
+                effectiveUuid, includeReplicationStatus, includeHardLinkCount);
+        }
+
+        auto dirEntriesPromise = (*m_cache.find(effectiveUuid)).second;
+        auto f = dirEntriesPromise->getFuture().wait();
+
+        if (f.hasException()) {
+            m_cache.erase(effectiveUuid);
+            std::move(f).get();
         }
     }
 
-    auto dirEntriesFuture = (*m_cache.find(uuid)).second;
-    auto f = dirEntriesFuture->getFuture().wait();
+    if (virtualMode || attr->isVirtual()) {
+        attr->getVirtualFsAdapter()->readdir(
+            m_metadataCache.readdir(effectiveUuid, off, chunkSize,
+                includeVirtualEntries, includeReplicationStatus),
+            attr, m_metadataCache);
 
-    if (f.hasException()) {
-        f.get();
+        m_metadataCache.setDirectorySynced(effectiveUuid);
     }
 
-    auto dirCacheEntry = f.value();
+    assert(m_metadataCache.isDirectorySynced(effectiveUuid));
 
-    // Update the cache entry so that it doesn't expire before the entire
-    // directory is read
-    dirCacheEntry->touch();
-
-    folly::fbvector<folly::fbstring> result;
-    std::list<folly::fbstring> acc;
-    std::list<folly::fbstring>::const_iterator begin;
-    std::list<folly::fbstring>::const_iterator end;
-
-    if (off < 0 ||
-        static_cast<std::size_t>(off) >= dirCacheEntry->dirEntries().size())
-        return result;
-
-    if (uuid == m_rootUuid &&
-        (!m_whitelistedSpaceNames.empty() || !m_whitelistedSpaceIds.empty())) {
-        // Filter out non-whitelisted spaces
-        folly::fbvector<folly::fbstring> whitelistedSpaces;
-
-        for (const auto &spaceName : dirCacheEntry->dirEntries()) {
-            if ((spaceName == ".") || (spaceName == ".."))
-                continue;
-
-            if (isSpaceWhitelisted(spaceName))
-                acc.emplace_back(spaceName);
-        }
-
-        begin = acc.cbegin();
-        end = acc.cend();
-    }
-    else {
-        begin = dirCacheEntry->dirEntries().cbegin();
-        end = dirCacheEntry->dirEntries().cend();
-    }
-
-    std::advance(begin, off);
-
-    std::copy_n(begin,
-        std::min(
-            chunkSize, static_cast<std::size_t>(std::distance(begin, end))),
-        std::back_inserter(result));
-
-    return result;
-}
-
-bool ReaddirCache::isSpaceWhitelisted(const folly::fbstring &spaceName)
-{
-    if (m_whitelistedSpaceNames.empty() && m_whitelistedSpaceIds.empty())
-        return true;
-
-    folly::fbstring spaceId;
-    auto spaceAttrs = m_metadataCache.getAttr(m_rootUuid, spaceName);
-    if (spaceAttrs)
-        spaceId = util::uuid::uuidToSpaceId(spaceAttrs->uuid());
-
-    bool spaceIsWhitelistedByName = m_whitelistedSpaceNames.find(spaceName) !=
-        m_whitelistedSpaceNames.end();
-
-    bool spaceIsWhitelistedById =
-        m_whitelistedSpaceIds.find(spaceId) != m_whitelistedSpaceIds.end();
-
-    LOG_DBG(2) << "Space " << spaceName << "(" << spaceId << ") is "
-               << spaceIsWhitelistedByName << ":" << spaceIsWhitelistedById;
-
-    return spaceIsWhitelistedByName || spaceIsWhitelistedById;
-}
-
-void ReaddirCache::invalidate(const folly::fbstring &uuid)
-{
-    LOG_FCALL() << LOG_FARG(uuid);
-
-    std::lock_guard<std::mutex> lock(m_cacheMutex);
-
-    auto it = m_cache.find(uuid);
-    if (it != m_cache.cend() && (*it).second->isFulfilled()) {
-        (*it).second->getFuture().get()->invalidate();
-    }
+    return m_metadataCache.readdir(effectiveUuid, off, chunkSize,
+        includeVirtualEntries, includeReplicationStatus);
 }
 
 void ReaddirCache::purge(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
-    std::lock_guard<std::mutex> lock(m_cacheMutex);
+    assertInFiber();
+
     m_cache.erase(uuid);
 }
 
 bool ReaddirCache::empty()
 {
     LOG_FCALL();
+
+    assertInFiber();
 
     return m_cache.empty();
 }

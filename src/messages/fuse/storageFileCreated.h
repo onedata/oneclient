@@ -28,7 +28,7 @@ public:
      * Constructor.
      * @param uuid UUID of the file for which extended attributes are requested.
      */
-    StorageFileCreated(folly::fbstring uuid);
+    StorageFileCreated(const folly::fbstring &uuid);
 
     std::string toString() const override;
 

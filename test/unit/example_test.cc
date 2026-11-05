@@ -1,3 +1,3 @@
 #include <gtest/gtest.h>
 
-TEST(ExampleTest, shouldRun) {}
+TEST(ExampleTest, shouldRun) { }
